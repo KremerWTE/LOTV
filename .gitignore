@@ -1,0 +1,66 @@
+# ── .NET build outputs ────────────────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# ── NuGet ─────────────────────────────────────────────────────────────────────
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ── .NET user-specific files ──────────────────────────────────────────────────
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+
+# ── ASP.NET / Blazor ─────────────────────────────────────────────────────────
+**/wwwroot/dist/
+**/wwwroot/_framework/
+bundleconfig.json.bak
+
+# ── Secrets — NEVER COMMIT ───────────────────────────────────────────────────
+appsettings.*.local.json
+secrets.json
+.env
+.env.*
+*.pfx
+*.p12
+
+# ── Test results ──────────────────────────────────────────────────────────────
+TestResults/
+coverage/
+*.trx
+*.coveragexml
+*.cobertura.xml
+
+# ── OS files ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Word / Office temp files ──────────────────────────────────────────────────
+~$*
+*.tmp
+
+# ── Rider / JetBrains ─────────────────────────────────────────────────────────
+.idea/
+*.sln.iml
+
+# ── VS Code ───────────────────────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+
+# ── Publish / deployment outputs ─────────────────────────────────────────────
+**/publish/
+**/PublishProfiles/
+
+# ── Entity Framework migrations (keep migrations, ignore snapshots if preferred)
+# Uncomment the next line ONLY if you want to exclude EF snapshot files:
+# **/Migrations/*Snapshot.cs

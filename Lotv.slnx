@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Lotv.Api/Lotv.Api.csproj" />
+    <Project Path="src/Lotv.Core/Lotv.Core.csproj" />
+    <Project Path="src/Lotv.Web/Lotv.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lotv.Tests/Lotv.Tests.csproj" />
+  </Folder>
+</Solution>
