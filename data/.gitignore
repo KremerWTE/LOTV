@@ -1,0 +1,26 @@
+# data/ — seed files, reference lookups, export templates
+# Ignore any sensitive or generated data files; track folder structure and safe reference files only.
+
+# Ignore raw data dumps and exports
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.json
+*.xml
+*.sql
+*.bak
+
+# Ignore local databases
+*.db
+*.sqlite
+*.sqlite3
+*.mdf
+*.ldf
+
+# Ignore generated/exported PDFs and reports
+*.pdf
+
+# Always track this file and any markdown reference docs
+!.gitignore
+!*.md

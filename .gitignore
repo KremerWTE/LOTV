@@ -64,3 +64,20 @@ desktop.ini
 # ── Entity Framework migrations (keep migrations, ignore snapshots if preferred)
 # Uncomment the next line ONLY if you want to exclude EF snapshot files:
 # **/Migrations/*Snapshot.cs
+
+# ── Data directory — raw exports, dumps, and local databases ─────────────────
+# (data/.gitignore handles per-file rules; this ensures generated artifacts don't leak)
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.mdf
+data/*.ldf
+data/*.bak
+
+# ── Scripts — ignore any generated or temp output from dev scripts ────────────
+scripts/output/
+scripts/*.log
+
+# ── GitHub Actions — ignore any local act runner artifacts ────────────────────
+.actrc
+.act/

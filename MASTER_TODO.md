@@ -10,7 +10,7 @@
 
 | Phase | Name | Status |
 |---|---|---|
-| 0 | Foundation | ✅ NEARLY COMPLETE |
+| 0 | Foundation | ✅ COMPLETE |
 | 1 | Architecture & Design | ⬜ PENDING |
 | 2 | Core Domain (Lotv.Core) | ⬜ PENDING |
 | 3 | API (Lotv.Api) | ⬜ PENDING |
@@ -34,9 +34,9 @@
 - [x] Create .claude/settings.local.json
 - [x] `dotnet build Lotv.slnx` passes with 0 errors
 - [x] `dotnet test Lotv.slnx` passes (default xUnit test)
-- [ ] Initialize git repository (`git init`)
-- [ ] Create `.gitignore` for .NET projects
-- [ ] Initial commit
+- [x] Initialize git repository (`git init`)
+- [x] Create `.gitignore` for .NET projects
+- [x] Initial commit
 
 ---
 
