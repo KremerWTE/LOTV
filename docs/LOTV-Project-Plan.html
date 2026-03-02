@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LOTV — Project Plan</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy:   #05274a;
+      --purple: #3a0647;
+      --accent: #7c3aed;
+      --teal:   #0ea5e9;
+      --green:  #22c55e;
+      --amber:  #f59e0b;
+      --red:    #ef4444;
+      --gray-50:  #f8fafc;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-400: #94a3b8;
+      --gray-600: #475569;
+      --gray-800: #1e293b;
+      --white:  #ffffff;
+      --font:   'Segoe UI', system-ui, -apple-system, sans-serif;
+      --radius: 10px;
+      --shadow: 0 4px 20px rgba(0,0,0,.10);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--gray-50);
+      color: var(--gray-800);
+      line-height: 1.6;
+    }
+
+    /* ─── Sidebar Nav ───────────────────────────────────────────── */
+    #sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 240px;
+      height: 100vh;
+      background: linear-gradient(180deg, var(--navy) 0%, var(--purple) 100%);
+      color: var(--white);
+      padding: 0;
+      overflow-y: auto;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-brand {
+      padding: 24px 20px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+    .sidebar-brand .logo-mark {
+      width: 40px; height: 40px;
+      background: rgba(255,255,255,.18);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .sidebar-brand h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: .5px; }
+    .sidebar-brand p  { font-size: .72rem; color: rgba(255,255,255,.6); margin-top: 2px; }
+    .sidebar-brand .badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 2px 10px;
+      background: rgba(124,58,237,.4);
+      border: 1px solid rgba(124,58,237,.6);
+      border-radius: 20px;
+      font-size: .68rem;
+      color: #d8b4fe;
+    }
+    .sidebar-nav { padding: 12px 0; flex: 1; }
+    .sidebar-nav a {
+      display: block;
+      padding: 10px 20px;
+      color: rgba(255,255,255,.75);
+      text-decoration: none;
+      font-size: .83rem;
+      transition: background .15s, color .15s;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-nav a:hover,
+    .sidebar-nav a.active {
+      background: rgba(255,255,255,.1);
+      color: var(--white);
+      border-left-color: #a78bfa;
+    }
+    .sidebar-nav .section-label {
+      padding: 14px 20px 4px;
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: rgba(255,255,255,.35);
+    }
+    .sidebar-footer {
+      padding: 14px 20px;
+      font-size: .7rem;
+      color: rgba(255,255,255,.35);
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+
+    /* ─── Main Content ─────────────────────────────────────────── */
+    #main {
+      margin-left: 240px;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    /* ─── Hero ──────────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--purple) 100%);
+      color: var(--white);
+      padding: 64px 56px 56px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='30' cy='30' r='1' fill='rgba(255,255,255,.06)'/%3E%3C/svg%3E") repeat;
+    }
+    .hero-content { position: relative; max-width: 720px; }
+    .hero-eyebrow {
+      font-size: .78rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #a78bfa;
+      margin-bottom: 12px;
+    }
+    .hero h1 {
+      font-size: 2.6rem;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .hero h1 span { color: #c4b5fd; }
+    .hero p {
+      font-size: 1.05rem;
+      color: rgba(255,255,255,.8);
+      margin-bottom: 28px;
+      max-width: 560px;
+    }
+    .hero-meta {
+      display: flex; gap: 24px; flex-wrap: wrap;
+    }
+    .hero-meta-item { font-size: .8rem; color: rgba(255,255,255,.6); }
+    .hero-meta-item strong { color: var(--white); display: block; font-size: .95rem; }
+    .hero-badges { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: .73rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+    .badge-purple { background: rgba(124,58,237,.25); border-color: rgba(124,58,237,.5); color: #ddd6fe; }
+    .badge-teal   { background: rgba(14,165,233,.2);  border-color: rgba(14,165,233,.4); color: #bae6fd; }
+    .badge-green  { background: rgba(34,197,94,.2);   border-color: rgba(34,197,94,.4);  color: #bbf7d0; }
+
+    /* ─── Content Sections ─────────────────────────────────────── */
+    .content-section {
+      padding: 56px 56px 48px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .content-section:last-of-type { border-bottom: none; }
+    .section-header { margin-bottom: 32px; }
+    .section-header h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+    .section-header p {
+      color: var(--gray-600);
+      font-size: .92rem;
+    }
+    .divider {
+      width: 48px; height: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--teal));
+      border-radius: 2px;
+      margin: 10px 0 0;
+    }
+
+    /* ─── Cards ─────────────────────────────────────────────────── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+    .card-grid {
+      display: grid;
+      gap: 20px;
+    }
+    .card-grid-2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .card-grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .card-grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+    /* ─── Tech Stack ────────────────────────────────────────────── */
+    .tech-card {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .tech-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+    .tech-icon {
+      width: 40px; height: 40px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+    .icon-blue   { background: #dbeafe; }
+    .icon-purple { background: #ede9fe; }
+    .icon-green  { background: #dcfce7; }
+    .icon-amber  { background: #fef3c7; }
+    .icon-teal   { background: #cffafe; }
+    .icon-red    { background: #fee2e2; }
+    .tech-card h3 { font-size: .9rem; font-weight: 700; color: var(--gray-800); }
+    .tech-card p  { font-size: .78rem; color: var(--gray-600); }
+    .tech-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--gray-100);
+      border-radius: 4px;
+      font-size: .68rem;
+      color: var(--gray-600);
+      margin-top: 4px;
+    }
+
+    /* ─── Phase Timeline ─────────────────────────────────────────── */
+    .phase-grid { display: flex; flex-direction: column; gap: 0; }
+    .phase-item {
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 0;
+      position: relative;
+    }
+    .phase-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 31px; top: 52px;
+      width: 2px;
+      height: calc(100% - 20px);
+      background: var(--gray-200);
+      z-index: 0;
+    }
+    .phase-item.complete::after { background: var(--green); }
+    .phase-circle-col {
+      display: flex; flex-direction: column; align-items: center;
+      padding-top: 16px;
+      position: relative; z-index: 1;
+    }
+    .phase-circle {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .85rem;
+      border: 3px solid;
+      background: var(--white);
+      flex-shrink: 0;
+    }
+    .circle-complete { border-color: var(--green);  color: var(--green); }
+    .circle-active   { border-color: var(--accent); color: var(--accent); background: #ede9fe; }
+    .circle-pending  { border-color: var(--gray-200); color: var(--gray-400); }
+    .phase-body {
+      padding: 16px 0 28px 20px;
+    }
+    .phase-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 8px;
+    }
+    .phase-name { font-size: 1.05rem; font-weight: 700; color: var(--gray-800); }
+    .status-pill {
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: .7rem;
+      font-weight: 600;
+    }
+    .pill-complete { background: #dcfce7; color: #166534; }
+    .pill-next     { background: #ede9fe; color: #5b21b6; }
+    .pill-pending  { background: var(--gray-100); color: var(--gray-600); }
+    .phase-desc { font-size: .85rem; color: var(--gray-600); margin-bottom: 12px; }
+    .phase-deliverables {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .deliverable-chip {
+      padding: 3px 10px;
+      background: var(--gray-100);
+      border-radius: 6px;
+      font-size: .72rem;
+      color: var(--gray-600);
+      border: 1px solid var(--gray-200);
+    }
+
+    /* ─── Architecture ───────────────────────────────────────────── */
+    .arch-diagram {
+      background: var(--gray-100);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: center;
+      overflow: auto;
+    }
+    .arch-row {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .arch-box {
+      background: var(--white);
+      border: 2px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 14px 20px;
+      min-width: 140px;
+      text-align: center;
+      font-size: .8rem;
+      font-weight: 600;
+      position: relative;
+    }
+    .arch-box small { display: block; font-weight: 400; color: var(--gray-600); font-size: .7rem; margin-top: 2px; }
+    .arch-box.client  { border-color: var(--teal);   color: #0369a1; }
+    .arch-box.api     { border-color: var(--accent);  color: #5b21b6; }
+    .arch-box.core    { border-color: var(--amber);   color: #92400e; }
+    .arch-box.data    { border-color: var(--green);   color: #166534; }
+    .arch-box.infra   { border-color: var(--gray-400); color: var(--gray-600); }
+    .arch-arrow {
+      color: var(--gray-400); font-size: 1.2rem;
+      display: flex; align-items: center;
+    }
+    .arch-label {
+      font-size: .68rem;
+      color: var(--gray-400);
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .ref-lines {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .ref-lines span {
+      font-size: .72rem;
+      color: var(--gray-600);
+      padding: 4px 10px;
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: 4px;
+    }
+
+    /* ─── Domain Entities ────────────────────────────────────────── */
+    .entity-group { margin-bottom: 28px; }
+    .entity-group h3 {
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--gray-400);
+      margin-bottom: 10px;
+      padding-left: 4px;
+    }
+    .entity-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .entity-chip {
+      padding: 5px 14px;
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+      font-size: .8rem;
+      font-weight: 500;
+      color: var(--gray-800);
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .entity-chip.anchor { border-color: var(--accent); color: var(--accent); background: #faf5ff; }
+    .entity-chip.request { border-color: var(--teal); color: #0369a1; background: #f0f9ff; }
+    .entity-chip.donation { border-color: var(--green); color: #166534; background: #f0fdf4; }
+    .entity-chip.event { border-color: var(--amber); color: #92400e; background: #fffbeb; }
+    .entity-chip.dashboard { border-color: var(--red); color: #991b1b; background: #fff1f2; }
+
+    /* ─── API Endpoints ──────────────────────────────────────────── */
+    .endpoint-groups { display: flex; flex-direction: column; gap: 16px; }
+    .endpoint-group { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); overflow: hidden; }
+    .endpoint-group-header {
+      padding: 12px 20px;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: .85rem; color: var(--gray-800);
+    }
+    .ep-count {
+      padding: 2px 8px;
+      background: var(--gray-100);
+      border-radius: 12px;
+      font-size: .7rem;
+      color: var(--gray-600);
+      font-weight: 600;
+    }
+    .endpoint-list { padding: 4px 0; }
+    .endpoint-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 20px;
+      border-bottom: 1px solid var(--gray-100);
+      font-size: .8rem;
+    }
+    .endpoint-row:last-child { border-bottom: none; }
+    .method {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: .68rem;
+      font-weight: 700;
+      min-width: 46px;
+      text-align: center;
+    }
+    .get    { background: #dcfce7; color: #166534; }
+    .post   { background: #dbeafe; color: #1e40af; }
+    .put    { background: #fef3c7; color: #92400e; }
+    .patch  { background: #ede9fe; color: #5b21b6; }
+    .delete { background: #fee2e2; color: #991b1b; }
+    .route  { font-family: 'Consolas', monospace; color: var(--gray-800); flex: 1; }
+    .ep-desc { color: var(--gray-600); }
+
+    /* ─── Frontend Views ─────────────────────────────────────────── */
+    .role-tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid var(--gray-200); flex-wrap: wrap; }
+    .role-tab {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: .83rem;
+      font-weight: 600;
+      color: var(--gray-600);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+      font-family: var(--font);
+    }
+    .role-tab:hover { color: var(--accent); }
+    .role-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .role-panels { padding-top: 20px; }
+    .role-panel { display: none; }
+    .role-panel.active { display: block; }
+    .view-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .view-item {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: .82rem;
+    }
+    .view-item h4 { font-size: .85rem; font-weight: 600; color: var(--gray-800); margin-bottom: 4px; }
+    .view-item p  { font-size: .75rem; color: var(--gray-600); }
+
+    /* ─── Milestones ─────────────────────────────────────────────── */
+    .milestone-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+    .milestone-table th {
+      background: var(--gray-50);
+      padding: 10px 16px;
+      text-align: left;
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--gray-600);
+      border-bottom: 2px solid var(--gray-200);
+    }
+    .milestone-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-100);
+      color: var(--gray-800);
+    }
+    .milestone-table tr:last-child td { border-bottom: none; font-weight: 700; background: var(--gray-50); }
+    .milestone-table tr:hover td { background: var(--gray-50); }
+    .milestone-number {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--navy);
+      color: var(--white);
+      font-size: .72rem;
+      font-weight: 700;
+    }
+    .ms-complete { background: var(--green); }
+    .ms-pending  { background: var(--gray-400); }
+
+    /* ─── Client Deliverables ────────────────────────────────────── */
+    .deliverable-list { display: flex; flex-direction: column; gap: 10px; }
+    .deliverable-item {
+      display: flex; gap: 14px;
+      padding: 14px 18px;
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      align-items: flex-start;
+    }
+    .del-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--gray-100);
+      border: 2px solid var(--gray-200);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--gray-600);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .del-body h4 { font-size: .88rem; font-weight: 600; color: var(--gray-800); }
+    .del-body p  { font-size: .78rem; color: var(--gray-600); }
+    .del-phase {
+      margin-left: auto;
+      padding: 2px 10px;
+      background: var(--gray-100);
+      border-radius: 20px;
+      font-size: .68rem;
+      color: var(--gray-600);
+      white-space: nowrap;
+    }
+
+    /* ─── Services Section ───────────────────────────────────────── */
+    .service-list { display: flex; flex-direction: column; gap: 8px; }
+    .service-item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 12px 16px;
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: .82rem;
+    }
+    .service-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Footer ─────────────────────────────────────────────────── */
+    .site-footer {
+      background: var(--navy);
+      color: rgba(255,255,255,.5);
+      text-align: center;
+      padding: 24px 40px;
+      font-size: .75rem;
+      margin-left: 0;
+    }
+
+    /* ─── Scrollspy Active ───────────────────────────────────────── */
+    @media (max-width: 768px) {
+      #sidebar { display: none; }
+      #main { margin-left: 0; }
+      .hero { padding: 40px 24px 36px; }
+      .hero h1 { font-size: 1.9rem; }
+      .content-section { padding: 40px 24px 36px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════════════════════════════ -->
+<nav id="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo-mark">🌸</div>
+    <h1>LOTV</h1>
+    <p>Lily of the Valley</p>
+    <span class="badge">SaaS Platform</span>
+  </div>
+  <div class="sidebar-nav">
+    <div class="section-label">Overview</div>
+    <a href="#overview">Project Overview</a>
+    <a href="#tech-stack">Tech Stack</a>
+    <a href="#architecture">Architecture</a>
+
+    <div class="section-label">Development</div>
+    <a href="#phases">Phase Roadmap</a>
+    <a href="#domain">Domain Model</a>
+    <a href="#api">API Endpoints</a>
+    <a href="#frontend">Frontend Views</a>
+
+    <div class="section-label">Contract</div>
+    <a href="#milestones">Milestones</a>
+    <a href="#deliverables">Client Deliverables</a>
+    <a href="#assumptions">Assumptions</a>
+    <a href="#exclusions">Exclusions</a>
+  </div>
+  <div class="sidebar-footer">
+    WTE &bull; LOTV v0.1 &bull; .NET 9<br>
+    Phase 0 Complete &bull; 2026
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════════════
+     MAIN CONTENT
+═══════════════════════════════════════════════════════════════════ -->
+<div id="main">
+
+  <!-- ── Hero ───────────────────────────────────────────────────── -->
+  <section class="hero" id="overview">
+    <div class="hero-content">
+      <p class="hero-eyebrow">Full Project Plan &bull; Statement of Work</p>
+      <h1>Lily of the Valley<br><span>Social Services Platform</span></h1>
+      <p>A multi-tenant SaaS coordination platform built on .NET 9 that connects people in need, donors, volunteers, and staff across diocese organizations — enabling service request routing, donation tracking, event management, and real-time impact reporting.</p>
+      <div class="hero-meta">
+        <div class="hero-meta-item">
+          <strong>6 Phases</strong>Foundation → Launch
+        </div>
+        <div class="hero-meta-item">
+          <strong>60+ Endpoints</strong>RESTful API
+        </div>
+        <div class="hero-meta-item">
+          <strong>5 User Roles</strong>Staff, Donor, Volunteer…
+        </div>
+        <div class="hero-meta-item">
+          <strong>35+ Entities</strong>Domain Model
+        </div>
+      </div>
+      <div class="hero-badges">
+        <span class="badge badge-green">✓ Phase 0 Complete</span>
+        <span class="badge badge-purple">Phase 1 Next</span>
+        <span class="badge badge-teal">.NET 9 / Blazor WASM</span>
+        <span class="badge badge-teal">Azure Hosting</span>
+        <span class="badge badge-teal">Stripe Payments</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tech Stack ─────────────────────────────────────────────── -->
+  <section class="content-section" id="tech-stack">
+    <div class="section-header">
+      <h2>Tech Stack</h2>
+      <p>Full-stack .NET 9 solution with Blazor WebAssembly frontend and Azure cloud infrastructure.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="card-grid card-grid-4">
+      <div class="tech-card">
+        <div class="tech-icon icon-purple">🔷</div>
+        <h3>.NET 9</h3>
+        <p>Runtime and SDK. All four projects target <code>net9.0</code>.</p>
+        <span class="tech-tag">dotnet build Lotv.slnx</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-blue">🌐</div>
+        <h3>ASP.NET Core Web API</h3>
+        <p>RESTful backend (<code>Lotv.Api</code>). OpenAPI, JWT, FluentValidation, Serilog.</p>
+        <span class="tech-tag">localhost:7072</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-purple">⚡</div>
+        <h3>Blazor WebAssembly</h3>
+        <p>Standalone WASM frontend (<code>Lotv.Web</code>). Role-based views, charts, dashboards.</p>
+        <span class="tech-tag">localhost:7146</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-amber">📦</div>
+        <h3>Lotv.Core</h3>
+        <p>Shared domain library. All entities, interfaces, enums, value objects, DTOs.</p>
+        <span class="tech-tag">Class Library</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-green">🗄️</div>
+        <h3>Entity Framework Core</h3>
+        <p>ORM with migrations, seed data, DbContext wired to SQL database on Azure.</p>
+        <span class="tech-tag">EF Core 9</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-blue">💳</div>
+        <h3>Stripe SDK</h3>
+        <p>PaymentIntent, webhooks, refunds, and receipt generation for all donations.</p>
+        <span class="tech-tag">stripe.net</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-teal">☁️</div>
+        <h3>Microsoft Azure</h3>
+        <p>Default hosting: App Service, Azure Blob Storage, CDN, secrets via Key Vault.</p>
+        <span class="tech-tag">Azure App Service</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-red">🧪</div>
+        <h3>xUnit + Playwright</h3>
+        <p>Unit tests (<code>Lotv.Tests</code>), integration tests, E2E smoke tests. ≥80% coverage target.</p>
+        <span class="tech-tag">dotnet test</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-purple">🔑</div>
+        <h3>JWT Authentication</h3>
+        <p>Role-based authorization policies for 5 user roles across all protected endpoints.</p>
+        <span class="tech-tag">ASP.NET Core Identity</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-amber">⚙️</div>
+        <h3>GitHub Actions</h3>
+        <p>CI/CD pipeline: build, test, publish, deploy to Azure on merge to <code>main</code>.</p>
+        <span class="tech-tag">.github/workflows/</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-blue">🐳</div>
+        <h3>Docker</h3>
+        <p>Dockerfiles for API and Web projects; <code>docker-compose.yml</code> for local dev stack.</p>
+        <span class="tech-tag">Phase 6</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-green">📊</div>
+        <h3>Serilog + Monitoring</h3>
+        <p>Structured logging, health checks, alerting, and Azure Application Insights.</p>
+        <span class="tech-tag">Phase 6</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Architecture ───────────────────────────────────────────── -->
+  <section class="content-section" id="architecture">
+    <div class="section-header">
+      <h2>Architecture</h2>
+      <p>Clean layered architecture. Lotv.Core is the shared kernel referenced by both API and Web.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="arch-diagram">
+      <div class="arch-label">Client Layer</div>
+      <div class="arch-row">
+        <div class="arch-box client">Browser / PWA<small>Blazor WASM</small></div>
+        <div class="arch-box client">Mobile Browser<small>Responsive</small></div>
+      </div>
+      <div class="arch-row"><div class="arch-arrow">↕</div></div>
+      <div class="arch-label">Application Layer</div>
+      <div class="arch-row">
+        <div class="arch-box api">Lotv.Web<small>Blazor WebAssembly</small></div>
+        <div class="arch-arrow">↔</div>
+        <div class="arch-box api">Lotv.Api<small>ASP.NET Core REST API</small></div>
+      </div>
+      <div class="arch-row"><div class="arch-arrow">↕</div></div>
+      <div class="arch-label">Domain Layer</div>
+      <div class="arch-row">
+        <div class="arch-box core">Lotv.Core<small>Entities · Interfaces · DTOs</small></div>
+        <div class="arch-box core">Lotv.Tests<small>xUnit · Integration · E2E</small></div>
+      </div>
+      <div class="arch-row"><div class="arch-arrow">↕</div></div>
+      <div class="arch-label">Infrastructure &amp; Data Layer</div>
+      <div class="arch-row">
+        <div class="arch-box data">SQL Database<small>EF Core / Migrations</small></div>
+        <div class="arch-box infra">Azure Blob<small>File Storage</small></div>
+        <div class="arch-box infra">Stripe<small>Payment Processing</small></div>
+        <div class="arch-box infra">Email / SMS<small>Notifications</small></div>
+      </div>
+      <div class="ref-lines">
+        <span>Lotv.Api → Lotv.Core</span>
+        <span>Lotv.Web → Lotv.Core</span>
+        <span>Lotv.Tests → Lotv.Core + Lotv.Api</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Phase Roadmap ──────────────────────────────────────────── -->
+  <section class="content-section" id="phases">
+    <div class="section-header">
+      <h2>Phase Roadmap</h2>
+      <p>Six development phases from project foundation through production launch.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="phase-grid">
+
+      <!-- Phase 0 -->
+      <div class="phase-item complete">
+        <div class="phase-circle-col">
+          <div class="phase-circle circle-complete">✓</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-name">Phase 0 — Foundation</span>
+            <span class="status-pill pill-complete">Complete</span>
+          </div>
+          <p class="phase-desc">Project scaffold, solution structure, build pipeline, git repository, contract documents, and development directives established.</p>
+          <div class="phase-deliverables">
+            <span class="deliverable-chip">Lotv.slnx solution</span>
+            <span class="deliverable-chip">4 .NET 9 projects</span>
+            <span class="deliverable-chip">Project references</span>
+            <span class="deliverable-chip">Zero build errors</span>
+            <span class="deliverable-chip">MSA-LOTV.md</span>
+            <span class="deliverable-chip">SOW-LOTV-001.md</span>
+            <span class="deliverable-chip">MASTER_TODO.md</span>
+            <span class="deliverable-chip">GitHub repo</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 1 -->
+      <div class="phase-item">
+        <div class="phase-circle-col">
+          <div class="phase-circle circle-active">1</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-name">Phase 1 — Architecture &amp; Design</span>
+            <span class="status-pill pill-next">Next Up</span>
+          </div>
+          <p class="phase-desc">Key architectural decisions, domain model design, API contract definition, authentication strategy, database selection, and 4 Architecture Decision Records (ADRs).</p>
+          <div class="phase-deliverables">
+            <span class="deliverable-chip">ERD / Domain Model</span>
+            <span class="deliverable-chip">API contract (OpenAPI)</span>
+            <span class="deliverable-chip">Auth strategy (JWT)</span>
+            <span class="deliverable-chip">Database selection</span>
+            <span class="deliverable-chip">4 ADRs</span>
+            <span class="deliverable-chip">Diocese data model</span>
+            <span class="deliverable-chip">Event revenue model</span>
+            <span class="deliverable-chip">Escalation rules</span>
+            <span class="deliverable-chip">Silent auction workflow</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 2 -->
+      <div class="phase-item">
+        <div class="phase-circle-col">
+          <div class="phase-circle circle-pending">2</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-name">Phase 2 — Core Domain (Lotv.Core)</span>
+            <span class="status-pill pill-pending">Pending</span>
+          </div>
+          <p class="phase-desc">All 35+ domain entities, 14 service interfaces, enums, value objects, and domain DTOs implemented in <code>Lotv.Core</code> with ≥80% unit test coverage.</p>
+          <div class="phase-deliverables">
+            <span class="deliverable-chip">35+ Entity classes</span>
+            <span class="deliverable-chip">14 Service interfaces</span>
+            <span class="deliverable-chip">Enums &amp; Value Objects</span>
+            <span class="deliverable-chip">Dashboard DTOs</span>
+            <span class="deliverable-chip">≥80% unit coverage</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 3 -->
+      <div class="phase-item">
+        <div class="phase-circle-col">
+          <div class="phase-circle circle-pending">3</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-name">Phase 3 — API (Lotv.Api)</span>
+            <span class="status-pill pill-pending">Pending</span>
+          </div>
+          <p class="phase-desc">60+ REST endpoints with JWT auth, role-based policies, EF Core migrations, Stripe integration, email/SMS notifications, FluentValidation, Serilog, and rate limiting.</p>
+          <div class="phase-deliverables">
+            <span class="deliverable-chip">60+ REST endpoints</span>
+            <span class="deliverable-chip">JWT + role policies</span>
+            <span class="deliverable-chip">EF Core migrations</span>
+            <span class="deliverable-chip">Stripe SDK</span>
+            <span class="deliverable-chip">Email / SMS</span>
+            <span class="deliverable-chip">FluentValidation</span>
+            <span class="deliverable-chip">Serilog</span>
+            <span class="deliverable-chip">Rate limiting</span>
+            <span class="deliverable-chip">Health check</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 4 -->
+      <div class="phase-item">
+        <div class="phase-circle-col">
+          <div class="phase-circle circle-pending">4</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-name">Phase 4 — Frontend (Lotv.Web)</span>
+            <span class="status-pill pill-pending">Pending</span>
+          </div>
+          <p class="phase-desc">Blazor WASM app with responsive navigation, auth state provider, role-based views for all 5 user types, Impact Dashboard, Donation Tracking Dashboard, Event Management, and Admin.</p>
+          <div class="phase-deliverables">
+            <span class="deliverable-chip">App shell + nav</span>
+            <span class="deliverable-chip">Auth state provider</span>
+            <span class="deliverable-chip">5 role-based view sets</span>
+            <span class="deliverable-chip">Impact Dashboard</span>
+            <span class="deliverable-chip">Donation Dashboard</span>
+            <span class="deliverable-chip">Event Management</span>
+            <span class="deliverable-chip">Kanban board</span>
+            <span class="deliverable-chip">Admin views</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 5 -->
+      <div class="phase-item">
+        <div class="phase-circle-col">
+          <div class="phase-circle circle-pending">5</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-name">Phase 5 — Testing</span>
+            <span class="status-pill pill-pending">Pending</span>
+          </div>
+          <p class="phase-desc">Integration tests for full lifecycle workflows, E2E smoke tests with Playwright, ≥80% overall coverage report, test factory and seed data utilities.</p>
+          <div class="phase-deliverables">
+            <span class="deliverable-chip">Integration tests</span>
+            <span class="deliverable-chip">Playwright E2E</span>
+            <span class="deliverable-chip">≥80% coverage</span>
+            <span class="deliverable-chip">Coverage report</span>
+            <span class="deliverable-chip">Test factories</span>
+            <span class="deliverable-chip">Seed data</span>
+            <span class="deliverable-chip">UAT support</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 6 -->
+      <div class="phase-item">
+        <div class="phase-circle-col">
+          <div class="phase-circle circle-pending">6</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-name">Phase 6 — Deployment &amp; Launch</span>
+            <span class="status-pill pill-pending">Pending</span>
+          </div>
+          <p class="phase-desc">Docker, CI/CD via GitHub Actions, Azure deployment, secrets management, monitoring, OWASP security review, HTTPS, and complete handoff documentation.</p>
+          <div class="phase-deliverables">
+            <span class="deliverable-chip">Dockerfiles</span>
+            <span class="deliverable-chip">docker-compose.yml</span>
+            <span class="deliverable-chip">GitHub Actions CI/CD</span>
+            <span class="deliverable-chip">Dev / Staging / Prod</span>
+            <span class="deliverable-chip">Azure Blob + CDN</span>
+            <span class="deliverable-chip">Redis (optional)</span>
+            <span class="deliverable-chip">OWASP review</span>
+            <span class="deliverable-chip">Handoff docs</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Domain Model ───────────────────────────────────────────── -->
+  <section class="content-section" id="domain">
+    <div class="section-header">
+      <h2>Domain Model</h2>
+      <p>35+ entities organized across core business domains in <code>Lotv.Core</code>.</p>
+      <div class="divider"></div>
+    </div>
+
+    <div class="entity-group">
+      <h3>Anchor / Identity Entities</h3>
+      <div class="entity-list">
+        <span class="entity-chip anchor">Diocese</span>
+        <span class="entity-chip anchor">ApplicationUser</span>
+        <span class="entity-chip anchor">PersonInNeed</span>
+        <span class="entity-chip anchor">Donor</span>
+        <span class="entity-chip anchor">Volunteer</span>
+        <span class="entity-chip anchor">Employee</span>
+      </div>
+    </div>
+
+    <div class="entity-group">
+      <h3>Service Request &amp; Task Entities</h3>
+      <div class="entity-list">
+        <span class="entity-chip request">ServiceRequest</span>
+        <span class="entity-chip request">ServiceFulfillment</span>
+        <span class="entity-chip request">RequestNote</span>
+        <span class="entity-chip request">RequestActivity</span>
+        <span class="entity-chip request">RequestAssignment</span>
+      </div>
+    </div>
+
+    <div class="entity-group">
+      <h3>Donation &amp; Allocation Entities</h3>
+      <div class="entity-list">
+        <span class="entity-chip donation">MonetaryContribution</span>
+        <span class="entity-chip donation">ResourceDonation</span>
+        <span class="entity-chip donation">MoneyAllocation</span>
+        <span class="entity-chip donation">ResourceAllocation</span>
+        <span class="entity-chip donation">Expense</span>
+        <span class="entity-chip donation">DonationChannel (enum)</span>
+      </div>
+    </div>
+
+    <div class="entity-group">
+      <h3>Event &amp; Auction Entities</h3>
+      <div class="entity-list">
+        <span class="entity-chip event">FundraisingEvent</span>
+        <span class="entity-chip event">EventAttendee</span>
+        <span class="entity-chip event">SilentAuctionItem</span>
+        <span class="entity-chip event">AuctionBid</span>
+      </div>
+    </div>
+
+    <div class="entity-group">
+      <h3>Dashboard &amp; Reporting DTOs</h3>
+      <div class="entity-list">
+        <span class="entity-chip dashboard">ImpactSummary</span>
+        <span class="entity-chip dashboard">DonationByPersonRow</span>
+        <span class="entity-chip dashboard">DonationByDioceseRow</span>
+        <span class="entity-chip dashboard">DonationByCityRow</span>
+        <span class="entity-chip dashboard">DonationByChannelRow</span>
+        <span class="entity-chip dashboard">DonationByAmountBandRow</span>
+        <span class="entity-chip dashboard">MoneyFlowRow</span>
+        <span class="entity-chip dashboard">ResourceDistributionRow</span>
+        <span class="entity-chip dashboard">GeographicMapPoint</span>
+        <span class="entity-chip dashboard">TimelineEventRow</span>
+      </div>
+    </div>
+
+    <div class="entity-group">
+      <h3>Service Interfaces (Lotv.Core)</h3>
+      <div class="entity-list">
+        <span class="entity-chip">IServiceRequestService</span>
+        <span class="entity-chip">IWorkloadService</span>
+        <span class="entity-chip">IDonorService</span>
+        <span class="entity-chip">IVolunteerService</span>
+        <span class="entity-chip">IPaymentService</span>
+        <span class="entity-chip">IResourceService</span>
+        <span class="entity-chip">IAllocationService</span>
+        <span class="entity-chip">IDashboardService</span>
+        <span class="entity-chip">INotificationService</span>
+        <span class="entity-chip">IReportingService</span>
+        <span class="entity-chip">IUserService</span>
+        <span class="entity-chip">IReceiptService</span>
+        <span class="entity-chip">IAuditService</span>
+        <span class="entity-chip">IEventService</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── API Endpoints ──────────────────────────────────────────── -->
+  <section class="content-section" id="api">
+    <div class="section-header">
+      <h2>API Endpoints</h2>
+      <p>60+ REST endpoints across all functional areas. All secured with JWT + role-based authorization.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="endpoint-groups">
+
+      <div class="endpoint-group">
+        <div class="endpoint-group-header">Service Requests <span class="ep-count">10</span></div>
+        <div class="endpoint-list">
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/requests</span><span class="ep-desc">Submit new service request</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/requests</span><span class="ep-desc">List all requests (Staff)</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/requests/unassigned</span><span class="ep-desc">Unassigned queue</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/requests/{id}</span><span class="ep-desc">Request detail</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/requests/{id}/assign</span><span class="ep-desc">Assign to volunteer/staff</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/requests/{id}/accept</span><span class="ep-desc">Volunteer accepts assignment</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/requests/{id}/decline</span><span class="ep-desc">Volunteer declines assignment</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/requests/{id}/complete</span><span class="ep-desc">Mark fulfillment complete</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/requests/{id}/escalate</span><span class="ep-desc">Escalate request</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/requests/{id}/notes</span><span class="ep-desc">Add note to request</span></div>
+        </div>
+      </div>
+
+      <div class="endpoint-group">
+        <div class="endpoint-group-header">Donors &amp; Contributions <span class="ep-count">8</span></div>
+        <div class="endpoint-list">
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/donors/register</span><span class="ep-desc">Register new donor</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donors</span><span class="ep-desc">List all donors</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donors/{id}</span><span class="ep-desc">Donor profile</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/contributions/monetary</span><span class="ep-desc">Record monetary donation</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/contributions/resource</span><span class="ep-desc">Record resource donation</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/contributions/{donorId}</span><span class="ep-desc">Donor contribution history</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/contributions/{id}/receipt</span><span class="ep-desc">Download receipt PDF</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donors/{id}/impact</span><span class="ep-desc">Impact statement for donor</span></div>
+        </div>
+      </div>
+
+      <div class="endpoint-group">
+        <div class="endpoint-group-header">Payments (Stripe) <span class="ep-count">4</span></div>
+        <div class="endpoint-list">
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/payments/intent</span><span class="ep-desc">Create Stripe PaymentIntent</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/payments/webhook</span><span class="ep-desc">Stripe webhook handler</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/payments/{id}/refund</span><span class="ep-desc">Issue refund</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/payments/{id}</span><span class="ep-desc">Payment status</span></div>
+        </div>
+      </div>
+
+      <div class="endpoint-group">
+        <div class="endpoint-group-header">Volunteers <span class="ep-count">6</span></div>
+        <div class="endpoint-list">
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/volunteers/register</span><span class="ep-desc">Register new volunteer</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/volunteers</span><span class="ep-desc">List volunteers</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/volunteers/{id}/queue</span><span class="ep-desc">My work queue</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/requests/available</span><span class="ep-desc">Available requests for volunteer</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/staff/workload</span><span class="ep-desc">Workload view (Staff)</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/allocations/ledger</span><span class="ep-desc">Allocation ledger</span></div>
+        </div>
+      </div>
+
+      <div class="endpoint-group">
+        <div class="endpoint-group-header">Events &amp; Auction <span class="ep-count">11</span></div>
+        <div class="endpoint-list">
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/events</span><span class="ep-desc">Create fundraising event</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/events</span><span class="ep-desc">List upcoming events</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/events/{id}</span><span class="ep-desc">Event detail + revenue</span></div>
+          <div class="endpoint-row"><span class="method put">PUT</span><span class="route">/api/events/{id}</span><span class="ep-desc">Update event</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/events/{id}/rsvp</span><span class="ep-desc">RSVP / ticket purchase</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/events/{id}/attendees</span><span class="ep-desc">Attendee list</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/events/{id}/checkin</span><span class="ep-desc">Check-in attendee</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/events/{id}/auction/items</span><span class="ep-desc">Add auction item</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/events/{id}/auction/items</span><span class="ep-desc">List auction items</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/auction/items/{id}/bid</span><span class="ep-desc">Place bid</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/auction/items/{id}/bids</span><span class="ep-desc">Bid history</span></div>
+        </div>
+      </div>
+
+      <div class="endpoint-group">
+        <div class="endpoint-group-header">Dashboard &amp; Impact <span class="ep-count">8</span></div>
+        <div class="endpoint-list">
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dashboard/impact</span><span class="ep-desc">KPI cards — impact summary</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dashboard/money-flow</span><span class="ep-desc">Money in / out flow chart</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dashboard/resources</span><span class="ep-desc">Resource distribution</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dashboard/map</span><span class="ep-desc">Geographic map data points</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dashboard/timeline</span><span class="ep-desc">Activity timeline</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dashboard/categories</span><span class="ep-desc">Category breakdown</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dashboard/allocation-ledger</span><span class="ep-desc">Full allocation ledger</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dashboard/donation-tracking</span><span class="ep-desc">Donation tracking overview</span></div>
+        </div>
+      </div>
+
+      <div class="endpoint-group">
+        <div class="endpoint-group-header">Donation Tracking <span class="ep-count">6</span></div>
+        <div class="endpoint-list">
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donations/by-person</span><span class="ep-desc">Donations by person</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donations/by-diocese</span><span class="ep-desc">Donations by diocese</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donations/by-city</span><span class="ep-desc">Donations by city</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donations/by-channel</span><span class="ep-desc">Donations by channel</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donations/by-amount-band</span><span class="ep-desc">Donations by amount band</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/donations/ledger</span><span class="ep-desc">Full donor ledger</span></div>
+        </div>
+      </div>
+
+      <div class="endpoint-group">
+        <div class="endpoint-group-header">Reporting &amp; Admin <span class="ep-count">9</span></div>
+        <div class="endpoint-list">
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/reports/impact</span><span class="ep-desc">Impact report</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/reports/donor</span><span class="ep-desc">Donor report</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/reports/export</span><span class="ep-desc">Export report (CSV/PDF)</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/users</span><span class="ep-desc">User management (Admin)</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/users/{id}/roles</span><span class="ep-desc">Update user roles</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/dioceses</span><span class="ep-desc">Diocese lookup</span></div>
+          <div class="endpoint-row"><span class="method post">POST</span><span class="route">/api/dioceses</span><span class="ep-desc">Add diocese (Admin)</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/api/audit</span><span class="ep-desc">Audit log (Admin)</span></div>
+          <div class="endpoint-row"><span class="method get">GET</span><span class="route">/health</span><span class="ep-desc">Health check endpoint</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Frontend Views ─────────────────────────────────────────── -->
+  <section class="content-section" id="frontend">
+    <div class="section-header">
+      <h2>Frontend Views (Lotv.Web)</h2>
+      <p>Role-based Blazor WASM views for all 5 user types. Route guards enforce access per role.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="showRole(event, 'person')">Person in Need</button>
+      <button class="role-tab" onclick="showRole(event, 'donor')">Donor</button>
+      <button class="role-tab" onclick="showRole(event, 'volunteer')">Volunteer</button>
+      <button class="role-tab" onclick="showRole(event, 'staff')">Staff</button>
+      <button class="role-tab" onclick="showRole(event, 'admin')">Admin</button>
+      <button class="role-tab" onclick="showRole(event, 'dashboards')">Dashboards</button>
+    </div>
+    <div class="role-panels">
+      <div class="role-panel active" id="panel-person">
+        <div class="view-grid">
+          <div class="view-item"><h4>Submit Request</h4><p>Multi-step form to submit a new service request with category, urgency, and description.</p></div>
+          <div class="view-item"><h4>My Requests</h4><p>List of all submitted requests with current status and timeline.</p></div>
+          <div class="view-item"><h4>Status Tracking</h4><p>Real-time status view: submitted → assigned → in-progress → fulfilled.</p></div>
+          <div class="view-item"><h4>Profile</h4><p>Personal profile, contact info, diocese affiliation, request history.</p></div>
+        </div>
+      </div>
+      <div class="role-panel" id="panel-donor">
+        <div class="view-grid">
+          <div class="view-item"><h4>Register</h4><p>Donor registration with diocese affiliation and communication preferences.</p></div>
+          <div class="view-item"><h4>Monetary Donation</h4><p>Donation form with Stripe checkout integration and amount selection.</p></div>
+          <div class="view-item"><h4>Resource Donation</h4><p>Log resource donations: type, quantity, condition, pickup/dropoff.</p></div>
+          <div class="view-item"><h4>Receipt Download</h4><p>Download PDF receipt for any contribution for tax purposes.</p></div>
+          <div class="view-item"><h4>Contribution History</h4><p>Full history of all monetary and resource donations with receipts.</p></div>
+          <div class="view-item"><h4>My Impact</h4><p>Personalized impact statement: how donations helped people in need.</p></div>
+        </div>
+      </div>
+      <div class="role-panel" id="panel-volunteer">
+        <div class="view-grid">
+          <div class="view-item"><h4>Register</h4><p>Volunteer registration with skills, availability, and service area.</p></div>
+          <div class="view-item"><h4>Available Requests (Map)</h4><p>Map + list view of requests available to accept in your service area.</p></div>
+          <div class="view-item"><h4>Pending Assignments</h4><p>Requests awaiting your accept/decline decision.</p></div>
+          <div class="view-item"><h4>My Work Queue</h4><p>Active assignments with details, notes, and completion form.</p></div>
+          <div class="view-item"><h4>Completion Form</h4><p>Mark fulfillment complete, add outcome notes, upload photos.</p></div>
+        </div>
+      </div>
+      <div class="role-panel" id="panel-staff">
+        <div class="view-grid">
+          <div class="view-item"><h4>All Requests Dashboard</h4><p>Full-screen table of all requests with filtering, sorting, and bulk actions.</p></div>
+          <div class="view-item"><h4>Unassigned Queue</h4><p>Priority list of requests not yet assigned to any volunteer or staff.</p></div>
+          <div class="view-item"><h4>Kanban Board</h4><p>Drag-and-drop board: Submitted → Assigned → In Progress → Fulfilled → Closed.</p></div>
+          <div class="view-item"><h4>Request Detail</h4><p>Full request view with timeline, notes, assignments, and escalation controls.</p></div>
+          <div class="view-item"><h4>Workload View</h4><p>Per-volunteer capacity and current assignment count for workload balancing.</p></div>
+          <div class="view-item"><h4>Allocation Ledger</h4><p>Track monetary and resource allocations tied to specific service requests.</p></div>
+        </div>
+      </div>
+      <div class="role-panel" id="panel-admin">
+        <div class="view-grid">
+          <div class="view-item"><h4>User Management</h4><p>Create, edit, deactivate users; assign roles (Staff, Volunteer, Donor, etc.).</p></div>
+          <div class="view-item"><h4>Diocese Management</h4><p>Add/edit dioceses used as organizational groupings for donors and requests.</p></div>
+          <div class="view-item"><h4>System Configuration</h4><p>Platform settings: escalation thresholds, notification templates, integrations.</p></div>
+          <div class="view-item"><h4>Audit Log</h4><p>Full system audit trail: who did what, when, with before/after values.</p></div>
+        </div>
+      </div>
+      <div class="role-panel" id="panel-dashboards">
+        <div class="view-grid">
+          <div class="view-item"><h4>Impact &amp; Distribution Dashboard</h4><p>KPI cards, money flow chart, resource distribution, geographic map, activity timeline, category breakdown, and full allocation ledger.</p></div>
+          <div class="view-item"><h4>Donation Tracking Dashboard</h4><p>Donations segmented by person, diocese, city, channel (Online/Check/Cash/InKind), and amount band. Full donor ledger with drill-down.</p></div>
+          <div class="view-item"><h4>Event Management Dashboard</h4><p>Upcoming events, event detail, attendee management, check-in, silent auction tracking, RSVP, and revenue summary.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Milestones ─────────────────────────────────────────────── -->
+  <section class="content-section" id="milestones">
+    <div class="section-header">
+      <h2>Milestones &amp; Payment Schedule</h2>
+      <p>Milestone-based billing per SOW-LOTV-001. 5-business-day Client acceptance window per milestone.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="card">
+      <table class="milestone-table">
+        <thead>
+          <tr>
+            <th>Milestone</th>
+            <th>Description</th>
+            <th>Trigger</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="milestone-number ms-complete">M0</span></td>
+            <td>Project Start / Deposit</td>
+            <td>Upon contract execution</td>
+            <td>$[AMOUNT]</td>
+          </tr>
+          <tr>
+            <td><span class="milestone-number ms-pending">M1</span></td>
+            <td>Architecture Approved</td>
+            <td>Upon Client acceptance of Phase 1 deliverables</td>
+            <td>$[AMOUNT]</td>
+          </tr>
+          <tr>
+            <td><span class="milestone-number ms-pending">M2</span></td>
+            <td>Core Domain Complete</td>
+            <td>Upon Client acceptance of Phase 2 deliverables</td>
+            <td>$[AMOUNT]</td>
+          </tr>
+          <tr>
+            <td><span class="milestone-number ms-pending">M3</span></td>
+            <td>API Complete</td>
+            <td>Upon Client acceptance of Phase 3 deliverables</td>
+            <td>$[AMOUNT]</td>
+          </tr>
+          <tr>
+            <td><span class="milestone-number ms-pending">M4</span></td>
+            <td>Frontend Complete</td>
+            <td>Upon Client acceptance of Phase 4 deliverables</td>
+            <td>$[AMOUNT]</td>
+          </tr>
+          <tr>
+            <td><span class="milestone-number ms-pending">M5</span></td>
+            <td>Testing Complete</td>
+            <td>Upon Client acceptance of Phase 5 deliverables</td>
+            <td>$[AMOUNT]</td>
+          </tr>
+          <tr>
+            <td><span class="milestone-number ms-pending">M6</span></td>
+            <td>Production Launch</td>
+            <td>Upon successful production deployment and launch</td>
+            <td>$[AMOUNT]</td>
+          </tr>
+          <tr>
+            <td colspan="3"><strong>TOTAL</strong></td>
+            <td><strong>$[TOTAL]</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:.78rem; color:var(--gray-600); margin-top:12px;">Payment terms: 30 days net. Late payments accrue 1.5%/month. Governing law: North Carolina. Liability cap: 12-month fees or $150,000/occurrence.</p>
+  </section>
+
+  <!-- ── Client Deliverables ────────────────────────────────────── -->
+  <section class="content-section" id="deliverables">
+    <div class="section-header">
+      <h2>Client Deliverables</h2>
+      <p>14 items the Client must provide to unblock development. Response SLA: 5 business days.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="deliverable-list">
+      <div class="deliverable-item">
+        <div class="del-num">1</div>
+        <div class="del-body"><h4>Diocese List</h4><p>Complete list of dioceses with names, regions, and contact points.</p></div>
+        <span class="del-phase">Phase 2</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">2</div>
+        <div class="del-body"><h4>Organization Name, Logo &amp; Branding</h4><p>Official org name, logo files (SVG/PNG), brand colors, and typography guidelines.</p></div>
+        <span class="del-phase">Phase 4</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">3</div>
+        <div class="del-body"><h4>Stripe Account</h4><p>Test API keys (Phase 3) and live production keys (Phase 6) for payment processing.</p></div>
+        <span class="del-phase">Phase 3 + 6</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">4</div>
+        <div class="del-body"><h4>Email Provider Account</h4><p>Transactional email API key (SendGrid, Postmark, or equivalent).</p></div>
+        <span class="del-phase">Phase 3</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">5</div>
+        <div class="del-body"><h4>Cloud Hosting Account</h4><p>Azure subscription with contributor access for App Service, Blob Storage, Key Vault.</p></div>
+        <span class="del-phase">Phase 6</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">6</div>
+        <div class="del-body"><h4>Domain &amp; DNS Access</h4><p>Domain registrar credentials to configure DNS records for production deployment.</p></div>
+        <span class="del-phase">Phase 6</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">7</div>
+        <div class="del-body"><h4>Architecture Decision Approval</h4><p>Signed-off approval of Phase 1 ERD, API contract, and ADRs before Phase 2 begins.</p></div>
+        <span class="del-phase">Before Phase 2</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">8</div>
+        <div class="del-body"><h4>Domain Model / ERD Approval</h4><p>Client review and approval of entity relationship diagram before implementation.</p></div>
+        <span class="del-phase">Before Phase 2</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">9</div>
+        <div class="del-body"><h4>Business Rules Documentation</h4><p>Written documentation of service request routing rules, escalation thresholds, and allocation policies.</p></div>
+        <span class="del-phase">Phase 2</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">10</div>
+        <div class="del-body"><h4>UI Mockup Feedback</h4><p>Client review of Figma/wireframe mockups within 5 business days of delivery.</p></div>
+        <span class="del-phase">Phase 4</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">11</div>
+        <div class="del-body"><h4>UAT Participation</h4><p>Client participation in user acceptance testing per each user role during Phase 5 staging.</p></div>
+        <span class="del-phase">Phase 5</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">12</div>
+        <div class="del-body"><h4>Public-Facing Content</h4><p>About page text, FAQ, privacy policy, terms of service, and hero/marketing copy.</p></div>
+        <span class="del-phase">Phase 4</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">13</div>
+        <div class="del-body"><h4>Test Data</h4><p>Sample diocese records, test user accounts, and sample service request data for Phase 3 testing.</p></div>
+        <span class="del-phase">Phase 3</span>
+      </div>
+      <div class="deliverable-item">
+        <div class="del-num">14</div>
+        <div class="del-body"><h4>Launch Approval</h4><p>Formal written sign-off to proceed with production deployment and go-live.</p></div>
+        <span class="del-phase">Phase 6</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Assumptions ────────────────────────────────────────────── -->
+  <section class="content-section" id="assumptions">
+    <div class="section-header">
+      <h2>Assumptions</h2>
+      <p>Baseline assumptions agreed upon in SOW-LOTV-001. Changes may require a Change Order.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="card-grid card-grid-2">
+      <div class="card">
+        <h3 style="font-size:.9rem;font-weight:700;margin-bottom:12px;color:var(--navy)">Platform &amp; Hosting</h3>
+        <div class="service-list">
+          <div class="service-item"><span>GitHub repository managed by WTE</span></div>
+          <div class="service-item"><span>Microsoft Azure as default cloud host</span></div>
+          <div class="service-item"><span>Single production + staging environment</span></div>
+          <div class="service-item"><span>Stripe for all payment processing</span></div>
+          <div class="service-item"><span>English language only</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:.9rem;font-weight:700;margin-bottom:12px;color:var(--navy)">Process &amp; Communication</h3>
+        <div class="service-list">
+          <div class="service-item"><span>5-business-day Client response SLA</span></div>
+          <div class="service-item"><span>Milestone acceptance window: 5 business days</span></div>
+          <div class="service-item"><span>WTE manages all CI/CD pipeline configuration</span></div>
+          <div class="service-item"><span>Data residency: United States</span></div>
+          <div class="service-item"><span>Compliance: PCI DSS, WCAG 2.1 AA, OWASP Top 10</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Exclusions ────────────────────────────────────────────── -->
+  <section class="content-section" id="exclusions">
+    <div class="section-header">
+      <h2>Exclusions / Future Change Orders</h2>
+      <p>Items explicitly out of scope for this SOW. Any of these may be added via Change Order.</p>
+      <div class="divider"></div>
+    </div>
+    <div class="entity-list">
+      <span class="entity-chip">Mobile native apps (iOS/Android)</span>
+      <span class="entity-chip">Real-time auction bidding (SignalR)</span>
+      <span class="entity-chip">Recurring donation subscriptions</span>
+      <span class="entity-chip">Third-party CRM integration</span>
+      <span class="entity-chip">Content creation / copywriting</span>
+      <span class="entity-chip">Volunteer background checks</span>
+      <span class="entity-chip">Custom SMS provider</span>
+      <span class="entity-chip">Hardware / on-premises infrastructure</span>
+      <span class="entity-chip">Training beyond handoff documentation</span>
+    </div>
+    <p style="margin-top:20px;font-size:.8rem;color:var(--gray-600)">
+      Email notifications are included. SMS is optional and subject to a Change Order if a custom provider is required.
+      Real-time auction bidding via SignalR is excluded from this SOW but may be added as a Phase 7 enhancement.
+    </p>
+  </section>
+
+  <!-- ── Footer ──────────────────────────────────────────────────── -->
+  <footer class="site-footer">
+    LOTV — Lily of the Valley &bull; .NET 9 SaaS Social Services Platform &bull; WTE &bull; 2026 &bull;
+    Branch: <code>kremer-dev</code> &bull; Phase 0 of 6 Complete
+  </footer>
+
+</div><!-- /#main -->
+
+<script>
+  function showRole(event, roleId) {
+    document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.role-panel').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('panel-' + roleId).classList.add('active');
+  }
+
+  // Simple scroll-spy to highlight sidebar nav
+  const sections = document.querySelectorAll('[id]');
+  const navLinks = document.querySelectorAll('#sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(sec => {
+      if (window.scrollY >= sec.offsetTop - 80) current = sec.id;
+    });
+    navLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+    });
+  }, { passive: true });
+</script>
+
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-02-24
+**Last Updated**: 2026-03-02
 
 ---
 
@@ -37,6 +37,10 @@
 - [x] Initialize git repository (`git init`)
 - [x] Create `.gitignore` for .NET projects
 - [x] Initial commit
+- [x] Author `MSA-LOTV.md` / `.docx` — Master Services Agreement
+- [x] Author `SOW-LOTV-001-FullPlatform.md` / `.docx` — full-platform Statement of Work
+- [x] Author `docs/LOTV-PM-Plan.md` — full Project Management Plan (19 sections: WBS, risk register, communication plan, change management, quality plan, dependency map, milestones, client deliverables tracker)
+- [x] Author `docs/LOTV-Project-Plan.html` — self-contained HTML project site (tech stack, architecture, phase roadmap, domain model, 60+ API endpoints, role-based frontend views, milestones, client deliverables)
 
 ---
 
