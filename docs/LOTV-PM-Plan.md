@@ -31,22 +31,25 @@
 
 ## 1. Executive Summary
 
-LOTV (Lily of the Valley) is a multi-tenant SaaS platform that coordinates social services delivery across diocese organizations. It connects people in need, donors, volunteers, and staff through a unified system for service request routing, donation tracking, event management, and real-time impact reporting.
+LOTV (Lily of the Valley) is a platform for a **centralized nonprofit** that coordinates social services delivery through a **National HQ → Local Chapters** organization. It connects people in need, donors, volunteers, and staff through a unified system for service request routing, donation tracking, fundraising event management, and real-time impact reporting.
 
-The platform is built on .NET 9 with an ASP.NET Core REST API backend, a Blazor WebAssembly frontend, and a shared domain library. Hosting targets Microsoft Azure. Payments are processed via Stripe. Development is organized into six phases from foundation through production launch, governed by MSA-LOTV and SOW-LOTV-001.
+The platform is built on .NET 9 with an ASP.NET Core REST API backend, a Blazor WebAssembly frontend, and a shared domain library. Hosting targets Microsoft Azure. Payments are processed via Stripe. Three key automation features differentiate the platform: **auto-assignment** of volunteers to requests by location + skills, a **real-time operations board** via SignalR, and **scheduled digest reports** emailed to HQ and chapter leads. Development is organized into six phases from foundation through production launch, governed by MSA-LOTV and SOW-LOTV-001.
 
 **Current Status:** Phase 0 (Foundation) complete. Phase 1 (Architecture & Design) is the immediate next step.
 
 | Item | Detail |
 |---|---|
-| Platform | .NET 9 SaaS — ASP.NET Core + Blazor WASM |
+| Platform | .NET 9 — ASP.NET Core + Blazor WASM |
+| Org Model | Centralized nonprofit: National HQ → Local Chapters (2-tier) |
 | Repository | `github.com/KremerWTE/LOTV` — branch `kremer-dev` |
 | Solution File | `Lotv.slnx` (new XML-based .NET 9 format) |
 | Hosting | Microsoft Azure (App Service, Blob Storage, Key Vault) |
 | Payments | Stripe (PaymentIntent, webhooks, refunds) |
+| Real-Time | SignalR — `RequestsHub` broadcasts operations board events |
+| Scheduler | Hangfire — daily digest + weekly summary report jobs |
 | Phases | 6 phases: Foundation → Architecture → Domain → API → Frontend → Testing → Launch |
-| Roles | Person in Need, Donor, Volunteer, Staff, Admin |
-| API Endpoints | 60+ REST endpoints |
+| Roles | Person in Need, Donor, Volunteer, ChapterStaff, ChapterAdmin, HQAdmin |
+| API Endpoints | 60+ REST endpoints + SignalR hub |
 | Domain Entities | 35+ entities across 5 domain groups |
 
 ---
@@ -55,38 +58,54 @@ The platform is built on .NET 9 with an ASP.NET Core REST API backend, a Blazor 
 
 ### 2.1 Platform Purpose
 
-LOTV enables diocese organizations to:
-- Receive and route service requests from people in need
-- Accept and track monetary and resource donations from donors
-- Dispatch and manage volunteers to fulfill service requests
-- Staff oversight of workload, allocations, and escalations
-- Run fundraising events with ticket sales, silent auctions, and check-in
-- Report on organizational impact across all dimensions
+LOTV is operated by a single centralized nonprofit organization structured as **National HQ → Local Chapters**. HQ has full visibility across all chapters; each chapter operates its own service area and sees only its own data.
+
+The platform enables:
+- **Chapters** to receive and auto-route service requests from people in need to qualified local volunteers
+- **Donors** to make monetary and resource donations, receive receipts, and see their personal impact
+- **Volunteers** to be automatically matched to requests by proximity and skills — no manual dispatch bottleneck
+- **Chapter Staff/Admins** to oversee a **real-time operations board** (live Kanban via SignalR) of all requests in their chapter
+- **HQ Admins** to see a cross-chapter dashboard with per-chapter drill-down and roll-up metrics
+- **All leaders** to receive **automated daily digests and weekly summaries** via email — no manual report generation
+- Fundraising event management with ticket sales, silent auctions, and check-in
+- Full financial tracking: donations, allocations, receipts, and donor impact
 
 ### 2.2 Solution Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Client Layer                                               │
-│  Browser / PWA  ←→  Lotv.Web (Blazor WASM :7146)           │
-└─────────────────────────────┬───────────────────────────────┘
-                              │ HTTP/HTTPS REST
-┌─────────────────────────────▼───────────────────────────────┐
-│  Application Layer                                          │
-│  Lotv.Api (ASP.NET Core :7072)                              │
-│  JWT Auth · FluentValidation · Serilog · Rate Limiting      │
-└──────────┬──────────────────────────────┬───────────────────┘
-           │ references                   │ references
-┌──────────▼──────────────┐   ┌───────────▼─────────────────┐
-│  Lotv.Core              │   │  Lotv.Tests (xUnit)          │
-│  Entities · Interfaces  │   │  Unit · Integration · E2E    │
-│  DTOs · Enums · VOs     │   │  (Playwright)                │
-└──────────┬──────────────┘   └─────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  Client Layer                                                    │
+│  Browser / PWA  ←→  Lotv.Web (Blazor WASM :7146)                │
+│  SignalR Client (Microsoft.AspNetCore.SignalR.Client)            │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │ HTTP/HTTPS REST  +  WebSocket (SignalR)
+┌──────────────────────────▼───────────────────────────────────────┐
+│  Application Layer                                               │
+│  Lotv.Api (ASP.NET Core :7072)                                   │
+│  JWT Auth (6 roles, chapter-scoped) · FluentValidation           │
+│  Serilog · Rate Limiting · Chapter Query Filter Middleware        │
+│  ┌─────────────────┐   ┌──────────────────┐                     │
+│  │  REST Controllers│   │  RequestsHub      │ ← SignalR           │
+│  │  60+ endpoints  │   │  /hubs/requests   │   per-chapter       │
+│  └─────────────────┘   └──────────────────┘   groups + hq-all   │
+│  ┌────────────────────────────────────────┐                     │
+│  │  Background Jobs (Hangfire)             │                     │
+│  │  AutoAssignmentJob · DailyDigestJob     │                     │
+│  │  WeeklySummaryJob · HQWeeklyReportJob   │                     │
+│  └────────────────────────────────────────┘                     │
+└──────────┬────────────────────────────────┬──────────────────────┘
+           │ references                     │ references
+┌──────────▼──────────────┐   ┌─────────────▼───────────────────┐
+│  Lotv.Core              │   │  Lotv.Tests (xUnit + Playwright) │
+│  Entities · Interfaces  │   │  Unit · Integration · E2E        │
+│  DTOs · Enums · VOs     │   │                                  │
+└──────────┬──────────────┘   └──────────────────────────────────┘
            │
-┌──────────▼──────────────────────────────────────────────────┐
-│  Infrastructure Layer                                        │
-│  SQL DB (EF Core) · Azure Blob · Stripe · Email/SMS · Redis  │
-└─────────────────────────────────────────────────────────────┘
+┌──────────▼──────────────────────────────────────────────────────┐
+│  Infrastructure Layer                                            │
+│  SQL DB (EF Core + Chapter global filter)                        │
+│  Azure Blob · Stripe · Email/SMS · Redis (Hangfire storage)      │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.3 Project References
@@ -123,13 +142,14 @@ LOTV enables diocese organizations to:
 
 ### 3.3 User Roles (Platform)
 
-| Role | Description |
-|---|---|
-| **Person in Need** | Submits service requests, tracks fulfillment status |
-| **Donor** | Makes monetary/resource donations, views impact, downloads receipts |
-| **Volunteer** | Accepts assignments, fulfills requests, submits completion reports |
-| **Staff** | Manages all requests, assigns volunteers, oversees allocations |
-| **Admin** | Full system access — user management, dioceses, config, audit log |
+| Role | Scope | Description |
+|---|---|---|
+| **Person in Need** | Chapter | Submits service requests, tracks fulfillment status |
+| **Donor** | Chapter | Makes monetary/resource donations, views impact, downloads receipts |
+| **Volunteer** | Chapter | Receives auto-assigned requests, accepts/declines, fulfills, submits completion reports |
+| **ChapterStaff** | Chapter only | Manages chapter requests, monitors real-time operations board, oversees allocations |
+| **ChapterAdmin** | Chapter only | Full chapter access + user management, chapter config, chapter reports |
+| **HQAdmin** | All chapters | Cross-chapter dashboard, all-chapter operations board, HQ reports, global user/chapter management |
 
 ---
 
@@ -183,20 +203,25 @@ Unresolved disputes escalate to mandatory mediation, then binding arbitration (N
 
 ### 5.1 In Scope
 
-- Full .NET 9 SaaS platform (API + Blazor WASM + Core Domain + Tests)
-- Service request intake, routing, assignment, fulfillment lifecycle
+- Full .NET 9 platform (API + Blazor WASM + Core Domain + Tests)
+- **HQ → Chapter org model**: HQAdmin sees all; Chapter roles see own chapter only via EF Core global query filter
+- Service request intake, auto-routing, auto-assignment, fulfillment lifecycle
+- **Auto-assignment engine**: scores volunteers by proximity (Haversine) + skills match + workload; auto-assigns or queues for manual dispatch
+- **Real-time operations board**: SignalR `RequestsHub` — per-chapter groups + `hq-all` group; live Kanban for chapter staff; cross-chapter board for HQ
+- **Scheduled reports**: Hangfire jobs — daily digest (6 AM per chapter) + weekly summary (Monday 7 AM) emailed to chapter leads and HQ
 - Donor registration, monetary donations, resource donations, receipts
 - Stripe payment processing (PaymentIntent, webhooks, refunds)
 - Volunteer dispatch and work queue management
-- Staff dashboards: Kanban, workload, unassigned queue, allocation ledger
-- Impact & Distribution Dashboard (KPIs, money flow, map, timeline)
+- Chapter Staff dashboards: real-time Kanban, workload, unassigned queue, allocation ledger
+- HQ Dashboard: cross-chapter summary table, per-chapter drill-down, HQ-wide KPI strip
+- Impact & Distribution Dashboard (KPIs, money flow, map, timeline) — chapter-scoped or HQ all-chapters
 - Donation Tracking Dashboard (by person, diocese, city, channel, amount band)
 - Fundraising event management (RSVP, tickets, check-in, silent auction)
-- Admin: user management, diocese management, audit log, system config
-- Email notifications (transactional)
-- JWT authentication with role-based authorization
-- EF Core with database migrations and diocese seed data
-- Azure deployment (App Service, Blob Storage, Key Vault)
+- Admin: user management, chapter management, audit log, system config
+- Email notifications (transactional + scheduled reports)
+- JWT authentication with 6-role authorization + chapter-scoped query middleware
+- EF Core with database migrations, global query filter, and chapter seed data
+- Azure deployment (App Service, Blob Storage, Key Vault, Redis for Hangfire)
 - GitHub Actions CI/CD pipeline (build, test, deploy)
 - Dockerfiles and docker-compose for local dev
 - HTTPS, security headers, OWASP Top 10 review, dependency scanning
@@ -632,6 +657,9 @@ See [Section 17 — Exclusions](#17-exclusions) for the complete list.
 | Azure CLI | Cloud resource management |
 | Stripe CLI | Webhook testing locally |
 | Playwright CLI | E2E test runner |
+| Hangfire Dashboard | Local job monitoring (`/hangfire`) |
+| Azure SignalR Service (prod) | Managed SignalR backplane for multi-instance scale |
+| Redis (local via Docker) | Hangfire job storage + optional session cache |
 
 ### 8.2 Build & Test Commands
 
@@ -677,7 +705,7 @@ cd src/Lotv.Web && dotnet run
 
 | ID | Risk | Probability | Impact | Mitigation |
 |---|---|---|---|---|
-| R-01 | Client delays on deliverables (diocese list, branding, keys) | High | High | 5-business-day SLA in SOW; phase gates block on Client items |
+| R-01 | Client delays on deliverables (chapter list, branding, keys) | High | High | 5-business-day SLA in SOW; phase gates block on Client items |
 | R-02 | Scope creep from evolving business rules | High | Medium | Formal Change Order process; written requirements before implementation |
 | R-03 | Stripe integration complexity (webhook reliability) | Low | High | Stripe CLI for local testing; idempotency keys; webhook signature verification |
 | R-04 | EF Core migration conflicts in team development | Medium | Medium | One migration author per sprint; migration review in PR |
@@ -687,6 +715,10 @@ cd src/Lotv.Web && dotnet run
 | R-08 | Client UAT drags beyond 5-day SLA | Medium | High | UAT plan delivered 2 weeks before Phase 5; per-role test scripts prepared |
 | R-09 | DNS/domain transfer delays at launch | Low | High | Begin DNS coordination 2 weeks before Phase 6 |
 | R-10 | Sensitive data accidentally committed | Low | Critical | `.gitignore` enforced; pre-commit hook for secret scanning; `data/.gitignore` active |
+| R-11 | SignalR connection scaling under load (many concurrent chapter users) | Medium | Medium | Azure SignalR Service (managed backplane) for production; local dev uses in-process |
+| R-12 | Auto-assignment scoring produces poor matches (volunteer quality issues) | Medium | High | Tunable weights for proximity/skills/workload exposed in admin config; staff can always override; unmatched requests fall to manual queue |
+| R-13 | Scheduled report emails delivered to spam / not received | Low | Medium | SPF/DKIM configured; test email delivery in staging; dedicated transactional email domain |
+| R-14 | Chapter query filter misconfiguration exposes cross-chapter data | Low | Critical | EF Core global query filter unit tested; integration test suite asserts cross-chapter data isolation |
 
 ---
 
@@ -930,7 +962,7 @@ The following items are explicitly **out of scope** for SOW-LOTV-001 and require
 | Exclusion | Notes |
 |---|---|
 | Mobile native apps (iOS/Android) | Web-responsive only in this SOW |
-| Real-time auction bidding (SignalR) | Potential Phase 7 via Change Order |
+| Real-time auction bidding via SignalR | SignalR IS in scope for the operations board. This exclusion applies only to live public auction bidding. Potential Phase 7 via Change Order. |
 | Recurring donation subscriptions | Stripe Billing not included |
 | Third-party CRM integration (Salesforce, HubSpot, etc.) | REST API provided for future integration |
 | Content creation / copywriting | Client provides all public-facing content |

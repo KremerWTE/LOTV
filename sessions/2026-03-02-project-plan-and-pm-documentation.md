@@ -74,6 +74,33 @@ Single-file, zero-dependency HTML site built from all project content. Sections:
 
 ---
 
+---
+
+## Session Update — Plan & Dashboard Corrections (same date)
+
+### Problems Identified
+- Plan was written as a generic multi-tenant SaaS; actual org is a **centralized nonprofit: National HQ → Local Chapters** (no middle tier)
+- Dashboard "automation" section was incomplete — missing auto-assignment, scheduled reports, and real-time updates
+- Tech stack was missing SignalR, Hangfire, and proximity-scoring for auto-assignment
+- Only 5 user roles modeled; needed 6 (HQAdmin, ChapterAdmin, ChapterStaff, Volunteer, Donor, PersonInNeed)
+
+### Corrections Made Across MASTER_TODO.md, LOTV-PM-Plan.md, LOTV-Project-Plan.html
+
+| Area | What Changed |
+|---|---|
+| **Org model** | "Diocese" replaced as primary unit by "Chapter" (Diocese still exists as sub-entity); all entities carry ChapterId; HQAdmin bypasses EF Core global query filter |
+| **User roles** | 5 → 6 roles: HQAdmin (no chapter scope), ChapterAdmin, ChapterStaff, Volunteer, Donor, PersonInNeed |
+| **Auto-assignment** | New `IAutoAssignmentService` — Haversine proximity + skills match + workload penalty scoring; auto-assigns top candidate or queues for manual dispatch; staff can view ranked candidates and override |
+| **SignalR** | New `RequestsHub` — per-chapter groups + `hq-all` group for HQAdmin; broadcasts RequestCreated, StatusChanged, RequestAssigned, RequestEscalated; client reconnects with REST state-sync |
+| **Hangfire** | Scheduled jobs: DailyDigestJob (6 AM per chapter), WeeklySummaryJob (Monday 7 AM), HQWeeklyReportJob; all email results to chapter leads and HQ |
+| **New DTOs** | VolunteerScoreResult, ChapterSummaryRow, DailyDigestReport, WeeklySummaryReport |
+| **New interfaces** | IAutoAssignmentService, IScheduledReportService (total: 16 service interfaces) |
+| **Phase 1 additions** | HQ/Chapter scoping design, auto-assignment algorithm design, real-time strategy design, ADR-005 (real-time) |
+| **Phase 3 additions** | RequestsHub, AutoAssignment service impl, Hangfire 4 jobs, chapter query filter middleware |
+| **Phase 4 additions** | Real-time ops board (SignalR client), HQ cross-chapter dashboard, auto-assignment candidate panel, SignalR client service in app shell |
+| **Risk register** | Added R-11 (SignalR scaling), R-12 (auto-assignment quality), R-13 (report email deliverability), R-14 (chapter filter misconfiguration — Critical) |
+| **Exclusions** | Clarified SignalR IS in scope for ops board; exclusion now only covers live auction bidding |
+
 ## Phase Status at End of Session
 
 | Phase | Status |

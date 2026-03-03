@@ -3,6 +3,7 @@
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
 **Last Updated**: 2026-03-02
+**Org Model**: Centralized nonprofit — National HQ → Local Chapters (2-tier)
 
 ---
 
@@ -11,12 +12,19 @@
 | Phase | Name | Status |
 |---|---|---|
 | 0 | Foundation | ✅ COMPLETE |
-| 1 | Architecture & Design | ⬜ PENDING |
+| 1 | Architecture & Design | ⬜ NEXT |
 | 2 | Core Domain (Lotv.Core) | ⬜ PENDING |
 | 3 | API (Lotv.Api) | ⬜ PENDING |
 | 4 | Frontend (Lotv.Web) | ⬜ PENDING |
 | 5 | Testing | ⬜ PENDING |
 | 6 | Deployment & Launch | ⬜ PENDING |
+
+### Key Platform Characteristics
+- **Org model**: One centralized nonprofit; National HQ → Local Chapters (no middle tier)
+- **HQ Admin** sees all chapters' data; **Chapter Staff/Admin** sees only their own chapter
+- **Auto-assignment**: system scores and matches volunteers to requests by location proximity + skills — no manual dispatch required
+- **Real-time operations board**: SignalR hub broadcasts request state changes to all connected chapter staff
+- **Scheduled reports**: daily digest + weekly summary auto-generated and emailed to HQ and chapter leads
 
 ---
 
@@ -86,11 +94,31 @@
 - [ ] Define background job strategy: Hangfire vs. Azure Service Bus vs. .NET hosted services
 - [ ] Define caching strategy: in-memory vs. Redis (Redis recommended for multi-instance)
 
+### HQ / Chapter Data Scoping
+- [ ] Design HQ vs. Chapter data isolation model (HQ sees all; Chapter sees own only)
+- [ ] Define `ChapterId` scoping on all data-access queries (filter by chapter for Chapter roles)
+- [ ] Define HQ roll-up aggregation strategy (cross-chapter dashboard queries)
+- [ ] Document role-to-scope matrix: HQAdmin, ChapterAdmin, ChapterStaff, Volunteer, Donor, PersonInNeed
+
+### Auto-Assignment Engine Design
+- [ ] Define volunteer scoring algorithm: location proximity (Haversine) + skills match + current workload penalty
+- [ ] Define assignment trigger: on request submission (immediate) vs. on triage completion (staff-gated)
+- [ ] Define fallback behavior: if no volunteer scores above threshold → route to unassigned queue for manual dispatch
+- [ ] Define volunteer acceptance window: how long before auto-reassigning if no response
+- [ ] Document algorithm in `docs/auto-assignment-algorithm.md`
+
+### Real-Time Strategy
+- [ ] Choose real-time approach: **SignalR** (recommended) for operations board
+- [ ] Define `RequestsHub` contract: which events to broadcast (state change, new assignment, escalation, new request)
+- [ ] Define SignalR group strategy: one group per chapter + one HQ group receiving all chapters' events
+- [ ] Define client reconnect / state-sync behavior (on reconnect, client re-fetches current board state)
+
 ### Architecture Decision Records
 - [ ] Write ADR-001: Authentication strategy
 - [ ] Write ADR-002: Database and ORM choice
 - [ ] Write ADR-003: Payment processor
-- [ ] Write ADR-004: Multi-tenancy approach
+- [ ] Write ADR-004: Org hierarchy and data scoping (HQ → Chapter)
+- [ ] Write ADR-005: Real-time strategy (SignalR vs. polling)
 
 ---
 
@@ -99,14 +127,15 @@
 **Goal**: All domain entities, interfaces, and service contracts defined and tested.
 
 ### Lookup / Reference Entities
-- [ ] `Diocese` — church diocese reference (Id, Name, City, State, Region, ContactName, ContactEmail) — donors are associated to a diocese; drives dashboard grouping and reporting
+- [ ] `Chapter` — local chapter of the national org (Id, Name, City, State, ContactName, ContactEmail, IsActive) — replaces "Diocese" as the primary organizational unit; donors, volunteers, and requests all belong to a chapter
+- [ ] `Diocese` — church diocese reference (Id, Name, City, State, Region, ChapterId) — a diocese maps to a chapter for donor tracking; multiple dioceses can belong to one chapter
 
 ### User Entities
-- [ ] `ApplicationUser` — base identity user (Id, Email, Role, CreatedAt, IsActive)
-- [ ] `PersonInNeed` — service recipient profile (UserId, Name, Address, ContactInfo, Notes)
-- [ ] `Donor` — donor profile (UserId, Name, ContactInfo, **DioceseId**, **City**, **State**, IsAnonymous, TaxId/EIN for receipts) — diocese and city are required for donation tracking dashboard
-- [ ] `Volunteer` / `LocalHelper` — helper profile (UserId, Name, GeoLocation, Skills, ServiceRadius, Availability)
-- [ ] `Employee` / `StaffMember` — internal user (UserId, Name, Department, Permissions)
+- [ ] `ApplicationUser` — base identity user (Id, Email, Role, **ChapterId** (null for HQ roles), CreatedAt, IsActive)
+- [ ] `PersonInNeed` — service recipient profile (UserId, Name, Address, ContactInfo, ChapterId, Notes)
+- [ ] `Donor` — donor profile (UserId, Name, ContactInfo, **ChapterId**, **DioceseId**, **City**, **State**, IsAnonymous, TaxId/EIN for receipts)
+- [ ] `Volunteer` — helper profile (UserId, Name, **ChapterId**, GeoLocation, Skills, ServiceRadius, Availability, CurrentWorkloadCount)
+- [ ] `Employee` / `StaffMember` — internal user (UserId, Name, **ChapterId** (null = HQ), Department, Permissions)
 
 ### Request & Fulfillment Entities
 - [ ] `ServiceRequest` — intake record (Id, RequestorId, Category, Description, Status, **Priority**, **DueDate**, **AssignedToId**, **AssignedToType** (Staff/Volunteer), Address, GeoLocation, CreatedAt, UpdatedAt)
@@ -129,7 +158,7 @@
 - [ ] `AuctionBid` — bid record (Id, AuctionItemId, BidderId, BidAmount, BidTime)
 
 ### Reporting / Dashboard Entities
-- [ ] `ImpactSummary` — aggregate DTO (TotalMoneySent, TotalResourcesDonated, PeopleHelped, RequestsFulfilled, ByRegion, ByCategory, ByPeriod)
+- [ ] `ImpactSummary` — aggregate DTO (TotalMoneySent, TotalResourcesDonated, PeopleHelped, RequestsFulfilled, ByChapter, ByCategory, ByPeriod) — **ChapterId = null means HQ roll-up**
 - [ ] `DonorImpactStatement` — per-donor DTO ("Your $X helped N people in [City]")
 - [ ] `AllocationRecord` — unified ledger row for dashboard display
 - [ ] `DonationByPersonRow` — per-donor aggregate (DonorId, Name, Diocese, City, State, TotalAmount, GiftCount, AverageGift, FirstGiftDate, LastGiftDate)
@@ -137,25 +166,31 @@
 - [ ] `DonationByCityRow` — per-city aggregate (City, State, TotalDonors, TotalAmount)
 - [ ] `DonationByChannelRow` — per-channel aggregate (Channel, TotalAmount, GiftCount, Percentage)
 - [ ] `DonationByAmountBand` — gift-size distribution (Band label e.g. "$100–$499", GiftCount, TotalAmount, Percentage)
+- [ ] `VolunteerScoreResult` — **new**: auto-assignment output (VolunteerId, Name, ProximityScore, SkillsMatchScore, WorkloadPenalty, CompositeScore, Recommended)
+- [ ] `ChapterSummaryRow` — **new**: per-chapter roll-up for HQ dashboard (ChapterId, Name, OpenRequests, OverdueRequests, FulfilledThisPeriod, TotalDonations, ActiveVolunteers)
+- [ ] `DailyDigestReport` — **new**: overnight activity summary (new requests, donations received, requests fulfilled, stuck/overdue count, chapter breakdown)
+- [ ] `WeeklySummaryReport` — **new**: chapter-level KPIs for HQ + chapter leads (same fields as DailyDigest but weekly period, with trend vs. prior week)
 
 ### Interfaces / Service Contracts
-- [ ] `IServiceRequestService` — submit, list, update, assign, accept, decline, escalate, add note
-- [ ] `IWorkloadService` — get staff/volunteer workload summary, get unassigned queue, get overdue requests
-- [ ] `IDonorService` — register, list, get profile, get contribution history
-- [ ] `IVolunteerService` — register, list, match to request by location/skill
+- [ ] `IServiceRequestService` — submit, list, update, assign, accept, decline, escalate, add note; all queries scoped by ChapterId
+- [ ] `IWorkloadService` — get staff/volunteer workload summary, get unassigned queue, get overdue requests; HQ variant returns cross-chapter rollup
+- [ ] `IDonorService` — register, list, get profile, get contribution history; chapter-scoped
+- [ ] `IVolunteerService` — register, list, **score volunteers for a request** (location + skills + workload)
+- [ ] `IAutoAssignmentService` — **new**: score all available chapter volunteers against a request, auto-assign top candidate or route to unassigned queue if none qualify; triggered on request triage completion
 - [ ] `IPaymentService` — process donation, handle webhook, refund
 - [ ] `IResourceService` — log resource donation, allocate, track inventory
 - [ ] `IAllocationService` — allocate money/resources to requests, get allocation history
-- [ ] `IDashboardService` — aggregate impact stats, money flow, resource flow, geographic breakdown, donation breakdowns (by person, diocese, city, channel, amount band)
+- [ ] `IDashboardService` — aggregate impact stats, money flow, resource flow, geographic breakdown, donation breakdowns; **chapter-scoped** for Chapter roles, **cross-chapter** for HQ Admin
 - [ ] `INotificationService` — send email, send SMS, queue notification
-- [ ] `IReportingService` — generate impact reports, export to CSV/PDF
-- [ ] `IUserService` — profile management, role assignment
+- [ ] `IReportingService` — generate impact reports, export to CSV/PDF; **chapter-scoped or HQ roll-up**
+- [ ] `IScheduledReportService` — **new**: generate and email daily digest (overnight activity) and weekly summary (chapter KPIs) to HQ and chapter leads on a CRON schedule
+- [ ] `IUserService` — profile management, role assignment, chapter membership
 - [ ] `IReceiptService` — generate and send tax receipts for charitable donations
 - [ ] `IAuditService` — write immutable audit log entries
 - [ ] `IEventService` — create/manage events, register attendees, process auction bids, generate event revenue reports
 
 ### Shared / Value Objects
-- [ ] Enums: `UserRole` (PersonInNeed, Donor, Volunteer, Staff, Admin)
+- [ ] Enums: `UserRole` (PersonInNeed, Donor, Volunteer, ChapterStaff, ChapterAdmin, HQAdmin) — replaces generic Staff/Admin; HQAdmin has no ChapterId (sees all); ChapterAdmin/ChapterStaff are scoped to their chapter
 - [ ] Enums: `RequestStatus` (Submitted, Triaged, Matched, InProgress, Fulfilled, Closed, Cancelled)
 - [ ] Enums: `RequestPriority` (Urgent, High, Normal, Low)
 - [ ] Enums: `AssignmentStatus` (Pending, Accepted, Declined, Reassigned, Completed)
@@ -183,9 +218,10 @@
 
 ### Authentication & Authorization
 - [ ] Implement chosen auth strategy
-- [ ] Role-based authorization policies (PersonInNeed, Donor, Volunteer, Staff, Admin)
+- [ ] Role-based authorization policies (PersonInNeed, Donor, Volunteer, ChapterStaff, ChapterAdmin, HQAdmin)
+- [ ] Chapter-scoped query middleware: inject ChapterId claim filter on all Chapter-role queries; HQAdmin bypasses filter
 - [ ] JWT token issuance / refresh endpoints
-- [ ] User registration endpoint with role selection
+- [ ] User registration endpoint with role selection and chapter assignment
 - [ ] Password reset flow
 
 ### Service Request Endpoints
@@ -297,14 +333,41 @@
 - [ ] `GET /api/v1/notifications/templates` — list email templates (Staff)
 - [ ] `POST /api/v1/notifications/marketing` — send marketing email blast (Staff)
 
+### Real-Time (SignalR)
+- [ ] Install `Microsoft.AspNetCore.SignalR` NuGet package
+- [ ] Implement `RequestsHub` — broadcasts events: `RequestCreated`, `RequestAssigned`, `StatusChanged`, `RequestEscalated`, `RequestCompleted`
+- [ ] Chapter SignalR groups: each connected user joins their chapter's group on connect; HQAdmin joins a special `hq-all` group that receives all chapters' events
+- [ ] Map SignalR hub at `/hubs/requests`
+- [ ] Reconnect + state-sync: client re-fetches board state via REST on reconnect (SignalR is for deltas only)
+
+### Auto-Assignment Engine
+- [ ] Implement `IAutoAssignmentService`:
+  - Query all active volunteers in the request's chapter with matching skills
+  - Score each by: proximity (Haversine distance to request address), skills match %, current workload count
+  - Composite score = (proximity weight × distance_score) + (skills weight × skills_score) - (workload weight × workload_count)
+  - If top candidate score ≥ threshold → auto-assign and notify via `INotificationService`
+  - If no candidate qualifies → add to unassigned queue and broadcast `RequestUnassigned` via SignalR
+- [ ] `POST /api/v1/requests/{id}/auto-assign` — manually trigger auto-assignment (Staff)
+- [ ] `GET /api/v1/requests/{id}/candidates` — return ranked volunteer candidates for a request (Staff can review before confirming)
+
+### Scheduled Reports (Background Jobs)
+- [ ] Install Hangfire (or use `IHostedService` + CRON — per ADR)
+- [ ] Implement `IScheduledReportService`:
+  - `GenerateDailyDigest(chapterId)` — overnight activity: new requests, donations received, requests fulfilled, stuck count, overdue count
+  - `GenerateWeeklySummary(chapterId)` — chapter KPIs vs. prior week (trend arrows)
+  - `GenerateHQWeeklySummary()` — cross-chapter roll-up with per-chapter breakdown table
+- [ ] Daily digest job — fires at 6:00 AM local (per chapter timezone) → emails chapter leads
+- [ ] Weekly summary job — fires every Monday 7:00 AM → emails chapter leads + HQ Admin(s)
+- [ ] HQ cross-chapter weekly report — same Monday job, fires after chapter jobs complete
+
 ### Infrastructure
-- [ ] EF Core DbContext + initial migrations
-- [ ] Repository pattern (or direct DbContext — per ADR)
+- [ ] EF Core DbContext + initial migrations (all entities including Chapter)
+- [ ] Chapter-scoped query filter: global `IQueryFilter<IChapterScoped>` automatically applies `WHERE ChapterId = @chapterId` for non-HQ users
 - [ ] Stripe SDK integration (payment processing + webhook verification)
 - [ ] Email service integration (SendGrid or chosen provider)
 - [ ] SMS service integration (optional — Twilio or chosen provider)
 - [ ] Blob storage integration for receipts and documents
-- [ ] Background job infrastructure (Hangfire or hosted service) for email queue, receipt generation
+- [ ] Hangfire dashboard (or equivalent) for monitoring scheduled jobs
 - [ ] `IReceiptService` implementation — generate PDF tax receipt, email to donor
 - [ ] `IAuditService` implementation — write to append-only audit log table
 - [ ] Serilog structured logging
@@ -321,10 +384,11 @@
 **Goal**: Blazor WebAssembly UI with role-based views, donation flow, and Impact & Distribution Dashboard.
 
 ### Shared / Shell
-- [ ] App shell with responsive navigation
-- [ ] Authentication state provider (JWT handling, auto-refresh)
-- [ ] Role-based route guards
-- [ ] Notification toast component
+- [ ] App shell with responsive navigation (chapter name in header for Chapter roles; "National HQ" for HQAdmin)
+- [ ] Authentication state provider (JWT handling, auto-refresh, ChapterId claim)
+- [ ] Role-based route guards (HQAdmin-only routes, Chapter-only routes)
+- [ ] SignalR client service — connect to `RequestsHub` on login, reconnect with state-sync on disconnect
+- [ ] Notification toast component (also used for real-time SignalR push toasts: "New request submitted", "Request escalated")
 - [ ] Loading/spinner component
 - [ ] Reusable chart components (bar, pie, line) — consider MudBlazor or Radzen
 
@@ -351,10 +415,12 @@
 - [ ] Complete/report a request (log outcome and resources used)
 - [ ] My History
 
-### Staff Views
-- [ ] **All Requests dashboard** — filterable/sortable list: status, priority, category, region, date, assigned-to; status badge coloring; overdue indicator
-- [ ] **Unassigned Queue** — dedicated view of requests with no assignee, sorted by priority + age; one-click assign
+### Staff Views (Chapter-Scoped — ChapterStaff / ChapterAdmin)
+- [ ] **Real-Time Operations Board** — live Kanban connected to SignalR `RequestsHub`; cards update automatically when any user changes a request's state; new request cards appear in Submitted column without page refresh; overdue cards pulse red; board scoped to current chapter
+- [ ] **All Requests dashboard** — filterable/sortable list: status, priority, category, date, assigned-to; status badge coloring; overdue indicator; chapter-scoped
+- [ ] **Unassigned Queue** — dedicated view of requests with no assignee, sorted by priority + age; one-click manual assign OR one-click trigger auto-assignment
 - [ ] **Kanban Board View** — requests organized in columns by status (Submitted | Triaged | Matched | In Progress | Fulfilled); drag or button to move cards between columns
+- [ ] **Auto-Assignment Candidates panel** — when manually assigning, show ranked volunteer candidates list (name, distance, skills match %, current workload) so staff can confirm or override the system's recommendation
 - [ ] **Request detail / case management page**:
   - Assign or reassign volunteer/staff
   - Set priority and due date
@@ -373,7 +439,14 @@
 - [ ] Send targeted notification to user(s)
 - [ ] Marketing email composer + send
 
-### Impact & Distribution Dashboard (Staff / Admin / Public)
+### HQ Dashboard (HQAdmin only)
+- [ ] **Cross-Chapter Summary table** — one row per chapter: open requests, overdue requests, fulfilled this month, total donations, active volunteers; click chapter row to drill into that chapter's chapter dashboard
+- [ ] **HQ-wide KPI strip** — national totals: all open requests, all overdue, total donations (all chapters), total volunteers
+- [ ] **Chapter comparison chart** — bar chart comparing chapters on key metrics (requests fulfilled, donations raised) for the current period
+- [ ] **HQ Operations Board** — real-time board showing all chapters' requests (grouped by chapter); receives all `hq-all` SignalR events
+- [ ] **Scheduled Report Management** — configure which chapter leads receive daily/weekly reports; view last-sent report logs
+
+### Impact & Distribution Dashboard (Chapter-Scoped for Chapter roles; HQ sees all-chapter version)
 - [ ] **KPI Summary Cards**: Total money donated, total resources donated, total people helped, total requests fulfilled (all-time and filtered by date range)
 - [ ] **Money Flow panel**: Where money was sent — breakdown by request category, by geographic region, by time period; drill-down to individual allocations
 - [ ] **Resource Distribution panel**: Where resources went — breakdown by resource type, by region, by time period; drill-down to individual allocations
@@ -545,7 +618,7 @@
 - [ ] Volunteer scheduling / calendar
 - [ ] SMS check-in for volunteers on active requests
 - [ ] Public API for third-party integrations (partner organizations)
-- [ ] Online bidding for silent auction (real-time via SignalR — bidders see live updates)
+- [ ] Online bidding for silent auction (real-time SignalR bidding — **NOTE: SignalR IS in scope for the operations board; this exclusion is for live auction bidding only**)
 - [ ] Event QR code check-in (scan QR on ticket to check in attendees)
 - [ ] Sponsorship tracking (corporate sponsors for events, linked to donor record)
 - [ ] Pledge management (donor pledges a future gift, tracked until fulfilled)

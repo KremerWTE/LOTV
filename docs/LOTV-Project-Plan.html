@@ -614,16 +614,16 @@
     <div class="hero-content">
       <p class="hero-eyebrow">Full Project Plan &bull; Statement of Work</p>
       <h1>Lily of the Valley<br><span>Social Services Platform</span></h1>
-      <p>A multi-tenant SaaS coordination platform built on .NET 9 that connects people in need, donors, volunteers, and staff across diocese organizations — enabling service request routing, donation tracking, event management, and real-time impact reporting.</p>
+      <p>A centralized nonprofit platform built on .NET 9 — National HQ with Local Chapters. Connects people in need, donors, and volunteers through auto-assigned service requests, a real-time SignalR operations board, automated daily/weekly reports, and a full financial impact tracking suite.</p>
       <div class="hero-meta">
         <div class="hero-meta-item">
           <strong>6 Phases</strong>Foundation → Launch
         </div>
         <div class="hero-meta-item">
-          <strong>60+ Endpoints</strong>RESTful API
+          <strong>60+ Endpoints</strong>REST + SignalR Hub
         </div>
         <div class="hero-meta-item">
-          <strong>5 User Roles</strong>Staff, Donor, Volunteer…
+          <strong>6 User Roles</strong>HQAdmin · ChapterAdmin…
         </div>
         <div class="hero-meta-item">
           <strong>35+ Entities</strong>Domain Model
@@ -633,8 +633,10 @@
         <span class="badge badge-green">✓ Phase 0 Complete</span>
         <span class="badge badge-purple">Phase 1 Next</span>
         <span class="badge badge-teal">.NET 9 / Blazor WASM</span>
-        <span class="badge badge-teal">Azure Hosting</span>
-        <span class="badge badge-teal">Stripe Payments</span>
+        <span class="badge badge-teal">SignalR Real-Time</span>
+        <span class="badge badge-teal">Hangfire Scheduler</span>
+        <span class="badge badge-teal">Auto-Assignment Engine</span>
+        <span class="badge badge-teal">Azure + Stripe</span>
       </div>
     </div>
   </section>
@@ -643,7 +645,7 @@
   <section class="content-section" id="tech-stack">
     <div class="section-header">
       <h2>Tech Stack</h2>
-      <p>Full-stack .NET 9 solution with Blazor WebAssembly frontend and Azure cloud infrastructure.</p>
+      <p>Full-stack .NET 9 solution. Key automation: <strong>SignalR</strong> real-time ops board, <strong>Hangfire</strong> scheduled reports, <strong>auto-assignment engine</strong> for volunteer matching.</p>
       <div class="divider"></div>
     </div>
     <div class="card-grid card-grid-4">
@@ -696,9 +698,27 @@
         <span class="tech-tag">dotnet test</span>
       </div>
       <div class="tech-card">
+        <div class="tech-icon icon-teal">⚡</div>
+        <h3>SignalR</h3>
+        <p>Real-time operations board. <code>RequestsHub</code> broadcasts state changes to per-chapter groups and <code>hq-all</code> group.</p>
+        <span class="tech-tag">Microsoft.AspNetCore.SignalR</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-amber">🕐</div>
+        <h3>Hangfire</h3>
+        <p>Background job scheduler. Runs daily digest (6 AM) and weekly summary (Monday 7 AM) report jobs per chapter.</p>
+        <span class="tech-tag">Hangfire + Redis</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon icon-green">📍</div>
+        <h3>Auto-Assignment Engine</h3>
+        <p>Scores volunteers by Haversine proximity + skills match + workload. Auto-assigns top candidate or routes to manual queue.</p>
+        <span class="tech-tag">IAutoAssignmentService</span>
+      </div>
+      <div class="tech-card">
         <div class="tech-icon icon-purple">🔑</div>
         <h3>JWT Authentication</h3>
-        <p>Role-based authorization policies for 5 user roles across all protected endpoints.</p>
+        <p>6-role authorization (HQAdmin, ChapterAdmin, ChapterStaff, Volunteer, Donor, PersonInNeed) with chapter-scoped query filter.</p>
         <span class="tech-tag">ASP.NET Core Identity</span>
       </div>
       <div class="tech-card">
@@ -726,40 +746,44 @@
   <section class="content-section" id="architecture">
     <div class="section-header">
       <h2>Architecture</h2>
-      <p>Clean layered architecture. Lotv.Core is the shared kernel referenced by both API and Web.</p>
+      <p>Centralized nonprofit: National HQ → Local Chapters. SignalR real-time hub + Hangfire scheduler + chapter-scoped EF Core query filter.</p>
       <div class="divider"></div>
     </div>
     <div class="arch-diagram">
-      <div class="arch-label">Client Layer</div>
+      <div class="arch-label">Client Layer — Browser / PWA</div>
       <div class="arch-row">
-        <div class="arch-box client">Browser / PWA<small>Blazor WASM</small></div>
-        <div class="arch-box client">Mobile Browser<small>Responsive</small></div>
+        <div class="arch-box client">Lotv.Web<small>Blazor WASM · Chapter views</small></div>
+        <div class="arch-box client">HQ Dashboard<small>Cross-chapter view</small></div>
+        <div class="arch-box client">Real-Time Board<small>SignalR client</small></div>
       </div>
-      <div class="arch-row"><div class="arch-arrow">↕</div></div>
-      <div class="arch-label">Application Layer</div>
+      <div class="arch-row"><div class="arch-arrow">↕ REST + WebSocket (SignalR)</div></div>
+      <div class="arch-label">Application Layer — Lotv.Api (ASP.NET Core :7072)</div>
       <div class="arch-row">
-        <div class="arch-box api">Lotv.Web<small>Blazor WebAssembly</small></div>
-        <div class="arch-arrow">↔</div>
-        <div class="arch-box api">Lotv.Api<small>ASP.NET Core REST API</small></div>
+        <div class="arch-box api">REST Controllers<small>60+ endpoints · JWT · 6 roles</small></div>
+        <div class="arch-box api">RequestsHub<small>SignalR /hubs/requests<br>chapter groups + hq-all</small></div>
+        <div class="arch-box api">Hangfire Jobs<small>AutoAssign · DailyDigest<br>WeeklySummary · HQReport</small></div>
       </div>
-      <div class="arch-row"><div class="arch-arrow">↕</div></div>
+      <div class="arch-row"><div class="arch-arrow">↕ Chapter Query Filter Middleware</div></div>
       <div class="arch-label">Domain Layer</div>
       <div class="arch-row">
-        <div class="arch-box core">Lotv.Core<small>Entities · Interfaces · DTOs</small></div>
-        <div class="arch-box core">Lotv.Tests<small>xUnit · Integration · E2E</small></div>
+        <div class="arch-box core">Lotv.Core<small>Entities · Interfaces · DTOs<br>IAutoAssignmentService<br>IScheduledReportService</small></div>
+        <div class="arch-box core">Lotv.Tests<small>xUnit · Integration · E2E<br>Chapter isolation tests</small></div>
       </div>
       <div class="arch-row"><div class="arch-arrow">↕</div></div>
       <div class="arch-label">Infrastructure &amp; Data Layer</div>
       <div class="arch-row">
-        <div class="arch-box data">SQL Database<small>EF Core / Migrations</small></div>
-        <div class="arch-box infra">Azure Blob<small>File Storage</small></div>
-        <div class="arch-box infra">Stripe<small>Payment Processing</small></div>
-        <div class="arch-box infra">Email / SMS<small>Notifications</small></div>
+        <div class="arch-box data">SQL Database<small>EF Core + Chapter<br>global query filter</small></div>
+        <div class="arch-box infra">Redis<small>Hangfire storage<br>+ SignalR backplane</small></div>
+        <div class="arch-box infra">Stripe<small>Payments</small></div>
+        <div class="arch-box infra">Email<small>Transactional +<br>Scheduled reports</small></div>
+        <div class="arch-box infra">Azure Blob<small>Receipts &amp; docs</small></div>
       </div>
       <div class="ref-lines">
         <span>Lotv.Api → Lotv.Core</span>
         <span>Lotv.Web → Lotv.Core</span>
         <span>Lotv.Tests → Lotv.Core + Lotv.Api</span>
+        <span>HQAdmin: no chapter filter</span>
+        <span>Chapter roles: ChapterId filter auto-applied</span>
       </div>
     </div>
   </section>
@@ -807,17 +831,19 @@
             <span class="phase-name">Phase 1 — Architecture &amp; Design</span>
             <span class="status-pill pill-next">Next Up</span>
           </div>
-          <p class="phase-desc">Key architectural decisions, domain model design, API contract definition, authentication strategy, database selection, and 4 Architecture Decision Records (ADRs).</p>
+          <p class="phase-desc">Key architectural decisions, domain model design, HQ/Chapter scoping, auto-assignment algorithm design, real-time strategy, API contract, and 5 Architecture Decision Records (ADRs).</p>
           <div class="phase-deliverables">
             <span class="deliverable-chip">ERD / Domain Model</span>
             <span class="deliverable-chip">API contract (OpenAPI)</span>
-            <span class="deliverable-chip">Auth strategy (JWT)</span>
+            <span class="deliverable-chip">HQ→Chapter scoping design</span>
+            <span class="deliverable-chip">Auto-assignment algorithm</span>
+            <span class="deliverable-chip">Real-time strategy (SignalR)</span>
+            <span class="deliverable-chip">Auth strategy (JWT · 6 roles)</span>
             <span class="deliverable-chip">Database selection</span>
-            <span class="deliverable-chip">4 ADRs</span>
-            <span class="deliverable-chip">Diocese data model</span>
+            <span class="deliverable-chip">5 ADRs</span>
+            <span class="deliverable-chip">Chapter data model</span>
             <span class="deliverable-chip">Event revenue model</span>
             <span class="deliverable-chip">Escalation rules</span>
-            <span class="deliverable-chip">Silent auction workflow</span>
           </div>
         </div>
       </div>
@@ -832,12 +858,18 @@
             <span class="phase-name">Phase 2 — Core Domain (Lotv.Core)</span>
             <span class="status-pill pill-pending">Pending</span>
           </div>
-          <p class="phase-desc">All 35+ domain entities, 14 service interfaces, enums, value objects, and domain DTOs implemented in <code>Lotv.Core</code> with ≥80% unit test coverage.</p>
+          <p class="phase-desc">All domain entities (including Chapter + Diocese), 16 service interfaces (adding IAutoAssignmentService + IScheduledReportService), enums, value objects, and DTOs in <code>Lotv.Core</code> with ≥80% unit test coverage.</p>
           <div class="phase-deliverables">
+            <span class="deliverable-chip">Chapter entity</span>
             <span class="deliverable-chip">35+ Entity classes</span>
-            <span class="deliverable-chip">14 Service interfaces</span>
-            <span class="deliverable-chip">Enums &amp; Value Objects</span>
-            <span class="deliverable-chip">Dashboard DTOs</span>
+            <span class="deliverable-chip">16 Service interfaces</span>
+            <span class="deliverable-chip">IAutoAssignmentService</span>
+            <span class="deliverable-chip">IScheduledReportService</span>
+            <span class="deliverable-chip">VolunteerScoreResult DTO</span>
+            <span class="deliverable-chip">ChapterSummaryRow DTO</span>
+            <span class="deliverable-chip">DailyDigestReport DTO</span>
+            <span class="deliverable-chip">WeeklySummaryReport DTO</span>
+            <span class="deliverable-chip">6-role UserRole enum</span>
             <span class="deliverable-chip">≥80% unit coverage</span>
           </div>
         </div>
@@ -853,13 +885,17 @@
             <span class="phase-name">Phase 3 — API (Lotv.Api)</span>
             <span class="status-pill pill-pending">Pending</span>
           </div>
-          <p class="phase-desc">60+ REST endpoints with JWT auth, role-based policies, EF Core migrations, Stripe integration, email/SMS notifications, FluentValidation, Serilog, and rate limiting.</p>
+          <p class="phase-desc">60+ REST endpoints, <code>RequestsHub</code> SignalR hub, auto-assignment service, Hangfire scheduled report jobs, chapter-scoped EF Core query filter, Stripe, and all infrastructure wiring.</p>
           <div class="phase-deliverables">
             <span class="deliverable-chip">60+ REST endpoints</span>
-            <span class="deliverable-chip">JWT + role policies</span>
+            <span class="deliverable-chip">RequestsHub (SignalR)</span>
+            <span class="deliverable-chip">Auto-assignment service</span>
+            <span class="deliverable-chip">Hangfire + 4 report jobs</span>
+            <span class="deliverable-chip">Chapter query filter</span>
+            <span class="deliverable-chip">JWT + 6 role policies</span>
             <span class="deliverable-chip">EF Core migrations</span>
             <span class="deliverable-chip">Stripe SDK</span>
-            <span class="deliverable-chip">Email / SMS</span>
+            <span class="deliverable-chip">Email (transactional + reports)</span>
             <span class="deliverable-chip">FluentValidation</span>
             <span class="deliverable-chip">Serilog</span>
             <span class="deliverable-chip">Rate limiting</span>
@@ -878,15 +914,19 @@
             <span class="phase-name">Phase 4 — Frontend (Lotv.Web)</span>
             <span class="status-pill pill-pending">Pending</span>
           </div>
-          <p class="phase-desc">Blazor WASM app with responsive navigation, auth state provider, role-based views for all 5 user types, Impact Dashboard, Donation Tracking Dashboard, Event Management, and Admin.</p>
+          <p class="phase-desc">Blazor WASM with SignalR client, real-time operations board, HQ cross-chapter dashboard, chapter-scoped views for all 6 roles, Impact Dashboard, Donation Tracking Dashboard, and Event Management.</p>
           <div class="phase-deliverables">
             <span class="deliverable-chip">App shell + nav</span>
-            <span class="deliverable-chip">Auth state provider</span>
-            <span class="deliverable-chip">5 role-based view sets</span>
+            <span class="deliverable-chip">SignalR client service</span>
+            <span class="deliverable-chip">Real-time ops board</span>
+            <span class="deliverable-chip">HQ cross-chapter dashboard</span>
+            <span class="deliverable-chip">Auth state provider (ChapterId)</span>
+            <span class="deliverable-chip">6 role-based view sets</span>
+            <span class="deliverable-chip">Auto-assignment candidate panel</span>
             <span class="deliverable-chip">Impact Dashboard</span>
             <span class="deliverable-chip">Donation Dashboard</span>
             <span class="deliverable-chip">Event Management</span>
-            <span class="deliverable-chip">Kanban board</span>
+            <span class="deliverable-chip">Kanban board (live)</span>
             <span class="deliverable-chip">Admin views</span>
           </div>
         </div>
@@ -946,13 +986,14 @@
   <section class="content-section" id="domain">
     <div class="section-header">
       <h2>Domain Model</h2>
-      <p>35+ entities organized across core business domains in <code>Lotv.Core</code>.</p>
+      <p>35+ entities in <code>Lotv.Core</code>. All chapter-scoped entities carry <code>ChapterId</code>; HQAdmin bypasses the global query filter.</p>
       <div class="divider"></div>
     </div>
 
     <div class="entity-group">
-      <h3>Anchor / Identity Entities</h3>
+      <h3>Org Structure Entities</h3>
       <div class="entity-list">
+        <span class="entity-chip anchor">Chapter</span>
         <span class="entity-chip anchor">Diocese</span>
         <span class="entity-chip anchor">ApplicationUser</span>
         <span class="entity-chip anchor">PersonInNeed</span>
@@ -1012,12 +1053,24 @@
     </div>
 
     <div class="entity-group">
-      <h3>Service Interfaces (Lotv.Core)</h3>
+      <h3>Auto-Assignment &amp; Reporting DTOs</h3>
+      <div class="entity-list">
+        <span class="entity-chip dashboard">VolunteerScoreResult</span>
+        <span class="entity-chip dashboard">ChapterSummaryRow</span>
+        <span class="entity-chip dashboard">DailyDigestReport</span>
+        <span class="entity-chip dashboard">WeeklySummaryReport</span>
+      </div>
+    </div>
+
+    <div class="entity-group">
+      <h3>Service Interfaces (Lotv.Core) — 16 total</h3>
       <div class="entity-list">
         <span class="entity-chip">IServiceRequestService</span>
         <span class="entity-chip">IWorkloadService</span>
         <span class="entity-chip">IDonorService</span>
         <span class="entity-chip">IVolunteerService</span>
+        <span class="entity-chip anchor">IAutoAssignmentService</span>
+        <span class="entity-chip anchor">IScheduledReportService</span>
         <span class="entity-chip">IPaymentService</span>
         <span class="entity-chip">IResourceService</span>
         <span class="entity-chip">IAllocationService</span>
@@ -1165,8 +1218,9 @@
       <button class="role-tab active" onclick="showRole(event, 'person')">Person in Need</button>
       <button class="role-tab" onclick="showRole(event, 'donor')">Donor</button>
       <button class="role-tab" onclick="showRole(event, 'volunteer')">Volunteer</button>
-      <button class="role-tab" onclick="showRole(event, 'staff')">Staff</button>
-      <button class="role-tab" onclick="showRole(event, 'admin')">Admin</button>
+      <button class="role-tab" onclick="showRole(event, 'staff')">Chapter Staff</button>
+      <button class="role-tab" onclick="showRole(event, 'hqadmin')">HQ Admin</button>
+      <button class="role-tab" onclick="showRole(event, 'admin')">Chapter Admin</button>
       <button class="role-tab" onclick="showRole(event, 'dashboards')">Dashboards</button>
     </div>
     <div class="role-panels">
@@ -1199,27 +1253,38 @@
       </div>
       <div class="role-panel" id="panel-staff">
         <div class="view-grid">
-          <div class="view-item"><h4>All Requests Dashboard</h4><p>Full-screen table of all requests with filtering, sorting, and bulk actions.</p></div>
-          <div class="view-item"><h4>Unassigned Queue</h4><p>Priority list of requests not yet assigned to any volunteer or staff.</p></div>
-          <div class="view-item"><h4>Kanban Board</h4><p>Drag-and-drop board: Submitted → Assigned → In Progress → Fulfilled → Closed.</p></div>
-          <div class="view-item"><h4>Request Detail</h4><p>Full request view with timeline, notes, assignments, and escalation controls.</p></div>
-          <div class="view-item"><h4>Workload View</h4><p>Per-volunteer capacity and current assignment count for workload balancing.</p></div>
-          <div class="view-item"><h4>Allocation Ledger</h4><p>Track monetary and resource allocations tied to specific service requests.</p></div>
+          <div class="view-item"><h4>Real-Time Operations Board</h4><p>Live Kanban connected to SignalR <code>RequestsHub</code>. Cards appear/move automatically on any state change. Overdue cards pulse red. Chapter-scoped.</p></div>
+          <div class="view-item"><h4>All Requests Dashboard</h4><p>Filterable/sortable table: status, priority, category, date, assigned-to. Chapter-scoped. Overdue indicator.</p></div>
+          <div class="view-item"><h4>Unassigned Queue</h4><p>Priority list of unassigned requests. One-click triggers auto-assignment or opens ranked candidate picker.</p></div>
+          <div class="view-item"><h4>Auto-Assignment Candidates</h4><p>Ranked volunteer list showing name, distance, skills match %, workload count. Staff can confirm or override system's pick.</p></div>
+          <div class="view-item"><h4>Request Detail</h4><p>Full case management: assign/reassign, set priority &amp; due date, status change, internal notes, activity log, allocations.</p></div>
+          <div class="view-item"><h4>Workload View</h4><p>Per-volunteer open/in-progress/overdue counts for workload balancing.</p></div>
+          <div class="view-item"><h4>Allocation Ledger</h4><p>Track monetary and resource allocations tied to service requests.</p></div>
+        </div>
+      </div>
+      <div class="role-panel" id="panel-hqadmin">
+        <div class="view-grid">
+          <div class="view-item"><h4>Cross-Chapter Summary Table</h4><p>One row per chapter: open requests, overdue, fulfilled this month, donations raised, active volunteers. Click to drill into any chapter.</p></div>
+          <div class="view-item"><h4>HQ KPI Strip</h4><p>National totals across all chapters: open requests, overdue, total donations, total volunteers.</p></div>
+          <div class="view-item"><h4>HQ Operations Board</h4><p>Real-time cross-chapter board via <code>hq-all</code> SignalR group. All chapters' requests grouped and visible in one view.</p></div>
+          <div class="view-item"><h4>Chapter Comparison Chart</h4><p>Bar chart comparing chapter performance: requests fulfilled, donations raised, volunteer activity for current period.</p></div>
+          <div class="view-item"><h4>Scheduled Report Config</h4><p>Configure daily digest and weekly summary recipients. View delivery logs and last-sent report previews.</p></div>
+          <div class="view-item"><h4>Global User &amp; Chapter Mgmt</h4><p>Manage all chapters, all users across chapters, and global platform settings.</p></div>
         </div>
       </div>
       <div class="role-panel" id="panel-admin">
         <div class="view-grid">
-          <div class="view-item"><h4>User Management</h4><p>Create, edit, deactivate users; assign roles (Staff, Volunteer, Donor, etc.).</p></div>
-          <div class="view-item"><h4>Diocese Management</h4><p>Add/edit dioceses used as organizational groupings for donors and requests.</p></div>
-          <div class="view-item"><h4>System Configuration</h4><p>Platform settings: escalation thresholds, notification templates, integrations.</p></div>
-          <div class="view-item"><h4>Audit Log</h4><p>Full system audit trail: who did what, when, with before/after values.</p></div>
+          <div class="view-item"><h4>Chapter User Management</h4><p>Create, edit, deactivate users within this chapter; assign roles (ChapterStaff, Volunteer, Donor, PersonInNeed).</p></div>
+          <div class="view-item"><h4>Chapter &amp; Diocese Management</h4><p>Edit chapter details; manage dioceses mapped to this chapter for donor tracking.</p></div>
+          <div class="view-item"><h4>Chapter Configuration</h4><p>Escalation thresholds, auto-assignment scoring weights, notification templates, acceptance window duration.</p></div>
+          <div class="view-item"><h4>Chapter Audit Log</h4><p>Chapter-scoped audit trail: who did what, when, with before/after values.</p></div>
         </div>
       </div>
       <div class="role-panel" id="panel-dashboards">
         <div class="view-grid">
-          <div class="view-item"><h4>Impact &amp; Distribution Dashboard</h4><p>KPI cards, money flow chart, resource distribution, geographic map, activity timeline, category breakdown, and full allocation ledger.</p></div>
-          <div class="view-item"><h4>Donation Tracking Dashboard</h4><p>Donations segmented by person, diocese, city, channel (Online/Check/Cash/InKind), and amount band. Full donor ledger with drill-down.</p></div>
-          <div class="view-item"><h4>Event Management Dashboard</h4><p>Upcoming events, event detail, attendee management, check-in, silent auction tracking, RSVP, and revenue summary.</p></div>
+          <div class="view-item"><h4>Impact &amp; Distribution Dashboard</h4><p>KPI cards, money flow chart, resource distribution, geographic map, activity timeline, category breakdown, and full allocation ledger. Chapter-scoped for Chapter roles; all-chapter for HQ.</p></div>
+          <div class="view-item"><h4>Donation Tracking Dashboard</h4><p>Donations by person, diocese, city, channel (Online/Check/Cash/InKind), and amount band. Full donor ledger with drill-down.</p></div>
+          <div class="view-item"><h4>Event Management Dashboard</h4><p>Upcoming events, attendee management, check-in, silent auction tracking, RSVP, and revenue summary.</p></div>
         </div>
       </div>
     </div>
