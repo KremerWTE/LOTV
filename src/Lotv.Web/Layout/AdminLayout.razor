@@ -235,6 +235,15 @@
       </div>
     </div>
 
+    <!-- DEMO BANNER -->
+    @if (_showDemoBanner)
+    {
+      <div style="background:#fffbeb;border-bottom:1px solid #fde68a;padding:7px 24px;display:flex;align-items:center;justify-content:space-between;font-size:.78rem;color:#92400e;">
+        <span>&#9888; <strong>Demo mode</strong> — all data is in-memory and resets on page refresh. No real data is stored.</span>
+        <button style="background:none;border:none;cursor:pointer;color:#92400e;font-size:.8rem;padding:2px 6px;" @onclick='() => _showDemoBanner = false'>Dismiss</button>
+      </div>
+    }
+
     <!-- PAGE CONTENT -->
     <div class="lotv-content">
       @Body
@@ -247,6 +256,8 @@
   private int _openCount;
   private int _pendingAlloc;
   private string _pageTitle = "Dashboard Overview";
+
+  private bool _showDemoBanner = true;
 
   // Role-based visibility
   private bool _isAdmin        => Auth.UserRole is "Administrator";

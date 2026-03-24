@@ -15,19 +15,19 @@
     <div class="panel-body">
       <div class="form-group">
         <label class="form-label">Ministry Name</label>
-        <input class="form-input" value="Lily of the Valley Ministry" />
+        <input class="form-input" @bind="_orgName" />
       </div>
       <div class="form-group">
         <label class="form-label">Contact Email</label>
-        <input class="form-input" type="email" value="info@lotvministry.org" />
+        <input class="form-input" type="email" @bind="_orgEmail" />
       </div>
       <div class="form-group">
         <label class="form-label">Phone</label>
-        <input class="form-input" value="" placeholder="(555) 000-0000" />
+        <input class="form-input" @bind="_orgPhone" placeholder="(555) 000-0000" />
       </div>
       <div class="form-group">
         <label class="form-label">Website</label>
-        <input class="form-input" value="lotvministry.org" />
+        <input class="form-input" @bind="_orgWebsite" />
       </div>
       <button class="btn btn-primary btn-sm" @onclick="SaveOrg">Save</button>
     </div>
@@ -113,7 +113,11 @@
 }
 
 @code {
-  private int _overduedays = 7;
+  private string _orgName    = "Lily of the Valley Ministry";
+  private string _orgEmail   = "info@lotvministry.org";
+  private string _orgPhone   = "";
+  private string _orgWebsite = "lotvministry.org";
+  private int    _overduedays = 7;
   private string? _savedMsg;
 
   private async Task ShowToast(string section)
