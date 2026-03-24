@@ -35,6 +35,7 @@ public interface IMockDataService
     // Events
     List<MinistryEvent> GetEvents();
     void AddEvent(MinistryEvent e);
+    void UpdateEvent(MinistryEvent e);
 
     // Parishes & Dioceses
     List<Parish> GetParishes();

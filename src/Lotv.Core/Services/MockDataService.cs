@@ -70,6 +70,7 @@ public class MockDataService : IMockDataService
     // ── Events ────────────────────────────────────────────────────────────────
     public List<MinistryEvent> GetEvents() => _events;
     public void AddEvent(MinistryEvent e) { e.Id = _events.Count > 0 ? _events.Max(x => x.Id) + 1 : 1; _events.Add(e); }
+    public void UpdateEvent(MinistryEvent e) { var i = _events.FindIndex(x => x.Id == e.Id); if (i >= 0) _events[i] = e; }
 
     // ── Parishes & Dioceses ───────────────────────────────────────────────────
     public List<Parish> GetParishes() => _parishes;

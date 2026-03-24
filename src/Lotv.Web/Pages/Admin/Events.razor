@@ -98,6 +98,20 @@
         {
           <div style="font-size:.78rem;color:var(--text-mid);">@e.Registered registered &mdash; no capacity limit</div>
         }
+
+        <!-- Registration controls + Edit -->
+        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+          @if (!isPast)
+          {
+            <div style="display:flex;align-items:center;gap:6px;flex:1;">
+              <button class="btn btn-sm" style="padding:3px 10px;" @onclick="() => AdjustReg(e, -1)" disabled="@(e.Registered <= 0)">&#8722;</button>
+              <span style="font-size:.82rem;font-weight:600;min-width:24px;text-align:center;">@e.Registered</span>
+              <button class="btn btn-sm" style="padding:3px 10px;" @onclick="() => AdjustReg(e, +1)" disabled="@(e.Capacity.HasValue && e.Registered >= e.Capacity)">&#43;</button>
+              <span style="font-size:.72rem;color:var(--text-light);">registered</span>
+            </div>
+          }
+          <button class="btn btn-sm" @onclick="() => OpenEdit(e)">Edit</button>
+        </div>
       </div>
     </div>
   }
@@ -114,7 +128,7 @@
   <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseAdd"></div>
   <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
     <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <h3 style="font-family:var(--ff-head);">Add Event</h3>
+      <h3 style="font-family:var(--ff-head);">@(_editing == null ? "Add Event" : "Edit Event")</h3>
       <button class="btn btn-sm" @onclick="CloseAdd">&#10005;</button>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
@@ -173,7 +187,7 @@
       { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_addError</div> }
 
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" @onclick="SaveEvent">Save Event</button>
+        <button class="btn btn-primary" @onclick="SaveEvent">@(_editing == null ? "Create Event" : "Save Changes")</button>
         <button class="btn" @onclick="CloseAdd">Cancel</button>
       </div>
       @if (_addSaved)
@@ -189,6 +203,7 @@
   private bool _addSaved;
   private string _addError = "";
   private MinistryEvent _form = new();
+  private MinistryEvent? _editing;
   private string _formDate = "";
   private string _formType = "Gala";
   private int? _formCapacity;
@@ -206,6 +221,7 @@
 
   private void OpenAdd()
   {
+    _editing  = null;
     _form     = new MinistryEvent { Date = DateTime.UtcNow.AddDays(30) };
     _formDate = _form.Date.ToString("yyyy-MM-ddTHH:mm");
     _formType = Enum.GetValues<EventType>().First().ToString();
@@ -215,7 +231,32 @@
     _showAdd  = true;
   }
 
-  private void CloseAdd() { _showAdd = false; _addSaved = false; _addError = ""; }
+  private void OpenEdit(MinistryEvent ev)
+  {
+    _editing      = ev;
+    _form         = new MinistryEvent
+    {
+      Id          = ev.Id,
+      Title       = ev.Title,
+      Type        = ev.Type,
+      Date        = ev.Date,
+      Location    = ev.Location,
+      Description = ev.Description,
+      Capacity    = ev.Capacity,
+      Registered  = ev.Registered,
+      IsVirtual   = ev.IsVirtual,
+      MeetingLink = ev.MeetingLink,
+      Notes       = ev.Notes
+    };
+    _formDate     = ev.Date.ToString("yyyy-MM-ddTHH:mm");
+    _formType     = ev.Type.ToString();
+    _formCapacity = ev.Capacity;
+    _addError     = "";
+    _addSaved     = false;
+    _showAdd      = true;
+  }
+
+  private void CloseAdd() { _showAdd = false; _addSaved = false; _addError = ""; _editing = null; }
 
   private void SaveEvent()
   {
@@ -234,10 +275,27 @@
 
     _form.Capacity = _formCapacity;
 
-    Data.AddEvent(_form);
-    Data.LogAction(Auth.UserName, "Created", "MinistryEvent", _form.Id.ToString(), $"Event: {_form.Title} on {_form.Date:MMM d, yyyy}");
+    if (_editing == null)
+    {
+      Data.AddEvent(_form);
+      Data.LogAction(Auth.UserName, "Created", "MinistryEvent", _form.Id.ToString(), $"Event: {_form.Title} on {_form.Date:MMM d, yyyy}");
+    }
+    else
+    {
+      Data.UpdateEvent(_form);
+      Data.LogAction(Auth.UserName, "Updated", "MinistryEvent", _form.Id.ToString(), $"Updated event: {_form.Title}");
+    }
+
     _events   = Data.GetEvents();
     _addSaved = true;
     _addError = "";
+    _editing  = null;
+  }
+
+  private void AdjustReg(MinistryEvent ev, int delta)
+  {
+    ev.Registered = Math.Max(0, ev.Registered + delta);
+    if (ev.Capacity.HasValue) ev.Registered = Math.Min(ev.Registered, ev.Capacity.Value);
+    Data.UpdateEvent(ev);
   }
 }
