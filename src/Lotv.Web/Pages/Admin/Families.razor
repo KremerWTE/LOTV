@@ -271,7 +271,7 @@
   {
     if (_selected is null) return;
     Data.UpdateFamily(_selected);
-    Data.LogAction(Auth.UserName, "Updated", "Family", _selected.Id.ToString(), $"Status set to {_selected.Status}");
+    Data.LogAction(Auth.UserName, "Updated", "Family", _selected.Id.ToString(), $"{_selected.FullName} — status: {_selected.Status}");
     _drawerSaved = true;
   }
 

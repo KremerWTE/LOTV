@@ -58,8 +58,12 @@
         <tr>
           <th>#</th>
           <th>Donor</th>
-          <th>Amount</th>
-          <th>Date</th>
+          <th style="cursor:pointer;user-select:none;" @onclick='() => Sort("Amount")'>
+            Amount @SortArrow("Amount")
+          </th>
+          <th style="cursor:pointer;user-select:none;" @onclick='() => Sort("Date")'>
+            Date @SortArrow("Date")
+          </th>
           <th>Channel</th>
           <th>Campaign</th>
           <th>Allocation</th>
@@ -184,6 +188,8 @@
   private decimal _unallocated;
   private string _activeFilter = "All";
   private string _search = "";
+  private string _sortCol = "Date";
+  private bool _sortDesc = true;
   private bool _showAdd;
   private bool _savedToast;
 
@@ -200,24 +206,37 @@
 
   private readonly string[] _filters = ["All", "This Month", "Online", "Check", "Gala", "Unallocated", "Recurring"];
 
-  private IEnumerable<Donation> Filtered => _all.Where(d =>
+  private IEnumerable<Donation> Filtered
   {
-    var now = DateTime.UtcNow;
-    var matchFilter = _activeFilter switch
+    get
     {
-      "This Month" => d.Date.Year == now.Year && d.Date.Month == now.Month,
-      "Online"     => d.Channel == DonationChannel.Online,
-      "Check"      => d.Channel == DonationChannel.Check,
-      "Gala"       => d.Channel == DonationChannel.Gala,
-      "Unallocated"=> d.AllocationStatus == AllocationStatus.Unallocated,
-      "Recurring"  => d.IsRecurring,
-      _            => true
-    };
-    var matchSearch = string.IsNullOrEmpty(_search) ||
-      (d.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
-      (d.Campaign?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
-    return matchFilter && matchSearch;
-  }).OrderByDescending(d => d.Date);
+      var now = DateTime.UtcNow;
+      var q = _all.Where(d =>
+      {
+        var matchFilter = _activeFilter switch
+        {
+          "This Month" => d.Date.Year == now.Year && d.Date.Month == now.Month,
+          "Online"     => d.Channel == DonationChannel.Online,
+          "Check"      => d.Channel == DonationChannel.Check,
+          "Gala"       => d.Channel == DonationChannel.Gala,
+          "Unallocated"=> d.AllocationStatus == AllocationStatus.Unallocated,
+          "Recurring"  => d.IsRecurring,
+          _            => true
+        };
+        var matchSearch = string.IsNullOrEmpty(_search) ||
+          (d.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+          (d.Campaign?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+        return matchFilter && matchSearch;
+      });
+      return (_sortCol, _sortDesc) switch
+      {
+        ("Amount", true)  => q.OrderByDescending(d => d.Amount),
+        ("Amount", false) => q.OrderBy(d => d.Amount),
+        (_, true)         => q.OrderByDescending(d => d.Date),
+        _                 => q.OrderBy(d => d.Date),
+      };
+    }
+  }
 
   protected override void OnInitialized() => Load();
 
@@ -327,4 +346,13 @@
     await Task.Delay(2500);
     _savedToast = false;
   }
+
+  private void Sort(string col)
+  {
+    if (_sortCol == col) _sortDesc = !_sortDesc;
+    else { _sortCol = col; _sortDesc = true; }
+  }
+
+  private string SortArrow(string col) =>
+    _sortCol != col ? "&#8597;" : _sortDesc ? "&#8595;" : "&#8593;";
 }

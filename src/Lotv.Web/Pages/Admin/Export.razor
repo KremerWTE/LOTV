@@ -188,9 +188,9 @@
   private Task ExportFamiliesFiltered(List<Family> rows, string filename, string label)
   {
     var sb = new System.Text.StringBuilder();
-    sb.AppendLine("FirstName,LastName,Email,Phone,City,State,Parish,Reason,Status,Created");
+    sb.AppendLine("FirstName,LastName,Email,Phone,City,State,Parish,Reason,Status,Created,ContactNotes");
     foreach (var f in rows)
-      sb.AppendLine($"{Esc(f.Parent1FirstName)},{Esc(f.Parent1LastName)},{Esc(f.Email)},{Esc(f.Phone)},{Esc(f.City)},{Esc(f.State)},{Esc(f.ParishName)},{f.Reason},{f.Status},{f.CreatedAt:yyyy-MM-dd}");
+      sb.AppendLine($"{Esc(f.Parent1FirstName)},{Esc(f.Parent1LastName)},{Esc(f.Email)},{Esc(f.Phone)},{Esc(f.City)},{Esc(f.State)},{Esc(f.ParishName)},{f.Reason},{f.Status},{f.CreatedAt:yyyy-MM-dd},{Esc(f.ContactNotes)}");
     return Download(filename, label, sb.ToString());
   }
 
