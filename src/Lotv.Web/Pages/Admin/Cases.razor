@@ -317,7 +317,7 @@
   private string _newError = "";
   private Volunteer? _nextVol;
 
-  private readonly string[] _filters = ["All", "New", "In Progress", "Awaiting Shipment", "Shipped", "Fulfilled", "On Hold", "Overdue"];
+  private readonly string[] _filters = ["All", "New", "In Progress", "Awaiting Shipment", "Shipped", "Fulfilled", "On Hold", "Cancelled", "Overdue"];
 
   protected override void OnInitialized()
   {
@@ -366,6 +366,7 @@
         "Shipped"           => r.Status == CaseStatus.Shipped,
         "Fulfilled"         => r.Status == CaseStatus.Fulfilled,
         "On Hold"           => r.Status == CaseStatus.OnHold,
+        "Cancelled"         => r.Status == CaseStatus.Cancelled,
         "Overdue"           => r.IsOverdue,
         _                   => true
       };

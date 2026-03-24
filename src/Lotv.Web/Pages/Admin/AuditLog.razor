@@ -37,7 +37,7 @@
 
 <!-- FILTER BAR -->
 <div class="filter-bar">
-  @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged"})
+  @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged","Deleted"})
   { <button class="filter-chip @(_actionFilter == f ? "active" : "")" @onclick="() => _actionFilter = f">@f</button> }
   <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
   @foreach (var d in new[]{"All Time","Today","This Week","This Month"})
@@ -109,6 +109,7 @@
     "approved" => "badge-fulfilled",
     "exported" => "badge-shipped",
     "flagged"  => "badge-onhold",
+    "deleted"  => "badge-cancelled",
     _          => "badge-new"
   };
 }

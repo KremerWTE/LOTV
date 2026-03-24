@@ -12,13 +12,16 @@
     <p>Open, overdue, and capacity per volunteer</p>
   </div>
   <div class="page-hd-actions">
+    <button class="btn btn-sm @(_activeOnly ? "btn-primary" : "")" @onclick="() => _activeOnly = !_activeOnly">
+      @(_activeOnly ? "Active Only" : "All Volunteers")
+    </button>
     <button class="btn btn-sm btn-primary" @onclick='() => Nav.NavigateTo("/admin/cases?new=1")'>&#43; New Request</button>
     <a href="/admin/cases" class="btn btn-sm">All Cases</a>
   </div>
 </div>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;">
-  @foreach (var row in _rows)
+  @foreach (var row in _activeOnly ? _rows.Where(r => r.Volunteer.Status == VolunteerStatus.Active) : _rows)
   {
     <div class="panel">
       <div class="panel-head">
@@ -120,6 +123,7 @@
 
   private List<WorkloadRow> _rows = [];
   private List<Volunteer> _allVolunteers = [];
+  private bool _activeOnly = true;
   private PackageRequest? _reassignCase;
   private string _reassignTo = "";
   private bool _reassignToast;
@@ -177,6 +181,7 @@
     CaseStatus.Shipped    => "badge-shipped",
     CaseStatus.Fulfilled  => "badge-fulfilled",
     CaseStatus.OnHold     => "badge-onhold",
+    CaseStatus.Cancelled  => "badge-cancelled",
     _ => ""
   };
 }

@@ -128,6 +128,8 @@
         <label class="form-label">Parish</label>
         <input class="form-input" @bind="_formParish" />
       </div>
+      @if (!string.IsNullOrEmpty(_validationError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_validationError</div> }
     </div>
     <div class="drawer-footer">
       <button class="btn btn-primary" @onclick="Save">Save</button>
@@ -151,6 +153,7 @@
   private string _search = "";
   private bool _drawerOpen;
   private bool _savedMsg;
+  private string _validationError = "";
   private Volunteer? _editing;
 
   // Form fields (flat strings to avoid model property mismatch)
@@ -196,27 +199,35 @@
     _formLast   = "";
     _formEmail  = "";
     _formPhone  = "";
-    _formRole   = VolunteerRole.PackageAssembler;
-    _formStatus = VolunteerStatus.Active;
-    _formParish = "";
+    _formRole         = VolunteerRole.PackageAssembler;
+    _formStatus       = VolunteerStatus.Active;
+    _formParish       = "";
+    _validationError  = "";
     _drawerOpen = true;
   }
 
   private void OpenEdit(Volunteer v)
   {
-    _editing    = v;
-    _formFirst  = v.FirstName;
-    _formLast   = v.LastName;
-    _formEmail  = v.Email;
-    _formPhone  = v.Phone ?? "";
-    _formRole   = v.Role;
-    _formStatus = v.Status;
-    _formParish = v.ParishName ?? "";
+    _editing          = v;
+    _formFirst        = v.FirstName;
+    _formLast         = v.LastName;
+    _formEmail        = v.Email;
+    _formPhone        = v.Phone ?? "";
+    _formRole         = v.Role;
+    _formStatus       = v.Status;
+    _formParish       = v.ParishName ?? "";
+    _validationError  = "";
     _drawerOpen = true;
   }
 
   private async Task Save()
   {
+    _validationError = "";
+    if (string.IsNullOrWhiteSpace(_formFirst) || string.IsNullOrWhiteSpace(_formLast))
+    { _validationError = "First and last name are required."; return; }
+    if (string.IsNullOrWhiteSpace(_formEmail))
+    { _validationError = "Email address is required."; return; }
+
     if (_editing == null)
     {
       var vol = new Volunteer
@@ -253,7 +264,7 @@
     _savedMsg = false;
   }
 
-  private void CloseDrawer() => _drawerOpen = false;
+  private void CloseDrawer() { _drawerOpen = false; _validationError = ""; }
 
   private static string RoleBadge(VolunteerRole r) => r switch
   {
