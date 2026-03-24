@@ -44,13 +44,13 @@
       </div>
       <div class="form-group">
         <label class="form-label">Default Case Assignee</label>
-        <select class="form-input">
-          <option>Round-robin (auto)</option>
-          <option>Unassigned</option>
+        <select class="form-input" @bind="_defaultAssignee">
+          <option value="round-robin">Round-robin (auto)</option>
+          <option value="unassigned">Unassigned</option>
         </select>
       </div>
       <div class="form-group" style="display:flex;align-items:center;gap:10px;">
-        <input type="checkbox" id="chk-autoassign" checked />
+        <input type="checkbox" id="chk-autoassign" @bind="_autoAssign" />
         <label for="chk-autoassign" class="form-label" style="margin:0;">Auto-assign new requests to next available volunteer</label>
       </div>
       <button class="btn btn-primary btn-sm" @onclick="SaveCaseDefaults">Save</button>
@@ -62,19 +62,19 @@
     <div class="panel-head"><h3>Notifications</h3></div>
     <div class="panel-body">
       <div class="form-group" style="display:flex;align-items:center;gap:10px;">
-        <input type="checkbox" id="chk-n1" checked />
+        <input type="checkbox" id="chk-n1" @bind="_notifyNewRequest" />
         <label for="chk-n1" class="form-label" style="margin:0;">Email on new family request</label>
       </div>
       <div class="form-group" style="display:flex;align-items:center;gap:10px;">
-        <input type="checkbox" id="chk-n2" checked />
+        <input type="checkbox" id="chk-n2" @bind="_notifyOverdue" />
         <label for="chk-n2" class="form-label" style="margin:0;">Email on overdue case</label>
       </div>
       <div class="form-group" style="display:flex;align-items:center;gap:10px;">
-        <input type="checkbox" id="chk-n3" />
+        <input type="checkbox" id="chk-n3" @bind="_notifyDigest" />
         <label for="chk-n3" class="form-label" style="margin:0;">Daily digest email</label>
       </div>
       <div class="form-group" style="display:flex;align-items:center;gap:10px;">
-        <input type="checkbox" id="chk-n4" checked />
+        <input type="checkbox" id="chk-n4" @bind="_notifyUnallocated" />
         <label for="chk-n4" class="form-label" style="margin:0;">Notify on unallocated funds (weekly)</label>
       </div>
       <button class="btn btn-primary btn-sm" @onclick="SaveNotifications">Save</button>
@@ -87,16 +87,16 @@
     <div class="panel-body">
       <div class="form-group">
         <label class="form-label">Audit Log Retention</label>
-        <select class="form-input">
-          <option>1 year</option>
-          <option selected>3 years</option>
-          <option>7 years</option>
-          <option>Indefinite</option>
+        <select class="form-input" @bind="_auditRetention">
+          <option value="1 year">1 year</option>
+          <option value="3 years">3 years</option>
+          <option value="7 years">7 years</option>
+          <option value="Indefinite">Indefinite</option>
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">Anonymize families after fulfillment (days)</label>
-        <input class="form-input" type="number" value="365" />
+        <input class="form-input" type="number" @bind="_anonymizeDays" />
         <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">Set 0 to disable anonymization.</div>
       </div>
       <button class="btn btn-primary btn-sm" @onclick="SavePrivacy">Save</button>
@@ -117,7 +117,15 @@
   private string _orgEmail   = "info@lotvministry.org";
   private string _orgPhone   = "";
   private string _orgWebsite = "lotvministry.org";
-  private int    _overduedays = 7;
+  private int    _overduedays      = 7;
+  private string _defaultAssignee  = "round-robin";
+  private bool   _autoAssign       = true;
+  private bool   _notifyNewRequest = true;
+  private bool   _notifyOverdue    = true;
+  private bool   _notifyDigest     = false;
+  private bool   _notifyUnallocated= true;
+  private string _auditRetention   = "3 years";
+  private int    _anonymizeDays    = 365;
   private string? _savedMsg;
 
   private async Task ShowToast(string section)
