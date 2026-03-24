@@ -93,7 +93,10 @@
     </div>
     <div class="drawer-footer">
       <button class="btn btn-primary" @onclick="SaveFromDrawer">Save Changes</button>
-      <a href="/admin/cases" class="btn btn-sm">Full Details &rarr;</a>
+      @if (_selected.Family is not null)
+      { <a href="/admin/families?family=@_selected.Family.Id" class="btn btn-sm">Family Profile &rarr;</a> }
+      else
+      { <a href="/admin/cases" class="btn btn-sm">All Cases &rarr;</a> }
     </div>
   </div>
 }

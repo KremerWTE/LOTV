@@ -211,6 +211,8 @@
 }
 
 @code {
+  [Parameter][SupplyParameterFromQuery(Name = "family")] public int FamilyId { get; set; }
+
   private List<Family> _families = [];
   private List<PackageRequest> _requests = [];
   private Dictionary<int, List<PackageRequest>> _requestsByFamily = new();
@@ -247,6 +249,12 @@
     _requestsByFamily = _requests
       .GroupBy(r => r.FamilyId)
       .ToDictionary(g => g.Key, g => g.ToList());
+
+    if (FamilyId > 0)
+    {
+      var target = _families.FirstOrDefault(f => f.Id == FamilyId);
+      if (target is not null) OpenFamily(target);
+    }
   }
 
   private void OpenFamily(Family f) { _selected = f; _drawerSaved = false; }
