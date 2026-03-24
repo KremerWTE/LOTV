@@ -40,6 +40,7 @@
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Active","Inactive","Package Assembler","Prayer Ambassador","Parish Liaison","Event Helper","Driver","Admin"})
   { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search name or email..." @bind="_search" @bind:event="oninput" />
 </div>
 
 <!-- TABLE -->
@@ -143,8 +144,11 @@
 }
 
 @code {
+  [Parameter][SupplyParameterFromQuery(Name = "q")] public string SearchQ { get; set; } = "";
+
   private List<Volunteer> _vols = [];
   private string _filter = "All";
+  private string _search = "";
   private bool _drawerOpen;
   private bool _savedMsg;
   private Volunteer? _editing;
@@ -158,20 +162,32 @@
   private VolunteerStatus _formStatus = VolunteerStatus.Active;
   private string _formParish = "";
 
-  private IEnumerable<Volunteer> Filtered => _vols.Where(v => _filter switch
+  private IEnumerable<Volunteer> Filtered => _vols.Where(v =>
   {
-    "Active"            => v.Status == VolunteerStatus.Active,
-    "Inactive"          => v.Status != VolunteerStatus.Active,
-    "Package Assembler" => v.Role == VolunteerRole.PackageAssembler,
-    "Prayer Ambassador" => v.Role == VolunteerRole.PrayerAmbassador,
-    "Parish Liaison"    => v.Role == VolunteerRole.ParishLiaison,
-    "Event Helper"      => v.Role == VolunteerRole.EventHelper,
-    "Driver"            => v.Role == VolunteerRole.Driver,
-    "Admin"             => v.Role == VolunteerRole.Admin,
-    _                   => true
+    var matchFilter = _filter switch
+    {
+      "Active"            => v.Status == VolunteerStatus.Active,
+      "Inactive"          => v.Status != VolunteerStatus.Active,
+      "Package Assembler" => v.Role == VolunteerRole.PackageAssembler,
+      "Prayer Ambassador" => v.Role == VolunteerRole.PrayerAmbassador,
+      "Parish Liaison"    => v.Role == VolunteerRole.ParishLiaison,
+      "Event Helper"      => v.Role == VolunteerRole.EventHelper,
+      "Driver"            => v.Role == VolunteerRole.Driver,
+      "Admin"             => v.Role == VolunteerRole.Admin,
+      _                   => true
+    };
+    var matchSearch = string.IsNullOrEmpty(_search) ||
+      v.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+      v.Email.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+      (v.ParishName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+    return matchFilter && matchSearch;
   });
 
-  protected override void OnInitialized() => _vols = Data.GetVolunteers();
+  protected override void OnInitialized()
+  {
+    _vols = Data.GetVolunteers();
+    if (!string.IsNullOrEmpty(SearchQ)) _search = SearchQ;
+  }
 
   private void OpenAdd()
   {

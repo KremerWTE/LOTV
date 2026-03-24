@@ -213,7 +213,11 @@
       </div>
 
       <div>
-        <div class="form-label" style="margin-bottom:8px;">Assigned To</div>
+        <div class="form-label" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+          <span>Assigned To</span>
+          @if (!string.IsNullOrEmpty(_selected.AssignedTo))
+          { <a href="/admin/volunteers?q=@Uri.EscapeDataString(_selected.AssignedTo)" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Volunteer &rarr;</a> }
+        </div>
         <select class="form-select" @bind="_selected.AssignedTo">
           <option value="">— Unassigned —</option>
           @foreach (var v in _volunteers)

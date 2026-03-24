@@ -8,6 +8,12 @@
   <div><h2>Donations by Channel</h2><p>Breakdown of giving by source / method</p></div>
 </div>
 
+<!-- DATE FILTER -->
+<div class="filter-bar" style="margin-bottom:20px;">
+  @foreach (var f in new[]{"All Time","This Year","This Month","Last Month"})
+  { <button class="filter-chip @(_dateFilter == f ? "active" : "")" @onclick="() => SetFilter(f)">@f</button> }
+</div>
+
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:24px;">
   <div class="kpi-card kpi-green">
@@ -49,7 +55,7 @@
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>All Donations by Channel</h3></div>
+  <div class="panel-head"><h3>@_dateFilter — Donations by Channel</h3></div>
   <div class="panel-body" style="padding:0;">
     <table class="data-table">
       <thead><tr><th>Channel</th><th>Gifts</th><th>Total</th><th>Avg Gift</th><th>% of Total</th></tr></thead>
@@ -79,10 +85,23 @@
   private record ChannelRow(string Channel, int Count, decimal Amount);
   private List<ChannelRow> _rows = [];
   private decimal _total;
+  private string _dateFilter = "All Time";
 
-  protected override void OnInitialized()
+  protected override void OnInitialized() => Recalculate();
+
+  private void SetFilter(string f) { _dateFilter = f; Recalculate(); }
+
+  private void Recalculate()
   {
-    _rows = Data.GetDonations()
+    var now = DateTime.UtcNow;
+    var source = _dateFilter switch
+    {
+      "This Year"  => Data.GetDonations().Where(d => d.Date.Year == now.Year),
+      "This Month" => Data.GetDonations().Where(d => d.Date.Year == now.Year && d.Date.Month == now.Month),
+      "Last Month" => Data.GetDonations().Where(d => d.Date.Year == now.AddMonths(-1).Year && d.Date.Month == now.AddMonths(-1).Month),
+      _            => Data.GetDonations().AsEnumerable()
+    };
+    _rows = source
       .GroupBy(d => d.Channel.ToString())
       .Select(g => new ChannelRow(g.Key, g.Count(), g.Sum(d => d.Amount)))
       .OrderByDescending(r => r.Amount)
