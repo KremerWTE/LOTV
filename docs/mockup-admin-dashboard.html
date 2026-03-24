@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LOTV Admin Dashboard — Staff Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #487336;
+      --green-dark:  #2d4e1e;
+      --green-light: #6a9e52;
+      --green-pale:  #eaf2e5;
+      --navy:        #2d469d;
+      --navy-dark:   #1e3070;
+      --navy-pale:   #e8ecf8;
+      --cream:       #faf7f2;
+      --blush:       #c4938b;
+      --blush-pale:  #f5ede9;
+      --gold:        #c8a45a;
+      --gold-pale:   #faf0dd;
+      --lavender:    #9b8bb4;
+      --lav-pale:    #f0ecf8;
+      --red:         #d64b3f;
+      --red-pale:    #fdecea;
+      --amber:       #d4822a;
+      --amber-pale:  #fef3e2;
+      --text-dark:   #1a2810;
+      --text-mid:    #4a5e3a;
+      --text-light:  #7a9268;
+      --border:      #d8e6cf;
+      --bg:          #f0f4ec;
+      --white:       #ffffff;
+      --sidebar-w:   240px;
+      --header-h:    60px;
+      --radius:      10px;
+      --shadow:      0 2px 12px rgba(26,40,16,.08);
+      --ff-head:     'Playfair Display', Georgia, serif;
+      --ff-body:     'Inter', system-ui, sans-serif;
+    }
+
+    html, body { height: 100%; }
+    body { font-family: var(--ff-body); background: var(--bg); color: var(--text-dark); display: flex; flex-direction: column; overflow-x: hidden; }
+
+    /* ── LAYOUT ── */
+    .app { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--green-dark); color: white;
+      display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto;
+    }
+    .sidebar-logo {
+      padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,.1);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sidebar-logo-img { height: 36px; width: auto; object-fit: contain; display: block; flex-shrink: 0; filter: brightness(0) invert(1); }
+    .sidebar-logo-text strong { display: block; font-size: .9rem; font-family: var(--ff-head); }
+    .sidebar-logo-text span { font-size: .68rem; opacity: .5; }
+    .sidebar-section { padding: 20px 12px 4px; }
+    .sidebar-section-label { font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .45; padding: 0 8px; margin-bottom: 6px; }
+    .sidebar-link {
+      display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px;
+      color: rgba(255,255,255,.7); text-decoration: none; font-size: .875rem;
+      cursor: pointer; transition: all .15s; margin-bottom: 2px; user-select: none;
+    }
+    .sidebar-link:hover { background: rgba(255,255,255,.1); color: white; }
+    .sidebar-link.active { background: rgba(255,255,255,.15); color: white; }
+    .sidebar-link .icon { width: 18px; text-align: center; font-size: 16px; flex-shrink: 0; }
+    .sidebar-badge {
+      margin-left: auto; background: var(--red); color: white;
+      font-size: .65rem; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+    }
+    .sidebar-badge-amber { background: var(--amber); }
+    .sidebar-footer {
+      margin-top: auto; padding: 16px; border-top: 1px solid rgba(255,255,255,.1);
+      font-size: .8rem; opacity: .5;
+    }
+
+    /* ── MAIN AREA ── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── TOP HEADER ── */
+    .topbar {
+      height: var(--header-h); background: white; border-bottom: 1px solid var(--border);
+      padding: 0 28px; display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; box-shadow: 0 1px 6px rgba(0,0,0,.04);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .topbar-title { font-size: 1rem; font-weight: 600; color: var(--text-dark); }
+    .topbar-breadcrumb { font-size: .8rem; color: var(--text-light); }
+    .topbar-right { display: flex; align-items: center; gap: 14px; }
+    .topbar-search {
+      padding: 7px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: .85rem; width: 220px; color: var(--text-dark); background: var(--bg);
+      font-family: inherit;
+    }
+    .topbar-search:focus { outline: none; border-color: var(--green); }
+    .notif-btn {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--bg); border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      font-size: 16px; position: relative;
+    }
+    .notif-dot {
+      position: absolute; top: 4px; right: 4px; width: 8px; height: 8px;
+      background: var(--red); border-radius: 50%; border: 2px solid white;
+    }
+    .user-pill {
+      display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px;
+      background: var(--bg); border: 1.5px solid var(--border); border-radius: 24px; cursor: pointer;
+    }
+    .user-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--green), var(--green-light));
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 700; color: white;
+    }
+    .user-pill span { font-size: .82rem; font-weight: 500; }
+
+    /* ── CONTENT AREA ── */
+    .content { flex: 1; overflow-y: auto; padding: 28px; }
+
+    /* ── TABS ── */
+    .tab-bar { display: flex; gap: 4px; margin-bottom: 24px; background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; width: fit-content; }
+    .tab-btn {
+      padding: 8px 18px; border-radius: 7px; border: none; background: none;
+      font-size: .87rem; font-weight: 500; color: var(--text-mid); cursor: pointer; transition: all .15s;
+    }
+    .tab-btn.active { background: var(--green); color: white; }
+    .tab-btn:hover:not(.active) { background: var(--green-pale); color: var(--green); }
+
+    /* ── KPI CARDS ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 24px; }
+    .kpi-card {
+      background: white; border-radius: var(--radius); padding: 20px 22px;
+      box-shadow: var(--shadow); border: 1px solid var(--border); position: relative; overflow: hidden;
+    }
+    .kpi-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .kpi-green::before { background: var(--green); }
+    .kpi-blush::before { background: var(--blush); }
+    .kpi-gold::before { background: var(--gold); }
+    .kpi-red::before { background: var(--red); }
+    .kpi-amber::before { background: var(--amber); }
+    .kpi-label { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-light); margin-bottom: 8px; }
+    .kpi-value { font-size: 1.9rem; font-weight: 700; font-family: var(--ff-head); line-height: 1; margin-bottom: 6px; }
+    .kpi-change { font-size: .78rem; display: flex; align-items: center; gap: 4px; }
+    .change-up { color: #3a7a52; }
+    .change-down { color: var(--red); }
+    .kpi-icon { position: absolute; top: 16px; right: 18px; font-size: 22px; opacity: .2; }
+
+    /* ── TWO COLUMN LAYOUT ── */
+    .two-col { display: grid; grid-template-columns: 1fr 360px; gap: 20px; margin-bottom: 24px; }
+    .card {
+      background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .card-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-header h3 { font-size: .95rem; font-weight: 600; }
+    .card-header-right { display: flex; align-items: center; gap: 10px; }
+    .btn-sm {
+      padding: 6px 14px; border-radius: 7px; font-size: .8rem; font-weight: 600;
+      border: 1.5px solid var(--border); background: white; cursor: pointer;
+      color: var(--text-mid); transition: all .15s; text-decoration: none; display: inline-block;
+    }
+    .btn-sm:hover { background: var(--green-pale); border-color: var(--green); color: var(--green); }
+    .btn-sm-primary { background: var(--green); color: white; border-color: var(--green); }
+    .btn-sm-primary:hover { background: #3d6a4f; color: white; }
+
+    /* ── KANBAN ── */
+    .kanban { padding: 16px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; min-height: 320px; }
+    .kanban-col { background: var(--bg); border-radius: 8px; padding: 10px; }
+    .kanban-col-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; padding: 0 2px;
+    }
+    .kanban-col-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-light); }
+    .kanban-count {
+      background: white; border: 1px solid var(--border); color: var(--text-mid);
+      font-size: .72rem; font-weight: 700; padding: 1px 8px; border-radius: 10px;
+    }
+    .kanban-card {
+      background: white; border-radius: 8px; padding: 12px; margin-bottom: 8px;
+      border: 1px solid var(--border); cursor: pointer; transition: box-shadow .15s;
+    }
+    .kanban-card:hover { box-shadow: 0 4px 12px rgba(30,45,37,.1); }
+    .kanban-card-id { font-size: .68rem; color: var(--text-light); margin-bottom: 4px; font-weight: 600; }
+    .kanban-card-title { font-size: .82rem; font-weight: 600; color: var(--text-dark); margin-bottom: 6px; line-height: 1.3; }
+    .kanban-card-meta { display: flex; align-items: center; justify-content: space-between; }
+    .priority-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .p-high { background: var(--red); }
+    .p-med { background: var(--amber); }
+    .p-low { background: var(--green-light); }
+    .kanban-assign { font-size: .7rem; color: var(--text-light); }
+    .due-badge { font-size: .68rem; padding: 2px 7px; border-radius: 6px; font-weight: 600; }
+    .due-overdue { background: var(--red-pale); color: var(--red); }
+    .due-soon { background: var(--amber-pale); color: var(--amber); }
+    .due-ok { background: var(--green-pale); color: var(--green); }
+
+    /* ── ACTIVITY FEED ── */
+    .activity-feed { padding: 12px 16px; }
+    .activity-item { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-start; }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px;
+    }
+    .activity-body { flex: 1; }
+    .activity-body p { font-size: .82rem; color: var(--text-mid); line-height: 1.4; }
+    .activity-body p strong { color: var(--text-dark); }
+    .activity-time { font-size: .72rem; color: var(--text-light); margin-top: 2px; }
+
+    /* ── DONATION TABLE ── */
+    .donation-section { margin-bottom: 24px; }
+    .filter-row {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+    .filter-select {
+      padding: 6px 12px; border: 1.5px solid var(--border); border-radius: 7px;
+      font-size: .82rem; font-family: inherit; color: var(--text-mid); background: white; cursor: pointer;
+    }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 10px 16px; text-align: left; font-size: .73rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em; color: var(--text-light);
+      background: var(--cream); border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:hover { background: var(--cream); }
+    tbody td { padding: 11px 16px; font-size: .87rem; color: var(--text-dark); }
+    .td-name { font-weight: 600; }
+    .td-amount { font-weight: 700; color: var(--green); }
+    .td-light { color: var(--text-mid); }
+    .status-pill {
+      display: inline-block; padding: 3px 10px; border-radius: 10px;
+      font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    }
+    .status-confirmed { background: var(--green-pale); color: var(--green); }
+    .status-pending { background: var(--amber-pale); color: var(--amber); }
+    .status-refunded { background: var(--red-pale); color: var(--red); }
+    .channel-badge {
+      display: inline-block; padding: 2px 9px; border-radius: 8px;
+      font-size: .72rem; font-weight: 600; background: var(--lav-pale); color: var(--lavender);
+    }
+
+    /* ── CHARTS ── */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+    .chart-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); }
+    .chart-body { padding: 20px; }
+    /* CSS Bar Chart */
+    .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; }
+    .bar-label { font-size: .78rem; color: var(--text-mid); width: 100px; flex-shrink: 0; text-align: right; }
+    .bar-track { flex: 1; height: 22px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: .72rem; font-weight: 700; color: white; transition: width .6s ease; }
+    .bar-green { background: linear-gradient(to right, var(--green-light), var(--green)); }
+    .bar-blush { background: linear-gradient(to right, #d4a89f, var(--blush)); }
+    .bar-gold { background: linear-gradient(to right, #d4b870, var(--gold)); }
+    .bar-lavender { background: linear-gradient(to right, #b5a8cc, var(--lavender)); }
+    .bar-amber { background: linear-gradient(to right, #e4a256, var(--amber)); }
+    .bar-value { font-size: .78rem; color: var(--text-mid); width: 48px; flex-shrink: 0; font-weight: 600; }
+    /* Donut (CSS) */
+    .donut-wrap { display: flex; gap: 24px; align-items: center; }
+    .donut {
+      width: 120px; height: 120px; border-radius: 50%; flex-shrink: 0;
+      background: conic-gradient(
+        var(--green) 0% 38%,
+        var(--blush) 38% 60%,
+        var(--gold) 60% 74%,
+        var(--lavender) 74% 84%,
+        var(--amber) 84% 94%,
+        #ccc 94% 100%
+      );
+      position: relative;
+    }
+    .donut::after {
+      content: ''; position: absolute; inset: 26px; background: white; border-radius: 50%;
+    }
+    .donut-legend { flex: 1; }
+    .donut-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: .8rem; }
+    .donut-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .donut-item span { color: var(--text-mid); flex: 1; }
+    .donut-item strong { color: var(--text-dark); font-size: .85rem; }
+
+    /* ── WORKLOAD TABLE ── */
+    .workload-section { margin-bottom: 24px; }
+    .workload-row { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+    .workload-row:last-child { border-bottom: none; }
+    .workload-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 700; color: white;
+    }
+    .workload-name { font-size: .9rem; font-weight: 600; flex: 1; }
+    .workload-role { font-size: .75rem; color: var(--text-light); }
+    .workload-counts { display: flex; gap: 12px; }
+    .wcount { text-align: center; }
+    .wcount .n { font-size: 1rem; font-weight: 700; }
+    .wcount .l { font-size: .65rem; color: var(--text-light); text-transform: uppercase; letter-spacing: .04em; }
+    .wcount-red .n { color: var(--red); }
+    .wcount-amber .n { color: var(--amber); }
+    .wcount-green .n { color: var(--green); }
+    .load-bar-wrap { width: 120px; }
+    .load-bar-track { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+    .load-bar-fill { height: 100%; border-radius: 3px; }
+    .load-bar-label { font-size: .68rem; color: var(--text-light); margin-top: 3px; }
+
+    /* ── CASE DETAIL DRAWER ── */
+    .drawer-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 200;
+      display: none; align-items: flex-end; justify-content: flex-end;
+    }
+    .drawer-overlay.open { display: flex; }
+    .drawer {
+      width: 480px; height: 100vh; background: white; box-shadow: -8px 0 32px rgba(0,0,0,.12);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .drawer-header {
+      padding: 20px 24px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .drawer-header h3 { font-size: 1rem; font-weight: 600; }
+    .drawer-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-light); padding: 4px; }
+    .drawer-body { padding: 24px; flex: 1; overflow-y: auto; }
+    .detail-row { margin-bottom: 16px; }
+    .detail-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-light); margin-bottom: 4px; }
+    .detail-value { font-size: .9rem; color: var(--text-dark); }
+    .note-box {
+      background: var(--cream); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; margin-bottom: 8px;
+    }
+    .note-box p { font-size: .85rem; color: var(--text-mid); line-height: 1.5; }
+    .note-box .note-meta { font-size: .72rem; color: var(--text-light); margin-top: 6px; }
+    .drawer-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+
+    /* ── PAGES ── */
+    .page { display: none; }
+    .page.active { display: block; }
+    .page-hd { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 12px; }
+    .page-hd-left h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 3px; }
+    .page-hd-left p { font-size: .83rem; color: var(--text-mid); }
+    .page-hd-right { display: flex; gap: 8px; }
+    .mini-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+    .mini-kpi { background: white; border-radius: var(--radius); padding: 14px 16px; border: 1px solid var(--border); }
+    .mini-kpi .lbl { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-light); margin-bottom: 4px; }
+    .mini-kpi .val { font-size: 1.4rem; font-weight: 700; font-family: Georgia,serif; }
+    .mini-kpi .sub { font-size: .74rem; color: var(--text-mid); margin-top: 3px; }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #c0cfc5; }
+
+    @media (max-width: 1100px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .two-col { grid-template-columns: 1fr; }
+      .charts-grid { grid-template-columns: 1fr; }
+      .kanban { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <img class="sidebar-logo-img" src="https://lotvministry.org/wp-content/uploads/2023/02/cropped-Lily-of-valley-Final-01-2.jpg" alt="LOTV" />
+      <div class="sidebar-logo-text">
+        <strong>LOTV Ministry</strong>
+        <span>Staff Portal &bull; Catholic Apostolate</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Overview</div>
+      <div class="sidebar-link active" onclick="navigate('dashboard', this)">
+        <span class="icon">&#9776;</span> Dashboard
+      </div>
+      <div class="sidebar-link" onclick="navigate('cases', this)">
+        <span class="icon">&#128149;</span> Family Cases
+        <span class="sidebar-badge">7</span>
+      </div>
+      <div class="sidebar-link" onclick="navigate('kanban', this)">
+        <span class="icon">&#9783;</span> Kanban Board
+      </div>
+      <div class="sidebar-link" onclick="navigate('workload', this)">
+        <span class="icon">&#128101;</span> Workload View
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Donations</div>
+      <div class="sidebar-link" onclick="navigate('donations', this)">
+        <span class="icon">&#128184;</span> All Donations
+      </div>
+      <div class="sidebar-link" onclick="navigate('bydonor', this)">
+        <span class="icon">&#128100;</span> By Donor
+      </div>
+      <div class="sidebar-link" onclick="navigate('bydiocese', this)">
+        <span class="icon">&#9961;</span> By Diocese
+      </div>
+      <div class="sidebar-link" onclick="navigate('bychannel', this)">
+        <span class="icon">&#128202;</span> By Channel
+      </div>
+      <div class="sidebar-link" onclick="navigate('allocations', this)">
+        <span class="icon">&#128200;</span> Allocations
+        <span class="sidebar-badge sidebar-badge-amber">3</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Programs</div>
+      <div class="sidebar-link" onclick="navigate('volunteers', this)">
+        <span class="icon">&#129309;</span> Volunteers
+      </div>
+      <div class="sidebar-link" onclick="navigate('events', this)">
+        <span class="icon">&#128467;</span> Events
+      </div>
+      <div class="sidebar-link" onclick="navigate('donors', this)">
+        <span class="icon">&#127873;</span> Donors
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Reports</div>
+      <div class="sidebar-link" onclick="navigate('impact', this)">
+        <span class="icon">&#128196;</span> Impact Report
+      </div>
+      <div class="sidebar-link" onclick="navigate('export', this)">
+        <span class="icon">&#128190;</span> Export Data
+      </div>
+      <div class="sidebar-link" onclick="navigate('audit', this)">
+        <span class="icon">&#128269;</span> Audit Log
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Admin</div>
+      <div class="sidebar-link" onclick="navigate('diocese-data', this)">
+        <span class="icon">&#9961;</span> Diocese &amp; Parish Data
+      </div>
+      <div class="sidebar-link" onclick="navigate('settings', this)">
+        <span class="icon">&#9881;</span> Settings
+      </div>
+      <div class="sidebar-link" onclick="navigate('usermgmt', this)">
+        <span class="icon">&#128101;</span> User Management
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      LOTV Catholic Apostolate &bull; v1.0 &bull; WTE Solutions
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title" id="page-title">Dashboard Overview</div>
+        <div class="topbar-breadcrumb">LOTV Staff Portal</div>
+      </div>
+      <div class="topbar-right">
+        <input class="topbar-search" type="text" placeholder="&#128269; Search families, donors..." />
+        <div class="notif-btn">&#128276;<div class="notif-dot"></div></div>
+        <div class="user-pill">
+          <div class="user-avatar">MR</div>
+          <span>Mary Roberts</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content" id="main-content">
+
+    <div id="page-dashboard" class="page active">
+
+      <!-- ST. GIANNA BANNER STRIP -->
+      <div style="background:linear-gradient(135deg,var(--green-pale),var(--gold-pale));border-radius:12px;padding:14px 20px;margin-bottom:22px;display:flex;align-items:center;gap:16px;border:1px solid var(--border);">
+        <img src="https://lotvministry.org/wp-content/uploads/2023/02/cropped-Lily-of-valley-Final-01-2.jpg" alt="LOTV" style="height:44px;width:auto;border-radius:6px;flex-shrink:0;" />
+        <div style="flex:1;">
+          <div style="font-family:var(--ff-head);font-style:italic;font-size:.88rem;color:var(--green-dark);">&ldquo;Love and sacrifice are as intimately connected as the sun and light.&rdquo; &mdash; St. Gianna Beretta Molla</div>
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">April 28 &bull; Feast Day of St. Gianna &bull; Monthly Prayer Night: 28th of each month at 8PM ET &bull; info@LOTVministry.org</div>
+        </div>
+        <img src="https://lotvministry.org/wp-content/uploads/2023/02/Lily-of-valley-Final.png" alt="" style="height:48px;opacity:.3;flex-shrink:0;" />
+      </div>
+
+      <!-- KPI CARDS -->
+      <div class="kpi-grid">
+        <div class="kpi-card kpi-red">
+          <div class="kpi-icon">&#9888;</div>
+          <div class="kpi-label">Open Cases</div>
+          <div class="kpi-value" style="color:var(--red)">24</div>
+          <div class="kpi-change change-up">&#9650; 3 new this week</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-icon">&#9203;</div>
+          <div class="kpi-label">Overdue Requests</div>
+          <div class="kpi-value" style="color:var(--amber)">7</div>
+          <div class="kpi-change change-down">&#9650; 2 more than last week</div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">&#128184;</div>
+          <div class="kpi-label">Donations This Month</div>
+          <div class="kpi-value" style="color:var(--green)">$8,420</div>
+          <div class="kpi-change change-up">&#9650; 18% vs. last month</div>
+        </div>
+        <div class="kpi-card kpi-blush">
+          <div class="kpi-icon">&#128101;</div>
+          <div class="kpi-label">Families Served YTD</div>
+          <div class="kpi-value" style="color:var(--blush)">62</div>
+          <div class="kpi-change change-up">&#9650; 8 since Jan 1</div>
+        </div>
+      </div>
+
+      <!-- SECOND ROW KPIs -->
+      <div class="kpi-grid" style="margin-bottom:24px;">
+        <div class="kpi-card kpi-gold">
+          <div class="kpi-icon">&#127881;</div>
+          <div class="kpi-label">Upcoming Events</div>
+          <div class="kpi-value" style="color:var(--gold)">4</div>
+          <div class="kpi-change">Next: Apr 5 — Grief Group</div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">&#129309;</div>
+          <div class="kpi-label">Active Volunteers</div>
+          <div class="kpi-value" style="color:var(--green)">31</div>
+          <div class="kpi-change change-up">&#9650; 4 pending onboarding</div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">&#9745;</div>
+          <div class="kpi-label">Cases Fulfilled (30d)</div>
+          <div class="kpi-value" style="color:var(--green)">18</div>
+          <div class="kpi-change change-up">&#9650; 3 more than prior period</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-icon">&#128197;</div>
+          <div class="kpi-label">Unallocated Funds</div>
+          <div class="kpi-value" style="color:var(--amber)">$3,240</div>
+          <div class="kpi-change">3 allocations pending review</div>
+        </div>
+      </div>
+
+      <!-- KANBAN + ACTIVITY -->
+      <div class="two-col">
+        <div class="card">
+          <div class="card-header">
+            <h3>Service Request Kanban</h3>
+            <div class="card-header-right">
+              <button class="btn-sm">Filter</button>
+              <button class="btn-sm btn-sm-primary" onclick="openDrawer()">+ New Case</button>
+            </div>
+          </div>
+          <div class="kanban">
+            <!-- Submitted -->
+            <div class="kanban-col">
+              <div class="kanban-col-header">
+                <span class="kanban-col-title">Submitted</span>
+                <span class="kanban-count">5</span>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-041</div>
+                <div class="kanban-card-title">Family needs meal delivery support — 3 children</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-high"></span>
+                  <span class="due-badge due-overdue">Overdue</span>
+                </div>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-042</div>
+                <div class="kanban-card-title">Grief counseling referral requested</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-med"></span>
+                  <span class="due-badge due-soon">Due Apr 4</span>
+                </div>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-043</div>
+                <div class="kanban-card-title">Request for memorial planning assistance</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-low"></span>
+                  <span class="due-badge due-ok">Apr 10</span>
+                </div>
+              </div>
+            </div>
+            <!-- Triaged -->
+            <div class="kanban-col">
+              <div class="kanban-col-header">
+                <span class="kanban-col-title">Triaged</span>
+                <span class="kanban-count">4</span>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-038</div>
+                <div class="kanban-card-title">Hospital visit support — stillbirth — urgent</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-high"></span>
+                  <span class="due-badge due-overdue">Overdue</span>
+                </div>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-039</div>
+                <div class="kanban-card-title">Financial assistance — funeral costs</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-high"></span>
+                  <span class="due-badge due-soon">Apr 3</span>
+                </div>
+              </div>
+            </div>
+            <!-- Matched -->
+            <div class="kanban-col">
+              <div class="kanban-col-header">
+                <span class="kanban-col-title">Matched</span>
+                <span class="kanban-count">6</span>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-031</div>
+                <div class="kanban-card-title">Support group connection — first trimester loss</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-med"></span>
+                  <span class="kanban-assign">J. Liu</span>
+                </div>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-032</div>
+                <div class="kanban-card-title">Sibling support resources requested</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-low"></span>
+                  <span class="kanban-assign">D. Castillo</span>
+                </div>
+              </div>
+            </div>
+            <!-- In Progress -->
+            <div class="kanban-col">
+              <div class="kanban-col-header">
+                <span class="kanban-col-title">In Progress</span>
+                <span class="kanban-count">6</span>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-024</div>
+                <div class="kanban-card-title">Ongoing meal coordination — 4 weeks</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-med"></span>
+                  <span class="kanban-assign">M. Roberts</span>
+                </div>
+              </div>
+              <div class="kanban-card" onclick="openDrawer()">
+                <div class="kanban-card-id">#SR-2026-026</div>
+                <div class="kanban-card-title">Pastoral care coordination with parish</div>
+                <div class="kanban-card-meta">
+                  <span class="priority-dot p-low"></span>
+                  <span class="kanban-assign">Fr. Harley</span>
+                </div>
+              </div>
+            </div>
+            <!-- Fulfilled -->
+            <div class="kanban-col">
+              <div class="kanban-col-header">
+                <span class="kanban-col-title">Fulfilled</span>
+                <span class="kanban-count">18</span>
+              </div>
+              <div class="kanban-card" style="opacity:.65;">
+                <div class="kanban-card-id">#SR-2026-015</div>
+                <div class="kanban-card-title">Comfort basket delivered and confirmed</div>
+                <div class="kanban-card-meta">
+                  <span class="due-badge due-ok">Complete</span>
+                </div>
+              </div>
+              <div class="kanban-card" style="opacity:.65;">
+                <div class="kanban-card-id">#SR-2026-016</div>
+                <div class="kanban-card-title">Memorial service facilitated successfully</div>
+                <div class="kanban-card-meta">
+                  <span class="due-badge due-ok">Complete</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACTIVITY FEED -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Recent Activity</h3>
+            <button class="btn-sm">View All</button>
+          </div>
+          <div class="activity-feed">
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--red)"></div>
+              <div class="activity-body">
+                <p><strong>New case submitted</strong> — Family of 3 requesting meal support after stillbirth. SR-2026-043.</p>
+                <div class="activity-time">12 minutes ago</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--green)"></div>
+              <div class="activity-body">
+                <p><strong>Donation received</strong> — $250 online via Stripe from Robert H. Diocese of Chicago.</p>
+                <div class="activity-time">38 minutes ago</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--amber)"></div>
+              <div class="activity-body">
+                <p><strong>Case overdue</strong> — SR-2026-038 has passed its due date. Assigned to J. Liu.</p>
+                <div class="activity-time">2 hours ago</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--green)"></div>
+              <div class="activity-body">
+                <p><strong>Case fulfilled</strong> — SR-2026-015 marked complete by D. Castillo. Comfort basket delivered.</p>
+                <div class="activity-time">3 hours ago</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--lavender)"></div>
+              <div class="activity-body">
+                <p><strong>New volunteer registered</strong> — Patricia M. (Volunteer, Diocese of Joliet). Awaiting orientation.</p>
+                <div class="activity-time">5 hours ago</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--gold)"></div>
+              <div class="activity-body">
+                <p><strong>Event reminder</strong> — Monthly Grief Support Group in <strong>3 days</strong>. 14 RSVPs confirmed.</p>
+                <div class="activity-time">Yesterday</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--green)"></div>
+              <div class="activity-body">
+                <p><strong>Tax receipt generated</strong> — Receipt for $500 donation from Amanda M. emailed successfully.</p>
+                <div class="activity-time">Yesterday</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--amber)"></div>
+              <div class="activity-body">
+                <p><strong>Allocation pending</strong> — $1,200 needs to be allocated to open cases. Review required.</p>
+                <div class="activity-time">2 days ago</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DONATION CHARTS -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="card-header"><h3>Donations by Channel (This Month)</h3></div>
+          <div class="chart-body">
+            <div class="donut-wrap">
+              <div class="donut"></div>
+              <div class="donut-legend">
+                <div class="donut-item"><div class="donut-dot" style="background:var(--green)"></div><span>Online (Stripe)</span><strong>$3,200</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--blush)"></div><span>Check/Mail</span><strong>$1,860</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--gold)"></div><span>Event</span><strong>$1,180</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--lavender)"></div><span>In-Person</span><strong>$840</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--amber)"></div><span>Phone</span><strong>$840</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:#ccc"></div><span>Other</span><strong>$500</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="card-header"><h3>Donations by Gift Size (YTD)</h3></div>
+          <div class="chart-body">
+            <div class="bar-chart">
+              <div class="bar-row">
+                <div class="bar-label">$5,000+</div>
+                <div class="bar-track"><div class="bar-fill bar-gold" style="width:18%">$8.5K</div></div>
+                <div class="bar-value">4 gifts</div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label">$1K–$4,999</div>
+                <div class="bar-track"><div class="bar-fill bar-green" style="width:38%">$14.2K</div></div>
+                <div class="bar-value">9 gifts</div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label">$500–$999</div>
+                <div class="bar-track"><div class="bar-fill bar-green" style="width:55%">$7.5K</div></div>
+                <div class="bar-value">12 gifts</div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label">$100–$499</div>
+                <div class="bar-track"><div class="bar-fill bar-lavender" style="width:80%">$9.8K</div></div>
+                <div class="bar-value">41 gifts</div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label">$25–$99</div>
+                <div class="bar-track"><div class="bar-fill bar-blush" style="width:65%">$4.1K</div></div>
+                <div class="bar-value">68 gifts</div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label">Under $25</div>
+                <div class="bar-track"><div class="bar-fill bar-amber" style="width:25%">$890</div></div>
+                <div class="bar-value">52 gifts</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DONATION TABLE -->
+      <div class="card donation-section">
+        <div class="card-header">
+          <h3>Donation Ledger</h3>
+          <div class="card-header-right">
+            <button class="btn-sm">Export CSV</button>
+            <button class="btn-sm btn-sm-primary">+ Log Donation</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <select class="filter-select">
+            <option>All Channels</option>
+            <option>Online</option>
+            <option>Check</option>
+            <option>In-Person</option>
+            <option>Event</option>
+          </select>
+          <select class="filter-select">
+            <option>All Dioceses</option>
+            <option>Diocese of Chicago</option>
+            <option>Diocese of Joliet</option>
+            <option>Diocese of Rockford</option>
+          </select>
+          <select class="filter-select">
+            <option>This Month</option>
+            <option>Last 30 Days</option>
+            <option>YTD</option>
+            <option>All Time</option>
+          </select>
+          <select class="filter-select">
+            <option>All Statuses</option>
+            <option>Confirmed</option>
+            <option>Pending</option>
+            <option>Refunded</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Donor</th>
+                <th>Diocese</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Channel</th>
+                <th>Status</th>
+                <th>Receipt</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="td-name">Robert Hannigan</td>
+                <td class="td-light">Diocese of Chicago</td>
+                <td class="td-light">Mar 23, 2026</td>
+                <td class="td-amount">$250.00</td>
+                <td><span class="channel-badge">Online</span></td>
+                <td><span class="status-pill status-confirmed">Confirmed</span></td>
+                <td class="td-light"><a href="#" style="color:var(--green);font-size:.8rem;">&#128196; Sent</a></td>
+                <td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem;">View</button></td>
+              </tr>
+              <tr>
+                <td class="td-name">Amanda &amp; James Peterson</td>
+                <td class="td-light">Diocese of Joliet</td>
+                <td class="td-light">Mar 22, 2026</td>
+                <td class="td-amount">$500.00</td>
+                <td><span class="channel-badge">Check</span></td>
+                <td><span class="status-pill status-confirmed">Confirmed</span></td>
+                <td class="td-light"><a href="#" style="color:var(--green);font-size:.8rem;">&#128196; Sent</a></td>
+                <td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem;">View</button></td>
+              </tr>
+              <tr>
+                <td class="td-name">St. Anne's Women's Guild</td>
+                <td class="td-light">Diocese of Rockford</td>
+                <td class="td-light">Mar 21, 2026</td>
+                <td class="td-amount">$1,200.00</td>
+                <td><span class="channel-badge">In-Person</span></td>
+                <td><span class="status-pill status-pending">Pending</span></td>
+                <td class="td-light" style="color:var(--amber);font-size:.8rem;">&#9203; Pending</td>
+                <td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem;">View</button></td>
+              </tr>
+              <tr>
+                <td class="td-name">Dr. Patricia Wells</td>
+                <td class="td-light">Diocese of Chicago</td>
+                <td class="td-light">Mar 20, 2026</td>
+                <td class="td-amount">$100.00</td>
+                <td><span class="channel-badge">Online</span></td>
+                <td><span class="status-pill status-confirmed">Confirmed</span></td>
+                <td class="td-light"><a href="#" style="color:var(--green);font-size:.8rem;">&#128196; Sent</a></td>
+                <td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem;">View</button></td>
+              </tr>
+              <tr>
+                <td class="td-name">Anonymous</td>
+                <td class="td-light">—</td>
+                <td class="td-light">Mar 19, 2026</td>
+                <td class="td-amount">$50.00</td>
+                <td><span class="channel-badge">Online</span></td>
+                <td><span class="status-pill status-confirmed">Confirmed</span></td>
+                <td class="td-light"><a href="#" style="color:var(--green);font-size:.8rem;">&#128196; Sent</a></td>
+                <td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem;">View</button></td>
+              </tr>
+              <tr>
+                <td class="td-name">Johnson Family Foundation</td>
+                <td class="td-light">Diocese of Chicago</td>
+                <td class="td-light">Mar 18, 2026</td>
+                <td class="td-amount">$5,000.00</td>
+                <td><span class="channel-badge">Check</span></td>
+                <td><span class="status-pill status-confirmed">Confirmed</span></td>
+                <td class="td-light"><a href="#" style="color:var(--green);font-size:.8rem;">&#128196; Sent</a></td>
+                <td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem;">View</button></td>
+              </tr>
+              <tr>
+                <td class="td-name">Mark Delaney</td>
+                <td class="td-light">Diocese of Joliet</td>
+                <td class="td-light">Mar 17, 2026</td>
+                <td class="td-amount">$25.00</td>
+                <td><span class="channel-badge">Online</span></td>
+                <td><span class="status-pill status-refunded">Refunded</span></td>
+                <td class="td-light" style="color:var(--red);font-size:.8rem;">&#10005; Voided</td>
+                <td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem;">View</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- WORKLOAD VIEW -->
+      <div class="card workload-section">
+        <div class="card-header">
+          <h3>Staff Workload</h3>
+          <div class="card-header-right">
+            <button class="btn-sm">Reassign</button>
+            <button class="btn-sm">Full View</button>
+          </div>
+        </div>
+        <div class="workload-row">
+          <div class="workload-avatar" style="background:linear-gradient(135deg,#c4938b,#d4a89f)">MR</div>
+          <div>
+            <div class="workload-name">Mary Roberts</div>
+            <div class="workload-role">Director of Family Services</div>
+          </div>
+          <div class="workload-counts">
+            <div class="wcount wcount-red"><div class="n">3</div><div class="l">Overdue</div></div>
+            <div class="wcount wcount-amber"><div class="n">8</div><div class="l">Open</div></div>
+            <div class="wcount wcount-green"><div class="n">5</div><div class="l">Done</div></div>
+          </div>
+          <div class="load-bar-wrap">
+            <div class="load-bar-track"><div class="load-bar-fill" style="width:80%;background:var(--red);height:6px;border-radius:3px;"></div></div>
+            <div class="load-bar-label">80% capacity</div>
+          </div>
+        </div>
+        <div class="workload-row">
+          <div class="workload-avatar" style="background:linear-gradient(135deg,#9b8bb4,#b5a8cc)">JL</div>
+          <div>
+            <div class="workload-name">Jennifer Liu</div>
+            <div class="workload-role">Grief Support Coordinator</div>
+          </div>
+          <div class="workload-counts">
+            <div class="wcount wcount-red"><div class="n">2</div><div class="l">Overdue</div></div>
+            <div class="wcount wcount-amber"><div class="n">6</div><div class="l">Open</div></div>
+            <div class="wcount wcount-green"><div class="n">7</div><div class="l">Done</div></div>
+          </div>
+          <div class="load-bar-wrap">
+            <div class="load-bar-track"><div class="load-bar-fill" style="width:62%;background:var(--amber);height:6px;border-radius:3px;"></div></div>
+            <div class="load-bar-label">62% capacity</div>
+          </div>
+        </div>
+        <div class="workload-row">
+          <div class="workload-avatar" style="background:linear-gradient(135deg,#c8a45a,#d4b870)">DC</div>
+          <div>
+            <div class="workload-name">David Castillo</div>
+            <div class="workload-role">Volunteer Coordinator</div>
+          </div>
+          <div class="workload-counts">
+            <div class="wcount wcount-red"><div class="n">1</div><div class="l">Overdue</div></div>
+            <div class="wcount wcount-amber"><div class="n">4</div><div class="l">Open</div></div>
+            <div class="wcount wcount-green"><div class="n">4</div><div class="l">Done</div></div>
+          </div>
+          <div class="load-bar-wrap">
+            <div class="load-bar-track"><div class="load-bar-fill" style="width:45%;background:var(--green-light);height:6px;border-radius:3px;"></div></div>
+            <div class="load-bar-label">45% capacity</div>
+          </div>
+        </div>
+        <div class="workload-row">
+          <div class="workload-avatar" style="background:linear-gradient(135deg,#6a8fa0,#8fb5c8)">FT</div>
+          <div>
+            <div class="workload-name">Fr. Thomas Harley</div>
+            <div class="workload-role">Chaplain &amp; Spiritual Director</div>
+          </div>
+          <div class="workload-counts">
+            <div class="wcount wcount-red"><div class="n">1</div><div class="l">Overdue</div></div>
+            <div class="wcount wcount-amber"><div class="n">3</div><div class="l">Open</div></div>
+            <div class="wcount wcount-green"><div class="n">2</div><div class="l">Done</div></div>
+          </div>
+          <div class="load-bar-wrap">
+            <div class="load-bar-track"><div class="load-bar-fill" style="width:35%;background:var(--green);height:6px;border-radius:3px;"></div></div>
+            <div class="load-bar-label">35% capacity</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-dashboard -->
+
+    <!-- ══ FAMILY CASES ══ -->
+    <div id="page-cases" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Family Cases</h2><p>All active, pending, and fulfilled service requests</p></div>
+        <div class="page-hd-right">
+          <button class="btn-sm">Export</button>
+          <button class="btn-sm btn-sm-primary" onclick="openDrawer()">+ New Case</button>
+        </div>
+      </div>
+      <div class="mini-kpi-row">
+        <div class="mini-kpi"><div class="lbl">Open</div><div class="val" style="color:var(--red)">24</div><div class="sub">7 overdue</div></div>
+        <div class="mini-kpi"><div class="lbl">In Progress</div><div class="val" style="color:var(--amber)">6</div><div class="sub">Assigned &amp; active</div></div>
+        <div class="mini-kpi"><div class="lbl">Fulfilled (30d)</div><div class="val" style="color:var(--green)">18</div><div class="sub">+3 vs prior period</div></div>
+        <div class="mini-kpi"><div class="lbl">Avg Time to Fulfillment</div><div class="val">6.2d</div><div class="sub">Target: ≤ 7 days</div></div>
+      </div>
+      <div class="card">
+        <div class="filter-row">
+          <select class="filter-select"><option>All Statuses</option><option>Submitted</option><option>Triaged</option><option>Matched</option><option>In Progress</option><option>Fulfilled</option></select>
+          <select class="filter-select"><option>All Priorities</option><option>High</option><option>Medium</option><option>Low</option></select>
+          <select class="filter-select"><option>All Staff</option><option>Mary Roberts</option><option>Jennifer Liu</option><option>David Castillo</option><option>Fr. Thomas Harley</option></select>
+          <select class="filter-select"><option>All Categories</option><option>Meal Support</option><option>Counseling Referral</option><option>Memorial Planning</option><option>Financial Assistance</option><option>Hospital Support</option></select>
+          <input class="topbar-search" style="width:180px" placeholder="Search cases..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Case ID</th><th>Family / Description</th><th>Category</th><th>Status</th><th>Priority</th><th>Assigned</th><th>Due</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="td-light">#SR-2026-041</td><td class="td-name">Anderson Family — Meal support, 3 children</td><td class="td-light">Meal Support</td><td><span class="status-pill" style="background:var(--red-pale);color:var(--red)">Overdue</span></td><td><span class="priority-dot p-high" style="display:inline-block"></span> High</td><td class="td-light">M. Roberts</td><td style="color:var(--red);font-size:.85rem">Mar 20</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="openDrawer()">View</button></td></tr>
+              <tr><td class="td-light">#SR-2026-042</td><td class="td-name">Garcia — Grief counseling referral</td><td class="td-light">Counseling</td><td><span class="status-pill" style="background:var(--amber-pale);color:var(--amber)">Triaged</span></td><td><span class="priority-dot p-med" style="display:inline-block"></span> Med</td><td class="td-light">J. Liu</td><td class="td-light">Apr 4</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="openDrawer()">View</button></td></tr>
+              <tr><td class="td-light">#SR-2026-043</td><td class="td-name">Wilson — Memorial planning assistance</td><td class="td-light">Memorial</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green)">Submitted</span></td><td><span class="priority-dot p-low" style="display:inline-block"></span> Low</td><td class="td-light">Unassigned</td><td class="td-light">Apr 10</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="openDrawer()">View</button></td></tr>
+              <tr><td class="td-light">#SR-2026-038</td><td class="td-name">Thompson — Hospital visit, stillbirth</td><td class="td-light">Hospital Support</td><td><span class="status-pill" style="background:var(--red-pale);color:var(--red)">Overdue</span></td><td><span class="priority-dot p-high" style="display:inline-block"></span> High</td><td class="td-light">J. Liu</td><td style="color:var(--red);font-size:.85rem">Mar 22</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="openDrawer()">View</button></td></tr>
+              <tr><td class="td-light">#SR-2026-039</td><td class="td-name">Rivera — Financial assistance, funeral</td><td class="td-light">Financial</td><td><span class="status-pill" style="background:var(--amber-pale);color:var(--amber)">Triaged</span></td><td><span class="priority-dot p-high" style="display:inline-block"></span> High</td><td class="td-light">M. Roberts</td><td style="color:var(--amber);font-size:.85rem">Apr 3</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="openDrawer()">View</button></td></tr>
+              <tr><td class="td-light">#SR-2026-031</td><td class="td-name">Patel — Support group connection</td><td class="td-light">Support Group</td><td><span class="status-pill" style="background:#e8f0fe;color:#4060c0">Matched</span></td><td><span class="priority-dot p-med" style="display:inline-block"></span> Med</td><td class="td-light">J. Liu</td><td class="td-light">Apr 8</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="openDrawer()">View</button></td></tr>
+              <tr><td class="td-light">#SR-2026-024</td><td class="td-name">Kim — Ongoing meal coordination, 4 wks</td><td class="td-light">Meal Support</td><td><span class="status-pill" style="background:var(--lav-pale);color:var(--lavender)">In Progress</span></td><td><span class="priority-dot p-med" style="display:inline-block"></span> Med</td><td class="td-light">M. Roberts</td><td class="td-light">Apr 14</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="openDrawer()">View</button></td></tr>
+              <tr><td class="td-light">#SR-2026-026</td><td class="td-name">O'Brien — Pastoral care, parish coord.</td><td class="td-light">Pastoral Care</td><td><span class="status-pill" style="background:var(--lav-pale);color:var(--lavender)">In Progress</span></td><td><span class="priority-dot p-low" style="display:inline-block"></span> Low</td><td class="td-light">Fr. Harley</td><td class="td-light">Apr 20</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="openDrawer()">View</button></td></tr>
+              <tr style="opacity:.6"><td class="td-light">#SR-2026-015</td><td class="td-name">Chen — Comfort basket delivered</td><td class="td-light">Care Package</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green)">Fulfilled</span></td><td><span class="priority-dot p-low" style="display:inline-block"></span> Low</td><td class="td-light">D. Castillo</td><td class="td-light">Mar 10</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr style="opacity:.6"><td class="td-light">#SR-2026-016</td><td class="td-name">Martinez — Memorial service facilitated</td><td class="td-light">Memorial</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green)">Fulfilled</span></td><td><span class="priority-dot p-med" style="display:inline-block"></span> Med</td><td class="td-light">Fr. Harley</td><td class="td-light">Mar 12</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ KANBAN ══ -->
+    <div id="page-kanban" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Kanban Board</h2><p>Drag cards across columns to update case status</p></div>
+        <div class="page-hd-right">
+          <select class="filter-select">All Staff</select>
+          <button class="btn-sm btn-sm-primary" onclick="openDrawer()">+ New Case</button>
+        </div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <div class="kanban" style="min-height:500px;">
+          <div class="kanban-col"><div class="kanban-col-header"><span class="kanban-col-title">Submitted</span><span class="kanban-count">5</span></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-041</div><div class="kanban-card-title">Anderson — Meal delivery, 3 children</div><div class="kanban-card-meta"><span class="priority-dot p-high"></span><span class="due-badge due-overdue">Overdue</span></div></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-042</div><div class="kanban-card-title">Garcia — Grief counseling referral</div><div class="kanban-card-meta"><span class="priority-dot p-med"></span><span class="due-badge due-soon">Apr 4</span></div></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-043</div><div class="kanban-card-title">Wilson — Memorial planning</div><div class="kanban-card-meta"><span class="priority-dot p-low"></span><span class="due-badge due-ok">Apr 10</span></div></div>
+          </div>
+          <div class="kanban-col"><div class="kanban-col-header"><span class="kanban-col-title">Triaged</span><span class="kanban-count">4</span></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-038</div><div class="kanban-card-title">Thompson — Hospital visit, stillbirth</div><div class="kanban-card-meta"><span class="priority-dot p-high"></span><span class="due-badge due-overdue">Overdue</span></div></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-039</div><div class="kanban-card-title">Rivera — Financial assistance, funeral</div><div class="kanban-card-meta"><span class="priority-dot p-high"></span><span class="due-badge due-soon">Apr 3</span></div></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-040</div><div class="kanban-card-title">Sullivan — Sibling resources needed</div><div class="kanban-card-meta"><span class="priority-dot p-low"></span><span class="due-badge due-ok">Apr 12</span></div></div>
+          </div>
+          <div class="kanban-col"><div class="kanban-col-header"><span class="kanban-col-title">Matched</span><span class="kanban-count">6</span></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-031</div><div class="kanban-card-title">Patel — Support group connection</div><div class="kanban-card-meta"><span class="priority-dot p-med"></span><span class="kanban-assign">J. Liu</span></div></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-032</div><div class="kanban-card-title">Walsh — Comfort basket requested</div><div class="kanban-card-meta"><span class="priority-dot p-low"></span><span class="kanban-assign">D. Castillo</span></div></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-033</div><div class="kanban-card-title">Nguyen — Prayer list + check-in</div><div class="kanban-card-meta"><span class="priority-dot p-low"></span><span class="kanban-assign">Fr. Harley</span></div></div>
+          </div>
+          <div class="kanban-col"><div class="kanban-col-header"><span class="kanban-col-title">In Progress</span><span class="kanban-count">6</span></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-024</div><div class="kanban-card-title">Kim — Ongoing meal coordination</div><div class="kanban-card-meta"><span class="priority-dot p-med"></span><span class="kanban-assign">M. Roberts</span></div></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-026</div><div class="kanban-card-title">O'Brien — Pastoral care coord.</div><div class="kanban-card-meta"><span class="priority-dot p-low"></span><span class="kanban-assign">Fr. Harley</span></div></div>
+            <div class="kanban-card" onclick="openDrawer()"><div class="kanban-card-id">#SR-2026-028</div><div class="kanban-card-title">Davis — Counseling sessions ongoing</div><div class="kanban-card-meta"><span class="priority-dot p-med"></span><span class="kanban-assign">J. Liu</span></div></div>
+          </div>
+          <div class="kanban-col"><div class="kanban-col-header"><span class="kanban-col-title">Fulfilled</span><span class="kanban-count">18</span></div>
+            <div class="kanban-card" style="opacity:.6"><div class="kanban-card-id">#SR-2026-015</div><div class="kanban-card-title">Chen — Comfort basket delivered</div><div class="kanban-card-meta"><span class="due-badge due-ok">Complete</span></div></div>
+            <div class="kanban-card" style="opacity:.6"><div class="kanban-card-id">#SR-2026-016</div><div class="kanban-card-title">Martinez — Memorial facilitated</div><div class="kanban-card-meta"><span class="due-badge due-ok">Complete</span></div></div>
+            <div class="kanban-card" style="opacity:.6"><div class="kanban-card-id">#SR-2026-014</div><div class="kanban-card-title">Brown — Meals + counseling referral</div><div class="kanban-card-meta"><span class="due-badge due-ok">Complete</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ WORKLOAD ══ -->
+    <div id="page-workload" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Workload View</h2><p>Open, overdue, and capacity per staff member and volunteer</p></div>
+        <div class="page-hd-right"><button class="btn-sm btn-sm-primary">Reassign Cases</button></div>
+      </div>
+      <div class="mini-kpi-row">
+        <div class="mini-kpi"><div class="lbl">Total Overdue</div><div class="val" style="color:var(--red)">7</div><div class="sub">Across all staff</div></div>
+        <div class="mini-kpi"><div class="lbl">Total Open</div><div class="val" style="color:var(--amber)">24</div><div class="sub">Active + triaged</div></div>
+        <div class="mini-kpi"><div class="lbl">Unassigned</div><div class="val" style="color:var(--red)">4</div><div class="sub">In queue</div></div>
+        <div class="mini-kpi"><div class="lbl">Avg Capacity Used</div><div class="val">56%</div><div class="sub">Across all staff</div></div>
+      </div>
+      <div class="card workload-section">
+        <div class="card-header"><h3>Staff Workload</h3><button class="btn-sm">Export</button></div>
+        <div class="workload-row">
+          <div class="workload-avatar" style="background:linear-gradient(135deg,#c4938b,#d4a89f)">MR</div>
+          <div><div class="workload-name">Mary Roberts</div><div class="workload-role">Director of Family Services</div></div>
+          <div class="workload-counts">
+            <div class="wcount wcount-red"><div class="n">3</div><div class="l">Overdue</div></div>
+            <div class="wcount wcount-amber"><div class="n">8</div><div class="l">Open</div></div>
+            <div class="wcount wcount-green"><div class="n">5</div><div class="l">Done</div></div>
+          </div>
+          <div class="load-bar-wrap"><div class="load-bar-track"><div class="load-bar-fill" style="width:80%;background:var(--red);height:6px;border-radius:3px;"></div></div><div class="load-bar-label">80% — At capacity</div></div>
+          <button class="btn-sm" onclick="openDrawer()">View Cases</button>
+        </div>
+        <div class="workload-row">
+          <div class="workload-avatar" style="background:linear-gradient(135deg,#9b8bb4,#b5a8cc)">JL</div>
+          <div><div class="workload-name">Jennifer Liu</div><div class="workload-role">Grief Support Coordinator</div></div>
+          <div class="workload-counts">
+            <div class="wcount wcount-red"><div class="n">2</div><div class="l">Overdue</div></div>
+            <div class="wcount wcount-amber"><div class="n">6</div><div class="l">Open</div></div>
+            <div class="wcount wcount-green"><div class="n">7</div><div class="l">Done</div></div>
+          </div>
+          <div class="load-bar-wrap"><div class="load-bar-track"><div class="load-bar-fill" style="width:62%;background:var(--amber);height:6px;border-radius:3px;"></div></div><div class="load-bar-label">62% capacity</div></div>
+          <button class="btn-sm" onclick="openDrawer()">View Cases</button>
+        </div>
+        <div class="workload-row">
+          <div class="workload-avatar" style="background:linear-gradient(135deg,#c8a45a,#d4b870)">DC</div>
+          <div><div class="workload-name">David Castillo</div><div class="workload-role">Volunteer Coordinator</div></div>
+          <div class="workload-counts">
+            <div class="wcount wcount-red"><div class="n">1</div><div class="l">Overdue</div></div>
+            <div class="wcount wcount-amber"><div class="n">4</div><div class="l">Open</div></div>
+            <div class="wcount wcount-green"><div class="n">4</div><div class="l">Done</div></div>
+          </div>
+          <div class="load-bar-wrap"><div class="load-bar-track"><div class="load-bar-fill" style="width:45%;background:var(--green-light);height:6px;border-radius:3px;"></div></div><div class="load-bar-label">45% capacity</div></div>
+          <button class="btn-sm" onclick="openDrawer()">View Cases</button>
+        </div>
+        <div class="workload-row">
+          <div class="workload-avatar" style="background:linear-gradient(135deg,#6a8fa0,#8fb5c8)">FT</div>
+          <div><div class="workload-name">Fr. Thomas Harley</div><div class="workload-role">Chaplain &amp; Spiritual Director</div></div>
+          <div class="workload-counts">
+            <div class="wcount wcount-red"><div class="n">1</div><div class="l">Overdue</div></div>
+            <div class="wcount wcount-amber"><div class="n">3</div><div class="l">Open</div></div>
+            <div class="wcount wcount-green"><div class="n">2</div><div class="l">Done</div></div>
+          </div>
+          <div class="load-bar-wrap"><div class="load-bar-track"><div class="load-bar-fill" style="width:35%;background:var(--green);height:6px;border-radius:3px;"></div></div><div class="load-bar-label">35% capacity</div></div>
+          <button class="btn-sm" onclick="openDrawer()">View Cases</button>
+        </div>
+        <div style="padding:14px 20px;background:var(--cream);border-top:1px solid var(--border);">
+          <div style="font-size:.8rem;font-weight:600;margin-bottom:8px;color:var(--text-mid);">Unassigned Queue — 4 cases waiting</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <span style="background:var(--red-pale);color:var(--red);padding:4px 12px;border-radius:8px;font-size:.78rem;font-weight:600;">#SR-2026-043 — Memorial Planning</span>
+            <span style="background:var(--amber-pale);color:var(--amber);padding:4px 12px;border-radius:8px;font-size:.78rem;font-weight:600;">#SR-2026-044 — Care Package Request</span>
+            <span style="background:var(--amber-pale);color:var(--amber);padding:4px 12px;border-radius:8px;font-size:.78rem;font-weight:600;">#SR-2026-045 — Prayer List + Outreach</span>
+            <span style="background:var(--amber-pale);color:var(--amber);padding:4px 12px;border-radius:8px;font-size:.78rem;font-weight:600;">#SR-2026-046 — Hospital Chaplain Referral</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ALL DONATIONS ══ -->
+    <div id="page-donations" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>All Donations</h2><p>Complete donation ledger — all channels, all time</p></div>
+        <div class="page-hd-right"><button class="btn-sm">Export CSV</button><button class="btn-sm btn-sm-primary">+ Log Donation</button></div>
+      </div>
+      <div class="mini-kpi-row">
+        <div class="mini-kpi"><div class="lbl">Total YTD</div><div class="val" style="color:var(--green)">$44.0K</div><div class="sub">186 donations</div></div>
+        <div class="mini-kpi"><div class="lbl">This Month</div><div class="val" style="color:var(--green)">$8,420</div><div class="sub">+18% vs. last month</div></div>
+        <div class="mini-kpi"><div class="lbl">Unallocated</div><div class="val" style="color:var(--amber)">$3,240</div><div class="sub">3 allocations pending</div></div>
+        <div class="mini-kpi"><div class="lbl">Avg Gift Size</div><div class="val">$236</div><div class="sub">All channels</div></div>
+      </div>
+      <div class="card donation-section">
+        <div class="filter-row">
+          <select class="filter-select"><option>All Channels</option><option>Online</option><option>Check</option><option>In-Person</option><option>Event</option><option>Mail</option><option>Phone</option></select>
+          <select class="filter-select"><option>All Dioceses</option><option>Diocese of Chicago</option><option>Diocese of Joliet</option><option>Diocese of Rockford</option></select>
+          <select class="filter-select"><option>All Time</option><option>This Month</option><option>Last 30 Days</option><option>YTD</option></select>
+          <select class="filter-select"><option>All Statuses</option><option>Confirmed</option><option>Pending</option><option>Refunded</option></select>
+          <input class="topbar-search" style="width:180px" placeholder="Search donor..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Donor</th><th>Diocese</th><th>Date</th><th>Amount</th><th>Channel</th><th>Status</th><th>Receipt</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="td-name">Johnson Family Foundation</td><td class="td-light">Diocese of Chicago</td><td class="td-light">Mar 18</td><td class="td-amount">$5,000</td><td><span class="channel-badge">Check</span></td><td><span class="status-pill status-confirmed">Confirmed</span></td><td class="td-light" style="color:var(--green);font-size:.8rem">&#128196; Sent</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">Robert Hannigan</td><td class="td-light">Diocese of Chicago</td><td class="td-light">Mar 23</td><td class="td-amount">$250</td><td><span class="channel-badge">Online</span></td><td><span class="status-pill status-confirmed">Confirmed</span></td><td class="td-light" style="color:var(--green);font-size:.8rem">&#128196; Sent</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">Amanda &amp; James Peterson</td><td class="td-light">Diocese of Joliet</td><td class="td-light">Mar 22</td><td class="td-amount">$500</td><td><span class="channel-badge">Check</span></td><td><span class="status-pill status-confirmed">Confirmed</span></td><td class="td-light" style="color:var(--green);font-size:.8rem">&#128196; Sent</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">St. Anne's Women's Guild</td><td class="td-light">Diocese of Rockford</td><td class="td-light">Mar 21</td><td class="td-amount">$1,200</td><td><span class="channel-badge">In-Person</span></td><td><span class="status-pill status-pending">Pending</span></td><td class="td-light" style="color:var(--amber);font-size:.8rem">&#9203; Pending</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">Dr. Patricia Wells</td><td class="td-light">Diocese of Chicago</td><td class="td-light">Mar 20</td><td class="td-amount">$100</td><td><span class="channel-badge">Online</span></td><td><span class="status-pill status-confirmed">Confirmed</span></td><td class="td-light" style="color:var(--green);font-size:.8rem">&#128196; Sent</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">Mark Delaney</td><td class="td-light">Diocese of Joliet</td><td class="td-light">Mar 17</td><td class="td-amount">$25</td><td><span class="channel-badge">Online</span></td><td><span class="status-pill status-refunded">Refunded</span></td><td class="td-light" style="color:var(--red);font-size:.8rem">&#10005; Voided</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">Holy Family Parish</td><td class="td-light">Diocese of Chicago</td><td class="td-light">Mar 15</td><td class="td-amount">$750</td><td><span class="channel-badge">Check</span></td><td><span class="status-pill status-confirmed">Confirmed</span></td><td class="td-light" style="color:var(--green);font-size:.8rem">&#128196; Sent</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:.82rem;color:var(--text-mid);">
+          <span>Showing 7 of 186 donations</span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-sm" style="padding:5px 12px">&#8592; Prev</button>
+            <button class="btn-sm btn-sm-primary" style="padding:5px 12px">Next &#8594;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BY DONOR ══ -->
+    <div id="page-bydonor" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Donations by Donor</h2><p>Donor-level giving summary — all time</p></div>
+        <div class="page-hd-right"><button class="btn-sm">Export</button></div>
+      </div>
+      <div class="card">
+        <div class="filter-row">
+          <select class="filter-select"><option>All Dioceses</option><option>Diocese of Chicago</option><option>Diocese of Joliet</option><option>Diocese of Rockford</option></select>
+          <select class="filter-select"><option>All Time</option><option>YTD</option><option>Last 12 Months</option></select>
+          <input class="topbar-search" style="width:220px" placeholder="Search donor name..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Donor Name</th><th>Diocese</th><th>City</th><th>Lifetime Total</th><th>Gifts</th><th>Avg Gift</th><th>Last Gift</th><th>Tier</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="td-name">Johnson Family Foundation</td><td class="td-light">Chicago</td><td class="td-light">Chicago, IL</td><td class="td-amount">$12,500</td><td class="td-light">4</td><td class="td-light">$3,125</td><td class="td-light">Mar 18</td><td><span class="status-pill" style="background:var(--gold-pale);color:#8a6020;font-size:.7rem">Lily Circle</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Robert &amp; Carol Hannigan</td><td class="td-light">Chicago</td><td class="td-light">Evanston, IL</td><td class="td-amount">$3,750</td><td class="td-light">9</td><td class="td-light">$417</td><td class="td-light">Mar 23</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Valley Circle</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">St. Anne's Women's Guild</td><td class="td-light">Rockford</td><td class="td-light">Rockford, IL</td><td class="td-amount">$2,800</td><td class="td-light">3</td><td class="td-light">$933</td><td class="td-light">Mar 21</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Valley Circle</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Amanda &amp; James Peterson</td><td class="td-light">Joliet</td><td class="td-light">Naperville, IL</td><td class="td-amount">$1,750</td><td class="td-light">6</td><td class="td-light">$292</td><td class="td-light">Mar 22</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Hope Circle</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Dr. Patricia Wells</td><td class="td-light">Chicago</td><td class="td-light">Oak Park, IL</td><td class="td-amount">$1,200</td><td class="td-light">8</td><td class="td-light">$150</td><td class="td-light">Mar 20</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Hope Circle</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Holy Family Parish</td><td class="td-light">Chicago</td><td class="td-light">Chicago, IL</td><td class="td-amount">$2,250</td><td class="td-light">5</td><td class="td-light">$450</td><td class="td-light">Mar 15</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Valley Circle</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Anonymous (Stripe)</td><td class="td-light">—</td><td class="td-light">—</td><td class="td-amount">$875</td><td class="td-light">12</td><td class="td-light">$73</td><td class="td-light">Mar 19</td><td><span class="status-pill" style="background:var(--bg);color:var(--text-light);font-size:.7rem">Friend</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BY DIOCESE ══ -->
+    <div id="page-bydiocese" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Donations by Diocese</h2><p>Aggregate giving summary by diocese — all time</p></div>
+        <div class="page-hd-right"><button class="btn-sm">Export</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;">
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Diocese</th><th>State</th><th>Donors</th><th>Total Giving</th><th>Gifts</th><th>Avg Gift</th><th>YTD Change</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">Diocese of Chicago</td><td class="td-light">IL</td><td class="td-light">84</td><td class="td-amount">$28,400</td><td class="td-light">102</td><td class="td-light">$278</td><td style="color:var(--green);font-size:.84rem">&#9650; +22%</td></tr>
+                <tr><td class="td-name">Diocese of Joliet</td><td class="td-light">IL</td><td class="td-light">47</td><td class="td-amount">$9,800</td><td class="td-light">58</td><td class="td-light">$169</td><td style="color:var(--green);font-size:.84rem">&#9650; +8%</td></tr>
+                <tr><td class="td-name">Diocese of Rockford</td><td class="td-light">IL</td><td class="td-light">29</td><td class="td-amount">$4,200</td><td class="td-light">31</td><td class="td-light">$135</td><td style="color:var(--red);font-size:.84rem">&#9660; -3%</td></tr>
+                <tr><td class="td-name">Diocese of Peoria</td><td class="td-light">IL</td><td class="td-light">14</td><td class="td-amount">$1,840</td><td class="td-light">18</td><td class="td-light">$102</td><td style="color:var(--green);font-size:.84rem">&#9650; +41%</td></tr>
+                <tr><td class="td-name">Archdiocese of Milwaukee</td><td class="td-light">WI</td><td class="td-light">8</td><td class="td-amount">$960</td><td class="td-light">10</td><td class="td-light">$96</td><td style="color:var(--green);font-size:.84rem">&#9650; New</td></tr>
+                <tr><td class="td-name">Other / Unknown</td><td class="td-light">—</td><td class="td-light">4</td><td class="td-amount">$320</td><td class="td-light">7</td><td class="td-light">$46</td><td class="td-light">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-header"><h3>Giving Share by Diocese</h3></div>
+          <div class="chart-body">
+            <div class="bar-chart">
+              <div class="bar-row"><div class="bar-label" style="font-size:.75rem">Chicago</div><div class="bar-track"><div class="bar-fill bar-green" style="width:87%">$28.4K</div></div></div>
+              <div class="bar-row"><div class="bar-label" style="font-size:.75rem">Joliet</div><div class="bar-track"><div class="bar-fill bar-green" style="width:60%">$9.8K</div></div></div>
+              <div class="bar-row"><div class="bar-label" style="font-size:.75rem">Rockford</div><div class="bar-track"><div class="bar-fill bar-lavender" style="width:35%">$4.2K</div></div></div>
+              <div class="bar-row"><div class="bar-label" style="font-size:.75rem">Peoria</div><div class="bar-track"><div class="bar-fill bar-gold" style="width:18%">$1.8K</div></div></div>
+              <div class="bar-row"><div class="bar-label" style="font-size:.75rem">Milwaukee</div><div class="bar-track"><div class="bar-fill bar-blush" style="width:10%">$960</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BY CHANNEL ══ -->
+    <div id="page-bychannel" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Donations by Channel</h2><p>Breakdown by how gifts were received</p></div>
+        <div class="page-hd-right"><select class="filter-select"><option>This Month</option><option>YTD</option><option>All Time</option></select></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="card-header"><h3>Channel Distribution (This Month)</h3></div>
+          <div class="chart-body">
+            <div class="donut-wrap">
+              <div class="donut"></div>
+              <div class="donut-legend">
+                <div class="donut-item"><div class="donut-dot" style="background:var(--green)"></div><span>Online (Stripe)</span><strong>$3,200 — 38%</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--blush)"></div><span>Check / Mail</span><strong>$1,860 — 22%</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--gold)"></div><span>Event</span><strong>$1,180 — 14%</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--lavender)"></div><span>In-Person</span><strong>$840 — 10%</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--amber)"></div><span>Phone</span><strong>$840 — 10%</strong></div>
+                <div class="donut-item"><div class="donut-dot" style="background:#ccc"></div><span>Other</span><strong>$500 — 6%</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-header"><h3>Channel Trend — Last 6 Months</h3></div>
+          <div class="chart-body">
+            <div class="bar-chart">
+              <div class="bar-row"><div class="bar-label">Online</div><div class="bar-track"><div class="bar-fill bar-green" style="width:80%">$3.2K</div></div><div class="bar-value">38%</div></div>
+              <div class="bar-row"><div class="bar-label">Check</div><div class="bar-track"><div class="bar-fill bar-blush" style="width:55%">$1.9K</div></div><div class="bar-value">22%</div></div>
+              <div class="bar-row"><div class="bar-label">Event</div><div class="bar-track"><div class="bar-fill bar-gold" style="width:38%">$1.2K</div></div><div class="bar-value">14%</div></div>
+              <div class="bar-row"><div class="bar-label">In-Person</div><div class="bar-track"><div class="bar-fill bar-lavender" style="width:28%">$840</div></div><div class="bar-value">10%</div></div>
+              <div class="bar-row"><div class="bar-label">Phone</div><div class="bar-track"><div class="bar-fill bar-amber" style="width:28%">$840</div></div><div class="bar-value">10%</div></div>
+              <div class="bar-row"><div class="bar-label">Other</div><div class="bar-track"><div class="bar-fill" style="width:16%;background:#ccc">$500</div></div><div class="bar-value">6%</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ALLOCATIONS ══ -->
+    <div id="page-allocations" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Allocations</h2><p>Track how donations are applied to cases and expenses</p></div>
+        <div class="page-hd-right"><button class="btn-sm btn-sm-primary">+ New Allocation</button></div>
+      </div>
+      <div class="mini-kpi-row">
+        <div class="mini-kpi"><div class="lbl">Unallocated Funds</div><div class="val" style="color:var(--amber)">$3,240</div><div class="sub">Needs review</div></div>
+        <div class="mini-kpi"><div class="lbl">Allocated YTD</div><div class="val" style="color:var(--green)">$40,760</div><div class="sub">To cases + expenses</div></div>
+        <div class="mini-kpi"><div class="lbl">Pending Approval</div><div class="val" style="color:var(--red)">3</div><div class="sub">Awaiting review</div></div>
+        <div class="mini-kpi"><div class="lbl">Avg Per Case</div><div class="val">$218</div><div class="sub">This quarter</div></div>
+      </div>
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-header"><h3>Pending Allocations</h3><span style="background:var(--amber-pale);color:var(--amber);font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:9px;">3 Awaiting Review</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Amount</th><th>Source Donation</th><th>Proposed For</th><th>Requested By</th><th>Date</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="td-amount">$1,200</td><td class="td-light">St. Anne's Guild — In-Person Mar 21</td><td class="td-light">SR-2026-039 — Rivera funeral costs</td><td class="td-light">M. Roberts</td><td class="td-light">Mar 22</td><td><div style="display:flex;gap:6px"><button class="btn-sm btn-sm-primary" style="padding:4px 10px;font-size:.75rem">Approve</button><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Reject</button></div></td></tr>
+              <tr><td class="td-amount">$750</td><td class="td-light">Holy Family Parish — Check Mar 15</td><td class="td-light">SR-2026-041 — Anderson meal support</td><td class="td-light">J. Liu</td><td class="td-light">Mar 20</td><td><div style="display:flex;gap:6px"><button class="btn-sm btn-sm-primary" style="padding:4px 10px;font-size:.75rem">Approve</button><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Reject</button></div></td></tr>
+              <tr><td class="td-amount">$500</td><td class="td-light">Anonymous Online — Mar 12</td><td class="td-light">General Expense — Care Basket Supplies</td><td class="td-light">D. Castillo</td><td class="td-light">Mar 18</td><td><div style="display:flex;gap:6px"><button class="btn-sm btn-sm-primary" style="padding:4px 10px;font-size:.75rem">Approve</button><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Reject</button></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Completed Allocations</h3><button class="btn-sm">Export</button></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Amount</th><th>Applied To</th><th>Approved By</th><th>Receipt</th></tr></thead>
+            <tbody>
+              <tr><td class="td-light">Mar 15</td><td class="td-amount">$250</td><td class="td-light">SR-2026-024 — Kim meal coordination</td><td class="td-light">S. Kowalski</td><td class="td-light" style="color:var(--green)">&#128196; Issued</td></tr>
+              <tr><td class="td-light">Mar 10</td><td class="td-amount">$150</td><td class="td-light">SR-2026-015 — Chen comfort basket</td><td class="td-light">M. Roberts</td><td class="td-light" style="color:var(--green)">&#128196; Issued</td></tr>
+              <tr><td class="td-light">Mar 5</td><td class="td-amount">$400</td><td class="td-light">SR-2026-016 — Martinez memorial</td><td class="td-light">S. Kowalski</td><td class="td-light" style="color:var(--green)">&#128196; Issued</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ VOLUNTEERS ══ -->
+    <div id="page-volunteers" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Volunteers</h2><p>Active volunteers, assignments, and hours</p></div>
+        <div class="page-hd-right"><button class="btn-sm">Export</button><button class="btn-sm btn-sm-primary">+ Add Volunteer</button></div>
+      </div>
+      <div class="mini-kpi-row">
+        <div class="mini-kpi"><div class="lbl">Active</div><div class="val" style="color:var(--green)">31</div><div class="sub">Across all parishes</div></div>
+        <div class="mini-kpi"><div class="lbl">Pending Orientation</div><div class="val" style="color:var(--amber)">4</div><div class="sub">Awaiting onboarding</div></div>
+        <div class="mini-kpi"><div class="lbl">Hours This Month</div><div class="val">284</div><div class="sub">Across all volunteers</div></div>
+        <div class="mini-kpi"><div class="lbl">Cases Assisted</div><div class="val">18</div><div class="sub">Last 30 days</div></div>
+      </div>
+      <div class="card">
+        <div class="filter-row">
+          <select class="filter-select"><option>All Statuses</option><option>Active</option><option>Pending Orientation</option><option>Inactive</option></select>
+          <select class="filter-select"><option>All Parishes</option><option>St. Michael's</option><option>Our Lady of Peace</option><option>Holy Family</option><option>St. Catherine's</option></select>
+          <input class="topbar-search" style="width:200px" placeholder="Search volunteer..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Volunteer</th><th>Parish</th><th>Diocese</th><th>Status</th><th>Active Cases</th><th>Hrs/Mo</th><th>Since</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="td-name">Patricia M.</td><td class="td-light">St. Michael's</td><td class="td-light">Chicago</td><td><span class="status-pill status-pending">Pending</span></td><td class="td-light">—</td><td class="td-light">—</td><td class="td-light">Mar 20</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Onboard</button></td></tr>
+              <tr><td class="td-name">Daniel K.</td><td class="td-light">Holy Family</td><td class="td-light">Chicago</td><td><span class="status-pill status-confirmed">Active</span></td><td class="td-light">2</td><td class="td-light">12 hrs</td><td class="td-light">Jan 2025</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">Rosa L.</td><td class="td-light">Our Lady of Peace</td><td class="td-light">Joliet</td><td><span class="status-pill status-confirmed">Active</span></td><td class="td-light">3</td><td class="td-light">18 hrs</td><td class="td-light">Aug 2024</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">James W.</td><td class="td-light">St. Catherine's</td><td class="td-light">Chicago</td><td><span class="status-pill status-confirmed">Active</span></td><td class="td-light">1</td><td class="td-light">8 hrs</td><td class="td-light">Mar 2025</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+              <tr><td class="td-name">Linda T.</td><td class="td-light">St. Michael's</td><td class="td-light">Chicago</td><td><span class="status-pill status-confirmed">Active</span></td><td class="td-light">2</td><td class="td-light">22 hrs</td><td class="td-light">Feb 2024</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">View</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ EVENTS ══ -->
+    <div id="page-events" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Events</h2><p>Community events, diocese gatherings, and fundraisers</p></div>
+        <div class="page-hd-right"><button class="btn-sm btn-sm-primary">+ Create Event</button></div>
+      </div>
+      <div class="mini-kpi-row">
+        <div class="mini-kpi"><div class="lbl">Upcoming</div><div class="val" style="color:var(--green)">8</div><div class="sub">Next 90 days</div></div>
+        <div class="mini-kpi"><div class="lbl">RSVPs (Apr 5)</div><div class="val">14</div><div class="sub">Grief support group</div></div>
+        <div class="mini-kpi"><div class="lbl">Gala Tickets Sold</div><div class="val" style="color:var(--gold)">78</div><div class="sub">of 120 available</div></div>
+        <div class="mini-kpi"><div class="lbl">Event Revenue YTD</div><div class="val" style="color:var(--green)">$4,200</div><div class="sub">From ticket sales</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:18px;">
+        <button class="btn-sm btn-sm-primary">All Events</button>
+        <button class="btn-sm">Community &amp; Local</button>
+        <button class="btn-sm">Diocese &amp; Catholic</button>
+        <button class="btn-sm">Fundraisers</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Event</th><th>Date</th><th>Type</th><th>Location</th><th>RSVPs</th><th>Revenue</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="td-name">Monthly Grief Support Group</td><td class="td-light">Apr 5, 2026</td><td><span class="channel-badge" style="background:var(--blush-pale);color:var(--blush)">Community</span></td><td class="td-light">LOTV Office</td><td class="td-light">14</td><td class="td-light">—</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Manage</button></td></tr>
+              <tr><td class="td-name">Diocese of Chicago Training Day</td><td class="td-light">Apr 12, 2026</td><td><span class="channel-badge">Diocese</span></td><td class="td-light">All Saints Pastoral Ctr</td><td class="td-light">42</td><td class="td-light">—</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Manage</button></td></tr>
+              <tr><td class="td-name">Remembrance Walk &amp; Memorial</td><td class="td-light">Apr 26, 2026</td><td><span class="channel-badge" style="background:var(--blush-pale);color:var(--blush)">Community</span></td><td class="td-light">Riverside Park</td><td class="td-light">67</td><td class="td-light">—</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Manage</button></td></tr>
+              <tr><td class="td-name">Spring Benefit Gala</td><td class="td-light">May 18, 2026</td><td><span class="channel-badge" style="background:var(--gold-pale);color:#8a6020">Fundraiser</span></td><td class="td-light">Marriott Chicago</td><td class="td-light">78</td><td class="td-amount">$4,200</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Manage</button></td></tr>
+              <tr><td class="td-name">Fathers' Grief Circle</td><td class="td-light">May 10, 2026</td><td><span class="channel-badge" style="background:var(--blush-pale);color:var(--blush)">Community</span></td><td class="td-light">St. Michael's Parish</td><td class="td-light">8</td><td class="td-light">—</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Manage</button></td></tr>
+              <tr><td class="td-name">Diocesan Loss Awareness Mass</td><td class="td-light">Sep 20, 2026</td><td><span class="channel-badge">Diocese</span></td><td class="td-light">Holy Name Cathedral</td><td class="td-light">—</td><td class="td-light">—</td><td><span class="status-pill status-pending">Planning</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Manage</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DONORS ══ -->
+    <div id="page-donors" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Donor Management</h2><p>Donor profiles, giving history, and communication</p></div>
+        <div class="page-hd-right"><button class="btn-sm">Export</button><button class="btn-sm btn-sm-primary">+ Add Donor</button></div>
+      </div>
+      <div class="mini-kpi-row">
+        <div class="mini-kpi"><div class="lbl">Total Donors</div><div class="val">186</div><div class="sub">All time</div></div>
+        <div class="mini-kpi"><div class="lbl">Active (12 mo)</div><div class="val" style="color:var(--green)">124</div><div class="sub">Gave in last 12 months</div></div>
+        <div class="mini-kpi"><div class="lbl">Lily Circle</div><div class="val" style="color:var(--gold)">8</div><div class="sub">$1,000+ annual</div></div>
+        <div class="mini-kpi"><div class="lbl">Lapsed</div><div class="val" style="color:var(--amber)">22</div><div class="sub">No gift 13+ months</div></div>
+      </div>
+      <div class="card">
+        <div class="filter-row">
+          <select class="filter-select"><option>All Tiers</option><option>Lily Circle ($1K+)</option><option>Valley Circle ($500+)</option><option>Hope Circle ($100+)</option><option>Friend</option></select>
+          <select class="filter-select"><option>All Dioceses</option><option>Chicago</option><option>Joliet</option><option>Rockford</option></select>
+          <select class="filter-select"><option>All Statuses</option><option>Active</option><option>Lapsed</option><option>New</option></select>
+          <input class="topbar-search" style="width:200px" placeholder="Search donor..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Diocese</th><th>Tier</th><th>Lifetime Total</th><th>Last Gift</th><th>Status</th><th>Notes</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="td-name">Johnson Family Foundation</td><td class="td-light">Chicago</td><td><span class="status-pill" style="background:var(--gold-pale);color:#8a6020;font-size:.7rem">Lily Circle</span></td><td class="td-amount">$12,500</td><td class="td-light">Mar 18</td><td><span class="status-pill status-confirmed">Active</span></td><td class="td-light">Send annual impact report</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Robert &amp; Carol Hannigan</td><td class="td-light">Chicago</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Valley Circle</span></td><td class="td-amount">$3,750</td><td class="td-light">Mar 23</td><td><span class="status-pill status-confirmed">Active</span></td><td class="td-light">Gala attendees</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Dr. Patricia Wells</td><td class="td-light">Chicago</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Hope Circle</span></td><td class="td-amount">$1,200</td><td class="td-light">Mar 20</td><td><span class="status-pill status-confirmed">Active</span></td><td class="td-light">Physician ref. source</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Thomas &amp; Maria Reyes</td><td class="td-light">Joliet</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Hope Circle</span></td><td class="td-amount">$850</td><td class="td-light">Feb 14</td><td><span class="status-pill status-confirmed">Active</span></td><td class="td-light"></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+              <tr><td class="td-name">Margaret O'Sullivan</td><td class="td-light">Rockford</td><td><span class="status-pill" style="background:var(--bg);color:var(--text-light);font-size:.7rem">Friend</span></td><td class="td-amount">$125</td><td class="td-light">Jan 10</td><td><span class="status-pill status-pending">Lapsed</span></td><td class="td-light">Re-engagement due</td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Profile</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DIOCESE & PARISH DATA MANAGEMENT ══ -->
+    <div id="page-diocese-data" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Diocese &amp; Parish Data</h2><p>Manage the directory data that feeds the Ministry Portal, donation reports, and parish rep tools</p></div>
+        <div class="page-hd-right"><button class="btn-sm">Export Directory</button><button class="btn-sm btn-sm-primary">+ Add Diocese</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+        <div class="card">
+          <div class="card-header"><h3>Dioceses</h3><button class="btn-sm btn-sm-primary" style="font-size:.8rem">+ Add</button></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Diocese Name</th><th>State</th><th>Parishes</th><th>Certified Teams</th><th>Coordinator</th><th></th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">Diocese of Chicago</td><td class="td-light">IL</td><td class="td-light">18</td><td class="td-light">14</td><td class="td-light">Anne Bergman</td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+                <tr><td class="td-name">Diocese of Joliet</td><td class="td-light">IL</td><td class="td-light">11</td><td class="td-light">8</td><td class="td-light">Anne Bergman</td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+                <tr><td class="td-name">Diocese of Rockford</td><td class="td-light">IL</td><td class="td-light">9</td><td class="td-light">6</td><td class="td-light">Mary Roberts</td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+                <tr><td class="td-name">Diocese of Peoria</td><td class="td-light">IL</td><td class="td-light">6</td><td class="td-light">4</td><td class="td-light">Unassigned</td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+                <tr><td class="td-name">Archdiocese of Milwaukee</td><td class="td-light">WI</td><td class="td-light">4</td><td class="td-light">2</td><td class="td-light">Unassigned</td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Parish Contacts &amp; Reps</h3><button class="btn-sm btn-sm-primary" style="font-size:.8rem">+ Add Parish</button></div>
+          <div class="filter-row" style="padding:10px 14px;">
+            <select class="filter-select"><option>All Dioceses</option><option>Diocese of Chicago</option><option>Diocese of Joliet</option></select>
+            <input class="topbar-search" style="width:160px;font-size:.82rem" placeholder="Search parish..." />
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Parish</th><th>Diocese</th><th>City</th><th>Rep Name</th><th>Cert Level</th><th></th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">St. Michael's Parish</td><td class="td-light">Chicago</td><td class="td-light">Chicago, IL</td><td class="td-light">Fr. James Donovan</td><td><span class="status-pill" style="background:var(--gold-pale);color:#8a6020;font-size:.68rem">Level 2</span></td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+                <tr><td class="td-name">Our Lady of Peace</td><td class="td-light">Chicago</td><td class="td-light">Chicago, IL</td><td class="td-light">Deacon Mark Ellis</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.68rem">Level 1</span></td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+                <tr><td class="td-name">St. Catherine's</td><td class="td-light">Chicago</td><td class="td-light">Evanston, IL</td><td class="td-light">Sr. Margaret Foley</td><td><span class="status-pill" style="background:var(--gold-pale);color:#8a6020;font-size:.68rem">Level 2</span></td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+                <tr><td class="td-name">Holy Family Parish</td><td class="td-light">Chicago</td><td class="td-light">Oak Park, IL</td><td class="td-light">Deacon Paul Torres</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.68rem">Level 1</span></td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+                <tr><td class="td-name">St. Anne's Parish</td><td class="td-light">Rockford</td><td class="td-light">Rockford, IL</td><td class="td-light">Sr. Rose Tanner</td><td><span class="status-pill" style="background:var(--gold-pale);color:#8a6020;font-size:.68rem">Level 2</span></td><td><button class="btn-sm" style="padding:3px 9px;font-size:.74rem">Edit</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Edit Diocese / Parish Record</h3><span style="font-size:.8rem;color:var(--text-light)">Select a row above to edit</span></div>
+        <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+          <div><div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Diocese Name</div><input class="topbar-search" style="width:100%" value="Diocese of Chicago" /></div>
+          <div><div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">State</div><input class="topbar-search" style="width:100%" value="IL" /></div>
+          <div><div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Coordinator</div><select class="filter-select" style="width:100%"><option>Anne Bergman</option><option>Mary Roberts</option><option>Sarah Kowalski</option></select></div>
+          <div><div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Bishop Name</div><input class="topbar-search" style="width:100%" placeholder="Bishop name..." /></div>
+          <div><div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Diocese Website</div><input class="topbar-search" style="width:100%" placeholder="https://..." /></div>
+          <div><div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Diocese Contact Email</div><input class="topbar-search" style="width:100%" placeholder="contact@diocese.org" /></div>
+        </div>
+        <div style="padding:0 20px 20px;display:flex;gap:10px;">
+          <button class="btn-sm btn-sm-primary">Save Changes</button>
+          <button class="btn-sm">Cancel</button>
+          <button class="btn-sm" style="margin-left:auto;color:var(--red);border-color:var(--red)">Delete Record</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ IMPACT REPORT ══ -->
+    <div id="page-impact" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Impact Report</h2><p>Where money and resources went — full transparency view</p></div>
+        <div class="page-hd-right"><button class="btn-sm">Share Public Link</button><button class="btn-sm btn-sm-primary">Export PDF</button></div>
+      </div>
+      <div class="kpi-grid" style="margin-bottom:20px;">
+        <div class="kpi-card kpi-green"><div class="kpi-icon">&#128184;</div><div class="kpi-label">Total Raised YTD</div><div class="kpi-value" style="color:var(--green)">$44,000</div><div class="kpi-change change-up">&#9650; +18% vs. 2025</div></div>
+        <div class="kpi-card kpi-blush"><div class="kpi-icon">&#128149;</div><div class="kpi-label">Total Distributed</div><div class="kpi-value" style="color:var(--blush)">$40,760</div><div class="kpi-change">93% of funds distributed</div></div>
+        <div class="kpi-card kpi-gold"><div class="kpi-icon">&#128101;</div><div class="kpi-label">Families Served YTD</div><div class="kpi-value" style="color:var(--gold)">62</div><div class="kpi-change change-up">&#9650; +8 vs. same period 2025</div></div>
+        <div class="kpi-card kpi-green"><div class="kpi-icon">&#9745;</div><div class="kpi-label">Cases Fulfilled YTD</div><div class="kpi-value" style="color:var(--green)">38</div><div class="kpi-change">Avg 6.2 days to fulfill</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="card-header"><h3>Distribution by Category (YTD)</h3></div>
+          <div class="chart-body">
+            <div class="bar-chart">
+              <div class="bar-row"><div class="bar-label">Meal Support</div><div class="bar-track"><div class="bar-fill bar-green" style="width:72%">$12.4K</div></div><div class="bar-value">30%</div></div>
+              <div class="bar-row"><div class="bar-label">Care Baskets</div><div class="bar-track"><div class="bar-fill bar-blush" style="width:45%">$7.8K</div></div><div class="bar-value">19%</div></div>
+              <div class="bar-row"><div class="bar-label">Counseling</div><div class="bar-track"><div class="bar-fill bar-lavender" style="width:38%">$6.5K</div></div><div class="bar-value">16%</div></div>
+              <div class="bar-row"><div class="bar-label">Financial Aid</div><div class="bar-track"><div class="bar-fill bar-gold" style="width:30%">$5.1K</div></div><div class="bar-value">13%</div></div>
+              <div class="bar-row"><div class="bar-label">Memorial Svcs</div><div class="bar-track"><div class="bar-fill bar-amber" style="width:22%">$3.8K</div></div><div class="bar-value">9%</div></div>
+              <div class="bar-row"><div class="bar-label">Operations</div><div class="bar-track"><div class="bar-fill" style="width:25%;background:#b0c4b8">$5.1K</div></div><div class="bar-value">13%</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-header"><h3>Families Served by Diocese (YTD)</h3></div>
+          <div class="chart-body">
+            <div class="bar-chart">
+              <div class="bar-row"><div class="bar-label">Chicago</div><div class="bar-track"><div class="bar-fill bar-green" style="width:75%">34</div></div><div class="bar-value">34 fam.</div></div>
+              <div class="bar-row"><div class="bar-label">Joliet</div><div class="bar-track"><div class="bar-fill bar-green" style="width:40%">18</div></div><div class="bar-value">18 fam.</div></div>
+              <div class="bar-row"><div class="bar-label">Rockford</div><div class="bar-track"><div class="bar-fill bar-lavender" style="width:20%">7</div></div><div class="bar-value">7 fam.</div></div>
+              <div class="bar-row"><div class="bar-label">Other</div><div class="bar-track"><div class="bar-fill" style="width:8%;background:#b0c4b8">3</div></div><div class="bar-value">3 fam.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ EXPORT ══ -->
+    <div id="page-export" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Export Data</h2><p>Download records as CSV or PDF</p></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;">
+        <div class="card" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">&#128184;</div>
+          <h4 style="margin-bottom:6px;">Donation Ledger</h4>
+          <p style="font-size:.83rem;color:var(--text-mid);margin-bottom:16px;">All donations with donor, amount, channel, date, status, and receipt info.</p>
+          <div style="display:flex;gap:8px;justify-content:center;">
+            <button class="btn-sm btn-sm-primary">CSV</button>
+            <button class="btn-sm">PDF</button>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">&#128149;</div>
+          <h4 style="margin-bottom:6px;">Family Case Report</h4>
+          <p style="font-size:.83rem;color:var(--text-mid);margin-bottom:16px;">All service requests with status, assigned staff, fulfillment date, and category.</p>
+          <div style="display:flex;gap:8px;justify-content:center;">
+            <button class="btn-sm btn-sm-primary">CSV</button>
+            <button class="btn-sm">PDF</button>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">&#127942;</div>
+          <h4 style="margin-bottom:6px;">Donor Summary</h4>
+          <p style="font-size:.83rem;color:var(--text-mid);margin-bottom:16px;">Donor-level giving history, tier, diocese, lifetime total, and last gift date.</p>
+          <div style="display:flex;gap:8px;justify-content:center;">
+            <button class="btn-sm btn-sm-primary">CSV</button>
+            <button class="btn-sm">PDF</button>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">&#9961;</div>
+          <h4 style="margin-bottom:6px;">Diocese Report</h4>
+          <p style="font-size:.83rem;color:var(--text-mid);margin-bottom:16px;">Diocese-level aggregate: giving totals, families served, parish count, and coordinator.</p>
+          <div style="display:flex;gap:8px;justify-content:center;">
+            <button class="btn-sm btn-sm-primary">CSV</button>
+            <button class="btn-sm">PDF</button>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">&#128101;</div>
+          <h4 style="margin-bottom:6px;">Volunteer Hours Log</h4>
+          <p style="font-size:.83rem;color:var(--text-mid);margin-bottom:16px;">All volunteers with hours logged, parish, cases assisted, and active status.</p>
+          <div style="display:flex;gap:8px;justify-content:center;">
+            <button class="btn-sm btn-sm-primary">CSV</button>
+            <button class="btn-sm">PDF</button>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">&#128200;</div>
+          <h4 style="margin-bottom:6px;">Impact Report</h4>
+          <p style="font-size:.83rem;color:var(--text-mid);margin-bottom:16px;">Full impact summary: raised, distributed, families served, by category and diocese.</p>
+          <div style="display:flex;gap:8px;justify-content:center;">
+            <button class="btn-sm btn-sm-primary">CSV</button>
+            <button class="btn-sm">PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ AUDIT LOG ══ -->
+    <div id="page-audit" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Audit Log</h2><p>All system actions with user, timestamp, and details</p></div>
+        <div class="page-hd-right"><button class="btn-sm">Export Log</button></div>
+      </div>
+      <div class="card">
+        <div class="filter-row">
+          <select class="filter-select"><option>All Actions</option><option>Case Created</option><option>Case Updated</option><option>Donation Added</option><option>Allocation Approved</option><option>User Login</option></select>
+          <select class="filter-select"><option>All Users</option><option>M. Roberts</option><option>J. Liu</option><option>D. Castillo</option><option>Fr. Harley</option><option>S. Kowalski</option></select>
+          <select class="filter-select"><option>Last 7 Days</option><option>Last 30 Days</option><option>All Time</option></select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
+            <tbody>
+              <tr><td class="td-light" style="white-space:nowrap">Mar 23, 2:14 PM</td><td class="td-light">M. Roberts</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Case Updated</span></td><td class="td-light">#SR-2026-041</td><td class="td-light">Added note to Anderson case; status unchanged</td></tr>
+              <tr><td class="td-light" style="white-space:nowrap">Mar 23, 1:42 PM</td><td class="td-light">System</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Donation Received</span></td><td class="td-light">DON-2026-186</td><td class="td-light">$250 Stripe online — Robert Hannigan</td></tr>
+              <tr><td class="td-light" style="white-space:nowrap">Mar 23, 11:08 AM</td><td class="td-light">J. Liu</td><td><span class="status-pill" style="background:var(--amber-pale);color:var(--amber);font-size:.7rem">Case Assigned</span></td><td class="td-light">#SR-2026-042</td><td class="td-light">Garcia case assigned to J. Liu from unassigned queue</td></tr>
+              <tr><td class="td-light" style="white-space:nowrap">Mar 22, 4:55 PM</td><td class="td-light">S. Kowalski</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Allocation Approved</span></td><td class="td-light">ALLOC-044</td><td class="td-light">$250 approved for SR-2026-024 Kim meal support</td></tr>
+              <tr><td class="td-light" style="white-space:nowrap">Mar 22, 3:30 PM</td><td class="td-light">D. Castillo</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Case Fulfilled</span></td><td class="td-light">#SR-2026-015</td><td class="td-light">Chen comfort basket delivered and confirmed by family</td></tr>
+              <tr><td class="td-light" style="white-space:nowrap">Mar 22, 9:14 AM</td><td class="td-light">M. Roberts</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Case Created</span></td><td class="td-light">#SR-2026-043</td><td class="td-light">New intake — Wilson, memorial planning request</td></tr>
+              <tr><td class="td-light" style="white-space:nowrap">Mar 21, 5:00 PM</td><td class="td-light">System</td><td><span class="status-pill" style="background:var(--red-pale);color:var(--red);font-size:.7rem">Overdue Alert</span></td><td class="td-light">#SR-2026-038</td><td class="td-light">Thompson case passed due date — escalation notification sent</td></tr>
+              <tr><td class="td-light" style="white-space:nowrap">Mar 21, 2:20 PM</td><td class="td-light">System</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.7rem">Receipt Sent</span></td><td class="td-light">DON-2026-184</td><td class="td-light">Tax receipt emailed to St. Anne's Women's Guild</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <div id="page-settings" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>Settings</h2><p>System configuration, notifications, and integrations</p></div>
+        <div class="page-hd-right"><button class="btn-sm btn-sm-primary">Save Changes</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="card" style="padding:24px;">
+          <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);margin-bottom:16px;">Organization</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div><div style="font-size:.78rem;font-weight:600;color:var(--text-mid);margin-bottom:4px;">Organization Name</div><input class="topbar-search" style="width:100%" value="Lily of the Valley Ministry" /></div>
+            <div><div style="font-size:.78rem;font-weight:600;color:var(--text-mid);margin-bottom:4px;">Primary Contact Email</div><input class="topbar-search" style="width:100%" value="info@lotvministry.org" /></div>
+            <div><div style="font-size:.78rem;font-weight:600;color:var(--text-mid);margin-bottom:4px;">Phone Number</div><input class="topbar-search" style="width:100%" value="(555) 000-0000" /></div>
+            <div><div style="font-size:.78rem;font-weight:600;color:var(--text-mid);margin-bottom:4px;">EIN / Tax ID</div><input class="topbar-search" style="width:100%" value="On File" /></div>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;">
+          <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);margin-bottom:16px;">Notifications</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><span style="font-size:.87rem;">Email on new case submitted</span><span style="background:var(--green);color:white;padding:2px 10px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;">ON</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><span style="font-size:.87rem;">Email on overdue case</span><span style="background:var(--green);color:white;padding:2px 10px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;">ON</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><span style="font-size:.87rem;">Email on donation received</span><span style="background:var(--green);color:white;padding:2px 10px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;">ON</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><span style="font-size:.87rem;">SMS on high-priority case</span><span style="background:var(--text-light);color:white;padding:2px 10px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;">OFF</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><span style="font-size:.87rem;">Weekly workload digest</span><span style="background:var(--green);color:white;padding:2px 10px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;">ON</span></div>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;">
+          <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);margin-bottom:16px;">Integrations</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><div><div style="font-size:.88rem;font-weight:600;">Stripe</div><div style="font-size:.75rem;color:var(--text-mid);">Connected — pk_live_***</div></div><button class="btn-sm" style="font-size:.76rem">Manage</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><div><div style="font-size:.88rem;font-weight:600;">SendGrid (Email)</div><div style="font-size:.75rem;color:var(--text-mid);">Connected — API key on file</div></div><button class="btn-sm" style="font-size:.76rem">Manage</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><div><div style="font-size:.88rem;font-weight:600;">Azure Blob (Files)</div><div style="font-size:.75rem;color:var(--text-mid);">Connected — receipts &amp; documents</div></div><button class="btn-sm" style="font-size:.76rem">Manage</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;"><div><div style="font-size:.88rem;font-weight:600;">SMS (Twilio)</div><div style="font-size:.75rem;color:var(--text-mid);">Not connected</div></div><button class="btn-sm btn-sm-primary" style="font-size:.76rem">Connect</button></div>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;">
+          <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);margin-bottom:16px;">Case Management Rules</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div><div style="font-size:.78rem;font-weight:600;color:var(--text-mid);margin-bottom:4px;">Overdue threshold (days)</div><input class="topbar-search" style="width:100%" value="7" /></div>
+            <div><div style="font-size:.78rem;font-weight:600;color:var(--text-mid);margin-bottom:4px;">High-priority auto-escalation (hours)</div><input class="topbar-search" style="width:100%" value="48" /></div>
+            <div><div style="font-size:.78rem;font-weight:600;color:var(--text-mid);margin-bottom:4px;">Default follow-up schedule (days)</div><input class="topbar-search" style="width:100%" value="30, 60, 90" /></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ USER MANAGEMENT ══ -->
+    <div id="page-usermgmt" class="page">
+      <div class="page-hd">
+        <div class="page-hd-left"><h2>User Management</h2><p>Staff accounts, roles, and access control</p></div>
+        <div class="page-hd-right"><button class="btn-sm btn-sm-primary">+ Invite User</button></div>
+      </div>
+      <div class="card">
+        <div class="filter-row">
+          <select class="filter-select"><option>All Roles</option><option>Admin</option><option>Staff</option><option>Volunteer</option><option>Donor</option></select>
+          <select class="filter-select"><option>All Statuses</option><option>Active</option><option>Invited</option><option>Inactive</option></select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Last Login</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="td-name">Sarah Kowalski</td><td class="td-light">sarah@lotvministry.org</td><td><span class="status-pill" style="background:var(--green-pale);color:var(--green);font-size:.72rem">Admin</span></td><td class="td-light">Mar 23, 9:02 AM</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Edit</button></td></tr>
+              <tr><td class="td-name">Mary Roberts</td><td class="td-light">mary@lotvministry.org</td><td><span class="status-pill" style="background:var(--lav-pale);color:var(--lavender);font-size:.72rem">Staff</span></td><td class="td-light">Mar 23, 8:45 AM</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Edit</button></td></tr>
+              <tr><td class="td-name">Jennifer Liu</td><td class="td-light">jennifer@lotvministry.org</td><td><span class="status-pill" style="background:var(--lav-pale);color:var(--lavender);font-size:.72rem">Staff</span></td><td class="td-light">Mar 23, 10:12 AM</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Edit</button></td></tr>
+              <tr><td class="td-name">David Castillo</td><td class="td-light">david@lotvministry.org</td><td><span class="status-pill" style="background:var(--lav-pale);color:var(--lavender);font-size:.72rem">Staff</span></td><td class="td-light">Mar 22, 3:30 PM</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Edit</button></td></tr>
+              <tr><td class="td-name">Fr. Thomas Harley</td><td class="td-light">chaplain@lotvministry.org</td><td><span class="status-pill" style="background:var(--lav-pale);color:var(--lavender);font-size:.72rem">Staff</span></td><td class="td-light">Mar 22, 11:00 AM</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Edit</button></td></tr>
+              <tr><td class="td-name">Anne Bergman</td><td class="td-light">anne@lotvministry.org</td><td><span class="status-pill" style="background:var(--lav-pale);color:var(--lavender);font-size:.72rem">Staff</span></td><td class="td-light">Mar 21, 2:00 PM</td><td><span class="status-pill status-confirmed">Active</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Edit</button></td></tr>
+              <tr><td class="td-name">Patricia M.</td><td class="td-light">p.m@volunteer.org</td><td><span class="status-pill" style="background:var(--gold-pale);color:#8a6020;font-size:.72rem">Volunteer</span></td><td class="td-light">—</td><td><span class="status-pill status-pending">Invited</span></td><td><button class="btn-sm" style="padding:4px 10px;font-size:.75rem">Resend</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- CASE DETAIL DRAWER -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer(event)">
+  <div class="drawer" onclick="event.stopPropagation()">
+    <div class="drawer-header">
+      <h3>Case Detail — SR-2026-041</h3>
+      <button class="drawer-close" onclick="closeDrawer()">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div class="detail-row">
+          <div class="detail-label">Status</div>
+          <span class="status-pill" style="background:var(--red-pale);color:var(--red);font-size:.8rem;">Overdue</span>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Priority</div>
+          <span class="status-pill" style="background:var(--red-pale);color:var(--red);font-size:.8rem;">High</span>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Category</div>
+          <div class="detail-value">Meal Support</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Due Date</div>
+          <div class="detail-value" style="color:var(--red)">Mar 20, 2026</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Assigned To</div>
+          <div class="detail-value">Mary Roberts</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Submitted</div>
+          <div class="detail-value">Mar 18, 2026</div>
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Family</div>
+        <div class="detail-value">The Anderson Family — 3 children (ages 2, 4, 7). Mother recovering from stillbirth at 34 weeks. Father returned to work. No family support nearby.</div>
+      </div>
+      <div class="detail-row" style="margin-top:16px;">
+        <div class="detail-label">Contact</div>
+        <div class="detail-value">sarah.anderson@email.com &bull; (555) 012-3456</div>
+      </div>
+      <div class="detail-row" style="margin-top:16px;">
+        <div class="detail-label">Notes Thread</div>
+        <div class="note-box">
+          <p>Reached out by phone on Mar 19. Family confirmed need for meal delivery 5 days/week for 3 weeks. Coordinating with volunteer team. Need to confirm first delivery date.</p>
+          <div class="note-meta">Mary Roberts &bull; Mar 19, 2026 at 2:14 PM</div>
+        </div>
+        <div class="note-box">
+          <p>Initial intake call completed. Family referred by St. Michael's Parish. Loss occurred Mar 15 at Northwestern Memorial. Family in immediate need of practical support.</p>
+          <div class="note-meta">Jennifer Liu &bull; Mar 18, 2026 at 10:42 AM</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="detail-label">Add Note</div>
+        <textarea style="width:100%;margin-top:6px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.87rem;resize:vertical;min-height:80px;" placeholder="Add a case note..."></textarea>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn-sm btn-sm-primary" style="flex:1;">Save Note</button>
+      <button class="btn-sm" style="flex:1;">Reassign</button>
+      <button class="btn-sm" style="flex:1;background:var(--green-pale);border-color:var(--green);color:var(--green);">Mark Fulfilled</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function navigate(page, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    const target = document.getElementById('page-' + page);
+    if (target) target.classList.add('active');
+    if (el) el.classList.add('active');
+    const titles = {
+      dashboard: 'Dashboard Overview',
+      cases: 'Family Cases',
+      kanban: 'Kanban Board',
+      workload: 'Workload View',
+      donations: 'All Donations',
+      bydonor: 'Donations by Donor',
+      bydiocese: 'Donations by Diocese',
+      bychannel: 'Donations by Channel',
+      allocations: 'Allocations',
+      volunteers: 'Volunteers',
+      events: 'Events',
+      donors: 'Donors',
+      'diocese-data': 'Diocese & Parish Data',
+      impact: 'Impact Report',
+      export: 'Export Data',
+      audit: 'Audit Log',
+      settings: 'Settings',
+      usermgmt: 'User Management',
+    };
+    document.getElementById('page-title').textContent = titles[page] || 'Dashboard';
+  }
+
+  function openDrawer() {
+    document.getElementById('drawerOverlay').classList.add('open');
+  }
+
+  function closeDrawer(e) {
+    if (!e || e.target === document.getElementById('drawerOverlay')) {
+      document.getElementById('drawerOverlay').classList.remove('open');
+    }
+  }
+
+  // Animate bar fills on load
+  window.addEventListener('load', () => {
+    document.querySelectorAll('.bar-fill').forEach(b => {
+      const w = b.style.width; b.style.width = '0';
+      setTimeout(() => { b.style.width = w; }, 200);
+    });
+  });
+</script>
+</body>
+</html>

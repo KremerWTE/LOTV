@@ -2,6 +2,7 @@
 @layout AdminLayout
 @inject IMockDataService Data
 @inject NavigationManager Nav
+@inject AuthService Auth
 
 <PageTitle>Family Cases — LOTV Staff Portal</PageTitle>
 
@@ -393,7 +394,7 @@
       if (vol != null) { vol.ActiveCases++; Data.UpdateVolunteer(vol); }
     }
 
-    Data.LogAction("Mary Roberts", "Created", "PackageRequest", req.Id.ToString(),
+    Data.LogAction(Auth.UserName, "Created", "PackageRequest", req.Id.ToString(),
       $"New request for {_nf.FullName}, assigned to {assignTo ?? "unassigned"}");
 
     _showNew = false;
@@ -405,7 +406,7 @@
     if (_selected is null) return;
     _selected.UpdatedAt = DateTime.UtcNow;
     Data.UpdateRequest(_selected);
-    Data.LogAction("Mary Roberts", "Updated", "PackageRequest", _selected.Id.ToString(), $"Status: {_selected.Status}");
+    Data.LogAction(Auth.UserName, "Updated", "PackageRequest", _selected.Id.ToString(), $"Status: {_selected.Status}");
     _saved = true;
     Load();
   }

@@ -1,6 +1,7 @@
 @page "/admin/donations"
 @layout AdminLayout
 @inject IMockDataService Data
+@inject AuthService Auth
 
 <PageTitle>All Donations — LOTV Staff Portal</PageTitle>
 
@@ -304,7 +305,7 @@
       AllocationStatus = AllocationStatus.Unallocated
     };
     Data.AddDonation(donation);
-    Data.LogAction("Mary Roberts", "Created", "Donation", donation.Id.ToString(),
+    Data.LogAction(Auth.UserName, "Created", "Donation", donation.Id.ToString(),
       $"{_dAmount:C0} via {_dChannel}{(string.IsNullOrEmpty(_dCampaign) ? "" : $" — {_dCampaign}")}");
 
     _showAdd = false;
@@ -318,6 +319,6 @@
   private void Allocate(Donation d)
   {
     d.AllocationStatus = AllocationStatus.PendingReview;
-    Data.LogAction("Mary Roberts", "Flagged", "Donation", d.Id.ToString(), "Moved to pending allocation review");
+    Data.LogAction(Auth.UserName, "Flagged", "Donation", d.Id.ToString(), "Moved to pending allocation review");
   }
 }

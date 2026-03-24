@@ -1,6 +1,7 @@
 @page "/admin/allocations"
 @layout AdminLayout
 @inject IMockDataService Data
+@inject AuthService Auth
 
 <PageTitle>Fund Allocations — LOTV Staff Portal</PageTitle>
 
@@ -115,10 +116,10 @@
   private async Task Approve(FundAllocation a)
   {
     a.Status     = AllocationStatus.Allocated;
-    a.ApprovedBy = "Mary Roberts";
+    a.ApprovedBy = Auth.UserName;
     a.ApprovedAt = DateTime.UtcNow;
     Data.UpdateAllocation(a);
-    Data.LogAction("Mary Roberts", "Approved", "FundAllocation", a.Id.ToString(), $"Allocated {a.Amount:C0} to {a.AllocatedTo}");
+    Data.LogAction(Auth.UserName, "Approved", "FundAllocation", a.Id.ToString(), $"Allocated {a.Amount:C0} to {a.AllocatedTo}");
     _approvedMsg = true;
     StateHasChanged();
     await Task.Delay(2500);

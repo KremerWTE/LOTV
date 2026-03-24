@@ -35,6 +35,8 @@ LOTV (Lily of the Valley) is a platform for a **centralized nonprofit** that coo
 
 The platform is built on .NET 9 with an ASP.NET Core REST API backend, a Blazor WebAssembly frontend, and a shared domain library. Hosting targets Microsoft Azure. Payments are processed via Stripe. Three key automation features differentiate the platform: **auto-assignment** of volunteers to requests by location + skills, a **real-time operations board** via SignalR, and **scheduled digest reports** emailed to HQ and chapter leads. Development is organized into six phases from foundation through production launch, governed by MSA-LOTV and SOW-LOTV-001.
 
+The engagement spans **four service tracks** delivered in parallel with the platform build: (1) **Low-Hanging Tech** — Microsoft nonprofit rate consolidation, newsletter deliverability hardening (DMARC/DKIM), HIPAA-compliant web form migration, and distribution list audit; (2) **Web Redevelopment** — rebuild lotvministry.org on a mobile-friendly CMS and create a dedicated donor-facing fundraising site; (3) **Content Creation** — staff directory, blog/resource library, and social media automation; (4) **Platform Development** — the full custom .NET 9 SaaS dashboard application.
+
 **Current Status:** Phase 0 (Foundation) complete. Phase 1 (Architecture & Design) is the immediate next step.
 
 | Item | Detail |
@@ -116,6 +118,19 @@ The platform enables:
 | `Lotv.Web` | Blazor WebAssembly | → `Lotv.Core` |
 | `Lotv.Core` | Class Library | (none) |
 | `Lotv.Tests` | xUnit Test Project | → `Lotv.Core`, `Lotv.Api` |
+
+### 2.4 Engagement Service Tracks
+
+The full WTE Solutions engagement with LOTV Ministry covers four coordinated service tracks:
+
+| Track | Name | Deliverables | Charitable / Discounted? |
+|---|---|---|---|
+| **Track 1** | Low-Hanging Tech | Microsoft nonprofit hosting, DMARC/DKIM, HIPAA web forms, distribution list audit | Consulting included |
+| **Track 2** | Web Redevelopment | Content site (lotvministry.org on CMS), Donor site (lilyofthevalleyministry.com) | Website build as charitable contribution |
+| **Track 3** | Content Creation | Staff directory, blog/resource library, video studio access, social media automation | Charitable contribution + discounted editing |
+| **Track 4** | Platform Development | Full .NET 9 SaaS dashboard application (Phases 0–6) | $10k investment, 30% charitable reduction |
+
+> **Note:** Tracks 1–3 run alongside or prior to Track 4. Track 2 depends on LOTV's 501(c)(3) status changeover for the donor site domain transfer.
 
 ---
 
@@ -203,6 +218,25 @@ Unresolved disputes escalate to mandatory mediation, then binding arbitration (N
 
 ### 5.1 In Scope
 
+**Track 1 — Low-Hanging Tech**
+- Evaluate and transition to Microsoft 365 nonprofit pricing for Office and email hosting
+- Configure DMARC/DKIM/SPF records to improve newsletter deliverability
+- Migrate web form collection to a HIPAA-compliant, segmented solution for better distribution list management
+- Audit and categorize existing contact/distribution database into segmented lists
+
+**Track 2 — Web Redevelopment**
+- Rebuild lotvministry.org on a mobile-friendly, easy-to-manage CMS (Duda) with updated branding, content automation, and staff directory
+- Create a separate donor-focused website (lilyofthevalleyministry.com, pending 501(c)(3) status changeover and domain transfer) targeting fundraising and volunteering — separate content from lotvministry.org, tied to the Private Foundation entity
+- First year hosting included FREE; two sites hosted for the price of one going forward
+
+**Track 3 — Content Creation**
+- Build staff/team directory on CMS with easy self-service updating
+- Develop blog and resource content area for families in need and parish staff (articles + videos)
+- Provide free access to WTE recording studio for family and parish video resource creation
+- Discounted video editing at 50% off standard rate ($60/hr vs. $120/hr standard)
+- Develop and recommend social media automation strategy to improve posting consistency and efficiency
+
+**Track 4 — Platform Development (.NET 9 SaaS)**
 - Full .NET 9 platform (API + Blazor WASM + Core Domain + Tests)
 - **HQ → Chapter org model**: HQAdmin sees all; Chapter roles see own chapter only via EF Core global query filter
 - Service request intake, auto-routing, auto-assignment, fulfillment lifecycle
@@ -243,6 +277,106 @@ See [Section 17 — Exclusions](#17-exclusions) for the complete list.
 ---
 
 ## 6. Work Breakdown Structure
+
+---
+
+### Track 1 — Low-Hanging Tech ⬜ PENDING
+
+#### 1T.1 Microsoft 365 Nonprofit Transition
+- [ ] Audit current Microsoft/email licensing and costs
+- [ ] Apply for Microsoft nonprofit pricing eligibility
+- [ ] Compare current vs. nonprofit rate pricing for all Office and email licenses
+- [ ] Plan and execute migration to nonprofit-rate licensing
+- [ ] Document recurring savings for client
+
+#### 1T.2 Newsletter Deliverability
+- [ ] Audit current email DNS records (SPF, DKIM, DMARC)
+- [ ] Configure DMARC policy on sending domain
+- [ ] Configure DKIM keys for email service provider
+- [ ] Verify SPF record alignment
+- [ ] Test deliverability improvement with inbox placement tools
+- [ ] Document sending domain configuration for client
+
+#### 1T.3 HIPAA-Compliant Web Form Migration
+- [ ] Inventory all existing web forms collecting sensitive information
+- [ ] Select HIPAA-compliant form/data collection solution
+- [ ] Migrate forms to compliant platform with segmented data routing
+- [ ] Configure distribution list segments (families, parishes, donors, volunteers)
+- [ ] Test form submission → list routing flow
+
+#### 1T.4 Distribution List Audit
+- [ ] Export and review existing contact database
+- [ ] Categorize contacts into distribution segments (families, parishes, donors, staff, volunteers)
+- [ ] Remove duplicates and invalid addresses
+- [ ] Deliver cleaned, segmented list to client
+- [ ] Document list management process and recommendations
+
+---
+
+### Track 2 — Web Redevelopment ⬜ PENDING
+
+> **Dependency:** Donor website domain transfer requires LOTV 501(c)(3) status changeover before lilyofthevalleyministry.com can be repurposed.
+
+#### 2T.1 Content Website — lotvministry.org (Duda CMS)
+- [ ] Audit existing lotvministry.org content and structure
+- [ ] Design new site architecture (navigation, page hierarchy)
+- [ ] Build site on Duda CMS with mobile-responsive design
+- [ ] Migrate and refresh existing content
+- [ ] Build staff/team directory with self-service updating
+- [ ] Build resource area for articles and videos (families + parishes)
+- [ ] Configure content automation / scheduling features
+- [ ] QA across devices and browsers
+- [ ] Client review and sign-off
+- [ ] Go-live and DNS cutover
+
+#### 2T.2 Donor Website — lilyofthevalleyministry.com
+- [ ] Confirm 501(c)(3) status changeover timing with client
+- [ ] Design donor-specific site architecture (fundraising, volunteering, impact)
+- [ ] Build site on Duda CMS with content distinct from lotvministry.org
+- [ ] Integrate fundraising CTAs and donation links (ties to LOTV platform and/or Private Foundation)
+- [ ] Configure volunteer recruitment pages
+- [ ] QA across devices and browsers
+- [ ] Client review and sign-off
+- [ ] Go-live following domain transfer
+
+#### 2T.3 Hosting & Ongoing
+- [ ] Configure hosting for both sites (2 sites, 1 hosting rate)
+- [ ] First year hosting — no charge
+- [ ] Document renewal pricing ($39/month or annual equivalent)
+- [ ] Handoff CMS credentials and training to client content manager
+
+---
+
+### Track 3 — Content Creation ⬜ PENDING
+
+#### 3T.1 Staff Directory
+- [ ] Collect staff profile information and headshots from client
+- [ ] Build directory module in Duda CMS (self-service updatable)
+- [ ] Add to lotvministry.org
+- [ ] Train client staff on updating directory entries
+
+#### 3T.2 Blog & Resource Library
+- [ ] Define content categories (families in need, parish staff, donors, volunteers)
+- [ ] Establish editorial template and style guide
+- [ ] Build blog/resource section in Duda CMS
+- [ ] Create initial content stubs or seed articles (client provides content; WTE structures/formats)
+- [ ] Set up video embed capability for family/parish video resources
+
+#### 3T.3 Video Resource Production
+- [ ] Schedule client recording sessions at WTE studio
+- [ ] Produce video resources for families and parish staff
+- [ ] Edit and deliver videos (50% discounted rate — $60/hr)
+- [ ] Embed videos in resource library on lotvministry.org
+
+#### 3T.4 Social Media Automation
+- [ ] Audit existing social media accounts and posting cadence
+- [ ] Recommend automation tooling (Buffer, Hootsuite, or equivalent)
+- [ ] Configure automation workflows for content distribution
+- [ ] Document process and train client team
+
+---
+
+### Track 4 — Platform Development (.NET 9 SaaS)
 
 ### Phase 0 — Foundation ✅ COMPLETE
 
@@ -873,7 +1007,44 @@ Phase 0 (Complete)
 
 ## 14. Budget & Payment Schedule
 
-### 14.1 Milestone Payment Table
+### 14.1 Service Track Pricing
+
+#### Track 1 — Low-Hanging Tech
+| Item | Pricing |
+|---|---|
+| Microsoft 365 nonprofit rate transition | Consulting included in engagement |
+| DMARC/DKIM/SPF configuration | Consulting included in engagement |
+| HIPAA-compliant form migration | Consulting included in engagement |
+| Distribution list audit and segmentation | Consulting included in engagement |
+| Office/email hosting (ongoing) | Microsoft nonprofit rates (Client pays license fees directly) |
+
+#### Track 2 — Websites + Software
+| Item | Pricing |
+|---|---|
+| Content website build (lotvministry.org on Duda) | **Charitable contribution** (value: $3,500–$6,000) |
+| Donor website build (lilyofthevalleyministry.com on Duda) | **Charitable contribution** (value: $3,500–$6,000) |
+| First year hosting — both sites | **FREE** |
+| Hosting renewal (Year 2+) | $39/month or annual equivalent — 2 sites for the price of 1 |
+
+#### Track 3 — Content Resources
+| Item | Pricing |
+|---|---|
+| Staff directory build + resource library structure | **Charitable contribution** |
+| WTE recording studio access | **FREE** (for family and parish video resource creation) |
+| Video editing | **50% discount** — $60/hr (standard rate: $120/hr) |
+| Social media automation consulting | Included in engagement |
+
+#### Track 4 — Dashboard Platform Development
+| Item | Pricing |
+|---|---|
+| Full platform development (Phases 0–6) | $10,000 investment |
+| Charitable contribution discount | 30% reduction |
+| **Net client investment** | **~$7,000** |
+| Payment structure | Divided over 3 months — approximately **$2,000–$2,500/month** |
+
+> **WTE's goal:** Provide as many services as possible as a charitable contribution to LOTV Ministry, with discounted rates for tech services.
+
+### 14.2 Milestone Payment Table (Track 4 — Platform)
 
 | Milestone | Description | Trigger | Amount |
 |---|---|---|---|
@@ -884,16 +1055,16 @@ Phase 0 (Complete)
 | M4 | Frontend Complete | Client acceptance of Phase 4 | $[AMOUNT] |
 | M5 | Testing Complete | UAT sign-off + coverage report | $[AMOUNT] |
 | M6 | Production Launch | Go-live + Client launch approval | $[AMOUNT] |
-| **TOTAL** | | | **$[TOTAL]** |
+| **TOTAL** | | | **~$7,000 net** |
 
-### 14.2 Reimbursable Expenses
+### 14.3 Reimbursable Expenses
 
 The following are billed as pass-through at cost with 30-day receipts:
 - Software licenses (if purchased on Client's behalf)
 - Cloud infrastructure costs (Azure subscription charges)
 - Third-party API fees (email provider, SMS if added)
 
-### 14.3 Liability Caps
+### 14.4 Liability Caps
 
 Per MSA-LOTV:
 - Per-occurrence cap: 12-month fees or **$150,000** (whichever is less)
@@ -921,6 +1092,11 @@ Per MSA-LOTV:
 | 13 | Public-facing content (About, Privacy, ToS) | Phase 4 | ⬜ Pending | Phase 4 |
 | 14 | Test data (dioceses, users, requests) | Phase 3 testing | ⬜ Pending | Before Phase 3 |
 | 15 | Production launch approval (written) | Phase 6 go-live | ⬜ Pending | Phase 6 |
+| 16 | 501(c)(3) status confirmation | Donor website domain transfer (Track 2) | ⬜ Pending | Before Track 2 donor site launch |
+| 17 | lilyofthevalleyministry.com domain registrar access | Donor website go-live | ⬜ Pending | Before Track 2 donor site launch |
+| 18 | Staff profile info and headshots | Staff directory (Track 3) | ⬜ Pending | Before Track 3 directory build |
+| 19 | Website content (About, articles, resource text) | Tracks 2 & 3 | ⬜ Pending | Phased — per track |
+| 20 | Recording session scheduling | Video production (Track 3) | ⬜ Pending | Track 3 |
 
 ---
 
@@ -936,7 +1112,15 @@ Per MSA-LOTV:
 - WTE manages the GitHub repository and CI/CD pipeline configuration
 - Data residency: United States
 
-### 16.2 Process Assumptions
+### 16.2 Web & Content Assumptions
+
+- LOTV Ministry will complete its 501(c)(3) status changeover; donor site domain transfer cannot proceed until this is confirmed
+- Client will provide all written content (articles, bios, resource text) for Tracks 2 and 3 on agreed timelines; delays in content delivery may delay site go-live
+- Client designates at least one staff member as the ongoing CMS content manager for lotvministry.org
+- Duda CMS is the agreed platform for both websites; changes to CMS platform require a Change Order
+- Microsoft 365 nonprofit pricing eligibility is subject to Microsoft's qualification requirements; WTE will guide the process but cannot guarantee approval
+
+### 16.3 Process Assumptions
 
 - Client response SLA: **5 business days** for all review/approval requests
 - Milestone acceptance window: **5 business days** after delivery
@@ -965,11 +1149,14 @@ The following items are explicitly **out of scope** for SOW-LOTV-001 and require
 | Real-time auction bidding via SignalR | SignalR IS in scope for the operations board. This exclusion applies only to live public auction bidding. Potential Phase 7 via Change Order. |
 | Recurring donation subscriptions | Stripe Billing not included |
 | Third-party CRM integration (Salesforce, HubSpot, etc.) | REST API provided for future integration |
-| Content creation / copywriting | Client provides all public-facing content |
 | Volunteer background check integration | Third-party screening not in scope |
 | Custom SMS provider | Email included; SMS optional via Change Order |
 | Hardware / on-premises infrastructure | Cloud-only deployment |
 | Training beyond handoff documentation | Written docs + recorded walkthrough delivered; formal training sessions are a Change Order |
+| Public-facing copywriting / editorial content | Client provides all written content for websites and resources; WTE provides structure and formatting only |
+| Ongoing social media management | WTE consults and configures automation; ongoing posting and content production is Client responsibility |
+| Video production beyond studio access | Studio time is free; video concept, scripting, and on-camera talent are Client responsibility; WTE provides editing at discounted rate |
+| Donor website launch before 501(c)(3) changeover | lilyofthevalleyministry.com domain transfer depends on Client completing nonprofit status transition |
 
 ---
 

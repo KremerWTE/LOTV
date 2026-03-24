@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ministry Team Portal — Lily of the Valley Ministry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green:       #487336;
+      --green-dark:  #2d4e1e;
+      --green-light: #6a9e52;
+      --green-pale:  #eaf2e5;
+      --navy:        #2d469d;
+      --navy-dark:   #1e3070;
+      --navy-pale:   #e8ecf8;
+      --cream:       #faf7f2;
+      --blush:       #c4938b;
+      --blush-pale:  #f5ede9;
+      --gold:        #c8a45a;
+      --gold-pale:   #faf0dd;
+      --lavender:    #9b8bb4;
+      --lav-pale:    #f0ecf8;
+      --amber:       #d4822a;
+      --amber-pale:  #fef3e2;
+      --text-dark:   #1a2810;
+      --text-mid:    #4a5e3a;
+      --text-light:  #7a9268;
+      --border:      #d8e6cf;
+      --bg:          #f0f4ec;
+      --white:       #ffffff;
+      --shadow:      0 2px 14px rgba(26,40,16,.09);
+      --radius:      12px;
+      --ff-head:     'Playfair Display', Georgia, serif;
+      --ff-body:     'Inter', system-ui, sans-serif;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--ff-body); background: var(--cream); color: var(--text-dark); line-height: 1.6; }
+
+    /* ── NAV ── */
+    nav { background: var(--white); border-bottom: 1px solid var(--border); box-shadow: 0 1px 8px rgba(0,0,0,.05); position: sticky; top: 0; z-index: 200; }
+    .nav-inner { max-width: 1160px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-img { height: 46px; width: auto; object-fit: contain; display: block; }
+    .logo-text strong { display: block; font-size: .9rem; color: var(--green); font-family: var(--ff-head); }
+    .logo-text span { font-size: .68rem; color: var(--text-light); text-transform: uppercase; letter-spacing: .05em; }
+    .nav-back { display: flex; align-items: center; gap: 6px; color: var(--text-mid); text-decoration: none; font-size: .85rem; font-weight: 500; padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border); transition: all .15s; }
+    .nav-back:hover { background: var(--green-pale); color: var(--green); border-color: var(--green); }
+
+    /* ── LOGIN SCREEN ── */
+    #login-screen {
+      min-height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center;
+      padding: 48px 24px; background: linear-gradient(160deg, #f3f9f5 0%, var(--cream) 100%);
+    }
+    .login-card {
+      background: var(--white); border-radius: 18px; padding: 48px 44px; max-width: 460px; width: 100%;
+      box-shadow: 0 8px 40px rgba(30,45,37,.12); border: 1px solid var(--border); text-align: center;
+    }
+    .login-lock { width: 72px; height: 72px; border-radius: 50%; background: var(--green-pale); margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+    .login-card h1 { font-family: var(--ff-head); font-size: 1.5rem; color: var(--green-dark); margin-bottom: 6px; }
+    .login-card p { color: var(--text-mid); font-size: .9rem; margin-bottom: 28px; }
+    .login-badge { display: inline-block; background: var(--gold-pale); border: 1px solid #e0c880; color: #7a6020; font-size: .72rem; font-weight: 700; padding: 3px 12px; border-radius: 12px; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 24px; }
+    .login-label { display: block; text-align: left; font-size: .78rem; font-weight: 700; color: var(--text-mid); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+    .login-input {
+      width: 100%; padding: 13px 16px; border: 2px solid var(--border); border-radius: 10px;
+      font-size: 1rem; font-family: inherit; color: var(--text-dark); background: var(--bg);
+      transition: border-color .15s; margin-bottom: 8px; letter-spacing: .1em;
+    }
+    .login-input:focus { outline: none; border-color: var(--green); background: white; }
+    .login-hint { font-size: .78rem; color: var(--text-light); text-align: left; margin-bottom: 20px; }
+    .login-hint a { color: var(--green); text-decoration: none; }
+    .login-btn {
+      width: 100%; padding: 14px; background: var(--green); color: white; border: none;
+      border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: background .15s; margin-bottom: 14px;
+    }
+    .login-btn:hover { background: #3d6a4f; }
+    .login-error { background: #fdecea; border: 1px solid #f5c0bc; border-radius: 8px; padding: 10px 14px; font-size: .85rem; color: #c0392b; display: none; margin-bottom: 12px; }
+    .login-contact { font-size: .82rem; color: var(--text-light); margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .login-contact a { color: var(--green); text-decoration: none; }
+    .demo-hint { background: var(--gold-pale); border: 1px solid #e0c880; border-radius: 8px; padding: 10px 14px; font-size: .8rem; color: #7a6020; margin-bottom: 16px; }
+
+    /* ── PORTAL (shown after login) ── */
+    #portal { display: none; }
+
+    /* ── PORTAL HEADER ── */
+    .portal-header { background: var(--green-dark); color: white; padding: 0 24px; }
+    .portal-header-inner { max-width: 1160px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 52px; }
+    .portal-welcome { font-size: .88rem; opacity: .85; }
+    .portal-welcome strong { color: var(--gold); }
+    .portal-header-right { display: flex; align-items: center; gap: 16px; }
+    .cert-badge { background: rgba(200,164,90,.25); border: 1px solid rgba(200,164,90,.5); color: var(--gold); font-size: .72rem; font-weight: 700; padding: 3px 12px; border-radius: 12px; letter-spacing: .05em; text-transform: uppercase; }
+    .logout-btn { background: none; border: 1px solid rgba(255,255,255,.3); color: rgba(255,255,255,.7); padding: 5px 14px; border-radius: 7px; font-size: .8rem; cursor: pointer; font-family: inherit; transition: all .15s; }
+    .logout-btn:hover { background: rgba(255,255,255,.1); color: white; }
+
+    /* ── TAB NAV ── */
+    .tab-nav { background: white; border-bottom: 1px solid var(--border); padding: 0 24px; }
+    .tab-nav-inner { max-width: 1160px; margin: 0 auto; display: flex; gap: 0; }
+    .tab-link {
+      padding: 16px 22px; font-size: .88rem; font-weight: 600; color: var(--text-mid);
+      border-bottom: 3px solid transparent; cursor: pointer; transition: all .15s;
+      display: flex; align-items: center; gap: 7px; text-decoration: none;
+      white-space: nowrap;
+    }
+    .tab-link:hover { color: var(--green); border-bottom-color: var(--green-pale); }
+    .tab-link.active { color: var(--green); border-bottom-color: var(--green); }
+    .tab-count { background: var(--green-pale); color: var(--green); font-size: .68rem; font-weight: 700; padding: 1px 7px; border-radius: 9px; }
+
+    /* ── PAGE CONTENT ── */
+    .page-content { max-width: 1160px; margin: 0 auto; padding: 32px 24px 60px; }
+
+    /* ── WELCOME BANNER ── */
+    .welcome-banner {
+      background: linear-gradient(135deg, var(--green-dark), #3d7554);
+      color: white; border-radius: var(--radius); padding: 28px 32px; margin-bottom: 28px;
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    }
+    .welcome-banner h2 { font-family: var(--ff-head); font-size: 1.2rem; margin-bottom: 5px; }
+    .welcome-banner p { opacity: .85; font-size: .88rem; max-width: 560px; }
+    .cert-progress { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); border-radius: 10px; padding: 16px 22px; min-width: 200px; text-align: center; flex-shrink: 0; }
+    .cert-progress .label { font-size: .72rem; opacity: .7; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+    .cert-progress .value { font-size: 1.6rem; font-weight: 700; font-family: var(--ff-head); color: var(--gold); }
+    .cert-progress .sublabel { font-size: .72rem; opacity: .6; margin-top: 4px; }
+    .progress-bar { height: 6px; background: rgba(255,255,255,.15); border-radius: 3px; margin: 8px 0 0; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--gold); border-radius: 3px; width: 60%; }
+
+    /* ── SECTION HEADERS ── */
+    .section-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .section-hd h3 { font-family: var(--ff-head); font-size: 1.1rem; color: var(--text-dark); }
+    .section-hd p { font-size: .83rem; color: var(--text-mid); margin-top: 2px; }
+    .btn { padding: 8px 18px; border-radius: 8px; font-size: .84rem; font-weight: 600; border: 1.5px solid var(--border); background: white; cursor: pointer; color: var(--text-mid); transition: all .15s; text-decoration: none; display: inline-block; font-family: inherit; }
+    .btn:hover { background: var(--green-pale); border-color: var(--green); color: var(--green); }
+    .btn-primary { background: var(--green); color: white; border-color: var(--green); }
+    .btn-primary:hover { background: #3d6a4f; color: white; }
+
+    /* ── CARDS GRID ── */
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; margin-bottom: 36px; }
+    .portal-card { background: white; border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); transition: transform .15s, box-shadow .15s; }
+    .portal-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(30,45,37,.12); }
+    .card-thumb { height: 120px; display: flex; align-items: center; justify-content: center; font-size: 44px; position: relative; }
+    .thumb-green-grad { background: linear-gradient(135deg, var(--green-pale), #c8e4d0); }
+    .thumb-blush-grad { background: linear-gradient(135deg, var(--blush-pale), #edd8d4); }
+    .thumb-gold-grad { background: linear-gradient(135deg, var(--gold-pale), #f0e0b0); }
+    .thumb-lav-grad { background: linear-gradient(135deg, var(--lav-pale), #e0d8f0); }
+    .card-type-pill { position: absolute; top: 10px; left: 10px; background: white; padding: 3px 10px; border-radius: 10px; font-size: .68rem; font-weight: 700; color: var(--text-mid); text-transform: uppercase; letter-spacing: .04em; }
+    .card-locked-pill { position: absolute; top: 10px; right: 10px; background: var(--green-pale); color: var(--green); padding: 3px 10px; border-radius: 10px; font-size: .68rem; font-weight: 700; }
+    .card-complete-pill { position: absolute; top: 10px; right: 10px; background: var(--green); color: white; padding: 3px 10px; border-radius: 10px; font-size: .68rem; font-weight: 700; }
+    .card-body { padding: 18px; }
+    .card-body h4 { font-size: .97rem; font-weight: 600; margin-bottom: 5px; color: var(--text-dark); }
+    .card-body p { font-size: .84rem; color: var(--text-mid); line-height: 1.5; margin-bottom: 14px; }
+    .card-meta { display: flex; align-items: center; justify-content: space-between; }
+    .card-tag { background: var(--green-pale); color: var(--green); padding: 3px 9px; border-radius: 9px; font-size: .72rem; font-weight: 600; }
+    .card-tag-gold { background: var(--gold-pale); color: #8a6020; }
+    .card-tag-lav { background: var(--lav-pale); color: var(--lavender); }
+    .card-action { font-size: .84rem; font-weight: 700; color: var(--green); text-decoration: none; cursor: pointer; }
+    .card-action:hover { text-decoration: underline; }
+    .duration-lbl { font-size: .75rem; color: var(--text-light); }
+
+    /* ── PRINTABLES ── */
+    .printables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; margin-bottom: 36px; }
+    .print-card { background: white; border-radius: var(--radius); border: 1px solid var(--border); padding: 0; overflow: hidden; box-shadow: var(--shadow); }
+    .print-preview { height: 160px; display: flex; align-items: center; justify-content: center; position: relative; background: #f8f5f0; border-bottom: 1px solid var(--border); }
+    .print-preview-inner {
+      width: 90px; height: 120px; background: white; border-radius: 4px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 6px; padding: 10px;
+    }
+    .print-preview-logo { font-size: 16px; }
+    .print-preview-line { height: 4px; border-radius: 2px; background: var(--green-pale); width: 100%; }
+    .print-preview-line.sm { width: 70%; }
+    .print-preview-line.xs { width: 50%; background: var(--blush-pale); }
+    .print-size-badge { position: absolute; top: 10px; right: 10px; background: white; border: 1px solid var(--border); padding: 2px 8px; border-radius: 6px; font-size: .68rem; font-weight: 700; color: var(--text-mid); }
+    .print-body { padding: 14px 16px; }
+    .print-body h4 { font-size: .9rem; font-weight: 600; margin-bottom: 4px; }
+    .print-body p { font-size: .8rem; color: var(--text-mid); margin-bottom: 12px; line-height: 1.4; }
+    .print-actions { display: flex; gap: 8px; }
+    .print-btn { flex: 1; padding: 7px 10px; border-radius: 7px; font-size: .78rem; font-weight: 600; border: 1.5px solid var(--border); background: white; cursor: pointer; color: var(--text-mid); font-family: inherit; transition: all .15s; text-align: center; }
+    .print-btn:hover { background: var(--green-pale); border-color: var(--green); color: var(--green); }
+    .print-btn-dl { background: var(--green); color: white; border-color: var(--green); }
+    .print-btn-dl:hover { background: #3d6a4f; color: white; }
+
+    /* ── PROTOCOLS ── */
+    .protocol-list { background: white; border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; margin-bottom: 36px; }
+    .protocol-item { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 16px; transition: background .1s; cursor: pointer; }
+    .protocol-item:last-child { border-bottom: none; }
+    .protocol-item:hover { background: var(--bg); }
+    .protocol-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .p-icon-green { background: var(--green-pale); }
+    .p-icon-blush { background: var(--blush-pale); }
+    .p-icon-gold { background: var(--gold-pale); }
+    .p-icon-lav { background: var(--lav-pale); }
+    .protocol-info { flex: 1; }
+    .protocol-info h4 { font-size: .95rem; font-weight: 600; margin-bottom: 3px; }
+    .protocol-info p { font-size: .83rem; color: var(--text-mid); }
+    .protocol-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .protocol-updated { font-size: .72rem; color: var(--text-light); }
+    .protocol-dl { font-size: .82rem; font-weight: 700; color: var(--green); cursor: pointer; }
+
+    /* ── DIOCESE SECTION ── */
+    .diocese-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 36px; }
+    .diocese-card { background: white; border-radius: var(--radius); border: 1px solid var(--border); padding: 22px; }
+    .diocese-card h4 { font-size: .97rem; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .diocese-card p { font-size: .84rem; color: var(--text-mid); margin-bottom: 14px; }
+    .team-roster { list-style: none; }
+    .team-member { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .team-member:last-child { border-bottom: none; }
+    .team-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 700; color: white; flex-shrink: 0; }
+    .av-g { background: linear-gradient(135deg, var(--green), var(--green-light)); }
+    .av-b { background: linear-gradient(135deg, var(--blush), #d4a89f); }
+    .av-l { background: linear-gradient(135deg, var(--lavender), #b5a8cc); }
+    .team-member .name { font-size: .85rem; font-weight: 600; flex: 1; }
+    .team-member .role { font-size: .75rem; color: var(--text-light); }
+    .team-cert { background: var(--green-pale); color: var(--green); font-size: .65rem; font-weight: 700; padding: 2px 7px; border-radius: 7px; }
+
+    /* ── TAB PANELS ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── FOOTER ── */
+    footer { background: #1e2d25; color: rgba(255,255,255,.55); padding: 28px 24px; text-align: center; font-size: .82rem; }
+    footer a { color: var(--green-light); text-decoration: none; }
+
+    @media (max-width: 768px) {
+      .login-card { padding: 32px 24px; }
+      .welcome-banner { flex-direction: column; }
+      .cert-progress { width: 100%; }
+      .diocese-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      <img class="logo-img" src="https://lotvministry.org/wp-content/uploads/2023/02/cropped-Lily-of-valley-Final-01-2.jpg" alt="Lily of the Valley Ministry" />
+      <div class="logo-text">
+        <strong>Lily of the Valley</strong>
+        <span>Ministry</span>
+      </div>
+    </a>
+    <a href="mockup-lotvministry-org.html" class="nav-back">&#8592; Back to Main Site</a>
+  </div>
+</nav>
+
+<!-- ══════════ LOGIN SCREEN ══════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-lock">&#128274;</div>
+    <div class="login-badge">&#9733; Certified Team Member Access</div>
+    <h1>LOTV Ministry Team Portal</h1>
+    <p style="font-family:var(--ff-head);font-style:italic;font-size:.88rem;color:var(--text-light);margin-bottom:8px;">Under the intercession of St. Gianna Beretta Molla &#9770;</p>
+    <p>For certified parish and diocese team members of the Lily of the Valley Catholic Apostolate. Enter your access code to continue.</p>
+    <div class="demo-hint">&#128161; <strong>Demo:</strong> Enter any code to preview the portal, or use <strong>parish2026</strong></div>
+    <label class="login-label" for="pw-input">Your Access Code</label>
+    <input id="pw-input" class="login-input" type="password" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" />
+    <div class="login-hint">Your access code was provided when your parish team was certified. <a href="#">Contact the ministry office</a> if you have not received yours.</div>
+    <div class="login-error" id="login-error">Incorrect access code. Please try again or contact the ministry office.</div>
+    <button class="login-btn" onclick="attemptLogin()">Access the Portal &#8594;</button>
+    <div class="login-contact">
+      Not yet certified? <a href="#">Learn about parish certification &rarr;</a><br />
+      Questions? <a href="mailto:portal@lotvministry.org">portal@lotvministry.org</a> &bull; (555) 000-0001
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PORTAL (hidden until login) ══════════ -->
+<div id="portal">
+
+  <!-- PORTAL HEADER BAR -->
+  <div class="portal-header">
+    <div class="portal-header-inner">
+      <div class="portal-welcome">Welcome back, <strong>St. Michael's Parish Team</strong> &mdash; Diocese of Chicago</div>
+      <div class="portal-header-right">
+        <span class="cert-badge">&#9989; Certified — Level 2</span>
+        <button class="logout-btn" onclick="logout()">Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB NAVIGATION -->
+  <div class="tab-nav">
+    <div class="tab-nav-inner">
+      <div class="tab-link active" onclick="showTab('training', this)">&#127916; Training Library <span class="tab-count">12</span></div>
+      <div class="tab-link" onclick="showTab('printables', this)">&#128196; Printables &amp; Bulletins <span class="tab-count">18</span></div>
+      <div class="tab-link" onclick="showTab('protocols', this)">&#128203; Protocols &amp; Forms</div>
+      <div class="tab-link" onclick="showTab('diocese', this)">&#9961; My Diocese &amp; Team</div>
+      <div class="tab-link" onclick="showTab('account', this)">&#128100; My Certification</div>
+      <div class="tab-link" onclick="showTab('contact', this)">&#128172; Contact LOTV</div>
+    </div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <div class="page-content">
+
+    <!-- WELCOME BANNER -->
+    <div class="welcome-banner" style="position:relative;overflow:hidden;">
+      <img src="https://lotvministry.org/wp-content/uploads/2023/02/Lily-of-valley-Final.png" alt="" style="position:absolute;right:-20px;top:50%;transform:translateY(-50%);height:140px;opacity:.07;pointer-events:none;" />
+      <div>
+        <h2>Good to see you, St. Michael&rsquo;s Team</h2>
+        <p>Welcome to the LOTV Catholic Apostolate parish portal. You have 2 new training modules, 3 updated printables for April, and your Level 2 certification renewal is due in 90 days. Your diocese coordinator is Anne Bergman. <em>Making Christ&rsquo;s love visible &mdash; one family at a time.</em></p>
+        <p style="font-size:.8rem;font-style:italic;color:rgba(255,255,255,.6);margin-top:6px;">Under the intercession of St. Gianna Beretta Molla &#9769;</p>
+      </div>
+      <div class="cert-progress">
+        <div class="label">Certification Progress</div>
+        <div class="value">6 / 10</div>
+        <div class="sublabel">Modules completed</div>
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- ── TRAINING TAB ── -->
+    <div id="tab-training" class="tab-panel active">
+      <div class="section-hd">
+        <div>
+          <h3>Training Library</h3>
+          <p>Complete all required modules for your certification level. New content is added each quarter.</p>
+        </div>
+        <a href="#" class="btn btn-primary">My Progress Report</a>
+      </div>
+
+      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" style="background:var(--green);color:white;border-color:var(--green);font-size:.8rem;">All Modules</button>
+        <button class="btn" style="font-size:.8rem;">Required (Level 1)</button>
+        <button class="btn" style="font-size:.8rem;">Level 2 Advanced</button>
+        <button class="btn" style="font-size:.8rem;">New This Quarter</button>
+        <button class="btn" style="font-size:.8rem;">Completed</button>
+      </div>
+
+      <div class="cards-grid">
+        <div class="portal-card">
+          <div class="card-thumb thumb-blush-grad">
+            <span class="card-type-pill">Video</span>
+            <span class="card-complete-pill">&#10003; Done</span>
+            &#127897;
+          </div>
+          <div class="card-body">
+            <h4>Foundations of Perinatal Grief Ministry</h4>
+            <p>Core principles for supporting families after pregnancy loss — the language to use, what to avoid, and how to show up with confidence.</p>
+            <div class="card-meta">
+              <span class="card-tag">Level 1 — Required</span>
+              <span class="duration-lbl">28 min</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="portal-card">
+          <div class="card-thumb thumb-green-grad">
+            <span class="card-type-pill">Video</span>
+            <span class="card-complete-pill">&#10003; Done</span>
+            &#127897;
+          </div>
+          <div class="card-body">
+            <h4>First Response: What to Do in the First 48 Hours</h4>
+            <p>A step-by-step guide for what a parish team should do when they first learn a family in their community has experienced a loss.</p>
+            <div class="card-meta">
+              <span class="card-tag">Level 1 — Required</span>
+              <span class="duration-lbl">18 min</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="portal-card">
+          <div class="card-thumb thumb-green-grad">
+            <span class="card-type-pill">Training Guide</span>
+            <span class="card-complete-pill">&#10003; Done</span>
+            &#128209;
+          </div>
+          <div class="card-body">
+            <h4>Referral Pathways and LOTV Coordination</h4>
+            <p>How to identify a family's needs, complete a referral to LOTV staff, and coordinate your parish's involvement with ministry volunteers.</p>
+            <div class="card-meta">
+              <span class="card-tag">Level 1 — Required</span>
+              <span class="duration-lbl">35 min</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="portal-card">
+          <div class="card-thumb thumb-lav-grad">
+            <span class="card-type-pill">Video + Quiz</span>
+            <span class="card-locked-pill">&#9654; Start</span>
+            &#127897;
+          </div>
+          <div class="card-body">
+            <h4>Supporting Fathers and Partners Through Loss</h4>
+            <p>Often the forgotten grievers — learn how to recognize the unique grief experience of fathers, and how your team can include them in support.</p>
+            <div class="card-meta">
+              <span class="card-tag card-tag-lav">Level 2</span>
+              <span class="duration-lbl">24 min + quiz</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="portal-card">
+          <div class="card-thumb thumb-gold-grad">
+            <span class="card-type-pill">Workshop</span>
+            <span class="card-locked-pill">&#9654; Start</span>
+            &#127891;
+          </div>
+          <div class="card-body">
+            <h4>Planning a Parish Memorial Service</h4>
+            <p>A complete workshop for planning and facilitating meaningful memorial services within your parish — including readings, music, and family involvement.</p>
+            <div class="card-meta">
+              <span class="card-tag card-tag-gold">Level 2</span>
+              <span class="duration-lbl">1.5 hrs</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="portal-card">
+          <div class="card-thumb thumb-blush-grad">
+            <span class="card-type-pill">Video</span>
+            <span style="position:absolute;top:10px;right:10px;background:var(--blush);color:white;padding:3px 10px;border-radius:10px;font-size:.68rem;font-weight:700;">New</span>
+            &#127897;
+          </div>
+          <div class="card-body">
+            <h4>Supporting Families of Different Faith Backgrounds</h4>
+            <p>How to provide inclusive, respectful support to families who may practice a different faith tradition or no faith tradition at all.</p>
+            <div class="card-meta">
+              <span class="card-tag card-tag-lav">Level 2 — New</span>
+              <span class="duration-lbl">20 min</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="portal-card" style="border-color:var(--gold);">
+          <div class="card-thumb" style="background:linear-gradient(135deg,#fdf0d0,#f5dfa0);position:relative;height:120px;display:flex;align-items:center;justify-content:center;">
+            <span class="card-type-pill">Featured</span>
+            <img src="https://lotvministry.org/wp-content/uploads/2023/02/Lily-of-valley-Final.png" alt="" style="height:60px;opacity:.5;" />
+          </div>
+          <div class="card-body">
+            <h4>St. Gianna Beretta Molla: Our Patroness &amp; Her Witness</h4>
+            <p>Learn the life, witness, and legacy of St. Gianna Molla &mdash; pediatrician, mother, and martyr of love &mdash; and why LOTV Ministry operates under her intercession. Includes the official prayer and feast day resources.</p>
+            <div class="card-meta">
+              <span class="card-tag card-tag-gold">All Levels</span>
+              <span class="duration-lbl">15 min</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="portal-card">
+          <div class="card-thumb thumb-green-grad">
+            <span class="card-type-pill">Resource Guide</span>
+            <span class="card-locked-pill">&#9654; Start</span>
+            &#128218;
+          </div>
+          <div class="card-body">
+            <h4>Sursum Corda: Resources from Eileen Tully</h4>
+            <p>Explore the <em>Present in the Pain</em> podcast, <em>Praying with Our Lady of Sorrows</em>, and <em>The Sorrowful Way</em> — curated grief resources for parish teams to recommend to families.</p>
+            <div class="card-meta">
+              <span class="card-tag">Level 1 — Resource</span>
+              <span class="duration-lbl">Reference</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="portal-card">
+          <div class="card-thumb thumb-lav-grad">
+            <span class="card-type-pill">Community</span>
+            <span class="card-locked-pill">&#9654; Start</span>
+            &#127919;
+          </div>
+          <div class="card-body">
+            <h4>Ava&rsquo;s Grace: Connecting Families to Support Groups</h4>
+            <p>Monthly Zoom support group, third Wednesday at 8pm EST (Diocese of Fort Wayne&ndash;South Bend). Learn how to connect families in your parish to this ongoing community.</p>
+            <div class="card-meta">
+              <span class="card-tag card-tag-lav">Level 2</span>
+              <span class="duration-lbl">Reference</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /training tab -->
+
+    <!-- ── PRINTABLES TAB ── -->
+    <div id="tab-printables" class="tab-panel">
+      <div class="section-hd">
+        <div>
+          <h3>Printables, Bulletins &amp; Inserts</h3>
+          <p>Download, print, and distribute in your parish. All items are print-ready and can be customized with your parish name before printing.</p>
+        </div>
+        <a href="#" class="btn btn-primary">&#128190; Download All (ZIP)</a>
+      </div>
+
+      <div style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" style="background:var(--green);color:white;border-color:var(--green);font-size:.8rem;">All Items</button>
+        <button class="btn" style="font-size:.8rem;">Bulletin Inserts</button>
+        <button class="btn" style="font-size:.8rem;">Prayer Cards</button>
+        <button class="btn" style="font-size:.8rem;">Flyers &amp; Posters</button>
+        <button class="btn" style="font-size:.8rem;">Referral Forms</button>
+        <button class="btn" style="font-size:.8rem;">Keepsake Items</button>
+        <button class="btn" style="font-size:.8rem;">Updated in April</button>
+      </div>
+
+      <div class="printables-grid">
+
+        <div class="print-card">
+          <div class="print-preview">
+            <div class="print-preview-inner">
+              <div class="print-preview-logo">&#10050;</div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line sm"></div>
+              <div class="print-preview-line xs"></div>
+              <div class="print-preview-line sm"></div>
+            </div>
+            <div class="print-size-badge">Half-Sheet</div>
+          </div>
+          <div class="print-body">
+            <h4>Sunday Bulletin Insert — General</h4>
+            <p>A gentle, welcoming insert for general distribution that introduces LOTV Ministry and how families can request support. Suitable for any Sunday bulletin.</p>
+            <div class="print-actions">
+              <button class="print-btn">Preview</button>
+              <button class="print-btn print-btn-dl">&#8595; Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="print-card">
+          <div class="print-preview">
+            <div class="print-preview-inner">
+              <div class="print-preview-logo">&#128149;</div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line xs"></div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line sm"></div>
+            </div>
+            <div class="print-size-badge">Quarter-Sheet</div>
+          </div>
+          <div class="print-body">
+            <h4>Pregnancy Loss Awareness Insert</h4>
+            <p>For October (Pregnancy &amp; Infant Loss Awareness Month) or year-round. Gentle acknowledgment with referral information and prayer.</p>
+            <div class="print-actions">
+              <button class="print-btn">Preview</button>
+              <button class="print-btn print-btn-dl">&#8595; Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="print-card">
+          <div class="print-preview">
+            <div class="print-preview-inner">
+              <div class="print-preview-logo">&#128467;</div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line sm"></div>
+              <div class="print-preview-line xs"></div>
+            </div>
+            <div class="print-size-badge">Prayer Card</div>
+          </div>
+          <div class="print-body">
+            <h4>Grief Prayer Card — Standard</h4>
+            <p>Wallet-sized prayer card for families. Front: LOTV logo and a brief prayer. Back: ministry contact information and QR code linking to lotvministry.org.</p>
+            <div class="print-actions">
+              <button class="print-btn">Preview</button>
+              <button class="print-btn print-btn-dl">&#8595; Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="print-card">
+          <div class="print-preview">
+            <div class="print-preview-inner">
+              <div class="print-preview-logo">&#127968;</div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line sm"></div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line xs"></div>
+            </div>
+            <div class="print-size-badge">8.5 x 11</div>
+          </div>
+          <div class="print-body">
+            <h4>Narthex / Vestibule Flyer</h4>
+            <p>Full-page flyer for bulletin boards, gathering spaces, or hospital chaplain offices. Describes LOTV services with care package QR code and contact info.</p>
+            <div class="print-actions">
+              <button class="print-btn">Preview</button>
+              <button class="print-btn print-btn-dl">&#8595; Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="print-card">
+          <div class="print-preview">
+            <div class="print-preview-inner">
+              <div class="print-preview-logo">&#128203;</div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line sm"></div>
+              <div class="print-preview-line xs"></div>
+              <div class="print-preview-line sm"></div>
+            </div>
+            <div class="print-size-badge">Half-Sheet</div>
+          </div>
+          <div class="print-body">
+            <h4>Family Referral Form — Parish Copy</h4>
+            <p>Fillable + printable form for parish staff to document a family referral to LOTV Ministry. Carbon-copy layout. Submit via mail, scan, or the online portal.</p>
+            <div class="print-actions">
+              <button class="print-btn">Preview</button>
+              <button class="print-btn print-btn-dl">&#8595; Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="print-card">
+          <div class="print-preview">
+            <div class="print-preview-inner" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,var(--green-pale),var(--blush-pale));"></div>
+              <div class="print-preview-logo">&#128104;&#8205;&#128105;&#8205;&#128103;</div>
+              <div class="print-preview-line sm"></div>
+              <div class="print-preview-line xs"></div>
+            </div>
+            <div class="print-size-badge">Tri-fold</div>
+          </div>
+          <div class="print-body">
+            <h4>Family Welcome Brochure</h4>
+            <p>A tri-fold brochure introducing LOTV Ministry to families. Describes support services, how to request help, and includes tear-off contact card with QR code.</p>
+            <div class="print-actions">
+              <button class="print-btn">Preview</button>
+              <button class="print-btn print-btn-dl">&#8595; Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="print-card">
+          <div class="print-preview">
+            <div class="print-preview-inner">
+              <div class="print-preview-logo">&#10050;</div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line xs"></div>
+            </div>
+            <div class="print-size-badge">Bookmark</div>
+          </div>
+          <div class="print-body">
+            <h4>Scripture Bookmark — Grief &amp; Hope</h4>
+            <p>A laminated-ready bookmark with a comforting scripture passage, LOTV branding, and ministry contact details. Ideal to include with care packages or sympathy cards.</p>
+            <div class="print-actions">
+              <button class="print-btn">Preview</button>
+              <button class="print-btn print-btn-dl">&#8595; Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="print-card">
+          <div class="print-preview">
+            <div class="print-preview-inner">
+              <div class="print-preview-logo">&#128466;</div>
+              <div class="print-preview-line"></div>
+              <div class="print-preview-line sm"></div>
+              <div class="print-preview-line xs"></div>
+            </div>
+            <div style="position:absolute;top:10px;right:10px;background:var(--blush);color:white;padding:3px 8px;border-radius:6px;font-size:.68rem;font-weight:700;">New April</div>
+          </div>
+          <div class="print-body">
+            <h4>Mother's Day Bulletin Insert</h4>
+            <p>A sensitive, inclusive bulletin insert for Mother's Day weekend that acknowledges mothers who have experienced loss and points them toward LOTV support.</p>
+            <div class="print-actions">
+              <button class="print-btn">Preview</button>
+              <button class="print-btn print-btn-dl">&#8595; Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /printables tab -->
+
+    <!-- ── PROTOCOLS TAB ── -->
+    <div id="tab-protocols" class="tab-panel">
+      <div class="section-hd">
+        <div>
+          <h3>Protocols, Forms &amp; Reference Guides</h3>
+          <p>Step-by-step protocols for every scenario your team may encounter. Always use the most recent version.</p>
+        </div>
+        <a href="#" class="btn">All Versions</a>
+      </div>
+
+      <div class="protocol-list">
+        <div class="protocol-item">
+          <div class="protocol-icon p-icon-blush">&#128149;</div>
+          <div class="protocol-info">
+            <h4>First Response Protocol — Receiving a Loss Disclosure</h4>
+            <p>What to say and do in the moment when a family member shares news of a loss with a parish staff member or volunteer. Covers language guidance, immediate steps, and when to call LOTV staff directly.</p>
+          </div>
+          <div class="protocol-right">
+            <span class="protocol-updated">Updated Mar 2026</span>
+            <span class="protocol-dl" onclick="alert('Downloading PDF...')">&#8595; PDF</span>
+          </div>
+        </div>
+        <div class="protocol-item">
+          <div class="protocol-icon p-icon-green">&#128203;</div>
+          <div class="protocol-info">
+            <h4>Referral Submission Workflow — Online Portal &amp; Paper</h4>
+            <p>Step-by-step instructions for submitting a family referral to LOTV through the staff portal or via the paper referral form. Includes required information and timeline expectations.</p>
+          </div>
+          <div class="protocol-right">
+            <span class="protocol-updated">Updated Jan 2026</span>
+            <span class="protocol-dl" onclick="alert('Downloading PDF...')">&#8595; PDF</span>
+          </div>
+        </div>
+        <div class="protocol-item">
+          <div class="protocol-icon p-icon-gold">&#128467;</div>
+          <div class="protocol-info">
+            <h4>Memorial Service Planning Checklist</h4>
+            <p>A complete checklist for planning a parish memorial service — from the initial family conversation through logistics, readings, music, and follow-up care. Includes a timeline template.</p>
+          </div>
+          <div class="protocol-right">
+            <span class="protocol-updated">Updated Feb 2026</span>
+            <span class="protocol-dl" onclick="alert('Downloading PDF...')">&#8595; PDF</span>
+          </div>
+        </div>
+        <div class="protocol-item">
+          <div class="protocol-icon p-icon-lav">&#128101;</div>
+          <div class="protocol-info">
+            <h4>Follow-Up Schedule — 30 / 60 / 90 Day Check-In Guide</h4>
+            <p>A structured guide for parish teams to conduct compassionate follow-up with a family over the first three months after a loss, including suggested scripts and prayer intentions.</p>
+          </div>
+          <div class="protocol-right">
+            <span class="protocol-updated">Updated Dec 2025</span>
+            <span class="protocol-dl" onclick="alert('Downloading PDF...')">&#8595; PDF</span>
+          </div>
+        </div>
+        <div class="protocol-item">
+          <div class="protocol-icon p-icon-blush">&#128241;</div>
+          <div class="protocol-info">
+            <h4>Emergency Escalation Protocol — When to Contact LOTV Staff Directly</h4>
+            <p>Criteria for immediate escalation to LOTV staff — including active crisis situations, hospital notifications, and urgent financial needs. Includes direct-dial numbers for after-hours support.</p>
+          </div>
+          <div class="protocol-right">
+            <span class="protocol-updated">Updated Mar 2026</span>
+            <span class="protocol-dl" onclick="alert('Downloading PDF...')">&#8595; PDF</span>
+          </div>
+        </div>
+        <div class="protocol-item">
+          <div class="protocol-icon p-icon-green">&#128196;</div>
+          <div class="protocol-info">
+            <h4>Privacy &amp; Confidentiality Guidelines for Parish Teams</h4>
+            <p>How to handle sensitive family information, what may be shared with parish community for prayer intentions, and how to obtain family consent before sharing.</p>
+          </div>
+          <div class="protocol-right">
+            <span class="protocol-updated">Updated Nov 2025</span>
+            <span class="protocol-dl" onclick="alert('Downloading PDF...')">&#8595; PDF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-hd" style="margin-top:8px;">
+        <div>
+          <h3>Fillable Online Forms</h3>
+          <p>Submit directly to LOTV Ministry staff — no printing required.</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+        <div style="background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;display:flex;gap:14px;align-items:center;">
+          <div style="font-size:28px;">&#128203;</div>
+          <div>
+            <div style="font-weight:600;font-size:.92rem;margin-bottom:3px;">Family Referral Form</div>
+            <div style="font-size:.8rem;color:var(--text-mid);margin-bottom:10px;">Submit a family to receive LOTV support</div>
+            <a href="#" class="btn btn-primary" style="font-size:.8rem;padding:6px 14px;">Open Form</a>
+          </div>
+        </div>
+        <div style="background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;display:flex;gap:14px;align-items:center;">
+          <div style="font-size:28px;">&#128197;</div>
+          <div>
+            <div style="font-weight:600;font-size:.92rem;margin-bottom:3px;">Event Coordination Request</div>
+            <div style="font-size:.8rem;color:var(--text-mid);margin-bottom:10px;">Request LOTV support for a parish event</div>
+            <a href="#" class="btn btn-primary" style="font-size:.8rem;padding:6px 14px;">Open Form</a>
+          </div>
+        </div>
+        <div style="background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;display:flex;gap:14px;align-items:center;">
+          <div style="font-size:28px;">&#128100;</div>
+          <div>
+            <div style="font-weight:600;font-size:.92rem;margin-bottom:3px;">Volunteer Hours Log</div>
+            <div style="font-size:.8rem;color:var(--text-mid);margin-bottom:10px;">Report volunteer hours for your parish team</div>
+            <a href="#" class="btn btn-primary" style="font-size:.8rem;padding:6px 14px;">Open Form</a>
+          </div>
+        </div>
+      </div>
+    </div><!-- /protocols tab -->
+
+    <!-- ── DIOCESE TAB ── -->
+    <div id="tab-diocese" class="tab-panel">
+      <div class="section-hd">
+        <div>
+          <h3>Diocese of Chicago — Team &amp; Resources</h3>
+          <p>Your diocese coordinator and local certified team members. Contact your coordinator for questions about certification or local events.</p>
+        </div>
+        <a href="#" class="btn btn-primary">Contact Coordinator</a>
+      </div>
+
+      <div class="diocese-grid">
+        <div class="diocese-card">
+          <h4>&#9961; Diocese Coordinator</h4>
+          <p>Your main point of contact for questions about certification, local parish team coordination, and diocese-level events.</p>
+          <div style="background:var(--green-pale);border-radius:10px;padding:16px;display:flex;gap:14px;align-items:center;">
+            <div class="team-av av-g" style="width:48px;height:48px;font-size:.85rem;">AB</div>
+            <div>
+              <div style="font-weight:700;font-size:.97rem;">Anne Bergman</div>
+              <div style="font-size:.8rem;color:var(--text-mid);">Resource &amp; Outreach Manager</div>
+              <div style="font-size:.8rem;margin-top:6px;"><a href="mailto:anne@lotvministry.org" style="color:var(--green);text-decoration:none;">anne@lotvministry.org</a> &bull; Ext. 204</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="diocese-card">
+          <h4>&#128101; Certified Parish Teams — Diocese of Chicago</h4>
+          <p>Other certified teams in your diocese. Contact them directly or coordinate through Anne Bergman.</p>
+          <ul class="team-roster">
+            <li class="team-member">
+              <div class="team-av av-g">SM</div>
+              <div class="name">St. Michael's Parish <span class="team-cert">Lv 2</span></div>
+              <div class="role">Your Parish</div>
+            </li>
+            <li class="team-member">
+              <div class="team-av av-b">OL</div>
+              <div class="name">Our Lady of Peace <span class="team-cert">Lv 1</span></div>
+              <div class="role">3 members</div>
+            </li>
+            <li class="team-member">
+              <div class="team-av av-l">SC</div>
+              <div class="name">St. Catherine's <span class="team-cert">Lv 2</span></div>
+              <div class="role">4 members</div>
+            </li>
+            <li class="team-member">
+              <div class="team-av av-g">HF</div>
+              <div class="name">Holy Family Parish <span class="team-cert">Lv 1</span></div>
+              <div class="role">2 members</div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="diocese-card">
+          <h4>&#128467; Upcoming Diocese Events</h4>
+          <p>Diocese-level training and coordination events. Registration required — contact your coordinator.</p>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:10px;background:var(--cream);border-radius:8px;">
+              <div style="min-width:44px;height:44px;border-radius:8px;background:var(--green-pale);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--green);">
+                <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;">Apr</span>
+                <span style="font-size:1.1rem;font-weight:700;line-height:1;">12</span>
+              </div>
+              <div>
+                <div style="font-weight:600;font-size:.88rem;">Diocese Training Day — Level 2 Renewal</div>
+                <div style="font-size:.78rem;color:var(--text-mid);">All Saints Pastoral Center, Chicago &bull; 9 AM–1 PM</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:10px;background:var(--cream);border-radius:8px;">
+              <div style="min-width:44px;height:44px;border-radius:8px;background:var(--gold-pale);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8a6020;">
+                <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;">May</span>
+                <span style="font-size:1.1rem;font-weight:700;line-height:1;">18</span>
+              </div>
+              <div>
+                <div style="font-weight:600;font-size:.88rem;">Spring Benefit Gala — Parish Team Tables</div>
+                <div style="font-size:.78rem;color:var(--text-mid);">Marriott Chicago Downtown &bull; 6–10 PM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="diocese-card">
+          <h4>&#128196; Diocese-Specific Documents</h4>
+          <p>Documents and announcements specific to the Diocese of Chicago from Bishop's Office and diocesan leadership.</p>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--cream);border-radius:8px;">
+              <div>
+                <div style="font-size:.85rem;font-weight:600;">Bishop's Letter — Ministry Endorsement 2026</div>
+                <div style="font-size:.75rem;color:var(--text-light);">Diocese of Chicago &bull; Jan 2026</div>
+              </div>
+              <a href="#" style="color:var(--green);font-size:.8rem;font-weight:700;text-decoration:none;">&#8595; PDF</a>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--cream);border-radius:8px;">
+              <div>
+                <div style="font-size:.85rem;font-weight:600;">Diocesan Resource Allocation — Q1 2026</div>
+                <div style="font-size:.75rem;color:var(--text-light);">Diocese of Chicago &bull; Mar 2026</div>
+              </div>
+              <a href="#" style="color:var(--green);font-size:.8rem;font-weight:700;text-decoration:none;">&#8595; PDF</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /diocese tab -->
+
+    <!-- ── ACCOUNT TAB ── -->
+    <div id="tab-account" class="tab-panel">
+      <div class="section-hd">
+        <div><h3>My Certification &amp; Account</h3><p>Track your progress, download your certificate, and manage your parish team membership.</p></div>
+        <a href="#" class="btn">Edit Profile</a>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:24px;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;">Certification Status</div>
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+            <div style="width:64px;height:64px;border-radius:50%;background:var(--green-pale);display:flex;align-items:center;justify-content:center;font-size:28px;">&#127942;</div>
+            <div>
+              <div style="font-size:1.1rem;font-weight:700;color:var(--green);">Level 2 — Certified</div>
+              <div style="font-size:.82rem;color:var(--text-mid);">St. Michael's Parish &bull; Diocese of Chicago</div>
+              <div style="font-size:.78rem;color:var(--text-light);margin-top:3px;">Renewal due: June 15, 2026</div>
+            </div>
+          </div>
+          <div style="background:var(--cream);border-radius:8px;padding:14px;">
+            <div style="font-size:.8rem;font-weight:600;margin-bottom:10px;">Completed Modules</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;justify-content:space-between;font-size:.82rem;"><span>&#10003; Foundations of Perinatal Grief Ministry</span><span style="color:var(--green);">Lv 1</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:.82rem;"><span>&#10003; First Response Protocol</span><span style="color:var(--green);">Lv 1</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:.82rem;"><span>&#10003; Referral Pathways &amp; LOTV Coordination</span><span style="color:var(--green);">Lv 1</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:.82rem;color:var(--text-light);"><span>&#9711; Supporting Fathers and Partners</span><span>Lv 2</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:.82rem;color:var(--text-light);"><span>&#9711; Memorial Service Planning</span><span>Lv 2</span></div>
+            </div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:10px;">
+            <a href="#" class="btn btn-primary" style="flex:1;text-align:center;">Download Certificate</a>
+            <a href="#" class="btn" style="flex:1;text-align:center;">Continue Training</a>
+          </div>
+        </div>
+        <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:24px;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;">Access &amp; Account</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;">
+              <div><div style="font-size:.88rem;font-weight:600;">Parish</div><div style="font-size:.78rem;color:var(--text-mid);">St. Michael's Parish</div></div>
+              <a href="#" style="color:var(--green);font-size:.8rem;font-weight:600;text-decoration:none;">Edit</a>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;">
+              <div><div style="font-size:.88rem;font-weight:600;">Access Code</div><div style="font-size:.78rem;color:var(--text-mid);">&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679; (hidden)</div></div>
+              <a href="#" style="color:var(--green);font-size:.8rem;font-weight:600;text-decoration:none;">Change</a>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;">
+              <div><div style="font-size:.88rem;font-weight:600;">Notifications</div><div style="font-size:.78rem;color:var(--text-mid);">Email: On &bull; New modules, printables</div></div>
+              <a href="#" style="color:var(--green);font-size:.8rem;font-weight:600;text-decoration:none;">Manage</a>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--cream);border-radius:8px;">
+              <div><div style="font-size:.88rem;font-weight:600;">Team Members</div><div style="font-size:.78rem;color:var(--text-mid);">3 active members on your parish team</div></div>
+              <a href="#" style="color:var(--green);font-size:.8rem;font-weight:600;text-decoration:none;">Manage</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /account tab -->
+
+    <!-- ── CONTACT LOTV TAB ── -->
+    <div id="tab-contact" class="tab-panel">
+      <div class="section-hd">
+        <div><h3>Contact the LOTV Team</h3><p>Send questions, share recommendations, or request support directly from your parish portal. Our team typically responds within 1–2 business days.</p></div>
+      </div>
+
+      <!-- New Message Form -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start;">
+        <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:28px;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:20px;">New Message</div>
+          <div id="contact-success" style="display:none;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:16px;margin-bottom:20px;color:#2e7d32;font-size:.88rem;">
+            &#10003; Your message has been sent! A member of the LOTV team will follow up via email.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <div>
+              <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">Category</label>
+              <select style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.88rem;background:white;">
+                <option>Question about training or certification</option>
+                <option>Resource request or suggestion</option>
+                <option>Technical issue with the portal</option>
+                <option>Family referral question</option>
+                <option>Diocese coordination</option>
+                <option>Feedback or recommendation</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">Subject</label>
+              <input type="text" placeholder="Brief subject line" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.88rem;box-sizing:border-box;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">Message</label>
+              <textarea rows="5" placeholder="Describe your question, suggestion, or request in detail..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.88rem;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+            </div>
+            <div>
+              <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">Preferred Reply Method</label>
+              <div style="display:flex;gap:16px;">
+                <label style="font-size:.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="reply-method" checked /> Email (on file)</label>
+                <label style="font-size:.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="reply-method" /> Phone call</label>
+                <label style="font-size:.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="reply-method" /> No reply needed</label>
+              </div>
+            </div>
+            <div>
+              <button class="btn btn-primary" onclick="submitContact()" style="padding:10px 28px;">Send Message</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar: contact info + previous threads -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:20px;">
+            <div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;">LOTV Contact Info</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:.84rem;">
+              <div><span style="color:var(--text-light);">General:</span><br/><a href="mailto:portal@lotvministry.org" style="color:var(--green);text-decoration:none;">portal@lotvministry.org</a></div>
+              <div><span style="color:var(--text-light);">Your Coordinator:</span><br/><strong>Anne Bergman</strong><br/><a href="mailto:anne@lotvministry.org" style="color:var(--green);text-decoration:none;">anne@lotvministry.org</a></div>
+              <div><span style="color:var(--text-light);">Phone:</span><br/>(555) 000-0001</div>
+              <div><span style="color:var(--text-light);">Office Hours:</span><br/>Mon–Fri, 9 am – 4 pm CT</div>
+            </div>
+          </div>
+
+          <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:20px;">
+            <div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;">Recent Messages</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="padding:10px;background:var(--cream);border-radius:8px;font-size:.82rem;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                  <span style="font-weight:600;">Printable request</span>
+                  <span style="color:var(--green);font-size:.75rem;font-weight:600;">Replied</span>
+                </div>
+                <div style="color:var(--text-mid);">Mar 12, 2026 &bull; Anne Bergman</div>
+                <div style="color:var(--text-mid);margin-top:4px;">"Thank you — the updated bulletin insert will be posted by end of week."</div>
+              </div>
+              <div style="padding:10px;background:var(--cream);border-radius:8px;font-size:.82rem;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                  <span style="font-weight:600;">Certification renewal Q</span>
+                  <span style="color:var(--amber);font-size:.75rem;font-weight:600;">Pending</span>
+                </div>
+                <div style="color:var(--text-mid);">Mar 20, 2026 &bull; Awaiting reply</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FAQ / quick help strip -->
+      <div style="margin-top:28px;">
+        <div style="font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;">Frequently Asked Questions</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
+          <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:16px;font-size:.84rem;">
+            <div style="font-weight:600;margin-bottom:6px;">How do I renew my certification?</div>
+            <div style="color:var(--text-mid);">Complete the required Level modules in the Training Library and submit via the My Certification tab. Your coordinator will confirm within 5 business days.</div>
+          </div>
+          <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:16px;font-size:.84rem;">
+            <div style="font-weight:600;margin-bottom:6px;">Can I add another team member to our parish?</div>
+            <div style="color:var(--text-mid);">Yes — share your parish access code or use Manage Team in My Certification. New members start with observer access until their first module is complete.</div>
+          </div>
+          <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:16px;font-size:.84rem;">
+            <div style="font-weight:600;margin-bottom:6px;">How do I refer a family to LOTV?</div>
+            <div style="color:var(--text-mid);">Use the Family Referral Form under Protocols &amp; Forms. Urgent cases can be escalated directly to your diocese coordinator by phone.</div>
+          </div>
+          <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);padding:16px;font-size:.84rem;">
+            <div style="font-weight:600;margin-bottom:6px;">I have a suggestion for a new resource.</div>
+            <div style="color:var(--text-mid);">We love hearing from parish teams. Use the message form above with category "Resource request or suggestion" — all recommendations go directly to our content team.</div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /contact tab -->
+
+  </div><!-- /page-content -->
+</div><!-- /portal -->
+
+<footer>
+  <a href="mockup-lotvministry-org.html">lotvministry.org</a> &bull;
+  LOTV Catholic Apostolate &bull; Ministry Team Portal &bull; Built by <strong style="color:rgba(255,255,255,.7)">WTE Solutions</strong>
+</footer>
+
+<script>
+  function attemptLogin() {
+    const val = document.getElementById('pw-input').value.trim();
+    if (val.length < 4) {
+      document.getElementById('login-error').style.display = 'block';
+      return;
+    }
+    document.getElementById('login-error').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('portal').style.display = 'block';
+    window.scrollTo(0, 0);
+  }
+
+  document.getElementById('pw-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') attemptLogin();
+  });
+
+  function logout() {
+    document.getElementById('portal').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('pw-input').value = '';
+    window.scrollTo(0, 0);
+  }
+
+  function submitContact() {
+    document.getElementById('contact-success').style.display = 'block';
+  }
+
+  function showTab(name, el) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>

@@ -4,9 +4,19 @@
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
+        <PageTitle>Page Not Found — LOTV</PageTitle>
+        <LayoutView Layout="@typeof(PublicLayout)">
+            <div style="max-width:520px;margin:100px auto;padding:0 24px;text-align:center;">
+              <div style="font-size:4rem;font-weight:700;color:var(--navy);font-family:var(--ff-head);opacity:.15;margin-bottom:8px;">404</div>
+              <h2 style="font-family:var(--ff-head);font-size:1.6rem;color:var(--navy);margin:0 0 12px;">Page not found</h2>
+              <p style="color:var(--text-mid);font-size:.94rem;line-height:1.7;margin:0 0 28px;">
+                The page you're looking for doesn't exist or may have moved.
+              </p>
+              <div style="display:flex;justify-content:center;gap:12px;">
+                <a href="/" style="padding:11px 24px;background:var(--navy);color:white;border-radius:8px;font-weight:700;font-size:.88rem;text-decoration:none;">Go Home</a>
+                <a href="/admin/dashboard" style="padding:11px 24px;background:var(--green);color:white;border-radius:8px;font-weight:700;font-size:.88rem;text-decoration:none;">Staff Portal</a>
+              </div>
+            </div>
         </LayoutView>
     </NotFound>
 </Router>

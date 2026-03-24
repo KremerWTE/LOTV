@@ -1,6 +1,7 @@
 @page "/admin/volunteers"
 @layout AdminLayout
 @inject IMockDataService Data
+@inject AuthService Auth
 
 <PageTitle>Volunteers — LOTV Staff Portal</PageTitle>
 
@@ -215,7 +216,7 @@
       };
       Data.AddVolunteer(vol);
       _vols = Data.GetVolunteers();
-      Data.LogAction("Mary Roberts", "Created", "Volunteer", vol.Id.ToString(), $"Added volunteer {vol.FullName}");
+      Data.LogAction(Auth.UserName, "Created", "Volunteer", vol.Id.ToString(), $"Added volunteer {vol.FullName}");
     }
     else
     {
@@ -227,7 +228,7 @@
       _editing.Status     = _formStatus;
       _editing.ParishName = _formParish;
       Data.UpdateVolunteer(_editing);
-      Data.LogAction("Mary Roberts", "Updated", "Volunteer", _editing.Id.ToString(), $"Updated {_editing.FullName}");
+      Data.LogAction(Auth.UserName, "Updated", "Volunteer", _editing.Id.ToString(), $"Updated {_editing.FullName}");
     }
     _drawerOpen = false;
     _savedMsg = true;

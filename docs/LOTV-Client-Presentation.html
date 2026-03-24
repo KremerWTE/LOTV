@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LOTV Ministry — WTE Solutions Partnership Proposal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy:    #0d2a4a;
+      --navy-lt: #12385f;
+      --cyan:    #00b4d8;
+      --cyan-lt: #48cae4;
+      --gold:    #f5a623;
+      --gold-lt: #fbbf24;
+      --white:   #ffffff;
+      --gray-50: #f8f9fa;
+      --gray-200:#e2e8f0;
+      --gray-600:#64748b;
+      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    html, body { height: 100%; font-family: var(--font); background: #0a1e30; color: var(--white); }
+
+    /* ── Slide container ──────────────────────────────────────────── */
+    .deck { position: relative; width: 100%; }
+    .slide {
+      display: none;
+      width: 100%;
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+    .slide.active { display: flex; flex-direction: column; }
+
+    /* ── Nav ───────────────────────────────────────────────────────── */
+    .nav {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 1rem; z-index: 100;
+      background: rgba(13,42,74,0.85); backdrop-filter: blur(8px);
+      padding: .6rem 1.4rem; border-radius: 50px;
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .nav button {
+      background: none; border: none; color: var(--white); font-size: 1.3rem;
+      cursor: pointer; padding: .2rem .6rem; border-radius: 6px; transition: background .2s;
+    }
+    .nav button:hover { background: rgba(255,255,255,.15); }
+    .nav button:disabled { opacity: .3; cursor: default; }
+    .slide-count { font-size: .85rem; color: var(--cyan-lt); min-width: 60px; text-align: center; }
+    .dot-row { display: flex; gap: .4rem; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,.3); cursor: pointer; transition: background .2s;
+    }
+    .dot.active { background: var(--gold); }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 1 — COVER
+    ══════════════════════════════════════════════════════════════ */
+    .s1 {
+      background: var(--navy);
+      flex-direction: row;
+    }
+    .s1-left {
+      width: 55%; padding: 4rem 3.5rem; display: flex; flex-direction: column;
+      justify-content: center; gap: 2rem;
+    }
+    .s1-right {
+      width: 45%; position: relative; overflow: hidden;
+    }
+    .s1-right::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--cyan) 0%, #006994 100%);
+      clip-path: polygon(15% 0%, 100% 0%, 100% 100%, 0% 100%);
+    }
+    .wte-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      border: 2px solid var(--cyan); border-radius: 8px;
+      padding: .5rem 1.2rem; width: fit-content;
+      font-size: 1.1rem; font-weight: 600; letter-spacing: .05em;
+      color: var(--white);
+    }
+    .s1-title { font-size: 2.8rem; font-weight: 300; line-height: 1.2; }
+    .s1-title strong { color: var(--cyan); font-weight: 700; display: block; }
+    .s1-sub { font-size: 1.1rem; color: var(--gray-200); line-height: 1.6; max-width: 480px; }
+    .s1-icons { display: flex; gap: 1rem; margin-top: 1rem; }
+    .icon-circle {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--gold); display: flex; align-items: center;
+      justify-content: center; font-size: 1.6rem;
+    }
+    .icon-circle.navy { background: var(--navy-lt); border: 2px solid var(--cyan); }
+    .lotv-logo {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 220px; height: 220px; border-radius: 50%;
+      background: var(--white); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 1;
+      box-shadow: 0 0 60px rgba(0,0,0,.4);
+    }
+    .lotv-logo .lotv-flower { font-size: 3.5rem; }
+    .lotv-logo .lotv-text { font-size: .95rem; color: var(--navy); font-style: italic;
+      font-weight: 600; text-align: center; line-height: 1.3; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 2 — ABOUT LOTV MINISTRY
+    ══════════════════════════════════════════════════════════════ */
+    .s2 { background: var(--gray-50); color: var(--navy); }
+    .s2-top {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-lt) 100%);
+      padding: 3rem 4rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .s2-top h2 { font-size: 2.2rem; color: var(--white); }
+    .s2-top h2 span { color: var(--gold); }
+    .s2-top .lotv-tag {
+      font-size: .9rem; color: var(--cyan); border: 1px solid var(--cyan);
+      padding: .3rem 1rem; border-radius: 20px;
+    }
+    .s2-body { padding: 2.5rem 4rem; flex: 1; display: flex; gap: 2.5rem; align-items: flex-start; }
+    .s2-mission {
+      flex: 1; background: var(--white); border-radius: 12px;
+      padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,.08);
+      border-left: 5px solid var(--cyan);
+    }
+    .s2-mission h3 { font-size: 1.2rem; color: var(--navy); margin-bottom: 1rem; }
+    .s2-mission p { font-size: 1rem; color: var(--gray-600); line-height: 1.7; }
+    .s2-stats { display: flex; flex-direction: column; gap: 1rem; min-width: 260px; }
+    .stat-card {
+      background: var(--white); border-radius: 12px; padding: 1.2rem 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,.08); display: flex; align-items: center; gap: 1rem;
+    }
+    .stat-icon { font-size: 2rem; width: 50px; text-align: center; }
+    .stat-label { font-size: .8rem; color: var(--gray-600); text-transform: uppercase; letter-spacing: .05em; }
+    .stat-value { font-size: 1rem; font-weight: 700; color: var(--navy); }
+    .s2-org {
+      background: var(--white); border-radius: 12px; padding: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,.08);
+    }
+    .s2-org h3 { font-size: 1.1rem; color: var(--navy); margin-bottom: 1.2rem; }
+    .org-tree { display: flex; flex-direction: column; gap: .6rem; }
+    .org-node {
+      display: flex; align-items: center; gap: .8rem;
+      padding: .6rem 1rem; border-radius: 8px;
+      font-size: .9rem; font-weight: 500;
+    }
+    .org-node.hq { background: var(--navy); color: var(--white); }
+    .org-node.chapter { background: var(--cyan); color: var(--white); margin-left: 1.5rem; }
+    .org-node.role { background: var(--gray-50); color: var(--navy);
+      margin-left: 3rem; border: 1px solid var(--gray-200); font-weight: 400; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 3 — PARTNERING WITH WTE
+    ══════════════════════════════════════════════════════════════ */
+    .s3 { flex-direction: row; background: var(--gray-50); color: var(--navy); }
+    .s3-img {
+      width: 45%; background: url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800') center/cover no-repeat;
+      position: relative;
+    }
+    .s3-img::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(to right, transparent 50%, var(--gray-50) 100%);
+    }
+    .s3-content { width: 55%; padding: 3.5rem; display: flex; flex-direction: column; justify-content: center; gap: 1.5rem; }
+    .section-label { font-size: .8rem; text-transform: uppercase; letter-spacing: .12em; color: var(--cyan); font-weight: 600; }
+    .s3-content h2 { font-size: 2rem; line-height: 1.3; }
+    .s3-content h2 strong { color: var(--cyan); }
+    .s3-content > p { font-size: 1rem; color: var(--gray-600); line-height: 1.7; max-width: 520px; }
+    .pillar-list { display: flex; flex-direction: column; gap: 1rem; margin-top: .5rem; }
+    .pillar {
+      display: flex; gap: 1rem; align-items: flex-start;
+      padding: 1rem 1.2rem; border-radius: 10px;
+      background: var(--white); box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+    .pillar-num {
+      width: 40px; height: 40px; border-radius: 50%; background: var(--cyan);
+      color: var(--white); display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 700; flex-shrink: 0;
+    }
+    .pillar-num.gold { background: var(--gold); }
+    .pillar-num.navy { background: var(--navy); }
+    .pillar-text h4 { font-size: 1rem; color: var(--navy); margin-bottom: .3rem; }
+    .pillar-text p { font-size: .9rem; color: var(--gray-600); line-height: 1.5; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 4 — THE APPROACH
+    ══════════════════════════════════════════════════════════════ */
+    .s4 { background: var(--navy); }
+    .s4-hero {
+      height: 35vh; background: url('https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1200') center/cover no-repeat;
+      position: relative; display: flex; align-items: flex-end; padding: 2rem 4rem;
+    }
+    .s4-hero::after { content: ''; position: absolute; inset: 0; background: rgba(13,42,74,.55); }
+    .s4-hero h2 { position: relative; z-index: 1; font-size: 2.5rem; color: var(--white); }
+    .s4-hero h2 span { color: var(--gold); border-bottom: 3px solid var(--gold); }
+    .s4-cols { display: flex; flex: 1; }
+    .s4-col {
+      flex: 1; padding: 2.5rem 3rem; display: flex; flex-direction: column; gap: 1rem;
+    }
+    .s4-col:first-child { background: var(--navy); }
+    .s4-col:last-child { background: var(--cyan); color: var(--navy); }
+    .s4-col-icon { font-size: 2.5rem; }
+    .s4-col h3 { font-size: 1.6rem; font-weight: 700; }
+    .s4-col p { font-size: 1rem; line-height: 1.7; opacity: .9; max-width: 420px; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 5 — TECH SOLUTIONS
+    ══════════════════════════════════════════════════════════════ */
+    .s5 { background: var(--gray-50); color: var(--navy); }
+    .s5-header {
+      background: linear-gradient(135deg, var(--navy) 60%, var(--cyan) 100%);
+      padding: 2.5rem 4rem; display: flex; gap: 2.5rem; align-items: center;
+    }
+    .s5-header-icon {
+      width: 80px; height: 80px; border-radius: 50%; background: var(--white);
+      display: flex; align-items: center; justify-content: center; font-size: 2.5rem;
+      flex-shrink: 0;
+    }
+    .s5-header-text h2 { font-size: 2rem; color: var(--white); }
+    .s5-header-text h2 strong { color: var(--gold); }
+    .s5-header-text p { color: rgba(255,255,255,.8); font-size: .95rem; margin-top: .4rem; line-height: 1.6; }
+    .s5-cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 1.5rem; padding: 2rem 4rem; flex: 1; align-items: start; }
+    .tech-card {
+      background: var(--white); border-radius: 12px; padding: 1.8rem 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,.07); display: flex; flex-direction: column; gap: .8rem;
+      align-items: center; text-align: center;
+    }
+    .tech-card-icon {
+      width: 70px; height: 70px; border-radius: 50%;
+      background: var(--gray-50); border: 3px solid var(--gold);
+      display: flex; align-items: center; justify-content: center; font-size: 2rem;
+    }
+    .tech-card h4 { font-size: 1rem; font-weight: 700; color: var(--navy); line-height: 1.3; }
+    .tech-card p { font-size: .85rem; color: var(--gray-600); line-height: 1.6; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 6 — WEB SOLUTIONS
+    ══════════════════════════════════════════════════════════════ */
+    .s6 { background: var(--gray-50); color: var(--navy); }
+    .s6-header {
+      background: linear-gradient(135deg, var(--navy) 60%, var(--cyan) 100%);
+      padding: 2.5rem 4rem; display: flex; gap: 2.5rem; align-items: center;
+    }
+    .s6-header-icon {
+      width: 80px; height: 80px; border-radius: 50%; background: var(--white);
+      display: flex; align-items: center; justify-content: center; font-size: 2.5rem; flex-shrink: 0;
+    }
+    .s6-header-text h2 { font-size: 2rem; color: var(--white); }
+    .s6-header-text h2 strong { color: var(--gold); }
+    .s6-header-text p { color: rgba(255,255,255,.8); font-size: .95rem; margin-top: .4rem; line-height: 1.6; }
+    .s6-cards { display: grid; grid-template-columns: repeat(2,1fr); gap: 2rem; padding: 2.5rem 4rem; flex: 1; align-items: start; }
+    .web-card {
+      background: var(--white); border-radius: 16px; padding: 2.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,.08); display: flex; flex-direction: column;
+      align-items: center; text-align: center; gap: 1rem;
+    }
+    .web-card-img {
+      width: 100px; height: 100px; border-radius: 50%; overflow: hidden;
+      border: 4px solid var(--gold); background: var(--cyan);
+      display: flex; align-items: center; justify-content: center; font-size: 3rem;
+    }
+    .web-card h3 { font-size: 1.3rem; font-weight: 700; color: var(--navy); }
+    .web-card .domain { font-size: .85rem; color: var(--cyan); font-weight: 600; margin-top: -.5rem; }
+    .web-card p { font-size: .95rem; color: var(--gray-600); line-height: 1.7; }
+    .web-tag {
+      font-size: .8rem; padding: .3rem .9rem; border-radius: 20px; font-weight: 600;
+    }
+    .web-tag.charitable { background: #dcfce7; color: #166534; }
+    .web-tag.pending { background: #fef3c7; color: #92400e; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 7 — A PHASED APPROACH
+    ══════════════════════════════════════════════════════════════ */
+    .s7 { background: var(--navy); color: var(--white); }
+    .s7-header { padding: 2.5rem 4rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .s7-header h2 { font-size: 2.2rem; }
+    .s7-header h2 span { color: var(--gold); }
+    .s7-benefits { display: flex; gap: 1rem; }
+    .benefit-chip {
+      display: flex; flex-direction: column; align-items: center; gap: .3rem;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+      border-radius: 10px; padding: .6rem 1rem; font-size: .75rem; min-width: 80px; text-align: center;
+    }
+    .benefit-chip span { font-size: 1.4rem; }
+    .s7-phases { display: grid; grid-template-columns: repeat(2,1fr); gap: 1.5rem; padding: 0 4rem 2.5rem; flex: 1; }
+    .phase-card {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px; padding: 1.8rem;
+    }
+    .phase-card h3 { font-size: 1.1rem; color: var(--gold); margin-bottom: 1rem;
+      padding-bottom: .6rem; border-bottom: 1px solid rgba(245,166,35,.3); }
+    .phase-card ul { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+    .phase-card ul li {
+      font-size: .9rem; color: rgba(255,255,255,.85); padding-left: 1.2rem;
+      position: relative; line-height: 1.5;
+    }
+    .phase-card ul li::before { content: '›'; position: absolute; left: 0; color: var(--cyan); font-weight: 700; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 8 — THE PLATFORM (Dashboard Tech)
+    ══════════════════════════════════════════════════════════════ */
+    .s8 { background: var(--navy); color: var(--white); flex-direction: column; }
+    .s8-header { background: var(--cyan); padding: 2rem 4rem; display: flex; align-items: center; justify-content: space-between; }
+    .s8-header h2 { font-size: 1.9rem; color: var(--navy); font-weight: 700; }
+    .s8-header .s8-tag {
+      background: var(--navy); color: var(--cyan); border-radius: 8px;
+      padding: .4rem 1rem; font-size: .85rem; font-weight: 600;
+    }
+    .s8-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .s8-left { padding: 2.5rem 3rem; display: flex; flex-direction: column; gap: 1.5rem; border-right: 1px solid rgba(255,255,255,.08); }
+    .s8-right { padding: 2.5rem 3rem; display: flex; flex-direction: column; gap: 1rem; }
+    .s8-left > p { font-size: .95rem; color: rgba(255,255,255,.8); line-height: 1.7; }
+    .feature-row { display: flex; gap: 1rem; align-items: flex-start; }
+    .feature-icon { font-size: 1.8rem; flex-shrink: 0; width: 36px; text-align: center; }
+    .feature-text h4 { font-size: .95rem; color: var(--gold); margin-bottom: .2rem; }
+    .feature-text p { font-size: .85rem; color: rgba(255,255,255,.75); line-height: 1.5; }
+    .s8-right h3 { font-size: 1.1rem; color: var(--cyan); margin-bottom: .5rem; }
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .role-chip {
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 8px; padding: .6rem .9rem; font-size: .85rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .role-chip span { font-size: 1rem; }
+    .tech-stack { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+    .stack-tag {
+      background: rgba(0,180,216,.15); border: 1px solid rgba(0,180,216,.3);
+      color: var(--cyan); border-radius: 6px; padding: .3rem .8rem; font-size: .8rem; font-weight: 600;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 9 — BUDGETING FOR GROWTH
+    ══════════════════════════════════════════════════════════════ */
+    .s9 { background: var(--gray-50); color: var(--navy); }
+    .s9-header { padding: 2.5rem 4rem; display: flex; align-items: baseline; gap: 2rem; border-bottom: 2px solid var(--gray-200); }
+    .s9-header h2 { font-size: 2.2rem; }
+    .s9-header h2 span { color: var(--gold); }
+    .s9-header p { font-size: .95rem; color: var(--gray-600); max-width: 600px; line-height: 1.6; }
+    .s9-cols { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.5rem; padding: 2rem 4rem; flex: 1; align-items: start; }
+    .budget-card {
+      border-radius: 14px; overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,.1);
+    }
+    .budget-card-header {
+      padding: 1.2rem 1.5rem; font-size: 1.1rem; font-weight: 700; color: var(--white);
+    }
+    .budget-card-header.cyan { background: var(--cyan); }
+    .budget-card-header.navy { background: var(--navy); }
+    .budget-card-header.gold { background: var(--gold); }
+    .budget-card-body { background: var(--white); padding: 1.5rem; display: flex; flex-direction: column; gap: .7rem; }
+    .budget-item { display: flex; gap: .7rem; align-items: flex-start; font-size: .9rem; color: var(--gray-600); line-height: 1.5; }
+    .budget-item::before { content: '✓'; color: var(--cyan); font-weight: 700; flex-shrink: 0; }
+    .budget-item.gold-check::before { color: var(--gold); }
+    .budget-highlight {
+      margin-top: .5rem; padding: 1rem; border-radius: 8px;
+      background: var(--navy); color: var(--white); font-size: .95rem; text-align: center; line-height: 1.5;
+    }
+    .budget-highlight strong { color: var(--gold); font-size: 1.2rem; display: block; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 10 — BENEFITS OF RELATIONSHIP
+    ══════════════════════════════════════════════════════════════ */
+    .s10 { background: var(--gray-50); color: var(--navy); }
+    .s10-header { padding: 2.5rem 4rem 1rem; text-align: center; }
+    .s10-header h2 { font-size: 2.2rem; }
+    .s10-header h2 span { color: var(--cyan); }
+    .s10-circles { display: flex; justify-content: center; align-items: center; gap: 0; padding: 1.5rem 4rem; flex: 1; }
+    .benefit-circle {
+      width: 240px; height: 240px; border-radius: 50%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 1.5rem; gap: .5rem; position: relative;
+    }
+    .benefit-circle.gold-bg { background: var(--gold); color: var(--navy); z-index: 1; }
+    .benefit-circle.navy-bg { background: var(--navy); color: var(--white); z-index: 2; margin: 0 -20px; }
+    .benefit-circle.gold-bg2 { background: var(--gold); color: var(--navy); z-index: 1; }
+    .benefit-circle-icon { font-size: 2.2rem; }
+    .benefit-circle h3 { font-size: 1.1rem; font-weight: 700; }
+    .benefit-circle p { font-size: .8rem; line-height: 1.5; opacity: .85; }
+    .arrow-connect { font-size: 1.8rem; color: var(--gray-200); z-index: 3; margin: 0 -5px; }
+    .s10-quote {
+      margin: 0 4rem 2rem; padding: 1.2rem 2rem;
+      background: var(--white); border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      display: flex; gap: 1rem; align-items: flex-start;
+    }
+    .quote-mark { font-size: 3rem; color: var(--cyan); line-height: .8; flex-shrink: 0; font-family: Georgia, serif; }
+    .quote-text p { font-size: .95rem; color: var(--gray-600); line-height: 1.7; font-style: italic; }
+    .quote-text .attribution { font-size: .85rem; color: var(--navy); font-weight: 600; font-style: normal; margin-top: .5rem; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 11 — LET'S GET STARTED
+    ══════════════════════════════════════════════════════════════ */
+    .s11 {
+      background: linear-gradient(160deg, #0a1e30 0%, var(--navy) 50%, #06324f 100%);
+      align-items: center; justify-content: center;
+    }
+    .s11-center { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2rem; }
+    .s11-cloud {
+      width: 360px; height: 360px; border-radius: 50%;
+      background: var(--gold); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1rem;
+      box-shadow: 0 0 80px rgba(245,166,35,.4);
+    }
+    .s11-cloud .wte-logo { font-size: 1.2rem; font-weight: 700;
+      border: 2px solid var(--navy); border-radius: 6px; padding: .4rem 1rem; color: var(--navy); }
+    .s11-cloud h2 { font-size: 2rem; font-weight: 700; color: var(--navy); line-height: 1.2; }
+    .s11-cloud .website { font-size: 1rem; color: var(--navy); font-weight: 500; letter-spacing: .03em; }
+    .contact-list { display: flex; flex-direction: column; gap: .5rem; }
+    .contact-item { display: flex; align-items: center; gap: .8rem; font-size: 1rem; color: var(--navy); font-weight: 500; }
+    .contact-icon { font-size: 1.2rem; }
+    .next-steps {
+      display: flex; flex-direction: column; gap: 1rem; max-width: 600px;
+      background: rgba(255,255,255,.06); border-radius: 12px; padding: 1.5rem 2rem;
+      border: 1px solid rgba(255,255,255,.12); text-align: left;
+    }
+    .next-steps h3 { color: var(--cyan); font-size: 1rem; text-transform: uppercase; letter-spacing: .08em; }
+    .next-step { display: flex; gap: 1rem; align-items: flex-start; }
+    .next-step-num {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--gold);
+      color: var(--navy); font-weight: 700; font-size: .85rem; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .next-step p { font-size: .9rem; color: rgba(255,255,255,.85); line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ════════════════ SLIDE 1 — COVER ════════════════ -->
+  <div class="slide s1 active">
+    <div class="s1-left">
+      <div class="wte-badge">wte solutions</div>
+      <div>
+        <div class="s1-title">
+          Empowering<br>
+          <strong>Lily of the Valley</strong>
+          Ministry
+        </div>
+      </div>
+      <p class="s1-sub">A comprehensive technology and digital partnership proposal — connecting your mission to the people, donors, and volunteers who make it possible.</p>
+      <div class="s1-icons">
+        <div class="icon-circle">🤝</div>
+        <div class="icon-circle navy">⚙️</div>
+        <div class="icon-circle">🖥️</div>
+      </div>
+    </div>
+    <div class="s1-right">
+      <div class="lotv-logo">
+        <div class="lotv-flower">🌸</div>
+        <div class="lotv-text">Lily<br>of the<br>Valley</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 2 — ABOUT LOTV ════════════════ -->
+  <div class="slide s2">
+    <div class="s2-top">
+      <h2>About <span>Lily of the Valley</span> Ministry</h2>
+      <div class="lotv-tag">LOTV Ministry</div>
+    </div>
+    <div class="s2-body">
+      <div style="flex:1; display:flex; flex-direction:column; gap:1.5rem;">
+        <div class="s2-mission">
+          <h3>The Mission</h3>
+          <p>Lily of the Valley Ministry coordinates social services delivery through a network of local chapters connected to a central National HQ. The organization connects families in need with qualified volunteers, engages donors to fund meaningful services, and empowers parish communities to serve their neighbors — all through a unified, technology-driven approach.</p>
+        </div>
+        <div class="s2-org">
+          <h3>Organizational Structure</h3>
+          <div class="org-tree">
+            <div class="org-node hq">🏛️ &nbsp; National HQ — full cross-chapter visibility</div>
+            <div class="org-node chapter">📍 &nbsp; Local Chapters — diocese-based service areas</div>
+            <div class="org-node role">👤 &nbsp; People in Need &nbsp;|&nbsp; 🙌 Volunteers &nbsp;|&nbsp; 💛 Donors &nbsp;|&nbsp; 👩‍💼 Staff</div>
+          </div>
+        </div>
+      </div>
+      <div class="s2-stats">
+        <div class="stat-card">
+          <div class="stat-icon">🏘️</div>
+          <div>
+            <div class="stat-label">Model</div>
+            <div class="stat-value">National HQ → Local Chapters</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🤲</div>
+          <div>
+            <div class="stat-label">Primary Services</div>
+            <div class="stat-value">Social Services Coordination</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💻</div>
+          <div>
+            <div class="stat-label">Current Challenge</div>
+            <div class="stat-value">Manual processes, scattered data, limited donor tools</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📈</div>
+          <div>
+            <div class="stat-label">Opportunity</div>
+            <div class="stat-value">Technology to multiply impact and reach</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 3 — PARTNERING WITH WTE ════════════════ -->
+  <div class="slide s3">
+    <div class="s3-img"></div>
+    <div class="s3-content">
+      <div class="section-label">Our Partnership Philosophy</div>
+      <h2>Partnering with <strong>WTE Solutions</strong></h2>
+      <p>WTE Solutions brings full-service technology, web, and content expertise to mission-driven organizations. Our goal is to provide as much value as possible as a <strong>charitable contribution</strong> to LOTV Ministry — with discounted rates where direct investment is required.</p>
+      <div class="pillar-list">
+        <div class="pillar">
+          <div class="pillar-num">01</div>
+          <div class="pillar-text">
+            <h4>Cost Savings First</h4>
+            <p>We start by finding immediate wins — nonprofit tech rates, email deliverability, and data cleanup — with zero new infrastructure investment.</p>
+          </div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num gold">02</div>
+          <div class="pillar-text">
+            <h4>Websites &amp; Digital Presence</h4>
+            <p>Modern, mobile-friendly CMS sites built as a charitable contribution, with your first year of hosting on us.</p>
+          </div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num navy">03</div>
+          <div class="pillar-text">
+            <h4>Custom Platform for Long-Term Growth</h4>
+            <p>A fully custom .NET 9 SaaS dashboard application purpose-built for your organization's scale — at a deeply discounted investment.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 4 — THE APPROACH ════════════════ -->
+  <div class="slide s4">
+    <div class="s4-hero">
+      <h2>The <span>Approach</span></h2>
+    </div>
+    <div class="s4-cols">
+      <div class="s4-col">
+        <div class="s4-col-icon">⚙️</div>
+        <h3>Tech Solutions</h3>
+        <p>By creating technical solutions to improve operational efficiencies and expand your reach, we can help you better engage with donors and those you serve. From Microsoft nonprofit cost savings to a custom reporting dashboard — technology meets your mission where it matters most.</p>
+      </div>
+      <div class="s4-col">
+        <div class="s4-col-icon">🌐</div>
+        <h3>Web Solutions</h3>
+        <p>By upgrading your website functionality, we can help you better serve families in need while alleviating content management challenges and expanding resources for families and churches. Two purpose-built sites — one for ministry, one for donors — working in tandem.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 5 — TECH SOLUTIONS ════════════════ -->
+  <div class="slide s5">
+    <div class="s5-header">
+      <div class="s5-header-icon">⚙️</div>
+      <div class="s5-header-text">
+        <h2>Tech <strong>Solutions</strong></h2>
+        <p>Four technology initiatives that reduce costs, improve operations, and create new capabilities — many delivered as charitable contributions or consulting included in the engagement.</p>
+      </div>
+    </div>
+    <div class="s5-cards">
+      <div class="tech-card">
+        <div class="tech-card-icon">☁️</div>
+        <h4>Microsoft App &amp; Email Hosting Cost Savings</h4>
+        <p>We'll transition your organization to Microsoft's nonprofit pricing tier for Office 365 and email hosting, reducing your recurring technology spend immediately.</p>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-icon">📧</div>
+        <h4>Newsletter Deliverability Improvement</h4>
+        <p>We'll configure DMARC, DKIM, and SPF records on your sending domain, dramatically improving email deliverability and ensuring your newsletters reach inboxes — not spam folders.</p>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-icon">🎬</div>
+        <h4>New Content &amp; Video Production Studio Access</h4>
+        <p>Free access to the WTE recording studio for family and parish video resource creation. Professional video editing available at a 50% charitable discount ($60/hr).</p>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-icon">📊</div>
+        <h4>Dashboard Portal for Metrics &amp; Reporting Efficiency</h4>
+        <p>A fully custom, secure dashboard to consolidate your data, service metrics, donor activity, volunteer performance, and impact reporting in a single pane of glass.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 6 — WEB SOLUTIONS ════════════════ -->
+  <div class="slide s6">
+    <div class="s6-header">
+      <div class="s6-header-icon">🌐</div>
+      <div class="s6-header-text">
+        <h2>Web <strong>Solutions</strong></h2>
+        <p>Two purpose-built websites designed for different audiences — families and parishes on one side, donors and volunteers on the other — each built on a mobile-friendly, easy-to-manage CMS as a charitable contribution.</p>
+      </div>
+    </div>
+    <div class="s6-cards">
+      <div class="web-card">
+        <div class="web-card-img">🤝</div>
+        <h3>Content Website</h3>
+        <div class="domain">lotvministry.org</div>
+        <p>We will rebuild the existing LOTV website on a mobile-friendly, easy-to-manage content management platform. The new site will include a self-updating staff directory, a full resource area with articles and videos for families in need and church staff, and built-in content automation.</p>
+        <span class="web-tag charitable">Charitable Contribution (Value: $3,500–$6,000)</span>
+      </div>
+      <div class="web-card">
+        <div class="web-card-img">💛</div>
+        <h3>Donor Website</h3>
+        <div class="domain">lilyofthevalleyministry.com</div>
+        <p>We will repurpose this domain (following 501(c)(3) status changeover) into a targeted donor-facing website — distinct content from lotvministry.org, focused on fundraising, volunteering, and impact storytelling. Seamlessly tied to the LOTV Private Foundation.</p>
+        <span class="web-tag pending">Pending 501(c)(3) Status Changeover</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 7 — PHASED APPROACH ════════════════ -->
+  <div class="slide s7">
+    <div class="s7-header">
+      <h2>A <span>Phased</span> Approach</h2>
+      <div class="s7-benefits">
+        <div class="benefit-chip"><span>💰</span>Cost Savings</div>
+        <div class="benefit-chip"><span>🖱️</span>Ease of Use</div>
+        <div class="benefit-chip"><span>➕</span>New Services</div>
+        <div class="benefit-chip"><span>📊</span>Streamline Data</div>
+      </div>
+    </div>
+    <div class="s7-phases">
+      <div class="phase-card">
+        <h3>Phase 1 — Low-Hanging Tech</h3>
+        <ul>
+          <li>Compare Microsoft nonprofit rates for Office and email hosting</li>
+          <li>Improve newsletter delivery with DMARC/DKIM/SPF technology</li>
+          <li>Migrate web forms to HIPAA-compliant, segmented data collection for improved deliverability and list grouping</li>
+          <li>Audit and categorize existing contact database into distribution lists</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3>Phase 2 — Web Redevelopment</h3>
+        <ul>
+          <li>Rebuild lotvministry.org on a mobile-friendly, easy-to-manage CMS with content automation and self-service editing</li>
+          <li>Create a new donor-focused site on lilyofthevalleyministry.com for fundraising and volunteering, tied to the Private Foundation</li>
+          <li>First year of hosting included — two sites for the price of one going forward</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3>Phase 3 — New Content Creation</h3>
+        <ul>
+          <li>Build staff/team directory with easy self-service updating capabilities</li>
+          <li>Grow blog and resource content area for families in need and parishes</li>
+          <li>Record family and parish video resources in WTE studio at no charge</li>
+          <li>Develop social media automation strategies to save time and improve posting consistency</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3>Phase 4 — Dashboard Tech Platform</h3>
+        <ul>
+          <li>Develop a custom, secure SaaS platform to consolidate data, metrics, and operations in a single dashboard</li>
+          <li>Real-time operations board for chapter staff and HQ leadership</li>
+          <li>Automated donor impact reports, volunteer dispatch, and fundraising event management</li>
+          <li>Accessible anywhere — built for National HQ and all local chapters</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 8 — THE PLATFORM ════════════════ -->
+  <div class="slide s8">
+    <div class="s8-header">
+      <h2>Phase 4 Deep Dive — The LOTV Dashboard Platform</h2>
+      <div class="s8-tag">Custom .NET 9 SaaS Application</div>
+    </div>
+    <div class="s8-body">
+      <div class="s8-left">
+        <p>A fully custom, purpose-built platform connecting every person in your organization — from families submitting service requests to HQ administrators reviewing cross-chapter impact. Built on modern technology with security, scalability, and ease of use at its core.</p>
+        <div class="feature-row">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-text">
+            <h4>Real-Time Operations Board</h4>
+            <p>Live Kanban view of all active service requests per chapter — chapter staff and HQ see updates the moment they happen, with no refresh needed.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon">🎯</div>
+          <div class="feature-text">
+            <h4>Auto-Assignment Engine</h4>
+            <p>Volunteers are automatically matched to requests by proximity, skills, and current workload — eliminating the manual dispatch bottleneck entirely.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon">📬</div>
+          <div class="feature-text">
+            <h4>Automated Reports</h4>
+            <p>Daily digest and weekly summary reports are emailed automatically to chapter leads and HQ — no staff time required to generate or distribute.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon">💳</div>
+          <div class="feature-text">
+            <h4>Donor Portal &amp; Impact Tracking</h4>
+            <p>Donors see exactly where their money goes. Receipts, impact statements, and full contribution history — all self-service.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon">🎟️</div>
+          <div class="feature-text">
+            <h4>Fundraising Event Management</h4>
+            <p>RSVP, ticket sales, check-in, and silent auction management — all built in, no third-party tools needed.</p>
+          </div>
+        </div>
+      </div>
+      <div class="s8-right">
+        <h3>Who Uses the Platform</h3>
+        <div class="role-grid">
+          <div class="role-chip"><span>🏛️</span> HQ Administrator</div>
+          <div class="role-chip"><span>👩‍💼</span> Chapter Admin</div>
+          <div class="role-chip"><span>📋</span> Chapter Staff</div>
+          <div class="role-chip"><span>🙌</span> Volunteer</div>
+          <div class="role-chip"><span>💛</span> Donor</div>
+          <div class="role-chip"><span>🤲</span> Person in Need</div>
+        </div>
+        <h3 style="margin-top:1.5rem;">Technology Stack</h3>
+        <div class="tech-stack">
+          <span class="stack-tag">.NET 9</span>
+          <span class="stack-tag">ASP.NET Core</span>
+          <span class="stack-tag">Blazor WASM</span>
+          <span class="stack-tag">SignalR</span>
+          <span class="stack-tag">Azure</span>
+          <span class="stack-tag">Stripe</span>
+          <span class="stack-tag">Hangfire</span>
+          <span class="stack-tag">EF Core</span>
+        </div>
+        <div style="margin-top:1.5rem; background:rgba(0,180,216,.1); border:1px solid rgba(0,180,216,.3); border-radius:10px; padding:1.2rem;">
+          <p style="font-size:.9rem; color:rgba(255,255,255,.85); line-height:1.6;">
+            The platform is chapter-scoped at the data layer — every chapter sees only its own data. HQ sees everything. Security and privacy are built in from day one.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 9 — BUDGETING ════════════════ -->
+  <div class="slide s9">
+    <div class="s9-header">
+      <div>
+        <h2>Budgeting <span>for Growth</span></h2>
+      </div>
+      <p>Our goal is to provide as many services as possible as a charitable contribution to LOTV Ministry, with discounted rates where direct investment is required.</p>
+    </div>
+    <div class="s9-cols">
+      <div class="budget-card">
+        <div class="budget-card-header cyan">Websites + Software</div>
+        <div class="budget-card-body">
+          <div class="budget-item">Website setup as charitable contribution — <strong>value: $3,500–$6,000 per site</strong></div>
+          <div class="budget-item">First year hosting: <strong>FREE</strong></div>
+          <div class="budget-item">Hosting renewal: <strong>$39/month</strong> (2 sites for the price of 1)</div>
+          <div class="budget-item">Office/email hosting at <strong>Microsoft nonprofit rates</strong></div>
+          <div class="budget-highlight">
+            Two professional websites built and hosted —
+            <strong>$0 in Year 1</strong>
+            as a charitable contribution
+          </div>
+        </div>
+      </div>
+      <div class="budget-card">
+        <div class="budget-card-header navy">Dashboard Development</div>
+        <div class="budget-card-body">
+          <div class="budget-item gold-check">Full custom .NET 9 SaaS platform — <strong>$10,000 value</strong></div>
+          <div class="budget-item gold-check">30% charitable contribution reduction</div>
+          <div class="budget-item gold-check">Net investment: <strong>~$7,000</strong></div>
+          <div class="budget-item gold-check">Divided over 3 months for flexibility</div>
+          <div class="budget-highlight">
+            Approx.
+            <strong>$2,000–$2,500/month</strong>
+            for 3 months
+          </div>
+        </div>
+      </div>
+      <div class="budget-card">
+        <div class="budget-card-header gold">Content Resources</div>
+        <div class="budget-card-body">
+          <div class="budget-item">Staff directory &amp; resource library build: <strong>charitable contribution</strong></div>
+          <div class="budget-item">WTE recording studio access: <strong>FREE</strong></div>
+          <div class="budget-item">Video editing: <strong>$60/hr</strong> (50% off standard $120/hr rate)</div>
+          <div class="budget-item">Social media automation consulting: <strong>included</strong></div>
+          <div class="budget-highlight">
+            Maximum value delivered —
+            <strong>minimum investment required</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 10 — BENEFITS ════════════════ -->
+  <div class="slide s10">
+    <div class="s10-header">
+      <h2>Benefits <span>of Relationship</span></h2>
+    </div>
+    <div class="s10-circles">
+      <div class="benefit-circle gold-bg">
+        <div class="benefit-circle-icon">🤝</div>
+        <h3>Connections</h3>
+        <p>Better engagement with the donors, volunteers, and families who fuel your mission — through modern web presence and a platform built for community.</p>
+      </div>
+      <div class="arrow-connect">›</div>
+      <div class="benefit-circle navy-bg">
+        <div class="benefit-circle-icon">✅</div>
+        <h3>Service</h3>
+        <p>Streamlined operations for your staff — real-time dashboards, auto-assignment, and automated reporting free your team to focus on people, not paperwork.</p>
+      </div>
+      <div class="arrow-connect">›</div>
+      <div class="benefit-circle gold-bg2">
+        <div class="benefit-circle-icon">📈</div>
+        <h3>Growth</h3>
+        <p>A modern digital presence, improved deliverability, and a platform that scales with your chapters — giving your organization the tools to grow its impact year over year.</p>
+      </div>
+    </div>
+    <div class="s10-quote">
+      <div class="quote-mark">&ldquo;</div>
+      <div class="quote-text">
+        <p>WTE Solutions transformed the way our council manages events, communications, and member engagement. The technology they built has saved us hours every week and helped us raise significantly more for our community programs than ever before.</p>
+        <div class="attribution">— Nonprofit Partner, Knights of Columbus</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SLIDE 11 — LET'S GET STARTED ════════════════ -->
+  <div class="slide s11">
+    <div class="s11-center">
+      <div class="s11-cloud">
+        <div class="wte-logo">wte solutions</div>
+        <h2>Let's Get<br>Started.</h2>
+        <div class="website">www.wte.net</div>
+        <div class="contact-list">
+          <div class="contact-item">
+            <span class="contact-icon">👤</span> Chris Kremer
+          </div>
+          <div class="contact-item">
+            <span class="contact-icon">📞</span> 866-994-7467
+          </div>
+          <div class="contact-item">
+            <span class="contact-icon">✉️</span> chris@wte.net
+          </div>
+        </div>
+      </div>
+      <div class="next-steps">
+        <h3>Suggested Next Steps</h3>
+        <div class="next-step">
+          <div class="next-step-num">1</div>
+          <p>Review this proposal with your leadership team and confirm organizational priorities</p>
+        </div>
+        <div class="next-step">
+          <div class="next-step-num">2</div>
+          <p>Schedule a follow-up call to walk through the phased approach and answer questions</p>
+        </div>
+        <div class="next-step">
+          <div class="next-step-num">3</div>
+          <p>Confirm 501(c)(3) status timeline so we can plan the donor website launch</p>
+        </div>
+        <div class="next-step">
+          <div class="next-step-num">4</div>
+          <p>Sign MSA &amp; SOW to kick off Phase 1 — we can start on the tech quick wins immediately</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /deck -->
+
+<!-- ── Navigation ────────────────────────────────────────────── -->
+<nav class="nav" id="nav">
+  <button id="prevBtn" onclick="changeSlide(-1)" disabled>&#8592;</button>
+  <div class="dot-row" id="dotRow"></div>
+  <span class="slide-count" id="slideCount">1 / 11</span>
+  <button id="nextBtn" onclick="changeSlide(1)">&#8594;</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotRow = document.getElementById('dotRow');
+  let current = 0;
+
+  // Build dots
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotRow.appendChild(d);
+  });
+
+  function goTo(n) {
+    slides[current].classList.remove('active');
+    dotRow.children[current].classList.remove('active');
+    current = Math.max(0, Math.min(n, slides.length - 1));
+    slides[current].classList.add('active');
+    dotRow.children[current].classList.add('active');
+    document.getElementById('slideCount').textContent = (current + 1) + ' / ' + slides.length;
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === slides.length - 1;
+  }
+
+  function changeSlide(dir) { goTo(current + dir); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   changeSlide(-1);
+  });
+</script>
+
+</body>
+</html>

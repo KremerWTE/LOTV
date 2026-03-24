@@ -1,5 +1,7 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
+@inject AuthService Auth
+@implements IDisposable
 
 <div class="lotv-app">
 
@@ -20,52 +22,64 @@
       <NavLink class="sidebar-link" href="/admin/dashboard" Match="NavLinkMatch.All">
         <span class="icon">&#9776;</span> Dashboard
       </NavLink>
-      <NavLink class="sidebar-link" href="/admin/families">
-        <span class="icon">&#128101;</span> Families
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/cases">
-        <span class="icon">&#128149;</span> Cases
-        <span class="sidebar-badge">@_openCount</span>
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/kanban">
-        <span class="icon">&#9783;</span> Kanban Board
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/workload">
-        <span class="icon">&#128101;</span> Workload View
-      </NavLink>
+      @if (_canSeeCases)
+      {
+        <NavLink class="sidebar-link" href="/admin/families">
+          <span class="icon">&#128101;</span> Families
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/cases">
+          <span class="icon">&#128149;</span> Cases
+          <span class="sidebar-badge">@_openCount</span>
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/kanban">
+          <span class="icon">&#9783;</span> Kanban Board
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/workload">
+          <span class="icon">&#128101;</span> Workload View
+        </NavLink>
+      }
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Donations</div>
-      <NavLink class="sidebar-link" href="/admin/donations">
-        <span class="icon">&#128184;</span> All Donations
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/by-donor">
-        <span class="icon">&#128100;</span> By Donor
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/by-diocese">
-        <span class="icon">&#9961;</span> By Diocese
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/by-channel">
-        <span class="icon">&#128243;</span> By Channel
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/allocations">
-        <span class="icon">&#128203;</span> Fund Allocations
-        <span class="sidebar-badge">@_pendingAlloc</span>
-      </NavLink>
-    </div>
+    @if (_canSeeDonations)
+    {
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Donations</div>
+        <NavLink class="sidebar-link" href="/admin/donations">
+          <span class="icon">&#128184;</span> All Donations
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/by-donor">
+          <span class="icon">&#128100;</span> By Donor
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/by-diocese">
+          <span class="icon">&#9961;</span> By Diocese
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/by-channel">
+          <span class="icon">&#128243;</span> By Channel
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/allocations">
+          <span class="icon">&#128203;</span> Fund Allocations
+          <span class="sidebar-badge">@_pendingAlloc</span>
+        </NavLink>
+      </div>
+    }
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">People</div>
-      <NavLink class="sidebar-link" href="/admin/volunteers">
-        <span class="icon">&#129309;</span> Volunteers
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/events">
-        <span class="icon">&#128197;</span> Events
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/donors">
-        <span class="icon">&#127873;</span> Donors Database
-      </NavLink>
+      @if (_canSeeVolunteers)
+      {
+        <NavLink class="sidebar-link" href="/admin/volunteers">
+          <span class="icon">&#129309;</span> Volunteers
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/events">
+          <span class="icon">&#128197;</span> Events
+        </NavLink>
+      }
+      @if (_canSeeDonations)
+      {
+        <NavLink class="sidebar-link" href="/admin/donors">
+          <span class="icon">&#127873;</span> Donors Database
+        </NavLink>
+      }
     </div>
 
     <div class="sidebar-section">
@@ -73,21 +87,27 @@
       <NavLink class="sidebar-link" href="/admin/impact">
         <span class="icon">&#128200;</span> Impact Report
       </NavLink>
-      <NavLink class="sidebar-link" href="/admin/export">
-        <span class="icon">&#128190;</span> Export Data
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/audit">
-        <span class="icon">&#128269;</span> Audit Log
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/diocese-data">
-        <span class="icon">&#127760;</span> Diocese &amp; Parish Data
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/settings">
-        <span class="icon">&#9881;</span> Settings
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/users">
-        <span class="icon">&#128274;</span> User Management
-      </NavLink>
+      @if (_canSeeDonations)
+      {
+        <NavLink class="sidebar-link" href="/admin/export">
+          <span class="icon">&#128190;</span> Export Data
+        </NavLink>
+      }
+      @if (_isAdmin)
+      {
+        <NavLink class="sidebar-link" href="/admin/audit">
+          <span class="icon">&#128269;</span> Audit Log
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/diocese-data">
+          <span class="icon">&#127760;</span> Diocese &amp; Parish Data
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/settings">
+          <span class="icon">&#9881;</span> Settings
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/users">
+          <span class="icon">&#128274;</span> User Management
+        </NavLink>
+      }
     </div>
 
     <div class="sidebar-footer">
@@ -203,9 +223,14 @@
           }
         </div>
 
-        <div class="user-pill">
-          <div class="user-avatar">MR</div>
-          <span>Mary Roberts</span>
+        <div class="user-pill" style="gap:8px;">
+          <div class="user-avatar">@Auth.UserInitials</div>
+          <div>
+            <div style="font-size:.82rem;font-weight:600;line-height:1.2;">@Auth.UserName</div>
+            <div style="font-size:.68rem;color:var(--text-light);line-height:1;">@Auth.UserRole</div>
+          </div>
+          <button style="background:none;border:none;cursor:pointer;padding:2px 6px;font-size:.76rem;color:var(--text-light);border-radius:5px;"
+                  title="Sign out" @onclick="Logout">&#x2715;</button>
         </div>
       </div>
     </div>
@@ -223,6 +248,12 @@
   private int _pendingAlloc;
   private string _pageTitle = "Dashboard Overview";
 
+  // Role-based visibility
+  private bool _isAdmin        => Auth.UserRole is "Administrator";
+  private bool _canSeeCases    => Auth.UserRole is "Administrator" or "Case Manager" or "Volunteer Coordinator";
+  private bool _canSeeDonations => Auth.UserRole is "Administrator" or "Finance";
+  private bool _canSeeVolunteers => Auth.UserRole is "Administrator" or "Volunteer Coordinator" or "Case Manager";
+
   // Search
   private string _searchText = "";
   private bool _searchOpen;
@@ -239,11 +270,16 @@
 
   protected override void OnInitialized()
   {
+    if (!Auth.IsAuthenticated)
+    {
+      Nav.NavigateTo("/login", replace: true);
+      return;
+    }
+
     var stats = Data.GetDashboardStats();
     _openCount    = stats.OpenCases;
     _pendingAlloc = stats.PendingAllocations;
 
-    // Notifications data
     _overdueItems = Data.GetRequests()
       .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
       .Where(r => r.IsOverdue)
@@ -254,8 +290,20 @@
       .ToList();
     _notifCount = _overdueItems.Count + _pendingAllocItems.Count;
 
+    Auth.OnChange += StateHasChanged;
     Nav.LocationChanged += (_, _) => UpdateTitle();
     UpdateTitle();
+  }
+
+  private void Logout()
+  {
+    Auth.Logout();
+    Nav.NavigateTo("/login", replace: true);
+  }
+
+  public void Dispose()
+  {
+    Auth.OnChange -= StateHasChanged;
   }
 
   private void OnSearchChanged(string text)

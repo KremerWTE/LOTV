@@ -1,6 +1,7 @@
 @page "/admin/families"
 @layout AdminLayout
 @inject IMockDataService Data
+@inject AuthService Auth
 
 <PageTitle>Family Directory — LOTV Staff Portal</PageTitle>
 
@@ -254,7 +255,7 @@
   {
     if (_selected is null) return;
     Data.UpdateFamily(_selected);
-    Data.LogAction("Mary Roberts", "Updated", "Family", _selected.Id.ToString(), $"Status set to {_selected.Status}");
+    Data.LogAction(Auth.UserName, "Updated", "Family", _selected.Id.ToString(), $"Status set to {_selected.Status}");
     _drawerSaved = true;
   }
 

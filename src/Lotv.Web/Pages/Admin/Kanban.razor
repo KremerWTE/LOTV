@@ -2,6 +2,7 @@
 @layout AdminLayout
 @inject IMockDataService Data
 @inject NavigationManager Nav
+@inject AuthService Auth
 
 <PageTitle>Kanban Board — LOTV Staff Portal</PageTitle>
 
@@ -151,7 +152,7 @@
     _selected.AssignedTo = string.IsNullOrEmpty(_editAssignedTo) ? null : _editAssignedTo;
     _selected.UpdatedAt  = DateTime.UtcNow;
     Data.UpdateRequest(_selected);
-    Data.LogAction("Mary Roberts", "Updated", "PackageRequest", _selected.Id.ToString(),
+    Data.LogAction(Auth.UserName, "Updated", "PackageRequest", _selected.Id.ToString(),
       $"Status → {_editStatus}, assigned to {_editAssignedTo}");
     _drawerSaved = true;
     Load(); // refresh columns

@@ -1,6 +1,7 @@
 @page "/admin/events"
 @layout AdminLayout
 @inject IMockDataService Data
+@inject AuthService Auth
 
 <PageTitle>Ministry Events — LOTV Staff Portal</PageTitle>
 
@@ -234,7 +235,7 @@
     _form.Capacity = _formCapacity;
 
     Data.AddEvent(_form);
-    Data.LogAction("Mary Roberts", "Created", "MinistryEvent", _form.Id.ToString(), $"Event: {_form.Title} on {_form.Date:MMM d, yyyy}");
+    Data.LogAction(Auth.UserName, "Created", "MinistryEvent", _form.Id.ToString(), $"Event: {_form.Title} on {_form.Date:MMM d, yyyy}");
     _events   = Data.GetEvents();
     _addSaved = true;
     _addError = "";
