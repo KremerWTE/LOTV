@@ -68,11 +68,11 @@
             </td>
             <td style="font-size:.78rem;color:var(--text-mid);">@(a.ApprovedBy ?? "—")</td>
             <td style="font-size:.76rem;color:var(--text-light);">@a.CreatedAt.ToString("MMM d")</td>
-            <td>
+            <td style="display:flex;gap:6px;">
               @if (a.Status == AllocationStatus.PendingReview)
-              {
-                <button class="btn btn-sm btn-primary" @onclick="() => Approve(a)">Approve</button>
-              }
+              { <button class="btn btn-sm btn-primary" @onclick="() => OpenReview(a)">Review</button> }
+              @if (a.Status == AllocationStatus.Unallocated)
+              { <button class="btn btn-sm btn-navy" @onclick="() => OpenReview(a)">Allocate</button> }
             </td>
           </tr>
         }
@@ -80,6 +80,40 @@
     </table>
   </div>
 </div>
+
+<!-- REVIEW DRAWER -->
+@if (_reviewing is not null)
+{
+  <div class="drawer-overlay" @onclick="CloseReview"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>@(_reviewing.Status == AllocationStatus.Unallocated ? "Allocate Funds" : "Review Allocation")</h3>
+      <button class="drawer-close" @onclick="CloseReview">&#10005;</button>
+    </div>
+    <div class="drawer-body">
+      <div style="background:var(--green-pale);border-radius:10px;padding:14px 16px;font-size:.84rem;margin-bottom:4px;">
+        <div><strong>Donor:</strong> @(_reviewing.Donation?.Donor?.FullName ?? $"Donation #{_reviewing.DonationId}")</div>
+        <div style="margin-top:4px;"><strong>Amount:</strong> <span style="color:var(--green);font-weight:700;">@_reviewing.Amount.ToString("C0")</span></div>
+        <div style="margin-top:4px;"><strong>Received:</strong> @_reviewing.CreatedAt.ToString("MMM d, yyyy")</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Allocate To *</label>
+        <input class="form-input" @bind="_reviewAllocTo" placeholder="e.g. Package Fund, Case #42, Gala Expenses" />
+        <div style="font-size:.72rem;color:var(--text-light);margin-top:4px;">Case ID, program name, or expense category.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" @bind="_reviewNotes" placeholder="Optional internal notes..." rows="3"></textarea>
+      </div>
+      @if (!string.IsNullOrEmpty(_reviewError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_reviewError</div> }
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-primary" @onclick="ConfirmApproval">Approve &amp; Allocate</button>
+      <button class="btn" @onclick="CloseReview">Cancel</button>
+    </div>
+  </div>
+}
 
 @if (_approvedMsg)
 {
@@ -92,6 +126,10 @@
   private List<FundAllocation> _allocs = [];
   private string _filter = "All";
   private bool _approvedMsg;
+  private FundAllocation? _reviewing;
+  private string _reviewAllocTo = "";
+  private string _reviewNotes   = "";
+  private string _reviewError   = "";
 
   private IEnumerable<FundAllocation> Filtered => _allocs.Where(a => _filter switch
   {
@@ -113,13 +151,31 @@
       .ToList();
   }
 
-  private async Task Approve(FundAllocation a)
+  private void OpenReview(FundAllocation a)
   {
-    a.Status     = AllocationStatus.Allocated;
-    a.ApprovedBy = Auth.UserName;
-    a.ApprovedAt = DateTime.UtcNow;
-    Data.UpdateAllocation(a);
-    Data.LogAction(Auth.UserName, "Approved", "FundAllocation", a.Id.ToString(), $"Allocated {a.Amount:C0} to {a.AllocatedTo}");
+    _reviewing     = a;
+    _reviewAllocTo = a.AllocatedTo ?? "";
+    _reviewNotes   = a.Notes ?? "";
+    _reviewError   = "";
+  }
+
+  private void CloseReview() { _reviewing = null; _reviewError = ""; }
+
+  private async Task ConfirmApproval()
+  {
+    if (string.IsNullOrWhiteSpace(_reviewAllocTo))
+    { _reviewError = "Please specify where these funds are allocated."; return; }
+
+    _reviewing!.AllocatedTo = _reviewAllocTo.Trim();
+    _reviewing.Notes        = string.IsNullOrWhiteSpace(_reviewNotes) ? null : _reviewNotes.Trim();
+    _reviewing.Status       = AllocationStatus.Allocated;
+    _reviewing.ApprovedBy   = Auth.UserName;
+    _reviewing.ApprovedAt   = DateTime.UtcNow;
+    Data.UpdateAllocation(_reviewing);
+    Data.LogAction(Auth.UserName, "Approved", "FundAllocation", _reviewing.Id.ToString(),
+      $"Allocated {_reviewing.Amount:C0} to {_reviewing.AllocatedTo}");
+
+    _reviewing   = null;
     _approvedMsg = true;
     StateHasChanged();
     await Task.Delay(2500);

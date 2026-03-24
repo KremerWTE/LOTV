@@ -2,6 +2,7 @@
 @layout AdminLayout
 @inject IMockDataService Data
 @inject NavigationManager Nav
+@inject AuthService Auth
 
 <PageTitle>Workload View — LOTV Staff Portal</PageTitle>
 
@@ -58,10 +59,11 @@
           <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px;">
             @foreach (var c in row.Cases.Take(3))
             {
-              <a href="/admin/cases" style="display:flex;align-items:center;justify-content:space-between;font-size:.78rem;padding:5px 8px;background:var(--bg);border-radius:6px;text-decoration:none;color:inherit;cursor:pointer;">
-                <span>#@c.Id — @(c.Family?.Parent1LastName ?? "Family")</span>
+              <div style="display:flex;align-items:center;justify-content:space-between;font-size:.78rem;padding:5px 8px;background:var(--bg);border-radius:6px;gap:6px;">
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">#@c.Id — @(c.Family?.Parent1LastName ?? "Family")</span>
                 <span class="badge @GetBadge(c.Status)" style="font-size:.65rem;">@c.Status</span>
-              </a>
+                <button class="btn btn-sm" style="font-size:.65rem;padding:2px 7px;" @onclick="() => OpenReassign(c)">Reassign</button>
+              </div>
             }
             @if (row.Cases.Count > 3)
             { <div style="font-size:.72rem;color:var(--text-light);text-align:center;">+@(row.Cases.Count - 3) more</div> }
@@ -72,6 +74,43 @@
   }
 </div>
 
+<!-- REASSIGN DRAWER -->
+@if (_reassignCase is not null)
+{
+  <div class="drawer-overlay" @onclick="CloseReassign"></div>
+  <div class="drawer" style="width:360px;">
+    <div class="drawer-head">
+      <h3>Reassign Case #@_reassignCase.Id</h3>
+      <button class="drawer-close" @onclick="CloseReassign">&#10005;</button>
+    </div>
+    <div class="drawer-body">
+      <div style="font-size:.84rem;color:var(--text-mid);margin-bottom:4px;">
+        <strong>Family:</strong> @(_reassignCase.Family?.FullName ?? "—")<br />
+        <strong>Status:</strong> @_reassignCase.Status
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reassign To</label>
+        <select class="form-input" @bind="_reassignTo">
+          <option value="">— Unassigned —</option>
+          @foreach (var v in _allVolunteers)
+          { <option value="@v.FullName">@v.FullName (@v.ActiveCases open)</option> }
+        </select>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-primary" @onclick="SaveReassign">Save</button>
+      <button class="btn" @onclick="CloseReassign">Cancel</button>
+    </div>
+  </div>
+}
+
+@if (_reassignToast)
+{
+  <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
+    &#10003; Case reassigned
+  </div>
+}
+
 @code {
   private record WorkloadRow(Volunteer Volunteer, List<PackageRequest> Cases)
   {
@@ -80,9 +119,17 @@
   }
 
   private List<WorkloadRow> _rows = [];
+  private List<Volunteer> _allVolunteers = [];
+  private PackageRequest? _reassignCase;
+  private string _reassignTo = "";
+  private bool _reassignToast;
 
-  protected override void OnInitialized()
+  protected override void OnInitialized() => Load();
+
+  private void Load()
   {
+    _allVolunteers = Data.GetVolunteers().Where(v => v.Status == VolunteerStatus.Active).ToList();
+
     var requests = Data.GetRequests()
       .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
       .ToList();
@@ -91,6 +138,30 @@
       .Select(v => new WorkloadRow(v, requests.Where(r => r.AssignedTo == v.FullName).ToList()))
       .OrderByDescending(r => r.OpenCases)
       .ToList();
+  }
+
+  private void OpenReassign(PackageRequest c)
+  {
+    _reassignCase = c;
+    _reassignTo   = c.AssignedTo ?? "";
+  }
+
+  private void CloseReassign() => _reassignCase = null;
+
+  private async Task SaveReassign()
+  {
+    if (_reassignCase is null) return;
+    _reassignCase.AssignedTo = string.IsNullOrEmpty(_reassignTo) ? null : _reassignTo;
+    _reassignCase.UpdatedAt  = DateTime.UtcNow;
+    Data.UpdateRequest(_reassignCase);
+    Data.LogAction(Auth.UserName, "Updated", "PackageRequest", _reassignCase.Id.ToString(),
+      $"Reassigned to {_reassignTo ?? "unassigned"}");
+    _reassignCase  = null;
+    _reassignToast = true;
+    StateHasChanged();
+    await Task.Delay(2000);
+    _reassignToast = false;
+    Load();
   }
 
   private static string Initials(string name)
