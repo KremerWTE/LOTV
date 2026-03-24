@@ -205,7 +205,7 @@
     </div>
     <div class="drawer-footer">
       <button class="btn btn-primary" @onclick="SaveFamily">Save</button>
-      <a href="/admin/cases?new=1" class="btn btn-sm">New Request &rarr;</a>
+      <a href="/admin/cases?familyId=@_selected.Id" class="btn btn-sm">New Request &rarr;</a>
     </div>
   </div>
 }

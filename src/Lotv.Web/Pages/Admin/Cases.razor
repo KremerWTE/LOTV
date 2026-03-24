@@ -106,9 +106,18 @@
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
 
-      <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.82rem;color:var(--green-dark);">
-        &#128149; This form creates a new family intake record and opens a case. The next available volunteer will be auto-assigned.
-      </div>
+      @if (_prefillFamily is not null)
+      {
+        <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.82rem;color:var(--green-dark);">
+          &#128149; Creating a new case for existing family: <strong>@_prefillFamily.FullName</strong>. A new family record will not be created.
+        </div>
+      }
+      else
+      {
+        <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.82rem;color:var(--green-dark);">
+          &#128149; This form creates a new family intake record and opens a case. The next available volunteer will be auto-assigned.
+        </div>
+      }
 
       <div class="form-grid-2">
         <div class="form-group">
@@ -289,6 +298,8 @@
 }
 
 @code {
+  [Parameter][SupplyParameterFromQuery(Name = "familyId")] public int FamilyId { get; set; }
+
   private List<PackageRequest> _all = [];
   private List<PackageRequest> _filtered = [];
   private List<Volunteer> _volunteers = [];
@@ -301,6 +312,7 @@
 
   // New request form state
   private Family _nf = new();
+  private Family? _prefillFamily;   // set when navigating from Families page
   private string _newAssignOverride = "";
   private string _newError = "";
   private Volunteer? _nextVol;
@@ -312,8 +324,16 @@
     _volunteers = Data.GetVolunteers().Where(v => v.Status == VolunteerStatus.Active).ToList();
     Load();
 
-    // Auto-open new request drawer if navigated here from Workload with ?new=1
-    if (Nav.Uri.Contains("?new=1") || Nav.Uri.Contains("&new=1")) OpenNew();
+    // Auto-open new request drawer if navigated with ?new=1 or ?familyId=X
+    if (FamilyId > 0)
+    {
+      _prefillFamily = Data.GetFamily(FamilyId);
+      OpenNew();
+    }
+    else if (Nav.Uri.Contains("?new=1") || Nav.Uri.Contains("&new=1"))
+    {
+      OpenNew();
+    }
   }
 
   private void Load()
@@ -361,7 +381,21 @@
 
   private void OpenNew()
   {
-    _nf = new Family();
+    _nf = _prefillFamily is not null
+      ? new Family
+        {
+          Parent1FirstName = _prefillFamily.Parent1FirstName,
+          Parent1LastName  = _prefillFamily.Parent1LastName,
+          Email            = _prefillFamily.Email,
+          Phone            = _prefillFamily.Phone ?? "",
+          City             = _prefillFamily.City ?? "",
+          State            = _prefillFamily.State ?? "",
+          Reason           = _prefillFamily.Reason,
+          ParishName       = _prefillFamily.ParishName,
+          FaithTradition   = _prefillFamily.FaithTradition,
+          ChildrenInitials = _prefillFamily.ChildrenInitials
+        }
+      : new Family();
     _newAssignOverride = "";
     _newError = "";
     _nextVol = Data.GetNextAvailableVolunteer();
@@ -378,15 +412,27 @@
       return;
     }
 
-    Data.AddFamily(_nf);
+    int familyId;
+    string familyName;
+    if (_prefillFamily is not null)
+    {
+      familyId   = _prefillFamily.Id;
+      familyName = _prefillFamily.FullName;
+    }
+    else
+    {
+      Data.AddFamily(_nf);
+      familyId   = _nf.Id;
+      familyName = _nf.FullName;
+    }
 
     var assignTo = !string.IsNullOrEmpty(_newAssignOverride) ? _newAssignOverride : _nextVol?.FullName;
     var req = new PackageRequest
     {
-      FamilyId   = _nf.Id,
+      FamilyId   = familyId,
       Status     = CaseStatus.New,
       AssignedTo = assignTo,
-      Reason     = _nf.Reason,
+      Reason     = _prefillFamily?.Reason ?? _nf.Reason,
       CreatedAt  = DateTime.UtcNow
     };
     Data.AddRequest(req);
@@ -399,8 +445,9 @@
     }
 
     Data.LogAction(Auth.UserName, "Created", "PackageRequest", req.Id.ToString(),
-      $"New request for {_nf.FullName}, assigned to {assignTo ?? "unassigned"}");
+      $"New request for {familyName}, assigned to {assignTo ?? "unassigned"}");
 
+    _prefillFamily = null;
     _showNew = false;
     Load();
   }

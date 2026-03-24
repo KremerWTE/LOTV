@@ -306,6 +306,33 @@ public class MockDataServiceTests
         Assert.Equal(before + 1, svc.GetEvents().Count);
     }
 
+    [Fact]
+    public void UpdateEvent_PersistsChanges()
+    {
+        var svc = CreateSvc();
+        var evt = svc.GetEvents().First();
+        var newTitle = evt.Title + " (Updated)";
+        evt.Title = newTitle;
+
+        svc.UpdateEvent(evt);
+
+        var updated = svc.GetEvents().First(e => e.Id == evt.Id);
+        Assert.Equal(newTitle, updated.Title);
+    }
+
+    [Fact]
+    public void UpdateEvent_AdjustedRegistration_Persists()
+    {
+        var svc = CreateSvc();
+        var evt = svc.GetEvents().First();
+        var newCount = evt.Registered + 5;
+        evt.Registered = newCount;
+
+        svc.UpdateEvent(evt);
+
+        Assert.Equal(newCount, svc.GetEvents().First(e => e.Id == evt.Id).Registered);
+    }
+
     // ── Allocations ───────────────────────────────────────────────────────────
 
     [Fact]

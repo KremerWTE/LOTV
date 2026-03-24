@@ -2,6 +2,7 @@
 @layout AdminLayout
 @inject IMockDataService Data
 @inject AuthService Auth
+@inject IJSRuntime JS
 
 <PageTitle>Export Data — LOTV Staff Portal</PageTitle>
 
@@ -20,8 +21,8 @@
         <strong>@Data.GetFamilies().Count</strong> records.
       </p>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("families_all.csv", "Families")'>Export All (CSV)</button>
-        <button class="btn btn-sm" @onclick='() => SimulateExport("families_active.csv", "Active Families")'>Active Cases Only</button>
+        <button class="btn btn-primary btn-sm" @onclick="ExportFamilies">Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick="ExportFamiliesActive">Active Cases Only</button>
       </div>
     </div>
   </div>
@@ -35,9 +36,9 @@
         <strong>@Data.GetDonations().Count</strong> records.
       </p>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("donations_all.csv", "Donations")'>Export All (CSV)</button>
-        <button class="btn btn-sm" @onclick='() => SimulateExport("donations_ytd.csv", "YTD Donations")'>Year-to-Date Only</button>
-        <button class="btn btn-sm" @onclick='() => SimulateExport("donations_unallocated.csv", "Unallocated Donations")'>Unallocated Only</button>
+        <button class="btn btn-primary btn-sm" @onclick="ExportDonations">Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick="ExportDonationsYtd">Year-to-Date Only</button>
+        <button class="btn btn-sm" @onclick="ExportDonationsUnallocated">Unallocated Only</button>
       </div>
     </div>
   </div>
@@ -51,8 +52,8 @@
         <strong>@Data.GetDonors().Count</strong> records.
       </p>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("donors_all.csv", "Donors")'>Export All (CSV)</button>
-        <button class="btn btn-sm" @onclick='() => SimulateExport("donors_recurring.csv", "Recurring Donors")'>Recurring Only</button>
+        <button class="btn btn-primary btn-sm" @onclick="ExportDonors">Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick="ExportDonorsRecurring">Recurring Only</button>
       </div>
     </div>
   </div>
@@ -66,8 +67,8 @@
         <strong>@Data.GetVolunteers().Count</strong> records.
       </p>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("volunteers_all.csv", "Volunteers")'>Export All (CSV)</button>
-        <button class="btn btn-sm" @onclick='() => SimulateExport("volunteers_active.csv", "Active Volunteers")'>Active Only</button>
+        <button class="btn btn-primary btn-sm" @onclick="ExportVolunteers">Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick="ExportVolunteersActive">Active Only</button>
       </div>
     </div>
   </div>
@@ -81,8 +82,8 @@
         <strong>@Data.GetAllocations().Count</strong> records.
       </p>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("allocations_all.csv", "Fund Allocations")'>Export All (CSV)</button>
-        <button class="btn btn-sm" @onclick='() => SimulateExport("allocations_approved.csv", "Approved Allocations")'>Approved Only</button>
+        <button class="btn btn-primary btn-sm" @onclick="ExportAllocations">Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick="ExportAllocationsApproved">Approved Only</button>
       </div>
     </div>
   </div>
@@ -96,7 +97,7 @@
         <strong>@Data.GetAuditLog().Count</strong> entries.
       </p>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("audit_log.csv", "Audit Log")'>Export Full Log (CSV)</button>
+        <button class="btn btn-primary btn-sm" @onclick="ExportAuditLog">Export Full Log (CSV)</button>
       </div>
     </div>
   </div>
@@ -157,12 +158,127 @@
 @code {
   private string? _toastMsg;
 
-  private async Task SimulateExport(string filename, string label)
+  // ── CSV helpers ──────────────────────────────────────────────────────────
+
+  private static string Esc(string? v)
   {
+    if (v is null) return "";
+    if (!v.Contains(',') && !v.Contains('"') && !v.Contains('\n')) return v;
+    return "\"" + v.Replace("\"", "\"\"") + "\"";
+  }
+
+  private async Task Download(string filename, string label, string csv)
+  {
+    await JS.InvokeVoidAsync("downloadCsv", filename, csv);
     Data.LogAction(Auth.UserName, "Exported", "DataExport", null, $"Exported {label} as {filename}");
-    _toastMsg = $"{label} ({filename})";
+    _toastMsg = label;
     StateHasChanged();
-    await Task.Delay(3000);
+    await Task.Delay(2500);
     _toastMsg = null;
+  }
+
+  // ── Families ─────────────────────────────────────────────────────────────
+
+  private Task ExportFamilies() => ExportFamiliesFiltered(Data.GetFamilies(), "families_all.csv", "Family Records");
+  private Task ExportFamiliesActive()
+  {
+    var rows = Data.GetFamilies().Where(f => f.Status == FamilyStatus.Active).ToList();
+    return ExportFamiliesFiltered(rows, "families_active.csv", "Active Families");
+  }
+  private Task ExportFamiliesFiltered(List<Family> rows, string filename, string label)
+  {
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("FirstName,LastName,Email,Phone,City,State,Parish,Reason,Status,Created");
+    foreach (var f in rows)
+      sb.AppendLine($"{Esc(f.Parent1FirstName)},{Esc(f.Parent1LastName)},{Esc(f.Email)},{Esc(f.Phone)},{Esc(f.City)},{Esc(f.State)},{Esc(f.ParishName)},{f.Reason},{f.Status},{f.CreatedAt:yyyy-MM-dd}");
+    return Download(filename, label, sb.ToString());
+  }
+
+  // ── Donations ────────────────────────────────────────────────────────────
+
+  private Task ExportDonations() => ExportDonationsFiltered(Data.GetDonations(), "donations_all.csv", "Donation Ledger");
+  private Task ExportDonationsYtd()
+  {
+    var rows = Data.GetDonations().Where(d => d.Date.Year == DateTime.UtcNow.Year).ToList();
+    return ExportDonationsFiltered(rows, "donations_ytd.csv", "YTD Donations");
+  }
+  private Task ExportDonationsUnallocated()
+  {
+    var rows = Data.GetDonations().Where(d => d.AllocationStatus == AllocationStatus.Unallocated).ToList();
+    return ExportDonationsFiltered(rows, "donations_unallocated.csv", "Unallocated Donations");
+  }
+  private Task ExportDonationsFiltered(List<Donation> rows, string filename, string label)
+  {
+    var donors = Data.GetDonors().ToDictionary(d => d.Id);
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("Date,DonorName,Amount,Channel,Campaign,Recurring,AllocationStatus");
+    foreach (var d in rows)
+    {
+      var name = donors.TryGetValue(d.DonorId, out var donor) ? donor.FullName : $"Donor#{d.DonorId}";
+      sb.AppendLine($"{d.Date:yyyy-MM-dd},{Esc(name)},{d.Amount:F2},{d.Channel},{Esc(d.Campaign)},{d.IsRecurring},{d.AllocationStatus}");
+    }
+    return Download(filename, label, sb.ToString());
+  }
+
+  // ── Donors ───────────────────────────────────────────────────────────────
+
+  private Task ExportDonors() => ExportDonorsFiltered(Data.GetDonors(), "donors_all.csv", "Donor Directory");
+  private Task ExportDonorsRecurring()
+  {
+    var rows = Data.GetDonors().Where(d => d.IsRecurring).ToList();
+    return ExportDonorsFiltered(rows, "donors_recurring.csv", "Recurring Donors");
+  }
+  private Task ExportDonorsFiltered(List<Donor> rows, string filename, string label)
+  {
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("FirstName,LastName,Email,Phone,Tier,TotalGiven,GiftCount,Recurring,RecurringAmount,Parish,LastGiftDate");
+    foreach (var d in rows)
+      sb.AppendLine($"{Esc(d.FirstName)},{Esc(d.LastName)},{Esc(d.Email)},{Esc(d.Phone)},{d.Tier},{d.TotalGiven:F2},{d.GiftCount},{d.IsRecurring},{d.RecurringAmount?.ToString("F2") ?? ""},{Esc(d.ParishName)},{d.LastGiftDate:yyyy-MM-dd}");
+    return Download(filename, label, sb.ToString());
+  }
+
+  // ── Volunteers ────────────────────────────────────────────────────────────
+
+  private Task ExportVolunteers() => ExportVolunteersFiltered(Data.GetVolunteers(), "volunteers_all.csv", "Volunteer Roster");
+  private Task ExportVolunteersActive()
+  {
+    var rows = Data.GetVolunteers().Where(v => v.Status == VolunteerStatus.Active).ToList();
+    return ExportVolunteersFiltered(rows, "volunteers_active.csv", "Active Volunteers");
+  }
+  private Task ExportVolunteersFiltered(List<Volunteer> rows, string filename, string label)
+  {
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("FirstName,LastName,Email,Phone,Role,Status,Parish,ActiveCases,TotalFulfilled,JoinedDate");
+    foreach (var v in rows)
+      sb.AppendLine($"{Esc(v.FirstName)},{Esc(v.LastName)},{Esc(v.Email)},{Esc(v.Phone)},{v.Role},{v.Status},{Esc(v.ParishName)},{v.ActiveCases},{v.TotalCasesFulfilled},{v.JoinedDate:yyyy-MM-dd}");
+    return Download(filename, label, sb.ToString());
+  }
+
+  // ── Allocations ───────────────────────────────────────────────────────────
+
+  private Task ExportAllocations() => ExportAllocationsFiltered(Data.GetAllocations(), "allocations_all.csv", "Fund Allocations");
+  private Task ExportAllocationsApproved()
+  {
+    var rows = Data.GetAllocations().Where(a => a.Status == AllocationStatus.Allocated).ToList();
+    return ExportAllocationsFiltered(rows, "allocations_approved.csv", "Approved Allocations");
+  }
+  private Task ExportAllocationsFiltered(List<FundAllocation> rows, string filename, string label)
+  {
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("Id,DonationId,Amount,AllocatedTo,Status,ApprovedBy,ApprovedAt,Notes,CreatedAt");
+    foreach (var a in rows)
+      sb.AppendLine($"{a.Id},{a.DonationId},{a.Amount:F2},{Esc(a.AllocatedTo)},{a.Status},{Esc(a.ApprovedBy)},{a.ApprovedAt?.ToString("yyyy-MM-dd") ?? ""},{Esc(a.Notes)},{a.CreatedAt:yyyy-MM-dd}");
+    return Download(filename, label, sb.ToString());
+  }
+
+  // ── Audit Log ─────────────────────────────────────────────────────────────
+
+  private Task ExportAuditLog()
+  {
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("Timestamp,User,Action,Entity,EntityId,Details");
+    foreach (var e in Data.GetAuditLog().OrderByDescending(x => x.Timestamp))
+      sb.AppendLine($"{e.Timestamp:yyyy-MM-dd HH:mm:ss},{Esc(e.UserName)},{Esc(e.Action)},{Esc(e.Entity)},{Esc(e.EntityId)},{Esc(e.Details)}");
+    return Download("audit_log.csv", "Audit Log", sb.ToString());
   }
 }

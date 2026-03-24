@@ -38,7 +38,10 @@
 <!-- FILTER BAR -->
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged"})
-  { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+  { <button class="filter-chip @(_actionFilter == f ? "active" : "")" @onclick="() => _actionFilter = f">@f</button> }
+  <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+  @foreach (var d in new[]{"All Time","Today","This Week","This Month"})
+  { <button class="filter-chip @(_dateFilter == d ? "active" : "")" @onclick="() => _dateFilter = d">@d</button> }
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search entries..." @bind="_search" @bind:event="oninput" />
 </div>
 
@@ -74,17 +77,26 @@
 
 @code {
   private List<AuditEntry> _log = [];
-  private string _filter = "All";
-  private string _search = "";
+  private string _actionFilter = "All";
+  private string _dateFilter   = "All Time";
+  private string _search       = "";
 
   private IEnumerable<AuditEntry> Filtered => _log.Where(e =>
   {
-    var matchFilter = _filter == "All" || e.Action.Equals(_filter, StringComparison.OrdinalIgnoreCase);
+    var now = DateTime.UtcNow;
+    var matchAction = _actionFilter == "All" || e.Action.Equals(_actionFilter, StringComparison.OrdinalIgnoreCase);
+    var matchDate   = _dateFilter switch
+    {
+      "Today"      => e.Timestamp.Date == now.Date,
+      "This Week"  => e.Timestamp >= now.AddDays(-7),
+      "This Month" => e.Timestamp.Year == now.Year && e.Timestamp.Month == now.Month,
+      _            => true
+    };
     var matchSearch = string.IsNullOrEmpty(_search) ||
       e.UserName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
       e.Entity.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
       (e.Details?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
-    return matchFilter && matchSearch;
+    return matchAction && matchDate && matchSearch;
   }).OrderByDescending(e => e.Timestamp);
 
   protected override void OnInitialized() => _log = Data.GetAuditLog();

@@ -1,6 +1,7 @@
 @page "/admin/donors"
 @layout AdminLayout
 @inject IMockDataService Data
+@inject AuthService Auth
 
 <PageTitle>Donors Database — LOTV Staff Portal</PageTitle>
 
@@ -216,9 +217,13 @@
       _editing.FirstGiftDate = DateTime.UtcNow;
       _editing.LastGiftDate  = DateTime.UtcNow;
       Data.AddDonor(_editing);
+      Data.LogAction(Auth.UserName, "Created", "Donor", _editing.Id.ToString(), $"Added donor {_editing.FullName}");
     }
     else
+    {
       Data.UpdateDonor(_editing);
+      Data.LogAction(Auth.UserName, "Updated", "Donor", _editing.Id.ToString(), $"Updated {_editing.FullName}");
+    }
 
     _donors = Data.GetDonors();
     _formSaved = true;
