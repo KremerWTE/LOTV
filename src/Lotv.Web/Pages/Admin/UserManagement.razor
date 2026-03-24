@@ -1,5 +1,6 @@
 @page "/admin/users"
 @layout AdminLayout
+@inject AuthService Auth
 
 <PageTitle>User Management — LOTV Staff Portal</PageTitle>
 
@@ -19,8 +20,12 @@
       <tbody>
         @foreach (var u in _users)
         {
-          <tr>
-            <td><strong>@u.Name</strong></td>
+          var isMe = u.Email.Equals(Auth.UserEmail, StringComparison.OrdinalIgnoreCase);
+          <tr style="@(isMe ? "background:var(--green-pale);" : "")">
+            <td>
+              <strong>@u.Name</strong>
+              @if (isMe) { <span class="badge badge-fulfilled" style="font-size:.6rem;margin-left:6px;">You</span> }
+            </td>
             <td style="font-size:.78rem;color:var(--text-light);">@u.Email</td>
             <td><span class="badge @RoleBadge(u.Role)" style="font-size:.68rem;">@u.Role</span></td>
             <td>

@@ -13,6 +13,7 @@ public class AuthService
 
     public bool IsAuthenticated { get; private set; }
     public string UserName      { get; private set; } = "";
+    public string UserEmail     { get; private set; } = "";
     public string UserRole      { get; private set; } = "";
     public string UserInitials  => UserName.Length > 0
         ? string.Concat(UserName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -31,6 +32,7 @@ public class AuthService
 
         IsAuthenticated = true;
         UserName        = match.Name;
+        UserEmail       = match.Email;
         UserRole        = match.Role;
         OnChange?.Invoke();
         return true;
@@ -40,6 +42,7 @@ public class AuthService
     {
         IsAuthenticated = false;
         UserName        = "";
+        UserEmail       = "";
         UserRole        = "";
         OnChange?.Invoke();
     }
