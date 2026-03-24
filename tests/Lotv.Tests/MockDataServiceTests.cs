@@ -333,6 +333,32 @@ public class MockDataServiceTests
         Assert.Equal(newCount, svc.GetEvents().First(e => e.Id == evt.Id).Registered);
     }
 
+    // ── Donations ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void UpdateDonation_PersistsAllocationStatusChange()
+    {
+        var svc = CreateSvc();
+        var donation = svc.GetDonations().First(d => d.AllocationStatus == AllocationStatus.Unallocated);
+        donation.AllocationStatus = AllocationStatus.PendingReview;
+
+        svc.UpdateDonation(donation);
+
+        var updated = svc.GetDonations().First(d => d.Id == donation.Id);
+        Assert.Equal(AllocationStatus.PendingReview, updated.AllocationStatus);
+    }
+
+    [Fact]
+    public void UpdateDonation_NonExistentId_DoesNotThrow()
+    {
+        var svc = CreateSvc();
+        var ghost = new Donation { Id = 99999, Amount = 100, AllocationStatus = AllocationStatus.Allocated };
+
+        var ex = Record.Exception(() => svc.UpdateDonation(ghost));
+
+        Assert.Null(ex);
+    }
+
     // ── Allocations ───────────────────────────────────────────────────────────
 
     [Fact]

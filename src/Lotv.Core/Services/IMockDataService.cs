@@ -26,6 +26,7 @@ public interface IMockDataService
     // Donations
     List<Donation> GetDonations();
     void AddDonation(Donation donation);
+    void UpdateDonation(Donation donation);
 
     // Volunteers
     List<Volunteer> GetVolunteers();

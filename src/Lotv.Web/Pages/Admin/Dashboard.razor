@@ -7,12 +7,12 @@
 
 <!-- ST. GIANNA BANNER -->
 <div class="gianna-banner">
-  <img src="https://lotvministry.org/wp-content/uploads/2023/02/cropped-Lily-of-valley-Final-01-2.jpg" alt="LOTV" />
-  <div>
+  <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">&#128149;</div>
+  <div style="flex:1;">
     <div class="gianna-banner-quote">&ldquo;Love and sacrifice are as intimately connected as the sun and light.&rdquo; &mdash; St. Gianna Beretta Molla</div>
     <div class="gianna-banner-sub">April 28 &bull; Feast Day of St. Gianna &bull; Monthly Prayer Night: 28th of each month at 8PM ET &bull; info@LOTVministry.org</div>
   </div>
-  <img src="https://lotvministry.org/wp-content/uploads/2023/02/Lily-of-valley-Final.png" alt="" style="height:44px;opacity:.25;margin-left:auto;" />
+  <div style="font-size:1.6rem;opacity:.35;margin-left:auto;flex-shrink:0;">&#127803;</div>
 </div>
 
 <!-- QUICK ACTIONS -->
@@ -52,13 +52,17 @@
     <div class="kpi-icon">&#9888;</div>
     <div class="kpi-label">Open Cases</div>
     <div class="kpi-value" style="color:var(--red)">@_stats.OpenCases</div>
-    <div class="kpi-change change-up">&#9650; 3 new this week</div>
+    <div class="kpi-change @(_newThisWeek > 0 ? "change-up" : "")">
+      @(_newThisWeek > 0 ? $"▲ {_newThisWeek} new this week" : "None new this week")
+    </div>
   </div>
   <div class="kpi-card kpi-amber">
     <div class="kpi-icon">&#9203;</div>
     <div class="kpi-label">Overdue Requests</div>
     <div class="kpi-value" style="color:var(--amber)">@_stats.OverdueCases</div>
-    <div class="kpi-change change-down">&#9650; need immediate attention</div>
+    <div class="kpi-change @(_stats.OverdueCases > 0 ? "change-down" : "change-up")">
+      @(_stats.OverdueCases > 0 ? "&#9888; need attention" : "&#10003; none overdue")
+    </div>
   </div>
   <div class="kpi-card kpi-green">
     <div class="kpi-icon">&#128184;</div>
@@ -291,6 +295,7 @@
   private string _nextEvent = "";
   private int _onboarding;
   private int _donationGrowth;
+  private int _newThisWeek;
   private List<PackageRequest> _recentCases = [];
   private List<PackageRequest> _overdueCases = [];
   private List<MinistryEvent> _upcomingEvents = [];
@@ -310,6 +315,7 @@
     _nextEvent = next is null ? "None scheduled" : $"{next.Date:MMM d} — {next.Title}";
 
     _onboarding = Data.GetVolunteers().Count(v => v.Status == VolunteerStatus.Onboarding);
+    _newThisWeek = Data.GetRequests().Count(r => r.CreatedAt >= now.AddDays(-7));
 
     _donationGrowth = _stats.DonationsLastMonth > 0
       ? (int)((_stats.DonationsThisMonth - _stats.DonationsLastMonth) / _stats.DonationsLastMonth * 100)

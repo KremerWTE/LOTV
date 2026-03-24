@@ -316,9 +316,15 @@
     _savedToast = false;
   }
 
-  private void Allocate(Donation d)
+  private async Task Allocate(Donation d)
   {
     d.AllocationStatus = AllocationStatus.PendingReview;
+    Data.UpdateDonation(d);
     Data.LogAction(Auth.UserName, "Flagged", "Donation", d.Id.ToString(), "Moved to pending allocation review");
+    Load();
+    _savedToast = true;
+    StateHasChanged();
+    await Task.Delay(2500);
+    _savedToast = false;
   }
 }

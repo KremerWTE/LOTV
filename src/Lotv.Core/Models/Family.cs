@@ -23,6 +23,7 @@ public class Family
     public string? HowHeard { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public FamilyStatus Status { get; set; } = FamilyStatus.Active;
+    public string? ContactNotes { get; set; }
 
     public string FullName => string.IsNullOrEmpty(Parent2FirstName)
         ? $"{Parent1FirstName} {Parent1LastName}"

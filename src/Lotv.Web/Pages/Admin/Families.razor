@@ -200,6 +200,14 @@
         </select>
       </div>
 
+      <!-- Staff Contact Notes -->
+      <div class="form-group">
+        <label class="form-label">Staff Contact Notes</label>
+        <textarea class="form-textarea" rows="4" @bind="_selected.ContactNotes"
+                  placeholder="Record outreach attempts, follow-up notes, special circumstances..."></textarea>
+        <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">Visible to staff only — not shared with family.</div>
+      </div>
+
       @if (_drawerSaved)
       { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">&#10003; Family record updated</div> }
     </div>

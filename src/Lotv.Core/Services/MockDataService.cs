@@ -61,6 +61,7 @@ public class MockDataService : IMockDataService
     // ── Donations ─────────────────────────────────────────────────────────────
     public List<Donation> GetDonations() => _donations;
     public void AddDonation(Donation d) { d.Id = _donations.Max(x => x.Id) + 1; _donations.Add(d); }
+    public void UpdateDonation(Donation d) { var i = _donations.FindIndex(x => x.Id == d.Id); if (i >= 0) _donations[i] = d; }
 
     // ── Volunteers ────────────────────────────────────────────────────────────
     public List<Volunteer> GetVolunteers() => _volunteers;
