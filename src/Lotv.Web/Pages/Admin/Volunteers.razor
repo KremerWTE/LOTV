@@ -1,0 +1,250 @@
+@page "/admin/volunteers"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Volunteers — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteers</h2><p>Manage volunteer roster and assignments</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">&#43; Add Volunteer</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-label">Total Volunteers</div>
+    <div class="kpi-value" style="color:var(--green)">@_vols.Count</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value" style="color:var(--navy)">@_vols.Count(v => v.Status == VolunteerStatus.Active)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128203;</div>
+    <div class="kpi-label">Open Cases Assigned</div>
+    <div class="kpi-value" style="color:var(--amber)">@_vols.Sum(v => v.ActiveCases)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#127942;</div>
+    <div class="kpi-label">Cases Fulfilled</div>
+    <div class="kpi-value" style="color:var(--gold)">@_vols.Sum(v => v.TotalCasesFulfilled)</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  @foreach (var f in new[]{"All","Active","Inactive","Package Assembler","Prayer Ambassador","Parish Liaison","Event Helper","Driver","Admin"})
+  { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+</div>
+
+<!-- TABLE -->
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Name</th><th>Role</th><th>Status</th><th>Open Cases</th><th>Fulfilled</th><th>Joined</th><th>Parish</th><th></th></tr>
+      </thead>
+      <tbody>
+        @foreach (var v in Filtered)
+        {
+          <tr>
+            <td>
+              <strong>@v.FullName</strong><br />
+              <span style="font-size:.74rem;color:var(--text-light);">@v.Email</span>
+            </td>
+            <td><span class="badge @RoleBadge(v.Role)" style="font-size:.68rem;">@v.Role</span></td>
+            <td>
+              @if (v.Status == VolunteerStatus.Active)
+              { <span class="badge badge-fulfilled">Active</span> }
+              else
+              { <span class="badge badge-onhold">@v.Status</span> }
+            </td>
+            <td>
+              @if (v.ActiveCases >= 5)
+              { <span style="color:var(--amber);font-weight:700;">@v.ActiveCases &#9888;</span> }
+              else
+              { <span>@v.ActiveCases</span> }
+            </td>
+            <td style="color:var(--text-mid);">@v.TotalCasesFulfilled</td>
+            <td style="font-size:.76rem;color:var(--text-light);">@v.JoinedDate.ToString("MMM d, yyyy")</td>
+            <td style="font-size:.76rem;color:var(--text-mid);">@(v.ParishName ?? "—")</td>
+            <td>
+              <button class="btn btn-sm" @onclick="() => OpenEdit(v)">Edit</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- DRAWER -->
+@if (_drawerOpen)
+{
+  <div class="drawer-overlay" @onclick="CloseDrawer"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>@(_editing == null ? "Add Volunteer" : "Edit Volunteer")</h3>
+      <button class="drawer-close" @onclick="CloseDrawer">&#10005;</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label">First Name</label>
+        <input class="form-input" @bind="_formFirst" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last Name</label>
+        <input class="form-input" @bind="_formLast" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" @bind="_formEmail" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-input" @bind="_formPhone" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select class="form-input" @bind="_formRole">
+          @foreach (var r in Enum.GetValues<VolunteerRole>())
+          { <option value="@r">@r</option> }
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" @bind="_formStatus">
+          @foreach (var s in Enum.GetValues<VolunteerStatus>())
+          { <option value="@s">@s</option> }
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Parish</label>
+        <input class="form-input" @bind="_formParish" />
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-primary" @onclick="Save">Save</button>
+      <button class="btn" @onclick="CloseDrawer">Cancel</button>
+    </div>
+  </div>
+}
+
+@if (_savedMsg)
+{
+  <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
+    &#10003; Volunteer saved
+  </div>
+}
+
+@code {
+  private List<Volunteer> _vols = [];
+  private string _filter = "All";
+  private bool _drawerOpen;
+  private bool _savedMsg;
+  private Volunteer? _editing;
+
+  // Form fields (flat strings to avoid model property mismatch)
+  private string _formFirst  = "";
+  private string _formLast   = "";
+  private string _formEmail  = "";
+  private string _formPhone  = "";
+  private VolunteerRole   _formRole   = VolunteerRole.PackageAssembler;
+  private VolunteerStatus _formStatus = VolunteerStatus.Active;
+  private string _formParish = "";
+
+  private IEnumerable<Volunteer> Filtered => _vols.Where(v => _filter switch
+  {
+    "Active"            => v.Status == VolunteerStatus.Active,
+    "Inactive"          => v.Status != VolunteerStatus.Active,
+    "Package Assembler" => v.Role == VolunteerRole.PackageAssembler,
+    "Prayer Ambassador" => v.Role == VolunteerRole.PrayerAmbassador,
+    "Parish Liaison"    => v.Role == VolunteerRole.ParishLiaison,
+    "Event Helper"      => v.Role == VolunteerRole.EventHelper,
+    "Driver"            => v.Role == VolunteerRole.Driver,
+    "Admin"             => v.Role == VolunteerRole.Admin,
+    _                   => true
+  });
+
+  protected override void OnInitialized() => _vols = Data.GetVolunteers();
+
+  private void OpenAdd()
+  {
+    _editing    = null;
+    _formFirst  = "";
+    _formLast   = "";
+    _formEmail  = "";
+    _formPhone  = "";
+    _formRole   = VolunteerRole.PackageAssembler;
+    _formStatus = VolunteerStatus.Active;
+    _formParish = "";
+    _drawerOpen = true;
+  }
+
+  private void OpenEdit(Volunteer v)
+  {
+    _editing    = v;
+    _formFirst  = v.FirstName;
+    _formLast   = v.LastName;
+    _formEmail  = v.Email;
+    _formPhone  = v.Phone ?? "";
+    _formRole   = v.Role;
+    _formStatus = v.Status;
+    _formParish = v.ParishName ?? "";
+    _drawerOpen = true;
+  }
+
+  private async Task Save()
+  {
+    if (_editing == null)
+    {
+      var vol = new Volunteer
+      {
+        FirstName  = _formFirst,
+        LastName   = _formLast,
+        Email      = _formEmail,
+        Phone      = _formPhone,
+        Role       = _formRole,
+        Status     = _formStatus,
+        ParishName = _formParish,
+        JoinedDate = DateTime.UtcNow
+      };
+      Data.AddVolunteer(vol);
+      _vols = Data.GetVolunteers();
+      Data.LogAction("Mary Roberts", "Created", "Volunteer", vol.Id.ToString(), $"Added volunteer {vol.FullName}");
+    }
+    else
+    {
+      _editing.FirstName  = _formFirst;
+      _editing.LastName   = _formLast;
+      _editing.Email      = _formEmail;
+      _editing.Phone      = _formPhone;
+      _editing.Role       = _formRole;
+      _editing.Status     = _formStatus;
+      _editing.ParishName = _formParish;
+      Data.UpdateVolunteer(_editing);
+      Data.LogAction("Mary Roberts", "Updated", "Volunteer", _editing.Id.ToString(), $"Updated {_editing.FullName}");
+    }
+    _drawerOpen = false;
+    _savedMsg = true;
+    StateHasChanged();
+    await Task.Delay(2500);
+    _savedMsg = false;
+  }
+
+  private void CloseDrawer() => _drawerOpen = false;
+
+  private static string RoleBadge(VolunteerRole r) => r switch
+  {
+    VolunteerRole.PackageAssembler => "badge-fulfilled",
+    VolunteerRole.PrayerAmbassador => "badge-shipped",
+    VolunteerRole.ParishLiaison    => "badge-inprogress",
+    VolunteerRole.EventHelper      => "badge-new",
+    VolunteerRole.Driver           => "badge-onhold",
+    _                              => "badge-new"
+  };
+}

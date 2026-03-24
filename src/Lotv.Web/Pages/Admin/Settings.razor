@@ -1,0 +1,131 @@
+@page "/admin/settings"
+@layout AdminLayout
+
+<PageTitle>Settings — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Settings</h2><p>Ministry configuration and preferences</p></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+  <!-- ORG INFO -->
+  <div class="panel">
+    <div class="panel-head"><h3>Organization Info</h3></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label">Ministry Name</label>
+        <input class="form-input" value="Lily of the Valley Ministry" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact Email</label>
+        <input class="form-input" type="email" value="info@lotvministry.org" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-input" value="" placeholder="(555) 000-0000" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Website</label>
+        <input class="form-input" value="lotvministry.org" />
+      </div>
+      <button class="btn btn-primary btn-sm" @onclick="SaveOrg">Save</button>
+    </div>
+  </div>
+
+  <!-- CASE DEFAULTS -->
+  <div class="panel">
+    <div class="panel-head"><h3>Case Defaults</h3></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label">Overdue Threshold (days)</label>
+        <input class="form-input" type="number" @bind="_overduedays" />
+        <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">Cases open longer than this are flagged as overdue.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Default Case Assignee</label>
+        <select class="form-input">
+          <option>Round-robin (auto)</option>
+          <option>Unassigned</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="chk-autoassign" checked />
+        <label for="chk-autoassign" class="form-label" style="margin:0;">Auto-assign new requests to next available volunteer</label>
+      </div>
+      <button class="btn btn-primary btn-sm" @onclick="SaveCaseDefaults">Save</button>
+    </div>
+  </div>
+
+  <!-- NOTIFICATIONS -->
+  <div class="panel">
+    <div class="panel-head"><h3>Notifications</h3></div>
+    <div class="panel-body">
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="chk-n1" checked />
+        <label for="chk-n1" class="form-label" style="margin:0;">Email on new family request</label>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="chk-n2" checked />
+        <label for="chk-n2" class="form-label" style="margin:0;">Email on overdue case</label>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="chk-n3" />
+        <label for="chk-n3" class="form-label" style="margin:0;">Daily digest email</label>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="chk-n4" checked />
+        <label for="chk-n4" class="form-label" style="margin:0;">Notify on unallocated funds (weekly)</label>
+      </div>
+      <button class="btn btn-primary btn-sm" @onclick="SaveNotifications">Save</button>
+    </div>
+  </div>
+
+  <!-- DATA RETENTION -->
+  <div class="panel">
+    <div class="panel-head"><h3>Data &amp; Privacy</h3></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label">Audit Log Retention</label>
+        <select class="form-input">
+          <option>1 year</option>
+          <option selected>3 years</option>
+          <option>7 years</option>
+          <option>Indefinite</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Anonymize families after fulfillment (days)</label>
+        <input class="form-input" type="number" value="365" />
+        <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">Set 0 to disable anonymization.</div>
+      </div>
+      <button class="btn btn-primary btn-sm" @onclick="SavePrivacy">Save</button>
+    </div>
+  </div>
+
+</div>
+
+@if (_savedMsg != null)
+{
+  <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
+    &#10003; @_savedMsg saved
+  </div>
+}
+
+@code {
+  private int _overduedays = 7;
+  private string? _savedMsg;
+
+  private async Task ShowToast(string section)
+  {
+    _savedMsg = section;
+    StateHasChanged();
+    await Task.Delay(2500);
+    _savedMsg = null;
+  }
+
+  private Task SaveOrg()          => ShowToast("Organization info");
+  private Task SaveCaseDefaults() => ShowToast("Case defaults");
+  private Task SaveNotifications()=> ShowToast("Notification preferences");
+  private Task SavePrivacy()      => ShowToast("Data & Privacy settings");
+}

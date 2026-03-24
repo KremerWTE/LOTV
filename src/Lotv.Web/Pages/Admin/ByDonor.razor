@@ -1,0 +1,143 @@
+@page "/admin/by-donor"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Donations by Donor — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donations by Donor</h2><p>Giving summary per individual donor</p></div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128100;</div>
+    <div class="kpi-label">Donors with Gifts</div>
+    <div class="kpi-value" style="color:var(--navy)">@_rows.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Raised</div>
+    <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.Total).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128200;</div>
+    <div class="kpi-label">Avg Gift Size</div>
+    <div class="kpi-value" style="color:var(--amber)">@(_rows.Sum(r => r.GiftCount) > 0 ? (_rows.Sum(r => r.Total) / _rows.Sum(r => r.GiftCount)).ToString("C0") : "—")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128260;</div>
+    <div class="kpi-label">Repeat Donors</div>
+    <div class="kpi-value" style="color:var(--gold)">@_rows.Count(r => r.GiftCount > 1)</div>
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div class="filter-bar">
+  <input class="form-input" style="width:260px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search donor name or email..." @bind="_search" @bind:event="oninput" />
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Donor</th><th>Tier</th><th>Gifts</th><th>Total Given</th><th>Recurring</th><th>Last Gift</th><th>Parish</th><th></th></tr>
+      </thead>
+      <tbody>
+        @foreach (var d in Filtered)
+        {
+          <tr>
+            <td>
+              <strong>@d.Donor.FullName</strong>
+              <div style="font-size:.74rem;color:var(--text-light);">@d.Donor.Email</div>
+            </td>
+            <td><span class="badge @TierBadge(d.Donor.Tier)">@d.Donor.Tier</span></td>
+            <td style="font-weight:600;">@d.GiftCount</td>
+            <td style="font-weight:700;color:var(--green);">@d.Total.ToString("C0")</td>
+            <td style="font-size:.8rem;">
+              @if (d.Donor.IsRecurring)
+              { <span style="color:var(--green);font-weight:700;">&#10003; @d.Donor.RecurringAmount?.ToString("C0")/mo</span> }
+              else
+              { <span style="color:var(--text-light);">One-time</span> }
+            </td>
+            <td style="font-size:.76rem;color:var(--text-light);">@d.Donor.LastGiftDate.ToString("MMM d, yyyy")</td>
+            <td style="font-size:.76rem;color:var(--text-mid);">@(d.Donor.ParishName ?? "—")</td>
+            <td>
+              <button class="btn btn-sm" @onclick="() => ToggleExpand(d.Donor.Id)">
+                @(_expanded == d.Donor.Id ? "&#9650;" : "Gifts")
+              </button>
+            </td>
+          </tr>
+          @if (_expanded == d.Donor.Id)
+          {
+            var gifts = _giftsByDonor.GetValueOrDefault(d.Donor.Id, []);
+            <tr style="background:var(--bg);">
+              <td colspan="8" style="padding:0 16px 12px;">
+                <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px;">
+                  @foreach (var g in gifts)
+                  {
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;padding:6px 10px;background:white;border-radius:7px;border:1px solid var(--border);">
+                      <div>
+                        <span style="font-weight:700;color:var(--green);">@g.Amount.ToString("C0")</span>
+                        <span style="color:var(--text-light);margin-left:8px;">@g.Date.ToString("MMM d, yyyy")</span>
+                        @if (!string.IsNullOrEmpty(g.Campaign))
+                        { <span style="color:var(--text-mid);margin-left:6px;">&bull; @g.Campaign</span> }
+                      </div>
+                      <span style="font-size:.72rem;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:2px 8px;color:var(--text-mid);">@g.Channel</span>
+                    </div>
+                  }
+                  @if (!gifts.Any())
+                  { <div style="font-size:.8rem;color:var(--text-light);">No gift records.</div> }
+                </div>
+              </td>
+            </tr>
+          }
+        }
+        @if (!Filtered.Any())
+        {
+          <tr><td colspan="8"><div class="empty-state"><div class="icon">&#128100;</div><p>No donors match your search.</p></div></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@code {
+  private record DonorRow(Donor Donor, int GiftCount, decimal Total);
+  private List<DonorRow> _rows = [];
+  private Dictionary<int, List<Donation>> _giftsByDonor = new();
+  private string _search = "";
+  private int _expanded;
+
+  private IEnumerable<DonorRow> Filtered => string.IsNullOrWhiteSpace(_search)
+    ? _rows
+    : _rows.Where(r => r.Donor.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                        r.Donor.Email.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+  protected override void OnInitialized()
+  {
+    var donors = Data.GetDonors().ToDictionary(d => d.Id);
+    var donations = Data.GetDonations();
+
+    _giftsByDonor = donations
+      .GroupBy(d => d.DonorId)
+      .ToDictionary(g => g.Key, g => g.OrderByDescending(d => d.Date).ToList());
+
+    _rows = donations
+      .GroupBy(d => d.DonorId)
+      .Where(g => donors.ContainsKey(g.Key))
+      .Select(g => new DonorRow(donors[g.Key], g.Count(), g.Sum(d => d.Amount)))
+      .OrderByDescending(r => r.Total)
+      .ToList();
+  }
+
+  private void ToggleExpand(int donorId) => _expanded = _expanded == donorId ? 0 : donorId;
+
+  private static string TierBadge(DonorTier t) => t switch
+  {
+    DonorTier.Benefactor => "badge-fulfilled",
+    DonorTier.Champion   => "badge-shipped",
+    DonorTier.Supporter  => "badge-inprogress",
+    _                    => "badge-new"
+  };
+}

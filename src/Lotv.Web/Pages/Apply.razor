@@ -1,0 +1,179 @@
+@page "/apply"
+@layout PublicLayout
+@inject IMockDataService Data
+
+<PageTitle>Request a Comfort Package — Lily of the Valley Ministry</PageTitle>
+
+@if (_submitted)
+{
+  <!-- CONFIRMATION -->
+  <div style="max-width:600px;margin:80px auto;padding:0 24px;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:16px;">&#128149;</div>
+    <h2 style="font-family:var(--ff-head);font-size:1.8rem;color:var(--navy);margin:0 0 14px;">Your request has been received.</h2>
+    <p style="color:var(--text-mid);font-size:.96rem;line-height:1.7;margin:0 0 28px;">
+      Thank you for reaching out. A member of our team will review your request and be in touch soon.
+      Please know that you and your family are being held in our prayers.
+    </p>
+    <div style="background:var(--green-pale);border-radius:12px;padding:22px 24px;text-align:left;margin-bottom:28px;">
+      <div style="font-weight:700;color:var(--navy);font-size:.9rem;margin-bottom:10px;">What happens next:</div>
+      <ul style="margin:0;padding-left:18px;font-size:.86rem;color:var(--text-mid);line-height:2;">
+        <li>Our case team reviews your request (usually within 1–2 business days)</li>
+        <li>A volunteer is assigned to assemble your comfort package</li>
+        <li>Your package ships directly to you — no cost, ever</li>
+        <li>A prayer ambassador will begin praying for your family by name</li>
+      </ul>
+    </div>
+    <a href="/" style="padding:12px 28px;background:var(--navy);color:white;border-radius:9px;font-weight:700;font-size:.9rem;text-decoration:none;">Return Home</a>
+  </div>
+}
+else
+{
+  <!-- HERO -->
+  <div style="background:var(--green-pale);padding:52px 24px 44px;text-align:center;border-bottom:1px solid var(--border);">
+    <div style="max-width:580px;margin:0 auto;">
+      <div style="font-size:.76rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px;">Free — No Eligibility Requirements</div>
+      <h1 style="font-family:var(--ff-head);font-size:2rem;color:var(--navy);margin:0 0 12px;">Request a Comfort Package</h1>
+      <p style="color:var(--text-mid);font-size:.94rem;line-height:1.7;margin:0;">
+        Our hand-assembled packages include a personalized bracelet with your baby's initials, prayer resources,
+        and a note of love from our community. There is no cost and no faith requirement.
+      </p>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div style="max-width:680px;margin:48px auto 80px;padding:0 24px;">
+    <div style="background:white;border-radius:14px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(0,0,0,.06);padding:36px 40px;">
+
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">About You</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input class="form-input" @bind="_f.Parent1FirstName" placeholder="First name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name *</label>
+            <input class="form-input" @bind="_f.Parent1LastName" placeholder="Last name" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Email Address *</label>
+          <input class="form-input" type="email" @bind="_f.Email" placeholder="you@example.com" />
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Phone (optional)</label>
+          <input class="form-input" @bind="_f.Phone" placeholder="(555) 000-0000" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input class="form-input" @bind="_f.City" placeholder="City" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">State</label>
+            <input class="form-input" @bind="_f.State" placeholder="IL" />
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Loss</div>
+        <div class="form-group">
+          <label class="form-label">Type of Loss *</label>
+          <select class="form-input" @bind="_f.Reason">
+            @foreach (var r in Enum.GetValues<PackageReason>())
+            { <option value="@r">@FormatReason(r)</option> }
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Children's Initials (for bracelet)</label>
+          <input class="form-input" @bind="_f.ChildrenInitials" placeholder="e.g. E.M., T.J. — leave blank if preferred" />
+          <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">We personalize each bracelet. You can include initials for multiple babies.</div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Share your story (optional)</label>
+          <textarea class="form-textarea" @bind="_f.Story" placeholder="You may share as much or as little as you like. This helps our team care for you personally." rows="4"></textarea>
+        </div>
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Faith &amp; Parish (optional)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label class="form-label">Parish Name</label>
+            <input class="form-input" @bind="_f.ParishName" placeholder="St. Mary's, Chicago" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Faith Tradition</label>
+            <select class="form-input" @bind="_f.FaithTradition">
+              <option value="">— Prefer not to say —</option>
+              <option>Catholic</option>
+              <option>Protestant</option>
+              <option>Christian (non-denominational)</option>
+              <option>Orthodox</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_error))
+      {
+        <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
+      }
+
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="Submit">
+        Submit Request
+      </button>
+
+      <p style="font-size:.76rem;color:var(--text-light);text-align:center;margin:14px 0 0;line-height:1.6;">
+        Your information is kept strictly confidential and used only to fulfill your request.<br />
+        There is never any cost or obligation.
+      </p>
+    </div>
+  </div>
+}
+
+@code {
+  private Family _f = new();
+  private bool _submitted;
+  private string _error = "";
+
+  private void Submit()
+  {
+    if (string.IsNullOrWhiteSpace(_f.Parent1LastName) || string.IsNullOrWhiteSpace(_f.Email))
+    {
+      _error = "Please provide your last name and email address.";
+      return;
+    }
+
+    _f.Status    = FamilyStatus.Active;
+    _f.CreatedAt = DateTime.UtcNow;
+    Data.AddFamily(_f);
+
+    var req = new PackageRequest
+    {
+      FamilyId  = _f.Id,
+      Reason    = _f.Reason,
+      Status    = CaseStatus.New,
+      CreatedAt = DateTime.UtcNow
+    };
+
+    var vol = Data.GetNextAvailableVolunteer();
+    if (vol != null) req.AssignedTo = vol.FullName;
+
+    Data.AddRequest(req);
+    Data.LogAction("Public Intake", "Created", "Family", _f.Id.ToString(), $"Public intake: {_f.FullName}");
+
+    _submitted = true;
+  }
+
+  private static string FormatReason(PackageReason r) => r switch
+  {
+    PackageReason.PrenatalDiagnosis           => "Prenatal Diagnosis",
+    PackageReason.PrenatalLifeLimitingDiagnosis => "Prenatal Life-Limiting Diagnosis",
+    PackageReason.InfantLoss                  => "Infant Loss",
+    PackageReason.PastLoss                    => "Past Loss",
+    _ => r.ToString()
+  };
+}

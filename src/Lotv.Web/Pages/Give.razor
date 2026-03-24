@@ -1,0 +1,234 @@
+@page "/give"
+@layout PublicLayout
+@inject IMockDataService Data
+
+<PageTitle>Donate — Lily of the Valley Ministry</PageTitle>
+
+@if (_submitted)
+{
+  <div style="max-width:580px;margin:80px auto;padding:0 24px;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:16px;">&#128149;</div>
+    <h2 style="font-family:var(--ff-head);font-size:1.8rem;color:var(--navy);margin:0 0 14px;">Thank you for your gift.</h2>
+    <p style="color:var(--text-mid);font-size:.96rem;line-height:1.7;margin:0 0 24px;">
+      Your generosity makes it possible to send comfort packages to families in their darkest moments.
+      @if (!string.IsNullOrEmpty(_dedicationMsg))
+      {
+        <span> Your gift in memory of <strong>@_dedicationMsg</strong> will be honored.</span>
+      }
+    </p>
+    <div style="background:var(--green-pale);border-radius:12px;padding:20px 24px;margin-bottom:28px;font-size:.88rem;color:var(--text-mid);line-height:1.7;">
+      <strong style="color:var(--navy);">Gift summary:</strong><br />
+      Amount: <strong>@_confirmedAmount.ToString("C0")</strong>
+      @if (_confirmedRecurring)
+      { <span> / month (recurring)</span> }
+      <br />Donor: <strong>@_confirmedName</strong>
+    </div>
+    <a href="/" style="padding:12px 28px;background:var(--navy);color:white;border-radius:9px;font-weight:700;font-size:.9rem;text-decoration:none;">Return Home</a>
+  </div>
+}
+else
+{
+  <!-- HERO -->
+  <div style="background:var(--navy);color:white;padding:52px 24px 44px;text-align:center;">
+    <div style="max-width:540px;margin:0 auto;">
+      <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 12px;">Support a Grieving Family</h1>
+      <p style="color:rgba(255,255,255,.8);font-size:.94rem;line-height:1.7;margin:0;">
+        Every gift funds a hand-assembled comfort package delivered free of charge to a family navigating pregnancy or infant loss.
+      </p>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div style="max-width:640px;margin:48px auto 80px;padding:0 24px;">
+    <div style="background:white;border-radius:14px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(0,0,0,.06);padding:36px 40px;">
+
+      <!-- AMOUNT SELECTOR -->
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Gift Amount</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+          @foreach (var preset in new[]{25m, 50m, 100m, 250m})
+          {
+            <button style="padding:12px 8px;border:2px solid @(_amount == preset ? "var(--green)" : "var(--border)");background:@(_amount == preset ? "var(--green-pale)" : "white");border-radius:9px;font-weight:700;font-size:.94rem;color:@(_amount == preset ? "var(--green)" : "var(--text-mid)");cursor:pointer;"
+                    @onclick='() => SelectAmount(preset)'>
+              @preset.ToString("C0")
+            </button>
+          }
+        </div>
+        <div class="form-group">
+          <label class="form-label">Custom amount</label>
+          <div style="position:relative;">
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-mid);font-weight:600;">$</span>
+            <input class="form-input" type="number" min="1" style="padding-left:26px;"
+                   value="@(_customAmount?.ToString() ?? "")"
+                   placeholder="Other amount"
+                   @onchange='e => SetCustomAmount(e.Value?.ToString())' />
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="chk-recurring" @bind="_recurring" />
+          <label for="chk-recurring" style="font-size:.86rem;color:var(--text-mid);cursor:pointer;">
+            Make this a <strong>monthly recurring gift</strong>
+          </label>
+        </div>
+      </div>
+
+      <!-- DONOR INFO -->
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Information</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input class="form-input" @bind="_firstName" placeholder="First" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name *</label>
+            <input class="form-input" @bind="_lastName" placeholder="Last" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" @bind="_email" placeholder="you@example.com" />
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Parish / Diocese (optional)</label>
+          <input class="form-input" @bind="_parish" placeholder="e.g. St. Joseph's, Chicago" />
+        </div>
+      </div>
+
+      <!-- DEDICATION -->
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Dedication (optional)</div>
+        <div class="form-group">
+          <label class="form-label">In memory / honor of</label>
+          <input class="form-input" @bind="_dedicationMsg" placeholder="e.g. In memory of our little one, Baby Grace" />
+        </div>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_error))
+      {
+        <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
+      }
+
+      <div style="background:var(--bg);border-radius:10px;padding:16px 18px;margin-bottom:20px;font-size:.86rem;color:var(--text-mid);">
+        <strong style="color:var(--navy);">Gift summary:</strong>
+        @if (_amount > 0)
+        {
+          <span> @_amount.ToString("C0") @(_recurring ? "/ month" : "one-time")</span>
+        }
+        else
+        {
+          <span style="color:var(--text-light);"> — select an amount above</span>
+        }
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="Submit">
+        @(_recurring ? "Set Up Monthly Gift" : "Give Now") &rarr;
+      </button>
+
+      <p style="font-size:.76rem;color:var(--text-light);text-align:center;margin:14px 0 0;line-height:1.6;">
+        This is a demonstration portal. No payment is processed.<br />
+        LOTV Ministry is a 501(c)(3) non-profit organization.
+      </p>
+    </div>
+  </div>
+}
+
+@code {
+  private decimal _amount;
+  private decimal? _customAmount;
+  private bool _recurring;
+  private string _firstName = "";
+  private string _lastName  = "";
+  private string _email     = "";
+  private string _parish    = "";
+  private string _dedicationMsg = "";
+  private string _error = "";
+
+  private bool _submitted;
+  private decimal _confirmedAmount;
+  private bool _confirmedRecurring;
+  private string _confirmedName = "";
+
+  private void SelectAmount(decimal preset)
+  {
+    _amount       = preset;
+    _customAmount = null;
+  }
+
+  private void SetCustomAmount(string? val)
+  {
+    if (decimal.TryParse(val, out var d) && d > 0)
+    {
+      _amount       = d;
+      _customAmount = d;
+    }
+  }
+
+  private void Submit()
+  {
+    if (_amount <= 0)             { _error = "Please select or enter a gift amount."; return; }
+    if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
+    { _error = "Please enter your first and last name."; return; }
+    if (string.IsNullOrWhiteSpace(_email))   { _error = "Please enter your email address."; return; }
+
+    // Find or create donor
+    var existing = Data.GetDonors()
+      .FirstOrDefault(d => d.Email.Equals(_email, StringComparison.OrdinalIgnoreCase));
+
+    Donor donor;
+    if (existing == null)
+    {
+      donor = new Donor
+      {
+        FirstName      = _firstName,
+        LastName       = _lastName,
+        Email          = _email,
+        ParishName     = string.IsNullOrEmpty(_parish) ? null : _parish,
+        IsRecurring    = _recurring,
+        RecurringAmount = _recurring ? _amount : null,
+        FirstGiftDate  = DateTime.UtcNow,
+        LastGiftDate   = DateTime.UtcNow,
+        TotalGiven     = _amount,
+        GiftCount      = 1,
+        Tier           = CalcTier(_amount)
+      };
+      Data.AddDonor(donor);
+    }
+    else
+    {
+      donor = existing;
+      donor.TotalGiven  += _amount;
+      donor.GiftCount   += 1;
+      donor.LastGiftDate = DateTime.UtcNow;
+      donor.Tier         = CalcTier(donor.TotalGiven);
+      if (_recurring) { donor.IsRecurring = true; donor.RecurringAmount = _amount; }
+      Data.UpdateDonor(donor);
+    }
+
+    var donation = new Donation
+    {
+      DonorId    = donor.Id,
+      Amount     = _amount,
+      Date       = DateTime.UtcNow,
+      Channel    = DonationChannel.Online,
+      IsRecurring = _recurring,
+      Campaign   = string.IsNullOrEmpty(_dedicationMsg) ? null : _dedicationMsg
+    };
+    Data.AddDonation(donation);
+    Data.LogAction("Public Portal", "Created", "Donation", donation.Id.ToString(),
+      $"{donor.FullName} gave {_amount:C0} via public portal");
+
+    _confirmedAmount   = _amount;
+    _confirmedRecurring = _recurring;
+    _confirmedName     = $"{_firstName} {_lastName}";
+    _submitted = true;
+  }
+
+  private static DonorTier CalcTier(decimal total) => total switch
+  {
+    >= 5000 => DonorTier.Benefactor,
+    >= 1000 => DonorTier.Champion,
+    >= 250  => DonorTier.Supporter,
+    _       => DonorTier.Friend
+  };
+}

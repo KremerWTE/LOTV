@@ -1,0 +1,128 @@
+@page "/admin/allocations"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Fund Allocations — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Fund Allocations</h2><p>Review and approve pending donation allocations</p></div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-label">Allocated</div>
+    <div class="kpi-value" style="color:var(--green)">@_allocs.Where(a => a.Status == AllocationStatus.Allocated).Sum(a => a.Amount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">Pending Review</div>
+    <div class="kpi-value" style="color:var(--amber)">@_allocs.Where(a => a.Status == AllocationStatus.PendingReview).Sum(a => a.Amount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128203;</div>
+    <div class="kpi-label">Unallocated</div>
+    <div class="kpi-value" style="color:var(--navy)">@_allocs.Where(a => a.Status == AllocationStatus.Unallocated).Sum(a => a.Amount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Tracked</div>
+    <div class="kpi-value" style="color:var(--gold)">@_allocs.Sum(a => a.Amount).ToString("C0")</div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  @foreach (var f in new[]{"All","Pending","Approved","Unallocated"})
+  { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>ID</th><th>Donor</th><th>Amount</th><th>Allocated To</th><th>Status</th><th>Approved By</th><th>Date</th><th></th></tr>
+      </thead>
+      <tbody>
+        @foreach (var a in Filtered)
+        {
+          <tr>
+            <td style="font-size:.74rem;color:var(--text-light);">#@a.Id</td>
+            <td><strong>@(a.Donation?.Donor?.FullName ?? $"Donation #{a.DonationId}")</strong></td>
+            <td style="font-weight:700;color:var(--green);">@a.Amount.ToString("C0")</td>
+            <td style="font-size:.82rem;">@a.AllocatedTo</td>
+            <td>
+              @switch (a.Status)
+              {
+                case AllocationStatus.Allocated:
+                  <span class="badge badge-fulfilled">Approved</span>
+                  break;
+                case AllocationStatus.PendingReview:
+                  <span class="badge badge-inprogress">Pending</span>
+                  break;
+                default:
+                  <span class="badge badge-onhold">Unallocated</span>
+                  break;
+              }
+            </td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@(a.ApprovedBy ?? "—")</td>
+            <td style="font-size:.76rem;color:var(--text-light);">@a.CreatedAt.ToString("MMM d")</td>
+            <td>
+              @if (a.Status == AllocationStatus.PendingReview)
+              {
+                <button class="btn btn-sm btn-primary" @onclick="() => Approve(a)">Approve</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@if (_approvedMsg)
+{
+  <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
+    &#10003; Allocation approved
+  </div>
+}
+
+@code {
+  private List<FundAllocation> _allocs = [];
+  private string _filter = "All";
+  private bool _approvedMsg;
+
+  private IEnumerable<FundAllocation> Filtered => _allocs.Where(a => _filter switch
+  {
+    "Pending"     => a.Status == AllocationStatus.PendingReview,
+    "Approved"    => a.Status == AllocationStatus.Allocated,
+    "Unallocated" => a.Status == AllocationStatus.Unallocated,
+    _             => true
+  });
+
+  protected override void OnInitialized()
+  {
+    var donors = Data.GetDonors().ToDictionary(d => d.Id);
+    var donations = Data.GetDonations()
+      .Select(d => { if (donors.TryGetValue(d.DonorId, out var donor)) d.Donor = donor; return d; })
+      .ToDictionary(d => d.Id);
+
+    _allocs = Data.GetAllocations()
+      .Select(a => { if (donations.TryGetValue(a.DonationId, out var don)) a.Donation = don; return a; })
+      .ToList();
+  }
+
+  private async Task Approve(FundAllocation a)
+  {
+    a.Status     = AllocationStatus.Allocated;
+    a.ApprovedBy = "Mary Roberts";
+    a.ApprovedAt = DateTime.UtcNow;
+    Data.UpdateAllocation(a);
+    Data.LogAction("Mary Roberts", "Approved", "FundAllocation", a.Id.ToString(), $"Allocated {a.Amount:C0} to {a.AllocatedTo}");
+    _approvedMsg = true;
+    StateHasChanged();
+    await Task.Delay(2500);
+    _approvedMsg = false;
+    StateHasChanged();
+  }
+}

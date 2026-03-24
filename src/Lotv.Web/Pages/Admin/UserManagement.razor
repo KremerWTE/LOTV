@@ -1,0 +1,169 @@
+@page "/admin/users"
+@layout AdminLayout
+
+<PageTitle>User Management — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>User Management</h2><p>Staff accounts and role permissions</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">&#43; Invite User</button>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th></th></tr>
+      </thead>
+      <tbody>
+        @foreach (var u in _users)
+        {
+          <tr>
+            <td><strong>@u.Name</strong></td>
+            <td style="font-size:.78rem;color:var(--text-light);">@u.Email</td>
+            <td><span class="badge @RoleBadge(u.Role)" style="font-size:.68rem;">@u.Role</span></td>
+            <td>
+              @if (u.IsActive)
+              { <span class="badge badge-fulfilled">Active</span> }
+              else
+              { <span class="badge badge-onhold">Inactive</span> }
+            </td>
+            <td style="font-size:.76rem;color:var(--text-light);">@(u.LastLogin?.ToString("MMM d, yyyy h:mm tt") ?? "Never")</td>
+            <td style="display:flex;gap:6px;">
+              <button class="btn btn-sm" @onclick="() => OpenEdit(u)">Edit</button>
+              @if (u.IsActive)
+              { <button class="btn btn-sm" style="color:var(--amber);" @onclick="() => ToggleActive(u)">Deactivate</button> }
+              else
+              { <button class="btn btn-sm" style="color:var(--green);" @onclick="() => ToggleActive(u)">Activate</button> }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- DRAWER -->
+@if (_drawerOpen)
+{
+  <div class="drawer-overlay" @onclick="CloseDrawer"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>@(_editUser == null ? "Invite User" : "Edit User")</h3>
+      <button class="drawer-close" @onclick="CloseDrawer">&#10005;</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input class="form-input" @bind="_formName" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" @bind="_formEmail" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select class="form-input" @bind="_formRole">
+          <option>Administrator</option>
+          <option>Case Manager</option>
+          <option>Finance</option>
+          <option>Volunteer Coordinator</option>
+          <option>Read Only</option>
+        </select>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-primary" @onclick="Save">@(_editUser == null ? "Send Invite" : "Save")</button>
+      <button class="btn" @onclick="CloseDrawer">Cancel</button>
+    </div>
+  </div>
+}
+
+@if (_toast != null)
+{
+  <div style="position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
+    &#10003; @_toast
+  </div>
+}
+
+@code {
+  private record StaffUser(int Id, string Name, string Email, string Role, bool IsActive, DateTime? LastLogin);
+
+  private List<StaffUser> _users =
+  [
+    new(1, "Mary Roberts",   "mary.roberts@lotvministry.org",   "Administrator",         true,  DateTime.UtcNow.AddHours(-2)),
+    new(2, "Anne Collins",   "anne.collins@lotvministry.org",   "Case Manager",          true,  DateTime.UtcNow.AddDays(-1)),
+    new(3, "David Kim",      "david.kim@lotvministry.org",      "Finance",               true,  DateTime.UtcNow.AddDays(-3)),
+    new(4, "Sara Mitchell",  "sara.mitchell@lotvministry.org",  "Volunteer Coordinator", true,  DateTime.UtcNow.AddDays(-5)),
+    new(5, "Tom Nguyen",     "tom.nguyen@lotvministry.org",     "Read Only",             false, DateTime.UtcNow.AddDays(-30)),
+  ];
+
+  private bool _drawerOpen;
+  private StaffUser? _editUser;
+  private string _formName  = "";
+  private string _formEmail = "";
+  private string _formRole  = "Case Manager";
+  private string? _toast;
+
+  private void OpenAdd()
+  {
+    _editUser  = null;
+    _formName  = "";
+    _formEmail = "";
+    _formRole  = "Case Manager";
+    _drawerOpen = true;
+  }
+
+  private void OpenEdit(StaffUser u)
+  {
+    _editUser  = u;
+    _formName  = u.Name;
+    _formEmail = u.Email;
+    _formRole  = u.Role;
+    _drawerOpen = true;
+  }
+
+  private async Task Save()
+  {
+    if (_editUser == null)
+    {
+      var id = _users.Max(u => u.Id) + 1;
+      _users.Add(new StaffUser(id, _formName, _formEmail, _formRole, true, null));
+      await ShowToast($"Invite sent to {_formEmail}");
+    }
+    else
+    {
+      var idx = _users.IndexOf(_editUser);
+      _users[idx] = _editUser with { Name = _formName, Email = _formEmail, Role = _formRole };
+      await ShowToast("User updated");
+    }
+    _drawerOpen = false;
+  }
+
+  private async Task ToggleActive(StaffUser u)
+  {
+    var idx = _users.IndexOf(u);
+    _users[idx] = u with { IsActive = !u.IsActive };
+    await ShowToast(u.IsActive ? $"{u.Name} deactivated" : $"{u.Name} activated");
+  }
+
+  private void CloseDrawer() => _drawerOpen = false;
+
+  private async Task ShowToast(string msg)
+  {
+    _toast = msg;
+    StateHasChanged();
+    await Task.Delay(2500);
+    _toast = null;
+  }
+
+  private static string RoleBadge(string role) => role switch
+  {
+    "Administrator"          => "badge-fulfilled",
+    "Case Manager"           => "badge-shipped",
+    "Finance"                => "badge-inprogress",
+    "Volunteer Coordinator"  => "badge-new",
+    _                        => "badge-onhold"
+  };
+}

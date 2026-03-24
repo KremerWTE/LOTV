@@ -1,0 +1,291 @@
+@page "/admin/families"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Family Directory — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Family Directory</h2>
+    <p>All registered families — intake records and case history</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases?new=1" class="btn btn-primary btn-sm">&#43; New Request</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128149;</div>
+    <div class="kpi-label">Total Families</div>
+    <div class="kpi-value" style="color:var(--green)">@_families.Count</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-label">Open Cases</div>
+    <div class="kpi-value" style="color:var(--navy)">@_requests.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-label">Fulfilled</div>
+    <div class="kpi-value" style="color:var(--amber)">@_requests.Count(r => r.Status == CaseStatus.Fulfilled)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#9971;</div>
+    <div class="kpi-label">Parishes Represented</div>
+    <div class="kpi-value" style="color:var(--gold)">@_families.Select(f => f.ParishName).Distinct().Count(p => p != null)</div>
+  </div>
+</div>
+
+<!-- FILTER + SEARCH -->
+<div class="filter-bar">
+  @foreach (var f in new[]{"All","Active","Closed","Follow-Up"})
+  { <button class="filter-chip @(_statusFilter == f ? "active" : "")" @onclick="() => _statusFilter = f">@f</button> }
+  @foreach (var r in new[]{"Miscarriage","Stillbirth","PrenatalDiagnosis","InfantLoss","Infertility","PastLoss"})
+  { <button class="filter-chip @(_reasonFilter == r ? "active" : "")" @onclick='() => _reasonFilter = _reasonFilter == r ? string.Empty : r'>@r</button> }
+  <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+         placeholder="&#128269; Search name, email, parish..."
+         @bind="_search" @bind:event="oninput" />
+</div>
+
+<!-- TABLE -->
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Family</th>
+          <th>Contact</th>
+          <th>Reason</th>
+          <th>Parish</th>
+          <th>Cases</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var f in Filtered)
+        {
+          var cases = _requestsByFamily.GetValueOrDefault(f.Id, []);
+          var openCount = cases.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment);
+          <tr>
+            <td>
+              <strong>@f.FullName</strong>
+              @if (!string.IsNullOrEmpty(f.ChildrenInitials))
+              { <div style="font-size:.72rem;color:var(--text-light);">&#128102; @f.ChildrenInitials</div> }
+            </td>
+            <td>
+              <div style="font-size:.8rem;">@f.Email</div>
+              <div style="font-size:.74rem;color:var(--text-light);">@f.Phone</div>
+            </td>
+            <td>
+              <span class="badge @ReasonBadge(f.Reason)" style="font-size:.68rem;">@f.Reason</span>
+            </td>
+            <td style="font-size:.78rem;color:var(--text-mid);">
+              @(f.ParishName ?? "—")
+              @if (!string.IsNullOrEmpty(f.City))
+              { <div style="font-size:.72rem;color:var(--text-light);">@f.City, @f.State</div> }
+            </td>
+            <td>
+              <span style="font-weight:600;">@cases.Count</span>
+              @if (openCount > 0)
+              { <span style="font-size:.72rem;color:var(--green);margin-left:4px;">(@openCount open)</span> }
+            </td>
+            <td>
+              @switch (f.Status)
+              {
+                case FamilyStatus.Active:
+                  <span class="badge badge-fulfilled">Active</span> break;
+                case FamilyStatus.Closed:
+                  <span class="badge badge-onhold">Closed</span> break;
+                case FamilyStatus.FollowUp:
+                  <span class="badge badge-inprogress">Follow-Up</span> break;
+                default:
+                  <span class="badge badge-new">@f.Status</span> break;
+              }
+            </td>
+            <td style="font-size:.74rem;color:var(--text-light);">@f.CreatedAt.ToString("MMM d, yyyy")</td>
+            <td>
+              <button class="btn btn-sm" @onclick="() => OpenFamily(f)">Details</button>
+            </td>
+          </tr>
+        }
+        @if (!Filtered.Any())
+        {
+          <tr><td colspan="8"><div class="empty-state"><div class="icon">&#128149;</div><p>No families match the current filter.</p></div></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FAMILY DETAIL DRAWER -->
+@if (_selected != null)
+{
+  <div class="drawer-overlay" @onclick="() => _selected = null"></div>
+  <div class="drawer" style="width:520px;">
+    <div class="drawer-head">
+      <h3>@_selected.FullName</h3>
+      <button class="drawer-close" @onclick="() => _selected = null">&#10005;</button>
+    </div>
+    <div class="drawer-body">
+
+      <!-- Contact Info -->
+      <div>
+        <div class="form-label" style="margin-bottom:8px;">Contact Information</div>
+        <div style="background:var(--green-pale);border-radius:10px;padding:14px 16px;font-size:.84rem;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><strong>Email:</strong> @_selected.Email</div>
+          <div><strong>Phone:</strong> @(_selected.Phone ?? "—")</div>
+          <div><strong>City:</strong> @_selected.City, @_selected.State @_selected.Zip</div>
+          <div><strong>Parish:</strong> @(_selected.ParishName ?? "—")</div>
+          <div><strong>Diocese:</strong> @(_selected.DioceseName ?? "—")</div>
+          <div><strong>Faith:</strong> @(_selected.FaithTradition ?? "Not specified")</div>
+          @if (!string.IsNullOrEmpty(_selected.ChildrenInitials))
+          { <div style="grid-column:1/-1;"><strong>Children's Initials:</strong> @_selected.ChildrenInitials</div> }
+        </div>
+      </div>
+
+      <!-- Loss Info -->
+      <div>
+        <div class="form-label" style="margin-bottom:8px;">Loss Information</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span class="badge @ReasonBadge(_selected.Reason)">@_selected.Reason</span>
+          <span class="badge @(StatusBadge(_selected.Status))">@_selected.Status</span>
+        </div>
+        @if (!string.IsNullOrEmpty(_selected.Story))
+        {
+          <div style="margin-top:10px;font-size:.83rem;color:var(--text-mid);font-style:italic;border-left:3px solid var(--green);padding-left:10px;">@_selected.Story</div>
+        }
+      </div>
+
+      <!-- Case History -->
+      <div>
+        <div class="form-label" style="margin-bottom:8px;">Case History</div>
+        @{
+          var fCases = _requestsByFamily.GetValueOrDefault(_selected.Id, []);
+        }
+        @if (fCases.Any())
+        {
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            @foreach (var r in fCases.OrderByDescending(r => r.CreatedAt))
+            {
+              <div style="background:var(--bg);border-radius:8px;padding:10px 12px;font-size:.82rem;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <div>
+                  <span style="font-weight:600;font-size:.8rem;color:var(--text-light);">#@r.Id</span>
+                  <span style="margin-left:8px;">@r.Reason</span>
+                  <div style="font-size:.74rem;color:var(--text-light);margin-top:2px;">
+                    Opened @r.CreatedAt.ToString("MMM d, yyyy")
+                    @if (!string.IsNullOrEmpty(r.AssignedTo))
+                    { <span> &bull; @r.AssignedTo</span> }
+                  </div>
+                </div>
+                <span class="badge @CaseBadge(r.Status)" style="font-size:.65rem;flex-shrink:0;">@r.Status</span>
+              </div>
+            }
+          </div>
+        }
+        else
+        { <div style="font-size:.84rem;color:var(--text-light);">No cases on file.</div> }
+      </div>
+
+      <!-- Family Status Control -->
+      <div class="form-group">
+        <label class="form-label">Family Status</label>
+        <select class="form-input" @bind="_selected.Status">
+          @foreach (var s in Enum.GetValues<FamilyStatus>())
+          { <option value="@s">@s</option> }
+        </select>
+      </div>
+
+      @if (_drawerSaved)
+      { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">&#10003; Family record updated</div> }
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-primary" @onclick="SaveFamily">Save</button>
+      <a href="/admin/cases?new=1" class="btn btn-sm">New Request &rarr;</a>
+    </div>
+  </div>
+}
+
+@code {
+  private List<Family> _families = [];
+  private List<PackageRequest> _requests = [];
+  private Dictionary<int, List<PackageRequest>> _requestsByFamily = new();
+
+  private string _statusFilter  = "All";
+  private string _reasonFilter  = "";
+  private string _search        = "";
+  private Family? _selected;
+  private bool _drawerSaved;
+
+  private IEnumerable<Family> Filtered => _families.Where(f =>
+  {
+    var matchStatus = _statusFilter switch
+    {
+      "Active"    => f.Status == FamilyStatus.Active,
+      "Closed"    => f.Status == FamilyStatus.Closed,
+      "Follow-Up" => f.Status == FamilyStatus.FollowUp,
+      _           => true
+    };
+    var matchReason = string.IsNullOrEmpty(_reasonFilter) ||
+      f.Reason.ToString().Equals(_reasonFilter, StringComparison.OrdinalIgnoreCase);
+    var matchSearch = string.IsNullOrEmpty(_search) ||
+      f.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+      f.Email.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+      (f.ParishName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+      (f.City?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+    return matchStatus && matchReason && matchSearch;
+  }).OrderByDescending(f => f.CreatedAt);
+
+  protected override void OnInitialized()
+  {
+    _families = Data.GetFamilies();
+    _requests = Data.GetRequests();
+    _requestsByFamily = _requests
+      .GroupBy(r => r.FamilyId)
+      .ToDictionary(g => g.Key, g => g.ToList());
+  }
+
+  private void OpenFamily(Family f) { _selected = f; _drawerSaved = false; }
+
+  private void SaveFamily()
+  {
+    if (_selected is null) return;
+    Data.UpdateFamily(_selected);
+    Data.LogAction("Mary Roberts", "Updated", "Family", _selected.Id.ToString(), $"Status set to {_selected.Status}");
+    _drawerSaved = true;
+  }
+
+  private static string ReasonBadge(PackageReason r) => r switch
+  {
+    PackageReason.Miscarriage                 => "badge-inprogress",
+    PackageReason.Stillbirth                  => "badge-onhold",
+    PackageReason.PrenatalDiagnosis           => "badge-shipped",
+    PackageReason.PrenatalLifeLimitingDiagnosis => "badge-onhold",
+    PackageReason.InfantLoss                  => "badge-cancelled",
+    PackageReason.Infertility                 => "badge-new",
+    PackageReason.PastLoss                    => "badge-new",
+    _                                         => "badge-new"
+  };
+
+  private static string StatusBadge(FamilyStatus s) => s switch
+  {
+    FamilyStatus.Active   => "badge-fulfilled",
+    FamilyStatus.Closed   => "badge-onhold",
+    FamilyStatus.FollowUp => "badge-inprogress",
+    _                     => "badge-new"
+  };
+
+  private static string CaseBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.Fulfilled        => "badge-fulfilled",
+    CaseStatus.OnHold           => "badge-onhold",
+    _                           => "badge-new"
+  };
+}

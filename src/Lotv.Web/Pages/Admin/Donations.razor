@@ -1,0 +1,323 @@
+@page "/admin/donations"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>All Donations — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>All Donations</h2>
+    <p>Complete donation ledger — all channels, all time</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">&#43; Record Donation</button>
+    <a href="/admin/by-channel" class="btn btn-sm">By Channel</a>
+    <a href="/admin/by-donor"   class="btn btn-sm">By Donor</a>
+  </div>
+</div>
+
+<!-- SUMMARY STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Raised</div>
+    <div class="kpi-value" style="color:var(--green)">@_all.Sum(d => d.Amount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-label">This Month</div>
+    <div class="kpi-value" style="color:var(--navy)">@_thisMonth.ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-label">Unallocated</div>
+    <div class="kpi-value" style="color:var(--amber)">@_unallocated.ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128260;</div>
+    <div class="kpi-label">Recurring Gifts</div>
+    <div class="kpi-value" style="color:var(--gold)">@_all.Count(d => d.IsRecurring)</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  @foreach (var f in _filters)
+  {
+    <button class="filter-chip @(_activeFilter == f ? "active" : "")" @onclick="() => _activeFilter = f">@f</button>
+  }
+  <input class="form-input" style="width:180px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Donor or campaign..." @bind="_search" @bind:event="oninput" />
+</div>
+
+<!-- TABLE -->
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Donor</th>
+          <th>Amount</th>
+          <th>Date</th>
+          <th>Channel</th>
+          <th>Campaign</th>
+          <th>Allocation</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var d in Filtered)
+        {
+          <tr>
+            <td style="font-size:.74rem;color:var(--text-light);">#@d.Id</td>
+            <td><strong>@(d.Donor?.FullName ?? "—")</strong></td>
+            <td style="font-weight:700;color:var(--green);">@d.Amount.ToString("C0")</td>
+            <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
+            <td><span class="badge badge-new" style="font-size:.68rem;">@d.Channel</span></td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@(d.Campaign ?? "—")</td>
+            <td>
+              @switch (d.AllocationStatus)
+              {
+                case AllocationStatus.Allocated:
+                  <span class="badge badge-fulfilled">Allocated</span>
+                  break;
+                case AllocationStatus.PendingReview:
+                  <span class="badge badge-inprogress">Pending</span>
+                  break;
+                default:
+                  <span class="badge badge-onhold">Unallocated</span>
+                  break;
+              }
+            </td>
+            <td>
+              @if (d.AllocationStatus == AllocationStatus.Unallocated)
+              { <button class="btn btn-sm btn-navy" @onclick="() => Allocate(d)">Allocate</button> }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- RECORD DONATION DRAWER -->
+@if (_showAdd)
+{
+  <div class="drawer-overlay" @onclick="CloseAdd"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>Record Donation</h3>
+      <button class="drawer-close" @onclick="CloseAdd">&#10005;</button>
+    </div>
+    <div class="drawer-body">
+
+      <div class="form-group">
+        <label class="form-label">Donor *</label>
+        <select class="form-input" @bind="_dDonorId">
+          <option value="0">— Select existing donor —</option>
+          @foreach (var d in _allDonors)
+          { <option value="@d.Id">@d.FullName (@d.Email)</option> }
+        </select>
+        @if (_dDonorId == 0)
+        {
+          <input class="form-input" style="margin-top:6px;" @bind="_dDonorName" placeholder="Or type name for anonymous / new donor" />
+        }
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Amount *</label>
+          <input class="form-input" type="number" step="0.01" @bind="_dAmount" placeholder="0.00" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input class="form-input" type="date" @bind="_dDate" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Channel</label>
+        <select class="form-input" @bind="_dChannel">
+          @foreach (var c in Enum.GetValues<DonationChannel>())
+          { <option value="@c">@c</option> }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Campaign</label>
+        <input class="form-input" @bind="_dCampaign" placeholder="e.g. Gala 2025, Year-End Appeal" />
+      </div>
+
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="chk-recurring" @bind="_dIsRecurring" />
+        <label for="chk-recurring" class="form-label" style="margin:0;">Recurring monthly gift</label>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" @bind="_dNotes" placeholder="Internal notes..."></textarea>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_addError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_addError</div> }
+
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-primary" @onclick="SaveDonation">Save Donation</button>
+      <button class="btn" @onclick="CloseAdd">Cancel</button>
+    </div>
+  </div>
+}
+
+@if (_savedToast)
+{
+  <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
+    &#10003; Donation recorded
+  </div>
+}
+
+@code {
+  private List<Donation> _all = [];
+  private List<Donor> _allDonors = [];
+  private decimal _thisMonth;
+  private decimal _unallocated;
+  private string _activeFilter = "All";
+  private string _search = "";
+  private bool _showAdd;
+  private bool _savedToast;
+
+  // Add-donation form state
+  private int _dDonorId;
+  private string _dDonorName = "";
+  private decimal _dAmount;
+  private DateTime _dDate = DateTime.Today;
+  private DonationChannel _dChannel = DonationChannel.Online;
+  private string _dCampaign = "";
+  private bool _dIsRecurring;
+  private string _dNotes = "";
+  private string _addError = "";
+
+  private readonly string[] _filters = ["All", "This Month", "Online", "Check", "Gala", "Unallocated", "Recurring"];
+
+  private IEnumerable<Donation> Filtered => _all.Where(d =>
+  {
+    var now = DateTime.UtcNow;
+    var matchFilter = _activeFilter switch
+    {
+      "This Month" => d.Date.Year == now.Year && d.Date.Month == now.Month,
+      "Online"     => d.Channel == DonationChannel.Online,
+      "Check"      => d.Channel == DonationChannel.Check,
+      "Gala"       => d.Channel == DonationChannel.Gala,
+      "Unallocated"=> d.AllocationStatus == AllocationStatus.Unallocated,
+      "Recurring"  => d.IsRecurring,
+      _            => true
+    };
+    var matchSearch = string.IsNullOrEmpty(_search) ||
+      (d.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+      (d.Campaign?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+    return matchFilter && matchSearch;
+  }).OrderByDescending(d => d.Date);
+
+  protected override void OnInitialized() => Load();
+
+  private void Load()
+  {
+    var now = DateTime.UtcNow;
+    _allDonors = Data.GetDonors();
+    var donorMap = _allDonors.ToDictionary(d => d.Id);
+    _all = Data.GetDonations()
+      .Select(d => { if (donorMap.TryGetValue(d.DonorId, out var donor)) d.Donor = donor; return d; })
+      .ToList();
+    _thisMonth   = _all.Where(d => d.Date.Year == now.Year && d.Date.Month == now.Month).Sum(d => d.Amount);
+    _unallocated = _all.Where(d => d.AllocationStatus == AllocationStatus.Unallocated).Sum(d => d.Amount);
+  }
+
+  private void OpenAdd()
+  {
+    _dDonorId    = 0;
+    _dDonorName  = "";
+    _dAmount     = 0;
+    _dDate       = DateTime.Today;
+    _dChannel    = DonationChannel.Online;
+    _dCampaign   = "";
+    _dIsRecurring = false;
+    _dNotes      = "";
+    _addError    = "";
+    _showAdd     = true;
+  }
+
+  private void CloseAdd() { _showAdd = false; _addError = ""; }
+
+  private async Task SaveDonation()
+  {
+    if (_dAmount <= 0) { _addError = "Amount must be greater than zero."; return; }
+    if (_dDonorId == 0 && string.IsNullOrWhiteSpace(_dDonorName))
+    { _addError = "Select an existing donor or enter a donor name."; return; }
+
+    int donorId = _dDonorId;
+
+    // Create new donor record if name entered manually
+    if (donorId == 0)
+    {
+      var parts = _dDonorName.Trim().Split(' ', 2);
+      var newDonor = new Donor
+      {
+        FirstName     = parts[0],
+        LastName      = parts.Length > 1 ? parts[1] : "",
+        FirstGiftDate = _dDate,
+        LastGiftDate  = _dDate,
+        TotalGiven    = _dAmount,
+        GiftCount     = 1
+      };
+      Data.AddDonor(newDonor);
+      donorId = newDonor.Id;
+    }
+    else
+    {
+      // Update existing donor totals
+      var donor = Data.GetDonor(donorId);
+      if (donor != null)
+      {
+        donor.TotalGiven += _dAmount;
+        donor.GiftCount++;
+        if (_dDate > donor.LastGiftDate) donor.LastGiftDate = _dDate;
+        donor.Tier = donor.TotalGiven switch
+        {
+          >= 5000 => DonorTier.Benefactor,
+          >= 1000 => DonorTier.Champion,
+          >= 250  => DonorTier.Supporter,
+          _       => DonorTier.Friend
+        };
+        Data.UpdateDonor(donor);
+      }
+    }
+
+    var donation = new Donation
+    {
+      DonorId    = donorId,
+      Amount     = _dAmount,
+      Date       = _dDate,
+      Channel    = _dChannel,
+      Campaign   = string.IsNullOrWhiteSpace(_dCampaign) ? null : _dCampaign,
+      IsRecurring = _dIsRecurring,
+      Notes      = string.IsNullOrWhiteSpace(_dNotes) ? null : _dNotes,
+      AllocationStatus = AllocationStatus.Unallocated
+    };
+    Data.AddDonation(donation);
+    Data.LogAction("Mary Roberts", "Created", "Donation", donation.Id.ToString(),
+      $"{_dAmount:C0} via {_dChannel}{(string.IsNullOrEmpty(_dCampaign) ? "" : $" — {_dCampaign}")}");
+
+    _showAdd = false;
+    Load();
+    _savedToast = true;
+    StateHasChanged();
+    await Task.Delay(2500);
+    _savedToast = false;
+  }
+
+  private void Allocate(Donation d)
+  {
+    d.AllocationStatus = AllocationStatus.PendingReview;
+    Data.LogAction("Mary Roberts", "Flagged", "Donation", d.Id.ToString(), "Moved to pending allocation review");
+  }
+}

@@ -1,0 +1,430 @@
+@page "/admin/cases"
+@layout AdminLayout
+@inject IMockDataService Data
+@inject NavigationManager Nav
+
+<PageTitle>Family Cases — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Family Cases</h2>
+    <p>All active, pending, and fulfilled service requests</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="OpenNew">&#43; New Request</button>
+    <a href="/admin/kanban" class="btn btn-sm">Kanban View</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-label">Open Cases</div>
+    <div class="kpi-value" style="color:var(--navy)">@_all.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9888;</div>
+    <div class="kpi-label">Overdue</div>
+    <div class="kpi-value" style="color:var(--amber)">@_all.Count(r => r.IsOverdue)</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-label">Fulfilled</div>
+    <div class="kpi-value" style="color:var(--green)">@_all.Count(r => r.Status == CaseStatus.Fulfilled)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">Avg Age (Open)</div>
+    <div class="kpi-value" style="color:var(--gold)">@_avgAgeOpen</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  @foreach (var f in _filters)
+  {
+    <button class="filter-chip @(_activeFilter == f ? "active" : "")" @onclick="() => SetFilter(f)">@f</button>
+  }
+  <input class="form-input" style="width:220px;padding:5px 12px;font-size:.82rem;" placeholder="&#128269; Search families..." @bind="_search" @bind:event="oninput" />
+</div>
+
+<!-- TABLE -->
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Family</th>
+          <th>Reason</th>
+          <th>Status</th>
+          <th>Assigned To</th>
+          <th>Created</th>
+          <th>Age</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (!_filtered.Any())
+        {
+          <tr><td colspan="8"><div class="empty-state"><div class="icon">&#128149;</div><p>No cases match this filter.</p></div></td></tr>
+        }
+        @foreach (var r in _filtered)
+        {
+          <tr>
+            <td style="font-size:.76rem;color:var(--text-light);">#@r.Id</td>
+            <td>
+              <strong>@r.Family?.FullName</strong>
+              @if (r.IsOverdue)
+              { <span class="badge badge-overdue" style="margin-left:6px;">Overdue</span> }
+            </td>
+            <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason</td>
+            <td><span class="badge @GetStatusBadge(r.Status)">@r.Status</span></td>
+            <td style="font-size:.82rem;">@(r.AssignedTo ?? "—")</td>
+            <td style="font-size:.76rem;color:var(--text-light);">@r.CreatedAt.ToString("MMM d, yyyy")</td>
+            <td style="font-size:.76rem;color:var(--text-light);">@GetAge(r.CreatedAt)</td>
+            <td>
+              <button class="btn btn-sm" @onclick="() => OpenCase(r)">Details</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- NEW REQUEST DRAWER -->
+@if (_showNew)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseNew"></div>
+  <div style="position:fixed;right:0;top:0;bottom:0;width:520px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+    <div style="padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="font-family:var(--ff-head);">New Resource Request</h3>
+      <button class="btn btn-sm" @onclick="CloseNew">&#10005;</button>
+    </div>
+    <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+
+      <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.82rem;color:var(--green-dark);">
+        &#128149; This form creates a new family intake record and opens a case. The next available volunteer will be auto-assigned.
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Parent 1 First Name *</label>
+          <input class="form-input" @bind="_nf.Parent1FirstName" placeholder="First" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Parent 1 Last Name *</label>
+          <input class="form-input" @bind="_nf.Parent1LastName" placeholder="Last" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email *</label>
+        <input class="form-input" type="email" @bind="_nf.Email" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-input" @bind="_nf.Phone" />
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">City</label>
+          <input class="form-input" @bind="_nf.City" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">State</label>
+          <input class="form-input" @bind="_nf.State" placeholder="IL" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Reason for Request *</label>
+        <select class="form-input" @bind="_nf.Reason">
+          @foreach (var r in Enum.GetValues<PackageReason>())
+          { <option value="@r">@r</option> }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Parish</label>
+        <input class="form-input" @bind="_nf.ParishName" placeholder="St. Mary's, Chicago" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Faith Tradition</label>
+        <select class="form-input" @bind="_nf.FaithTradition">
+          <option value="">— Select —</option>
+          <option>Catholic</option>
+          <option>Protestant</option>
+          <option>Christian (non-denominational)</option>
+          <option>Orthodox</option>
+          <option>Other</option>
+          <option>Prefer not to say</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Children's Initials (for bracelet)</label>
+        <input class="form-input" @bind="_nf.ChildrenInitials" placeholder="e.g. E.M., T.J." />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Override Auto-Assign</label>
+        <select class="form-input" @bind="_newAssignOverride">
+          <option value="">Auto (next available: @(_nextVol?.FullName ?? "none"))</option>
+          @foreach (var v in _volunteers)
+          { <option value="@v.FullName">@v.FullName</option> }
+        </select>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_newError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_newError</div> }
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SubmitNewRequest">Submit &amp; Auto-Assign</button>
+        <button class="btn" @onclick="CloseNew">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- CASE DETAIL DRAWER -->
+@if (_selected is not null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseCase"></div>
+  <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+    <div style="padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="font-family:var(--ff-head);">Case #@_selected.Id — @_selected.Family?.FullName</h3>
+      <button class="btn btn-sm" @onclick="CloseCase">&#10005;</button>
+    </div>
+    <div style="padding:24px;display:flex;flex-direction:column;gap:20px;">
+
+      <div>
+        <div class="form-label" style="margin-bottom:8px;">Status</div>
+        <select class="form-select" @bind="_selected.Status">
+          @foreach (var s in Enum.GetValues<CaseStatus>())
+          { <option value="@s">@s</option> }
+        </select>
+      </div>
+
+      <div>
+        <div class="form-label" style="margin-bottom:8px;">Assigned To</div>
+        <select class="form-select" @bind="_selected.AssignedTo">
+          <option value="">— Unassigned —</option>
+          @foreach (var v in _volunteers)
+          { <option value="@v.FullName">@v.FullName</option> }
+        </select>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Reason</label>
+          <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_selected.Reason</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Created</label>
+          <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_selected.CreatedAt.ToString("MMM d, yyyy")</div>
+        </div>
+      </div>
+
+      @if (_selected.Family is not null)
+      {
+        <div>
+          <div class="form-label" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Family Information</span>
+            <a href="/admin/families" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile &rarr;</a>
+          </div>
+          <div style="background:var(--green-pale);border-radius:10px;padding:14px 16px;font-size:.84rem;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div><strong>Name:</strong> @_selected.Family.FullName</div>
+            <div><strong>Email:</strong> @_selected.Family.Email</div>
+            <div><strong>Phone:</strong> @(_selected.Family.Phone ?? "—")</div>
+            <div><strong>City, State:</strong> @_selected.Family.City, @_selected.Family.State</div>
+            <div><strong>Parish:</strong> @(_selected.Family.ParishName ?? "—")</div>
+            <div><strong>Faith:</strong> @(_selected.Family.FaithTradition ?? "Not specified")</div>
+            @if (!string.IsNullOrEmpty(_selected.Family.ChildrenInitials))
+            { <div style="grid-column:1/-1;"><strong>Children's Initials:</strong> @_selected.Family.ChildrenInitials</div> }
+          </div>
+        </div>
+      }
+
+      @if (_selected.Status is CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.Fulfilled)
+      {
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Tracking Number</label>
+            <input class="form-input" @bind="_selected.TrackingNumber" placeholder="e.g. 1Z999AA10123456784" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shipped Date</label>
+            <input class="form-input" type="date"
+                   value="@(_selected.ShippedDate?.ToString("yyyy-MM-dd") ?? "")"
+                   @onchange='e => _selected.ShippedDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
+          </div>
+        </div>
+      }
+
+      <div class="form-group">
+        <label class="form-label">Internal Notes</label>
+        <textarea class="form-textarea" @bind="_selected.InternalNotes" placeholder="Add notes visible only to staff..."></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SaveCase">Save Changes</button>
+        <button class="btn" @onclick="CloseCase">Cancel</button>
+      </div>
+
+      @if (_saved)
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Changes saved.</div> }
+    </div>
+  </div>
+}
+
+@code {
+  private List<PackageRequest> _all = [];
+  private List<PackageRequest> _filtered = [];
+  private List<Volunteer> _volunteers = [];
+  private PackageRequest? _selected;
+  private string _activeFilter = "All";
+  private string _search = "";
+  private bool _showNew;
+  private bool _saved;
+  private string _avgAgeOpen = "—";
+
+  // New request form state
+  private Family _nf = new();
+  private string _newAssignOverride = "";
+  private string _newError = "";
+  private Volunteer? _nextVol;
+
+  private readonly string[] _filters = ["All", "New", "In Progress", "Awaiting Shipment", "Shipped", "Fulfilled", "On Hold", "Overdue"];
+
+  protected override void OnInitialized()
+  {
+    _volunteers = Data.GetVolunteers().Where(v => v.Status == VolunteerStatus.Active).ToList();
+    Load();
+
+    // Auto-open new request drawer if navigated here from Workload with ?new=1
+    if (Nav.Uri.Contains("?new=1") || Nav.Uri.Contains("&new=1")) OpenNew();
+  }
+
+  private void Load()
+  {
+    _all = Data.GetRequests()
+      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
+      .OrderByDescending(r => r.CreatedAt)
+      .ToList();
+
+    var openAges = _all
+      .Where(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)
+      .Select(r => (DateTime.UtcNow - r.CreatedAt).TotalDays)
+      .ToList();
+    _avgAgeOpen = openAges.Count > 0 ? $"{openAges.Average():F0}d" : "—";
+
+    ApplyFilter();
+  }
+
+  private void SetFilter(string f) { _activeFilter = f; ApplyFilter(); }
+
+  private void ApplyFilter()
+  {
+    _filtered = _all.Where(r =>
+    {
+      var matchFilter = _activeFilter switch
+      {
+        "New"               => r.Status == CaseStatus.New,
+        "In Progress"       => r.Status == CaseStatus.InProgress,
+        "Awaiting Shipment" => r.Status == CaseStatus.AwaitingShipment,
+        "Shipped"           => r.Status == CaseStatus.Shipped,
+        "Fulfilled"         => r.Status == CaseStatus.Fulfilled,
+        "On Hold"           => r.Status == CaseStatus.OnHold,
+        "Overdue"           => r.IsOverdue,
+        _                   => true
+      };
+      var matchSearch = string.IsNullOrEmpty(_search) ||
+        (r.Family?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        r.Reason.ToString().Contains(_search, StringComparison.OrdinalIgnoreCase);
+      return matchFilter && matchSearch;
+    }).ToList();
+  }
+
+  private void OpenCase(PackageRequest r) { _selected = r; _saved = false; }
+  private void CloseCase() { _selected = null; _saved = false; }
+
+  private void OpenNew()
+  {
+    _nf = new Family();
+    _newAssignOverride = "";
+    _newError = "";
+    _nextVol = Data.GetNextAvailableVolunteer();
+    _showNew = true;
+  }
+
+  private void CloseNew() { _showNew = false; _newError = ""; }
+
+  private void SubmitNewRequest()
+  {
+    if (string.IsNullOrWhiteSpace(_nf.Parent1LastName) || string.IsNullOrWhiteSpace(_nf.Email))
+    {
+      _newError = "Please fill in Last Name and Email before submitting.";
+      return;
+    }
+
+    Data.AddFamily(_nf);
+
+    var assignTo = !string.IsNullOrEmpty(_newAssignOverride) ? _newAssignOverride : _nextVol?.FullName;
+    var req = new PackageRequest
+    {
+      FamilyId   = _nf.Id,
+      Status     = CaseStatus.New,
+      AssignedTo = assignTo,
+      Reason     = _nf.Reason,
+      CreatedAt  = DateTime.UtcNow
+    };
+    Data.AddRequest(req);
+
+    // bump volunteer open case count
+    if (assignTo != null)
+    {
+      var vol = _volunteers.FirstOrDefault(v => v.FullName == assignTo);
+      if (vol != null) { vol.ActiveCases++; Data.UpdateVolunteer(vol); }
+    }
+
+    Data.LogAction("Mary Roberts", "Created", "PackageRequest", req.Id.ToString(),
+      $"New request for {_nf.FullName}, assigned to {assignTo ?? "unassigned"}");
+
+    _showNew = false;
+    Load();
+  }
+
+  private void SaveCase()
+  {
+    if (_selected is null) return;
+    _selected.UpdatedAt = DateTime.UtcNow;
+    Data.UpdateRequest(_selected);
+    Data.LogAction("Mary Roberts", "Updated", "PackageRequest", _selected.Id.ToString(), $"Status: {_selected.Status}");
+    _saved = true;
+    Load();
+  }
+
+  private static string GetStatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.Fulfilled        => "badge-fulfilled",
+    CaseStatus.OnHold           => "badge-onhold",
+    CaseStatus.Cancelled        => "badge-cancelled",
+    _ => ""
+  };
+
+  private static string GetAge(DateTime dt)
+  {
+    var d = (int)(DateTime.UtcNow - dt).TotalDays;
+    return d == 0 ? "Today" : $"{d}d";
+  }
+}

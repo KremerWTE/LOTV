@@ -1,0 +1,104 @@
+@page "/admin/diocese-data"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Diocese &amp; Parish Data — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Diocese &amp; Parish Data</h2><p>Regional coverage and parish engagement</p></div>
+</div>
+
+<!-- DIOCESE SUMMARY -->
+<h3 style="font-family:var(--ff-head);font-size:1rem;color:var(--navy);margin:0 0 12px;">Dioceses</h3>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:32px;">
+  @foreach (var d in _dioceses)
+  {
+    var pct = d.TotalParishes > 0 ? d.ActiveParishes * 100 / d.TotalParishes : 0;
+    <div class="panel @(_selectedDiocese == d ? "panel-selected" : "")" style="cursor:pointer;" @onclick="() => SelectDiocese(d)">
+      <div class="panel-head">
+        <h3>@d.Name</h3>
+        <span class="badge badge-new" style="font-size:.66rem;">@d.State</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div style="text-align:center;background:var(--green-pale);border-radius:6px;padding:8px;">
+            <div style="font-size:1.2rem;font-weight:700;color:var(--green);">@d.TotalDonations.ToString("C0")</div>
+            <div style="font-size:.66rem;color:var(--text-light);text-transform:uppercase;">Donations</div>
+          </div>
+          <div style="text-align:center;background:var(--navy-pale);border-radius:6px;padding:8px;">
+            <div style="font-size:1.2rem;font-weight:700;color:var(--navy);">@d.TotalCasesFulfilled</div>
+            <div style="font-size:.66rem;color:var(--text-light);text-transform:uppercase;">Fulfilled</div>
+          </div>
+        </div>
+        <div style="font-size:.78rem;color:var(--text-mid);margin-bottom:8px;">
+          Coordinator: <strong>@(d.CoordinatorName ?? "—")</strong>
+        </div>
+        <div style="font-size:.74rem;color:var(--text-light);margin-bottom:6px;">
+          @d.ActiveParishes / @d.TotalParishes parishes active
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:@pct%;"></div>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- PARISH TABLE -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>
+      Parishes
+      @if (_selectedDiocese != null)
+      { <span style="font-size:.78rem;font-weight:400;color:var(--text-light);margin-left:8px;">— @_selectedDiocese.Name</span> }
+    </h3>
+    @if (_selectedDiocese != null)
+    { <button class="btn btn-sm" @onclick="() => _selectedDiocese = null">Show All</button> }
+  </div>
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Parish</th><th>Diocese</th><th>Liaison</th><th>Certification</th><th>Active Cases</th><th>Total Families</th></tr>
+      </thead>
+      <tbody>
+        @foreach (var p in ParishRows)
+        {
+          <tr>
+            <td><strong>@p.Name</strong></td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@(GetDioceseName(p.DioceseId))</td>
+            <td style="font-size:.78rem;">@(p.LiaisonName ?? "—")</td>
+            <td>
+              @if (p.CertificationLevel != CertificationLevel.None)
+              { <span class="badge badge-fulfilled" style="font-size:.66rem;">@p.CertificationLevel</span> }
+              else
+              { <span style="color:var(--text-light);font-size:.76rem;">—</span> }
+            </td>
+            <td>@p.ActiveCases</td>
+            <td>@p.TotalCasesFulfilled</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@code {
+  private List<Diocese> _dioceses = [];
+  private List<Parish> _parishes = [];
+  private Diocese? _selectedDiocese;
+
+  private IEnumerable<Parish> ParishRows =>
+    _selectedDiocese == null ? _parishes : _parishes.Where(p => p.DioceseId == _selectedDiocese.Id);
+
+  protected override void OnInitialized()
+  {
+    _dioceses = Data.GetDioceses();
+    _parishes = Data.GetParishes();
+  }
+
+  private void SelectDiocese(Diocese d) =>
+    _selectedDiocese = _selectedDiocese == d ? null : d;
+
+  private string GetDioceseName(int id) =>
+    _dioceses.FirstOrDefault(d => d.Id == id)?.Name ?? "—";
+}

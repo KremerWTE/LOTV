@@ -1,0 +1,182 @@
+@page "/volunteer"
+@layout PublicLayout
+@inject IMockDataService Data
+
+<PageTitle>Volunteer — Lily of the Valley Ministry</PageTitle>
+
+@if (_submitted)
+{
+  <div style="max-width:580px;margin:80px auto;padding:0 24px;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:16px;">&#129309;</div>
+    <h2 style="font-family:var(--ff-head);font-size:1.8rem;color:var(--navy);margin:0 0 14px;">Welcome to the LOTV family.</h2>
+    <p style="color:var(--text-mid);font-size:.96rem;line-height:1.7;margin:0 0 24px;">
+      Thank you for your desire to serve. Our volunteer coordinator will be in touch soon to complete your onboarding.
+    </p>
+    <div style="background:var(--green-pale);border-radius:12px;padding:20px 24px;margin-bottom:28px;text-align:left;font-size:.88rem;color:var(--text-mid);line-height:1.8;">
+      <strong style="color:var(--navy);">You signed up as:</strong><br />
+      @_confirmedName &bull; @_confirmedRole<br />
+      <span style="color:var(--text-light);">Status: Onboarding — we'll be in touch shortly</span>
+    </div>
+    <a href="/" style="padding:12px 28px;background:var(--navy);color:white;border-radius:9px;font-weight:700;font-size:.9rem;text-decoration:none;">Return Home</a>
+  </div>
+}
+else
+{
+  <!-- HERO -->
+  <div style="background:linear-gradient(135deg,#2d6a2d 0%,#487336 100%);color:white;padding:52px 24px 44px;text-align:center;">
+    <div style="max-width:540px;margin:0 auto;">
+      <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 12px;">Join Our Mission</h1>
+      <p style="color:rgba(255,255,255,.85);font-size:.94rem;line-height:1.7;margin:0;">
+        Volunteers are the heart of LOTV Ministry. From assembling packages to praying for families,
+        every role makes a direct difference in someone's grief journey.
+      </p>
+    </div>
+  </div>
+
+  <!-- ROLE CARDS -->
+  <div style="max-width:900px;margin:40px auto 0;padding:0 24px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:40px;">
+      @foreach (var (role, icon, desc) in _roles)
+      {
+        <div style="background:white;border-radius:10px;padding:18px;border:1px solid var(--border);font-size:.84rem;">
+          <div style="font-size:1.4rem;margin-bottom:6px;">@icon</div>
+          <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">@role</div>
+          <div style="color:var(--text-mid);line-height:1.5;">@desc</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div style="max-width:640px;margin:0 auto 80px;padding:0 24px;">
+    <div style="background:white;border-radius:14px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(0,0,0,.06);padding:36px 40px;">
+
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Information</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input class="form-input" @bind="_firstName" placeholder="First" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name *</label>
+            <input class="form-input" @bind="_lastName" placeholder="Last" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" @bind="_email" placeholder="you@example.com" />
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Phone (optional)</label>
+          <input class="form-input" @bind="_phone" placeholder="(555) 000-0000" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input class="form-input" @bind="_city" placeholder="City" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">State</label>
+            <input class="form-input" @bind="_state" placeholder="IL" />
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Parish &amp; Role</div>
+        <div class="form-group">
+          <label class="form-label">Parish Name (optional)</label>
+          <input class="form-input" @bind="_parish" placeholder="St. Mary's, Chicago" />
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Area of Interest *</label>
+          <select class="form-input" @bind="_role">
+            @foreach (var r in Enum.GetValues<VolunteerRole>())
+            { <option value="@r">@FormatRole(r)</option> }
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">About You</div>
+        <div class="form-group">
+          <label class="form-label">Why do you want to volunteer? (optional)</label>
+          <textarea class="form-textarea" @bind="_bio" placeholder="Share your motivation or connection to this mission..." rows="4"></textarea>
+        </div>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_error))
+      {
+        <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
+      }
+
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="Submit">
+        Submit Volunteer Application
+      </button>
+    </div>
+  </div>
+}
+
+@code {
+  private string _firstName = "";
+  private string _lastName  = "";
+  private string _email     = "";
+  private string _phone     = "";
+  private string _city      = "";
+  private string _state     = "";
+  private string _parish    = "";
+  private VolunteerRole _role = VolunteerRole.PackageAssembler;
+  private string _bio       = "";
+  private string _error     = "";
+  private bool _submitted;
+  private string _confirmedName = "";
+  private string _confirmedRole = "";
+
+  private static readonly (string role, string icon, string desc)[] _roles =
+  [
+    ("Package Assembler", "&#128230;", "Assemble and pack comfort boxes with love and care."),
+    ("Prayer Ambassador", "&#128591;", "Commit to praying daily for assigned families by name."),
+    ("Parish Liaison",    "&#9971;",   "Coordinate between LOTV and your local parish community."),
+    ("Event Helper",      "&#128197;", "Support galas, prayer nights, and community gatherings."),
+    ("Driver",            "&#128663;", "Deliver packages locally when families cannot receive by mail."),
+    ("Admin Support",     "&#9997;",   "Help with case coordination, data entry, and communications."),
+  ];
+
+  private void Submit()
+  {
+    if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
+    { _error = "Please enter your first and last name."; return; }
+    if (string.IsNullOrWhiteSpace(_email))
+    { _error = "Please enter your email address."; return; }
+
+    var vol = new Volunteer
+    {
+      FirstName  = _firstName,
+      LastName   = _lastName,
+      Email      = _email,
+      Phone      = string.IsNullOrEmpty(_phone) ? null : _phone,
+      ParishName = string.IsNullOrEmpty(_parish) ? null : _parish,
+      Role       = _role,
+      Status     = VolunteerStatus.Onboarding,
+      JoinedDate = DateTime.UtcNow,
+      Notes      = string.IsNullOrEmpty(_bio) ? null : _bio
+    };
+    Data.AddVolunteer(vol);
+    Data.LogAction("Public Portal", "Created", "Volunteer", vol.Id.ToString(),
+      $"Volunteer signup: {vol.FullName} — {_role}");
+
+    _confirmedName = vol.FullName;
+    _confirmedRole = FormatRole(_role);
+    _submitted = true;
+  }
+
+  private static string FormatRole(VolunteerRole r) => r switch
+  {
+    VolunteerRole.PackageAssembler => "Package Assembler",
+    VolunteerRole.PrayerAmbassador => "Prayer Ambassador",
+    VolunteerRole.ParishLiaison    => "Parish Liaison",
+    VolunteerRole.EventHelper      => "Event Helper",
+    _                              => r.ToString()
+  };
+}

@@ -1,0 +1,234 @@
+@page "/admin/donors"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Donors Database — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Donors Database</h2>
+    <p>All recorded donors and giving history</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => { _editing = new Donor(); _showForm = true; }">&#43; Add Donor</button>
+  </div>
+</div>
+
+<!-- SUMMARY STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128100;</div>
+    <div class="kpi-label">Total Donors</div>
+    <div class="kpi-value" style="color:var(--green)">@_donors.Count</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Given (All Time)</div>
+    <div class="kpi-value" style="color:var(--navy)">@_donors.Sum(d => d.TotalGiven).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128260;</div>
+    <div class="kpi-label">Recurring Donors</div>
+    <div class="kpi-value" style="color:var(--gold)">@_donors.Count(d => d.IsRecurring)</div>
+  </div>
+  <div class="kpi-card kpi-blush">
+    <div class="kpi-icon">&#127873;</div>
+    <div class="kpi-label">Recurring MRR</div>
+    <div class="kpi-value" style="color:var(--blush)">@_donors.Where(d => d.IsRecurring).Sum(d => d.RecurringAmount ?? 0).ToString("C0")</div>
+  </div>
+</div>
+
+<!-- SEARCH + FILTER -->
+<div class="filter-bar">
+  <input class="form-input" style="width:240px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search donors..." @bind="_search" @bind:event="oninput" />
+  @foreach (var t in Enum.GetValues<DonorTier>())
+  {
+    <button class="filter-chip @(_tierFilter == t.ToString() ? "active" : "")" @onclick='() => _tierFilter = _tierFilter == t.ToString() ? string.Empty : t.ToString()'>@t</button>
+  }
+  <button class="filter-chip @(_recurringOnly ? "active" : "")" @onclick="() => _recurringOnly = !_recurringOnly">Recurring Only</button>
+</div>
+
+<!-- TABLE -->
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Tier</th>
+          <th>Total Given</th>
+          <th>Recurring</th>
+          <th>Last Gift</th>
+          <th>Parish / Diocese</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var d in Filtered)
+        {
+          <tr>
+            <td><strong>@d.FullName</strong></td>
+            <td style="font-size:.8rem;color:var(--text-mid);">@d.Email</td>
+            <td><span class="badge @TierBadge(d.Tier)">@d.Tier</span></td>
+            <td style="font-weight:700;color:var(--green);">@d.TotalGiven.ToString("C0")</td>
+            <td>
+              @if (d.IsRecurring)
+              { <span style="color:var(--green);font-weight:700;font-size:.82rem;">&#10003; @d.RecurringAmount?.ToString("C0")/mo</span> }
+              else
+              { <span style="color:var(--text-light);font-size:.8rem;">One-time</span> }
+            </td>
+            <td style="font-size:.78rem;color:var(--text-light);">@d.LastGiftDate.ToString("MMM d, yyyy")</td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@(d.ParishName ?? d.DioceseName ?? "—")</td>
+            <td>
+              <button class="btn btn-sm" @onclick="() => Edit(d)">Edit</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD/EDIT DRAWER -->
+@if (_showForm && _editing is not null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseForm"></div>
+  <div style="position:fixed;right:0;top:0;bottom:0;width:460px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="font-family:var(--ff-head);">@(_editing.Id == 0 ? "Add Donor" : "Edit Donor")</h3>
+      <button class="btn btn-sm" @onclick="CloseForm">&#10005;</button>
+    </div>
+    <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">First Name *</label>
+          <input class="form-input" @bind="_editing.FirstName" placeholder="First name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name *</label>
+          <input class="form-input" @bind="_editing.LastName" placeholder="Last name" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email *</label>
+        <input class="form-input" type="email" @bind="_editing.Email" placeholder="email@example.com" />
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input class="form-input" @bind="_editing.Phone" placeholder="(555) 000-0000" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">City, State</label>
+          <input class="form-input" @bind="_editing.City" placeholder="City" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Parish / Diocese</label>
+        <input class="form-input" @bind="_editing.ParishName" placeholder="Parish name (optional)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Recurring Donor?</label>
+        <select class="form-select" @bind="_editing.IsRecurring">
+          <option value="false">No — one-time gifts</option>
+          <option value="true">Yes — recurring</option>
+        </select>
+      </div>
+      @if (_editing.IsRecurring)
+      {
+        <div class="form-group">
+          <label class="form-label">Monthly Amount</label>
+          <input class="form-input" type="number" @bind="_editing.RecurringAmount" placeholder="0.00" />
+        </div>
+      }
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" @bind="_editing.Notes" placeholder="Internal notes..."></textarea>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SaveDonor">Save</button>
+        <button class="btn" @onclick="CloseForm">Cancel</button>
+      </div>
+      @if (_formSaved)
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Saved successfully.</div> }
+
+      @if (_editing.Id != 0)
+      {
+        var history = Data.GetDonations().Where(d => d.DonorId == _editing.Id).OrderByDescending(d => d.Date).ToList();
+        <div>
+          <div class="form-label" style="margin-bottom:8px;">Giving History (@history.Count gift@(history.Count != 1 ? "s" : ""))</div>
+          @if (history.Any())
+          {
+            <div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;">
+              @foreach (var gift in history)
+              {
+                <div style="background:var(--bg);border-radius:8px;padding:9px 12px;font-size:.82rem;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                  <div>
+                    <span style="font-weight:700;color:var(--green);">@gift.Amount.ToString("C0")</span>
+                    <span style="color:var(--text-light);margin-left:6px;">@gift.Date.ToString("MMM d, yyyy")</span>
+                    @if (!string.IsNullOrEmpty(gift.Campaign))
+                    { <div style="font-size:.72rem;color:var(--text-light);margin-top:2px;">@gift.Campaign</div> }
+                  </div>
+                  <span style="font-size:.72rem;background:var(--bg-page);border:1px solid var(--border);border-radius:6px;padding:2px 8px;color:var(--text-mid);">@gift.Channel</span>
+                </div>
+              }
+            </div>
+            <div style="margin-top:8px;font-size:.78rem;color:var(--text-mid);">
+              Lifetime total: <strong>@history.Sum(g => g.Amount).ToString("C0")</strong>
+            </div>
+          }
+          else
+          {
+            <div style="font-size:.82rem;color:var(--text-light);">No gift records on file.</div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private List<Donor> _donors = [];
+  private Donor? _editing;
+  private bool _showForm;
+  private bool _formSaved;
+  private string _search = "";
+  private string _tierFilter = "";
+  private bool _recurringOnly;
+
+  private IEnumerable<Donor> Filtered => _donors.Where(d =>
+    (string.IsNullOrEmpty(_search) || d.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) || d.Email.Contains(_search, StringComparison.OrdinalIgnoreCase)) &&
+    (string.IsNullOrEmpty(_tierFilter) || d.Tier.ToString() == _tierFilter) &&
+    (!_recurringOnly || d.IsRecurring)
+  ).OrderByDescending(d => d.TotalGiven);
+
+  protected override void OnInitialized() => _donors = Data.GetDonors();
+
+  private void Edit(Donor d) { _editing = d; _showForm = true; _formSaved = false; }
+  private void CloseForm()   { _showForm = false; _editing = null; _formSaved = false; }
+
+  private void SaveDonor()
+  {
+    if (_editing is null) return;
+    if (_editing.Id == 0)
+    {
+      _editing.FirstGiftDate = DateTime.UtcNow;
+      _editing.LastGiftDate  = DateTime.UtcNow;
+      Data.AddDonor(_editing);
+    }
+    else
+      Data.UpdateDonor(_editing);
+
+    _donors = Data.GetDonors();
+    _formSaved = true;
+  }
+
+  private static string TierBadge(DonorTier t) => t switch
+  {
+    DonorTier.Benefactor => "badge-fulfilled",
+    DonorTier.Champion   => "badge-shipped",
+    DonorTier.Supporter  => "badge-inprogress",
+    _                    => "badge-new"
+  };
+}

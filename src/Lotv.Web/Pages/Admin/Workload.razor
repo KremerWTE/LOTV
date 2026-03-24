@@ -1,0 +1,111 @@
+@page "/admin/workload"
+@layout AdminLayout
+@inject IMockDataService Data
+@inject NavigationManager Nav
+
+<PageTitle>Workload View — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Workload View</h2>
+    <p>Open, overdue, and capacity per volunteer</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm btn-primary" @onclick='() => Nav.NavigateTo("/admin/cases?new=1")'>&#43; New Request</button>
+    <a href="/admin/cases" class="btn btn-sm">All Cases</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;">
+  @foreach (var row in _rows)
+  {
+    <div class="panel">
+      <div class="panel-head">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="user-avatar" style="width:36px;height:36px;font-size:.82rem;">@Initials(row.Volunteer.FullName)</div>
+          <div>
+            <div style="font-weight:700;font-size:.9rem;">@row.Volunteer.FullName</div>
+            <div style="font-size:.73rem;color:var(--text-light);">@row.Volunteer.Role &bull; @(row.Volunteer.ParishName ?? "No parish")</div>
+          </div>
+        </div>
+        <span class="badge @(row.Volunteer.Status == VolunteerStatus.Active ? "badge-fulfilled" : "badge-onhold")">
+          @row.Volunteer.Status
+        </span>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;text-align:center;">
+          <div>
+            <div style="font-size:1.4rem;font-weight:700;font-family:var(--ff-head);color:var(--navy);">@row.OpenCases</div>
+            <div style="font-size:.7rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;">Open</div>
+          </div>
+          <div>
+            <div style="font-size:1.4rem;font-weight:700;font-family:var(--ff-head);color:var(--red);">@row.OverdueCases</div>
+            <div style="font-size:.7rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;">Overdue</div>
+          </div>
+          <div>
+            <div style="font-size:1.4rem;font-weight:700;font-family:var(--ff-head);color:var(--green);">@row.Volunteer.TotalCasesFulfilled</div>
+            <div style="font-size:.7rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;">Total Done</div>
+          </div>
+        </div>
+
+        <div style="font-size:.74rem;color:var(--text-mid);margin-bottom:6px;">Capacity (@row.OpenCases / 6 cases)</div>
+        <div class="progress-bar">
+          <div class="progress-fill @(row.OpenCases >= 5 ? "amber" : "")" style="width:@Math.Min(row.OpenCases * 16, 100)%;"></div>
+        </div>
+
+        @if (row.Cases.Any())
+        {
+          <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px;">
+            @foreach (var c in row.Cases.Take(3))
+            {
+              <a href="/admin/cases" style="display:flex;align-items:center;justify-content:space-between;font-size:.78rem;padding:5px 8px;background:var(--bg);border-radius:6px;text-decoration:none;color:inherit;cursor:pointer;">
+                <span>#@c.Id — @(c.Family?.Parent1LastName ?? "Family")</span>
+                <span class="badge @GetBadge(c.Status)" style="font-size:.65rem;">@c.Status</span>
+              </a>
+            }
+            @if (row.Cases.Count > 3)
+            { <div style="font-size:.72rem;color:var(--text-light);text-align:center;">+@(row.Cases.Count - 3) more</div> }
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+@code {
+  private record WorkloadRow(Volunteer Volunteer, List<PackageRequest> Cases)
+  {
+    public int OpenCases    => Cases.Count(c => c.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment);
+    public int OverdueCases => Cases.Count(c => c.IsOverdue);
+  }
+
+  private List<WorkloadRow> _rows = [];
+
+  protected override void OnInitialized()
+  {
+    var requests = Data.GetRequests()
+      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
+      .ToList();
+
+    _rows = Data.GetVolunteers()
+      .Select(v => new WorkloadRow(v, requests.Where(r => r.AssignedTo == v.FullName).ToList()))
+      .OrderByDescending(r => r.OpenCases)
+      .ToList();
+  }
+
+  private static string Initials(string name)
+  {
+    var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    return parts.Length >= 2 ? $"{parts[0][0]}{parts[^1][0]}" : name[..1];
+  }
+
+  private static string GetBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New        => "badge-new",
+    CaseStatus.InProgress => "badge-inprogress",
+    CaseStatus.Shipped    => "badge-shipped",
+    CaseStatus.Fulfilled  => "badge-fulfilled",
+    CaseStatus.OnHold     => "badge-onhold",
+    _ => ""
+  };
+}

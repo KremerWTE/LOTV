@@ -1,0 +1,167 @@
+@page "/admin/export"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Export Data — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Export Data</h2><p>Download ministry records for reporting and compliance</p></div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;">
+
+  <!-- FAMILIES -->
+  <div class="panel">
+    <div class="panel-head"><h3>&#128149; Family Records</h3></div>
+    <div class="panel-body">
+      <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 14px;">
+        All family intake records including contact info, loss type, and case status.
+        <strong>@Data.GetFamilies().Count</strong> records.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("families_all.csv", "Families")'>Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick='() => SimulateExport("families_active.csv", "Active Families")'>Active Cases Only</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DONATIONS -->
+  <div class="panel">
+    <div class="panel-head"><h3>&#128184; Donation Ledger</h3></div>
+    <div class="panel-body">
+      <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 14px;">
+        Complete donation history with donor, amount, channel, and allocation status.
+        <strong>@Data.GetDonations().Count</strong> records.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("donations_all.csv", "Donations")'>Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick='() => SimulateExport("donations_ytd.csv", "YTD Donations")'>Year-to-Date Only</button>
+        <button class="btn btn-sm" @onclick='() => SimulateExport("donations_unallocated.csv", "Unallocated Donations")'>Unallocated Only</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DONORS -->
+  <div class="panel">
+    <div class="panel-head"><h3>&#128101; Donor Directory</h3></div>
+    <div class="panel-body">
+      <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 14px;">
+        Donor profiles including tier, giving history, and recurring status.
+        <strong>@Data.GetDonors().Count</strong> records.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("donors_all.csv", "Donors")'>Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick='() => SimulateExport("donors_recurring.csv", "Recurring Donors")'>Recurring Only</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOLUNTEERS -->
+  <div class="panel">
+    <div class="panel-head"><h3>&#9997;&#65039; Volunteer Roster</h3></div>
+    <div class="panel-body">
+      <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 14px;">
+        Volunteer contact info, roles, and case load.
+        <strong>@Data.GetVolunteers().Count</strong> records.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("volunteers_all.csv", "Volunteers")'>Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick='() => SimulateExport("volunteers_active.csv", "Active Volunteers")'>Active Only</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALLOCATIONS -->
+  <div class="panel">
+    <div class="panel-head"><h3>&#128200; Fund Allocations</h3></div>
+    <div class="panel-body">
+      <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 14px;">
+        Fund allocation records for financial reporting and auditing.
+        <strong>@Data.GetAllocations().Count</strong> records.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("allocations_all.csv", "Fund Allocations")'>Export All (CSV)</button>
+        <button class="btn btn-sm" @onclick='() => SimulateExport("allocations_approved.csv", "Approved Allocations")'>Approved Only</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIT LOG -->
+  <div class="panel">
+    <div class="panel-head"><h3>&#128196; Audit Log</h3></div>
+    <div class="panel-body">
+      <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 14px;">
+        Full activity audit trail for compliance and review.
+        <strong>@Data.GetAuditLog().Count</strong> entries.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary btn-sm" @onclick='() => SimulateExport("audit_log.csv", "Audit Log")'>Export Full Log (CSV)</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+@if (_toastMsg != null)
+{
+  <div style="position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
+    &#10003; @_toastMsg queued for download
+  </div>
+}
+
+<!-- RECENT EXPORTS -->
+@{
+  var recentExports = Data.GetAuditLog()
+    .Where(e => e.Action.Equals("Exported", StringComparison.OrdinalIgnoreCase))
+    .Take(8)
+    .ToList();
+}
+@if (recentExports.Any())
+{
+  <div class="panel" style="margin-top:28px;">
+    <div class="panel-head"><h3>&#128196; Recent Exports</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>User</th><th>Export</th></tr></thead>
+        <tbody>
+          @foreach (var e in recentExports)
+          {
+            <tr>
+              <td style="font-size:.76rem;color:var(--text-light);">@e.Timestamp.ToString("MMM d, yyyy h:mm tt")</td>
+              <td style="font-size:.82rem;font-weight:600;">@e.UserName</td>
+              <td style="font-size:.82rem;color:var(--text-mid);">@(e.Details ?? "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+<div class="panel" style="margin-top:28px;border-left:4px solid var(--amber);">
+  <div class="panel-body" style="display:flex;align-items:flex-start;gap:12px;">
+    <span style="font-size:1.4rem;">&#9888;</span>
+    <div>
+      <strong style="font-size:.88rem;">Data Privacy Notice</strong>
+      <p style="font-size:.82rem;color:var(--text-mid);margin:4px 0 0;">
+        Exported files contain personally identifiable information (PII). Handle with care per your
+        organization's data privacy policy. Do not share externally without authorization.
+        All exports are logged in the audit trail.
+      </p>
+    </div>
+  </div>
+</div>
+
+@code {
+  private string? _toastMsg;
+
+  private async Task SimulateExport(string filename, string label)
+  {
+    Data.LogAction("Mary Roberts", "Exported", "DataExport", null, $"Exported {label} as {filename}");
+    _toastMsg = $"{label} ({filename})";
+    StateHasChanged();
+    await Task.Delay(3000);
+    _toastMsg = null;
+  }
+}

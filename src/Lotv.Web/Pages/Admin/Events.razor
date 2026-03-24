@@ -1,0 +1,242 @@
+@page "/admin/events"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Ministry Events — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Ministry Events</h2><p>Upcoming trainings, galas, and community events</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">&#43; Add Event</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-label">Total Events</div>
+    <div class="kpi-value" style="color:var(--green)">@_events.Count</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">Upcoming</div>
+    <div class="kpi-value" style="color:var(--navy)">@_events.Count(e => e.Date >= DateTime.UtcNow)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-label">Total Registered</div>
+    <div class="kpi-value" style="color:var(--amber)">@_events.Sum(e => e.Registered)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#127760;</div>
+    <div class="kpi-label">Virtual Events</div>
+    <div class="kpi-value" style="color:var(--gold)">@_events.Count(e => e.IsVirtual)</div>
+  </div>
+</div>
+
+<!-- FILTER -->
+<div class="filter-bar">
+  @foreach (var f in new[]{"All","Upcoming","Past","Virtual","In-Person"})
+  { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+</div>
+
+<!-- EVENT CARDS -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;">
+  @foreach (var e in Filtered)
+  {
+    var isPast   = e.Date < DateTime.UtcNow;
+    var capacity = e.Capacity ?? 0;
+    var pct      = capacity > 0 ? (int)((double)e.Registered / capacity * 100) : 0;
+    <div class="panel" style="@(isPast ? "opacity:.7;" : "")">
+      <div class="panel-head">
+        <div>
+          <h3 style="margin:0 0 2px;">@e.Title</h3>
+          <span style="font-size:.72rem;text-transform:uppercase;font-weight:700;letter-spacing:.07em;color:var(--text-light);">@e.Type</span>
+        </div>
+        <div style="text-align:right;">
+          @if (e.IsVirtual)
+          { <span class="badge badge-shipped" style="font-size:.66rem;">Virtual</span> }
+          else
+          { <span class="badge badge-new" style="font-size:.66rem;">In-Person</span> }
+          @if (isPast)
+          { <span class="badge badge-onhold" style="font-size:.66rem;margin-left:4px;">Past</span> }
+        </div>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+          <div>
+            <div style="font-size:.68rem;text-transform:uppercase;color:var(--text-light);margin-bottom:2px;">Date</div>
+            <div style="font-weight:600;font-size:.88rem;">@e.Date.ToString("MMM d, yyyy")</div>
+            <div style="font-size:.76rem;color:var(--text-mid);">@e.Date.ToString("h:mm tt")</div>
+          </div>
+          <div>
+            <div style="font-size:.68rem;text-transform:uppercase;color:var(--text-light);margin-bottom:2px;">Location</div>
+            <div style="font-size:.82rem;color:var(--text-mid);">@(string.IsNullOrEmpty(e.Location) ? (e.IsVirtual ? "Online" : "TBD") : e.Location)</div>
+          </div>
+        </div>
+        @if (!string.IsNullOrEmpty(e.Description))
+        {
+          <p style="font-size:.82rem;color:var(--text-mid);margin:0 0 12px;">@e.Description</p>
+        }
+        @if (e.Capacity.HasValue)
+        {
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:4px;">
+              <span>Registered</span>
+              <span style="font-weight:600;">@e.Registered / @e.Capacity</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:@pct%;"></div>
+            </div>
+            @if (pct >= 90 && !isPast)
+            { <div style="font-size:.7rem;color:var(--amber);margin-top:3px;">&#9888; Nearly full</div> }
+          </div>
+        }
+        else
+        {
+          <div style="font-size:.78rem;color:var(--text-mid);">@e.Registered registered &mdash; no capacity limit</div>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+@if (!Filtered.Any())
+{
+  <div class="panel" style="text-align:center;padding:40px;color:var(--text-light);">No events match the current filter.</div>
+}
+
+<!-- ADD EVENT DRAWER -->
+@if (_showAdd)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseAdd"></div>
+  <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="font-family:var(--ff-head);">Add Event</h3>
+      <button class="btn btn-sm" @onclick="CloseAdd">&#10005;</button>
+    </div>
+    <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" @bind="_form.Title" placeholder="e.g. Annual LOTV Gala" />
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-input" @bind="_formType">
+            @foreach (var t in Enum.GetValues<EventType>())
+            { <option value="@t">@t</option> }
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date &amp; Time *</label>
+          <input class="form-input" type="datetime-local"
+                 value="@_formDate"
+                 @onchange='e => _formDate = e.Value?.ToString() ?? ""' />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Location</label>
+        <input class="form-input" @bind="_form.Location" placeholder="Address or venue name" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Format</label>
+        <select class="form-input" @bind="_form.IsVirtual">
+          <option value="false">In-Person</option>
+          <option value="true">Virtual / Online</option>
+        </select>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Capacity (leave blank = unlimited)</label>
+          <input class="form-input" type="number" @bind="_formCapacity" placeholder="e.g. 200" min="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Initial Registrations</label>
+          <input class="form-input" type="number" @bind="_form.Registered" min="0" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" @bind="_form.Description" placeholder="Event details visible to staff..."></textarea>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_addError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_addError</div> }
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SaveEvent">Save Event</button>
+        <button class="btn" @onclick="CloseAdd">Cancel</button>
+      </div>
+      @if (_addSaved)
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Event created.</div> }
+    </div>
+  </div>
+}
+
+@code {
+  private List<MinistryEvent> _events = [];
+  private string _filter = "All";
+  private bool _showAdd;
+  private bool _addSaved;
+  private string _addError = "";
+  private MinistryEvent _form = new();
+  private string _formDate = "";
+  private string _formType = "Gala";
+  private int? _formCapacity;
+
+  private IEnumerable<MinistryEvent> Filtered => _events.Where(e => _filter switch
+  {
+    "Upcoming"  => e.Date >= DateTime.UtcNow,
+    "Past"      => e.Date < DateTime.UtcNow,
+    "Virtual"   => e.IsVirtual,
+    "In-Person" => !e.IsVirtual,
+    _           => true
+  }).OrderBy(e => e.Date);
+
+  protected override void OnInitialized() => _events = Data.GetEvents();
+
+  private void OpenAdd()
+  {
+    _form     = new MinistryEvent { Date = DateTime.UtcNow.AddDays(30) };
+    _formDate = _form.Date.ToString("yyyy-MM-ddTHH:mm");
+    _formType = Enum.GetValues<EventType>().First().ToString();
+    _formCapacity = null;
+    _addError = "";
+    _addSaved = false;
+    _showAdd  = true;
+  }
+
+  private void CloseAdd() { _showAdd = false; _addSaved = false; _addError = ""; }
+
+  private void SaveEvent()
+  {
+    if (string.IsNullOrWhiteSpace(_form.Title))
+    { _addError = "Title is required."; return; }
+    if (string.IsNullOrWhiteSpace(_formDate))
+    { _addError = "Date is required."; return; }
+
+    if (DateTime.TryParse(_formDate, out var dt))
+      _form.Date = dt;
+    else
+    { _addError = "Invalid date."; return; }
+
+    if (Enum.TryParse<EventType>(_formType, out var et))
+      _form.Type = et;
+
+    _form.Capacity = _formCapacity;
+
+    Data.AddEvent(_form);
+    Data.LogAction("Mary Roberts", "Created", "MinistryEvent", _form.Id.ToString(), $"Event: {_form.Title} on {_form.Date:MMM d, yyyy}");
+    _events   = Data.GetEvents();
+    _addSaved = true;
+    _addError = "";
+  }
+}

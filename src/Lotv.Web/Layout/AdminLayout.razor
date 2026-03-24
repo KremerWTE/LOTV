@@ -1,0 +1,321 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+
+<div class="lotv-app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <img class="sidebar-logo-img"
+           src="https://lotvministry.org/wp-content/uploads/2023/02/cropped-Lily-of-valley-Final-01-2.jpg"
+           alt="LOTV" />
+      <div class="sidebar-logo-text">
+        <strong>LOTV Ministry</strong>
+        <span>Staff Portal &bull; Catholic Apostolate</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Overview</div>
+      <NavLink class="sidebar-link" href="/admin/dashboard" Match="NavLinkMatch.All">
+        <span class="icon">&#9776;</span> Dashboard
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/families">
+        <span class="icon">&#128101;</span> Families
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/cases">
+        <span class="icon">&#128149;</span> Cases
+        <span class="sidebar-badge">@_openCount</span>
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/kanban">
+        <span class="icon">&#9783;</span> Kanban Board
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/workload">
+        <span class="icon">&#128101;</span> Workload View
+      </NavLink>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Donations</div>
+      <NavLink class="sidebar-link" href="/admin/donations">
+        <span class="icon">&#128184;</span> All Donations
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/by-donor">
+        <span class="icon">&#128100;</span> By Donor
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/by-diocese">
+        <span class="icon">&#9961;</span> By Diocese
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/by-channel">
+        <span class="icon">&#128243;</span> By Channel
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/allocations">
+        <span class="icon">&#128203;</span> Fund Allocations
+        <span class="sidebar-badge">@_pendingAlloc</span>
+      </NavLink>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">People</div>
+      <NavLink class="sidebar-link" href="/admin/volunteers">
+        <span class="icon">&#129309;</span> Volunteers
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/events">
+        <span class="icon">&#128197;</span> Events
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/donors">
+        <span class="icon">&#127873;</span> Donors Database
+      </NavLink>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Admin</div>
+      <NavLink class="sidebar-link" href="/admin/impact">
+        <span class="icon">&#128200;</span> Impact Report
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/export">
+        <span class="icon">&#128190;</span> Export Data
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/audit">
+        <span class="icon">&#128269;</span> Audit Log
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/diocese-data">
+        <span class="icon">&#127760;</span> Diocese &amp; Parish Data
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/settings">
+        <span class="icon">&#9881;</span> Settings
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/users">
+        <span class="icon">&#128274;</span> User Management
+      </NavLink>
+    </div>
+
+    <div class="sidebar-footer">
+      LOTV Catholic Apostolate &bull; v1.0 &bull; WTE Solutions
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="lotv-main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">@_pageTitle</div>
+        <div class="topbar-breadcrumb">LOTV Staff Portal</div>
+      </div>
+      <div class="topbar-right">
+
+        <!-- GLOBAL SEARCH -->
+        <div style="position:relative;">
+          <input class="topbar-search" type="text" placeholder="&#128269; Search families, donors..."
+                 value="@_searchText"
+                 @oninput='e => OnSearchChanged(e.Value?.ToString() ?? string.Empty)'
+                 @onfocus="() => _searchOpen = true"
+                 @onblur="HideSearch" />
+          @if (_searchOpen && !string.IsNullOrWhiteSpace(_searchText) && _searchText.Length >= 2)
+          {
+            <div style="position:absolute;top:calc(100% + 6px);left:0;right:0;background:white;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:900;overflow:hidden;min-width:320px;">
+              @if (_searchFamilies.Any())
+              {
+                <div style="padding:6px 12px;font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--text-light);background:var(--bg);border-bottom:1px solid var(--border);">Families</div>
+                @foreach (var f in _searchFamilies.Take(4))
+                {
+                  <div style="padding:9px 14px;cursor:pointer;font-size:.84rem;border-bottom:1px solid var(--border);"
+                       @onmousedown='() => GoTo("/admin/families")'>
+                    <strong>@f.FullName</strong>
+                    <span style="font-size:.74rem;color:var(--text-light);margin-left:6px;">@f.Reason &bull; @f.City</span>
+                  </div>
+                }
+              }
+              @if (_searchDonors.Any())
+              {
+                <div style="padding:6px 12px;font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--text-light);background:var(--bg);border-bottom:1px solid var(--border);">Donors</div>
+                @foreach (var d in _searchDonors.Take(4))
+                {
+                  <div style="padding:9px 14px;cursor:pointer;font-size:.84rem;border-bottom:1px solid var(--border);"
+                       @onmousedown='() => GoTo("/admin/donors")'>
+                    <strong>@d.FullName</strong>
+                    <span style="font-size:.74rem;color:var(--text-light);margin-left:6px;">@d.Email &bull; @d.TotalGiven.ToString("C0")</span>
+                  </div>
+                }
+              }
+              @if (!_searchFamilies.Any() && !_searchDonors.Any())
+              {
+                <div style="padding:14px;font-size:.84rem;color:var(--text-light);text-align:center;">No results for &ldquo;@_searchText&rdquo;</div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- NOTIFICATIONS -->
+        <div style="position:relative;">
+          <div class="notif-btn" @onclick="() => _notifOpen = !_notifOpen" style="cursor:pointer;">
+            &#128276;
+            @if (_notifCount > 0)
+            { <div class="notif-dot">@(_notifCount > 9 ? "9+" : _notifCount.ToString())</div> }
+          </div>
+          @if (_notifOpen)
+          {
+            <div style="position:fixed;inset:0;z-index:799;" @onclick="() => _notifOpen = false"></div>
+            <div style="position:absolute;top:calc(100% + 8px);right:0;width:340px;background:white;border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.15);z-index:800;overflow:hidden;">
+              <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem;display:flex;justify-content:space-between;align-items:center;">
+                <span>Notifications</span>
+                @if (_notifCount > 0)
+                { <span style="font-size:.72rem;color:var(--text-light);">@_notifCount unresolved</span> }
+              </div>
+              @if (_overdueItems.Any())
+              {
+                <div style="padding:8px 16px 4px;font-size:.68rem;font-weight:700;text-transform:uppercase;color:var(--amber);">Overdue Cases</div>
+                @foreach (var r in _overdueItems.Take(5))
+                {
+                  <a href="/admin/cases" style="display:flex;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;" @onclick="() => _notifOpen = false">
+                    <span style="font-size:1rem;">&#9888;</span>
+                    <div>
+                      <div style="font-size:.82rem;font-weight:600;">Case #@r.Id &mdash; @(r.Family?.Parent1LastName ?? "Family")</div>
+                      <div style="font-size:.72rem;color:var(--text-light);">@(r.AssignedTo ?? "Unassigned") &bull; @GetNotifAge(r.CreatedAt) overdue</div>
+                    </div>
+                  </a>
+                }
+              }
+              @if (_pendingAllocItems.Any())
+              {
+                <div style="padding:8px 16px 4px;font-size:.68rem;font-weight:700;text-transform:uppercase;color:var(--navy);">Pending Allocations</div>
+                @foreach (var a in _pendingAllocItems.Take(3))
+                {
+                  <a href="/admin/allocations" style="display:flex;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;" @onclick="() => _notifOpen = false">
+                    <span style="font-size:1rem;">&#128197;</span>
+                    <div>
+                      <div style="font-size:.82rem;font-weight:600;">@a.Amount.ToString("C0") &rarr; @a.AllocatedTo</div>
+                      <div style="font-size:.72rem;color:var(--text-light);">Awaiting approval</div>
+                    </div>
+                  </a>
+                }
+              }
+              @if (_notifCount == 0)
+              {
+                <div style="padding:20px;text-align:center;font-size:.84rem;color:var(--text-light);">&#10003; All clear — no pending actions</div>
+              }
+              <div style="padding:10px 16px;background:var(--bg);text-align:center;">
+                <a href="/admin/audit" style="font-size:.78rem;color:var(--green);font-weight:600;text-decoration:none;" @onclick="() => _notifOpen = false">View Full Audit Log &rarr;</a>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="user-pill">
+          <div class="user-avatar">MR</div>
+          <span>Mary Roberts</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE CONTENT -->
+    <div class="lotv-content">
+      @Body
+    </div>
+
+  </div>
+</div>
+
+@code {
+  private int _openCount;
+  private int _pendingAlloc;
+  private string _pageTitle = "Dashboard Overview";
+
+  // Search
+  private string _searchText = "";
+  private bool _searchOpen;
+  private List<Family> _searchFamilies = [];
+  private List<Donor>  _searchDonors   = [];
+
+  // Notifications
+  private bool _notifOpen;
+  private int _notifCount;
+  private List<PackageRequest> _overdueItems     = [];
+  private List<FundAllocation> _pendingAllocItems = [];
+
+  [Inject] private IMockDataService Data { get; set; } = default!;
+
+  protected override void OnInitialized()
+  {
+    var stats = Data.GetDashboardStats();
+    _openCount    = stats.OpenCases;
+    _pendingAlloc = stats.PendingAllocations;
+
+    // Notifications data
+    _overdueItems = Data.GetRequests()
+      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
+      .Where(r => r.IsOverdue)
+      .OrderBy(r => r.CreatedAt)
+      .ToList();
+    _pendingAllocItems = Data.GetAllocations()
+      .Where(a => a.Status == AllocationStatus.PendingReview)
+      .ToList();
+    _notifCount = _overdueItems.Count + _pendingAllocItems.Count;
+
+    Nav.LocationChanged += (_, _) => UpdateTitle();
+    UpdateTitle();
+  }
+
+  private void OnSearchChanged(string text)
+  {
+    _searchText = text;
+    if (text.Length < 2) { _searchFamilies = []; _searchDonors = []; return; }
+    _searchFamilies = Data.GetFamilies()
+      .Where(f => f.FullName.Contains(text, StringComparison.OrdinalIgnoreCase) ||
+                  f.Email.Contains(text, StringComparison.OrdinalIgnoreCase))
+      .Take(4).ToList();
+    _searchDonors = Data.GetDonors()
+      .Where(d => d.FullName.Contains(text, StringComparison.OrdinalIgnoreCase) ||
+                  d.Email.Contains(text, StringComparison.OrdinalIgnoreCase))
+      .Take(4).ToList();
+  }
+
+  private async Task HideSearch()
+  {
+    await Task.Delay(150); // let onmousedown fire first
+    _searchOpen = false;
+  }
+
+  private void GoTo(string url)
+  {
+    _searchOpen = false;
+    _searchText = "";
+    Nav.NavigateTo(url);
+  }
+
+  private static string GetNotifAge(DateTime dt)
+  {
+    var d = (int)(DateTime.UtcNow - dt).TotalDays;
+    return $"{d}d";
+  }
+
+  private void UpdateTitle()
+  {
+    _pageTitle = Nav.Uri switch
+    {
+      var u when u.EndsWith("/admin/dashboard")  => "Dashboard Overview",
+      var u when u.EndsWith("/admin/families")    => "Family Directory",
+      var u when u.Contains("/admin/cases")       => "Family Cases",
+      var u when u.EndsWith("/admin/kanban")      => "Kanban Board",
+      var u when u.EndsWith("/admin/workload")    => "Workload View",
+      var u when u.EndsWith("/admin/donations")   => "All Donations",
+      var u when u.EndsWith("/admin/by-donor")    => "Donations by Donor",
+      var u when u.EndsWith("/admin/by-diocese")  => "Donations by Diocese",
+      var u when u.EndsWith("/admin/by-channel")  => "Donations by Channel",
+      var u when u.EndsWith("/admin/allocations") => "Fund Allocations",
+      var u when u.EndsWith("/admin/volunteers")  => "Volunteers",
+      var u when u.EndsWith("/admin/events")      => "Events",
+      var u when u.EndsWith("/admin/donors")      => "Donors Database",
+      var u when u.EndsWith("/admin/impact")      => "Impact Report",
+      var u when u.EndsWith("/admin/export")      => "Export Data",
+      var u when u.EndsWith("/admin/audit")       => "Audit Log",
+      var u when u.EndsWith("/admin/diocese-data")=> "Diocese & Parish Data",
+      var u when u.EndsWith("/admin/settings")    => "Settings",
+      var u when u.EndsWith("/admin/users")       => "User Management",
+      _ => "LOTV Staff Portal"
+    };
+    StateHasChanged();
+  }
+}

@@ -1,0 +1,102 @@
+@page "/admin/audit"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Audit Log — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Audit Log</h2><p>Append-only activity trail — all staff actions recorded</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="Refresh">&#8635; Refresh</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128196;</div>
+    <div class="kpi-label">Total Entries</div>
+    <div class="kpi-value" style="color:var(--navy)">@_log.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">Actions Today</div>
+    <div class="kpi-value" style="color:var(--green)">@_log.Count(e => e.Timestamp.Date == DateTime.UtcNow.Date)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128100;</div>
+    <div class="kpi-label">Unique Users</div>
+    <div class="kpi-value" style="color:var(--amber)">@_log.Select(e => e.UserName).Distinct().Count()</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#9998;</div>
+    <div class="kpi-label">Updates Logged</div>
+    <div class="kpi-value" style="color:var(--gold)">@_log.Count(e => e.Action.Equals("Updated", StringComparison.OrdinalIgnoreCase))</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged"})
+  { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search entries..." @bind="_search" @bind:event="oninput" />
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>ID</th><th>Details</th></tr>
+      </thead>
+      <tbody>
+        @foreach (var e in Filtered)
+        {
+          <tr>
+            <td style="font-size:.74rem;color:var(--text-light);white-space:nowrap;">
+              @e.Timestamp.ToString("MMM d, yyyy")<br />
+              <span style="font-size:.68rem;">@e.Timestamp.ToString("h:mm tt")</span>
+            </td>
+            <td style="font-size:.82rem;font-weight:600;">@e.UserName</td>
+            <td><span class="badge @ActionBadge(e.Action)" style="font-size:.66rem;">@e.Action</span></td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@e.Entity</td>
+            <td style="font-size:.72rem;color:var(--text-light);">@(e.EntityId ?? "—")</td>
+            <td style="font-size:.78rem;color:var(--text-mid);max-width:300px;">@(e.Details ?? "—")</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (!Filtered.Any())
+    {
+      <div style="text-align:center;padding:32px;color:var(--text-light);font-size:.88rem;">No matching audit entries.</div>
+    }
+  </div>
+</div>
+
+@code {
+  private List<AuditEntry> _log = [];
+  private string _filter = "All";
+  private string _search = "";
+
+  private IEnumerable<AuditEntry> Filtered => _log.Where(e =>
+  {
+    var matchFilter = _filter == "All" || e.Action.Equals(_filter, StringComparison.OrdinalIgnoreCase);
+    var matchSearch = string.IsNullOrEmpty(_search) ||
+      e.UserName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+      e.Entity.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+      (e.Details?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+    return matchFilter && matchSearch;
+  }).OrderByDescending(e => e.Timestamp);
+
+  protected override void OnInitialized() => _log = Data.GetAuditLog();
+  private void Refresh() => _log = Data.GetAuditLog();
+
+  private static string ActionBadge(string action) => action.ToLower() switch
+  {
+    "created"  => "badge-new",
+    "updated"  => "badge-inprogress",
+    "approved" => "badge-fulfilled",
+    "exported" => "badge-shipped",
+    "flagged"  => "badge-onhold",
+    _          => "badge-new"
+  };
+}

@@ -1,0 +1,175 @@
+@page "/admin/kanban"
+@layout AdminLayout
+@inject IMockDataService Data
+@inject NavigationManager Nav
+
+<PageTitle>Kanban Board — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Kanban Board</h2>
+    <p>Visual pipeline view of all active cases</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">List View</a>
+  </div>
+</div>
+
+<div class="kanban">
+  @foreach (var col in _columns)
+  {
+    var cases = _byStatus[col.Status];
+    <div class="kanban-col">
+      <div class="kanban-col-hd">
+        <span>@col.Label</span>
+        <span style="background:@col.Color;color:white;border-radius:10px;padding:1px 8px;font-size:.68rem;">@cases.Count</span>
+      </div>
+      @foreach (var r in cases)
+      {
+        <div class="kanban-card" @onclick="() => SelectCase(r)">
+          <div class="kanban-card-id">#@r.Id</div>
+          <div class="kanban-card-name">@r.Family?.FullName</div>
+          <div class="kanban-card-reason">@r.Reason</div>
+          <div class="kanban-card-footer">
+            <span class="kanban-assignee">@(r.AssignedTo ?? "Unassigned")</span>
+            <span class="kanban-age @(r.IsOverdue ? "badge-overdue" : "")">@GetAge(r.CreatedAt)</span>
+          </div>
+        </div>
+      }
+      @if (!cases.Any())
+      {
+        <div style="text-align:center;padding:20px 8px;font-size:.76rem;color:var(--text-light);border:1.5px dashed var(--border);border-radius:8px;">Empty</div>
+      }
+    </div>
+  }
+</div>
+
+<!-- QUICK VIEW DRAWER -->
+@if (_selected is not null)
+{
+  <div class="drawer-overlay" @onclick="CloseDrawer"></div>
+  <div class="drawer" style="width:400px;">
+    <div class="drawer-head">
+      <h3>Case #@_selected.Id &mdash; @_selected.Family?.Parent1LastName</h3>
+      <button class="drawer-close" @onclick="CloseDrawer">&#10005;</button>
+    </div>
+    <div class="drawer-body" style="gap:14px;">
+      <div style="background:var(--bg);border-radius:8px;padding:12px 14px;font-size:.84rem;display:flex;flex-direction:column;gap:6px;">
+        <div><strong>Family:</strong> @_selected.Family?.FullName</div>
+        <div><strong>Reason:</strong> @_selected.Reason</div>
+        <div><strong>Created:</strong> @_selected.CreatedAt.ToString("MMM d, yyyy") &bull; @GetAge(_selected.CreatedAt)</div>
+        @if (_selected.IsOverdue)
+        { <div style="color:var(--amber);font-weight:600;">&#9888; Overdue</div> }
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" @bind="_editStatus">
+          @foreach (var s in Enum.GetValues<CaseStatus>())
+          { <option value="@s">@s</option> }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Assigned To</label>
+        <select class="form-input" @bind="_editAssignedTo">
+          <option value="">— Unassigned —</option>
+          @foreach (var v in _volunteers)
+          { <option value="@v.FullName">@v.FullName</option> }
+        </select>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_selected.InternalNotes))
+      {
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <div style="background:var(--bg);border-radius:8px;padding:10px 12px;font-size:.82rem;color:var(--text-mid);">@_selected.InternalNotes</div>
+        </div>
+      }
+
+      @if (_drawerSaved)
+      { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">&#10003; Status updated</div> }
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-primary" @onclick="SaveFromDrawer">Save Changes</button>
+      <a href="/admin/cases" class="btn btn-sm">Full Details &rarr;</a>
+    </div>
+  </div>
+}
+
+@code {
+  private record Column(string Label, CaseStatus Status, string Color);
+
+  private readonly Column[] _columns =
+  [
+    new("New",               CaseStatus.New,              "#2d469d"),
+    new("In Progress",       CaseStatus.InProgress,       "#e67e22"),
+    new("Awaiting Shipment", CaseStatus.AwaitingShipment, "#9b8bb4"),
+    new("Shipped",           CaseStatus.Shipped,          "#487336"),
+    new("Fulfilled",         CaseStatus.Fulfilled,        "#198754"),
+  ];
+
+  private Dictionary<CaseStatus, List<PackageRequest>> _byStatus = new();
+  private List<Volunteer> _volunteers = [];
+  private PackageRequest? _selected;
+  private CaseStatus _editStatus;
+  private string _editAssignedTo = "";
+  private bool _drawerSaved;
+
+  protected override void OnInitialized()
+  {
+    _volunteers = Data.GetVolunteers().Where(v => v.Status == VolunteerStatus.Active).ToList();
+    Load();
+  }
+
+  private void Load()
+  {
+    var requests = Data.GetRequests()
+      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
+      .ToList();
+
+    _byStatus = _columns.ToDictionary(
+      c => c.Status,
+      c => requests.Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
+    );
+  }
+
+  private void SelectCase(PackageRequest r)
+  {
+    _selected       = r;
+    _editStatus     = r.Status;
+    _editAssignedTo = r.AssignedTo ?? "";
+    _drawerSaved    = false;
+  }
+
+  private void CloseDrawer() { _selected = null; _drawerSaved = false; }
+
+  private void SaveFromDrawer()
+  {
+    if (_selected is null) return;
+    _selected.Status     = _editStatus;
+    _selected.AssignedTo = string.IsNullOrEmpty(_editAssignedTo) ? null : _editAssignedTo;
+    _selected.UpdatedAt  = DateTime.UtcNow;
+    Data.UpdateRequest(_selected);
+    Data.LogAction("Mary Roberts", "Updated", "PackageRequest", _selected.Id.ToString(),
+      $"Status → {_editStatus}, assigned to {_editAssignedTo}");
+    _drawerSaved = true;
+    Load(); // refresh columns
+  }
+
+  private static string GetBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New        => "badge-new",
+    CaseStatus.InProgress => "badge-inprogress",
+    CaseStatus.Shipped    => "badge-shipped",
+    CaseStatus.Fulfilled  => "badge-fulfilled",
+    CaseStatus.OnHold     => "badge-onhold",
+    _ => "badge-new"
+  };
+
+  private static string GetAge(DateTime dt)
+  {
+    var d = (int)(DateTime.UtcNow - dt).TotalDays;
+    return d == 0 ? "Today" : $"{d}d";
+  }
+}

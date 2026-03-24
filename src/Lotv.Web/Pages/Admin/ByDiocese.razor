@@ -1,0 +1,98 @@
+@page "/admin/by-diocese"
+@layout AdminLayout
+@inject IMockDataService Data
+
+<PageTitle>Donations by Diocese — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donations by Diocese</h2><p>Giving and case activity per diocese</p></div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#9961;</div>
+    <div class="kpi-label">Dioceses Tracked</div>
+    <div class="kpi-value" style="color:var(--navy)">@_dioceses.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Donations</div>
+    <div class="kpi-value" style="color:var(--green)">@_dioceses.Sum(d => d.TotalDonations).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-label">Cases Fulfilled</div>
+    <div class="kpi-value" style="color:var(--amber)">@_dioceses.Sum(d => d.TotalCasesFulfilled)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-label">Active Parishes</div>
+    <div class="kpi-value" style="color:var(--gold)">@_dioceses.Sum(d => d.ActiveParishes)</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;">
+  @foreach (var d in _dioceses)
+  {
+    <div class="panel">
+      <div class="panel-head"><h3>@d.Name</h3><span style="font-size:.76rem;color:var(--text-light);">@d.State</span></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+          <div style="text-align:center;background:var(--green-pale);border-radius:8px;padding:10px;">
+            <div style="font-family:var(--ff-head);font-size:1.4rem;font-weight:700;color:var(--green);">@d.TotalDonations.ToString("C0")</div>
+            <div style="font-size:.68rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;">Total Donations</div>
+          </div>
+          <div style="text-align:center;background:var(--navy-pale);border-radius:8px;padding:10px;">
+            <div style="font-family:var(--ff-head);font-size:1.4rem;font-weight:700;color:var(--navy);">@d.TotalCasesFulfilled</div>
+            <div style="font-size:.68rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;">Cases Fulfilled</div>
+          </div>
+        </div>
+        <div style="font-size:.8rem;color:var(--text-mid);">
+          <div>&#128100; Coordinator: <strong>@(d.CoordinatorName ?? "—")</strong></div>
+          <div style="margin-top:4px;">&#9961; @d.ActiveParishes / @d.TotalParishes parishes active</div>
+        </div>
+        <div class="progress-bar" style="margin-top:10px;">
+          <div class="progress-fill" style="width:@(d.TotalParishes > 0 ? d.ActiveParishes * 100 / d.TotalParishes : 0)%;"></div>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- SUMMARY TABLE -->
+<div class="panel" style="margin-top:28px;">
+  <div class="panel-head"><h3>Diocese Comparison</h3></div>
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Diocese</th><th>State</th><th>Coordinator</th><th>Total Donations</th><th>Cases Fulfilled</th><th>Parishes (Active / Total)</th></tr>
+      </thead>
+      <tbody>
+        @foreach (var d in _dioceses.OrderByDescending(d => d.TotalDonations))
+        {
+          <tr>
+            <td><strong>@d.Name</strong></td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@d.State</td>
+            <td style="font-size:.8rem;">@(d.CoordinatorName ?? "—")</td>
+            <td style="font-weight:700;color:var(--green);">@d.TotalDonations.ToString("C0")</td>
+            <td style="font-weight:600;">@d.TotalCasesFulfilled</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:.82rem;">@d.ActiveParishes / @d.TotalParishes</span>
+                <div class="progress-bar" style="width:60px;">
+                  <div class="progress-fill" style="width:@(d.TotalParishes > 0 ? d.ActiveParishes * 100 / d.TotalParishes : 0)%;"></div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@code {
+  private List<Diocese> _dioceses = [];
+  protected override void OnInitialized() => _dioceses = Data.GetDioceses();
+}
