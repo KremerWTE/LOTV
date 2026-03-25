@@ -191,7 +191,7 @@
         <button class="btn" @onclick="CloseAdd">Cancel</button>
       </div>
       @if (_addSaved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Event created.</div> }
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; @(_wasEditing ? "Event updated." : "Event created.")</div> }
     </div>
   </div>
 }
@@ -201,6 +201,7 @@
   private string _filter = "All";
   private bool _showAdd;
   private bool _addSaved;
+  private bool _wasEditing;
   private string _addError = "";
   private MinistryEvent _form = new();
   private MinistryEvent? _editing;
@@ -256,7 +257,7 @@
     _showAdd      = true;
   }
 
-  private void CloseAdd() { _showAdd = false; _addSaved = false; _addError = ""; _editing = null; }
+  private void CloseAdd() { _showAdd = false; _addSaved = false; _wasEditing = false; _addError = ""; _editing = null; }
 
   private void SaveEvent()
   {
@@ -286,10 +287,11 @@
       Data.LogAction(Auth.UserName, "Updated", "MinistryEvent", _form.Id.ToString(), $"Updated event: {_form.Title}");
     }
 
-    _events   = Data.GetEvents();
-    _addSaved = true;
-    _addError = "";
-    _editing  = null;
+    _events     = Data.GetEvents();
+    _wasEditing = _editing != null;
+    _addSaved   = true;
+    _addError   = "";
+    _editing    = null;
   }
 
   private void AdjustReg(MinistryEvent ev, int delta)
