@@ -407,9 +407,14 @@
 
   private void SubmitNewRequest()
   {
-    if (string.IsNullOrWhiteSpace(_nf.Parent1LastName) || string.IsNullOrWhiteSpace(_nf.Email))
+    if (string.IsNullOrWhiteSpace(_nf.Parent1FirstName) || string.IsNullOrWhiteSpace(_nf.Parent1LastName))
     {
-      _newError = "Please fill in Last Name and Email before submitting.";
+      _newError = "First and last name are required.";
+      return;
+    }
+    if (string.IsNullOrWhiteSpace(_nf.Email))
+    {
+      _newError = "Email address is required.";
       return;
     }
 
