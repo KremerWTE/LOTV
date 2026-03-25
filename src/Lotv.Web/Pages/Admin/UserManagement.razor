@@ -77,6 +77,8 @@
           <option>Read Only</option>
         </select>
       </div>
+      @if (!string.IsNullOrEmpty(_formError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_formError</div> }
     </div>
     <div class="drawer-footer">
       <button class="btn btn-primary" @onclick="Save">@(_editUser == null ? "Send Invite" : "Save")</button>
@@ -106,9 +108,10 @@
 
   private bool _drawerOpen;
   private StaffUser? _editUser;
-  private string _formName  = "";
-  private string _formEmail = "";
-  private string _formRole  = "Case Manager";
+  private string _formName    = "";
+  private string _formEmail   = "";
+  private string _formRole    = "Case Manager";
+  private string _formError   = "";
   private string? _toast;
 
   private void OpenAdd()
@@ -117,6 +120,7 @@
     _formName  = "";
     _formEmail = "";
     _formRole  = "Case Manager";
+    _formError = "";
     _drawerOpen = true;
   }
 
@@ -126,11 +130,18 @@
     _formName  = u.Name;
     _formEmail = u.Email;
     _formRole  = u.Role;
+    _formError = "";
     _drawerOpen = true;
   }
 
   private async Task Save()
   {
+    _formError = "";
+    if (string.IsNullOrWhiteSpace(_formName))
+    { _formError = "Name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_formEmail))
+    { _formError = "Email address is required."; return; }
+
     if (_editUser == null)
     {
       var id = _users.Max(u => u.Id) + 1;
@@ -153,7 +164,7 @@
     await ShowToast(u.IsActive ? $"{u.Name} deactivated" : $"{u.Name} activated");
   }
 
-  private void CloseDrawer() => _drawerOpen = false;
+  private void CloseDrawer() { _drawerOpen = false; _formError = ""; }
 
   private async Task ShowToast(string msg)
   {

@@ -207,7 +207,7 @@
 
     var fulfilled = _requests
       .Where(r => r.Status == CaseStatus.Fulfilled)
-      .Select(r => (DateTime.UtcNow - r.CreatedAt).TotalDays)
+      .Select(r => (r.UpdatedAt - r.CreatedAt).TotalDays)
       .ToList();
 
     if (fulfilled.Count > 0)
