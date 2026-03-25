@@ -377,6 +377,67 @@ public class MockDataServiceTests
         Assert.Equal("TestUser", updated.ApprovedBy);
     }
 
+    // ── GetNextAvailableVolunteer ──────────────────────────────────────────────
+
+    [Fact]
+    public void GetNextAvailableVolunteer_ReturnsVolunteerWithFewestOpenCases()
+    {
+        var svc = CreateSvc();
+        // Load seed data — just verify it returns an active volunteer
+        var result = svc.GetNextAvailableVolunteer();
+        Assert.NotNull(result);
+        Assert.Equal(VolunteerStatus.Active, result.Status);
+    }
+
+    [Fact]
+    public void GetNextAvailableVolunteer_ReturnsNull_WhenNoActiveVolunteers()
+    {
+        var svc = new MockDataService();
+        // Snapshot to avoid modifying collection while iterating
+        var volunteers = svc.GetVolunteers().ToList();
+        foreach (var v in volunteers)
+        {
+            v.Status = VolunteerStatus.Inactive;
+            svc.UpdateVolunteer(v);
+        }
+        Assert.Null(svc.GetNextAvailableVolunteer());
+    }
+
+    // ── Audit Log ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void LogAction_CreatesAuditEntry_WithCorrectFields()
+    {
+        var svc    = CreateSvc();
+        var before = svc.GetAuditLog().Count;
+
+        svc.LogAction("TestUser", "Created", "Family", "42", "Test entry");
+
+        var log = svc.GetAuditLog();
+        Assert.Equal(before + 1, log.Count);
+        var entry = log.First(); // ordered by descending timestamp
+        Assert.Equal("TestUser", entry.UserName);
+        Assert.Equal("Created",  entry.Action);
+        Assert.Equal("Family",   entry.Entity);
+        Assert.Equal("42",       entry.EntityId);
+        Assert.Equal("Test entry", entry.Details);
+    }
+
+    // ── Family ContactNotes ────────────────────────────────────────────────────
+
+    [Fact]
+    public void UpdateFamily_PersistsContactNotes()
+    {
+        var svc    = CreateSvc();
+        var family = svc.GetFamilies().First();
+        family.ContactNotes = "Called twice, left voicemail.";
+
+        svc.UpdateFamily(family);
+
+        var updated = svc.GetFamily(family.Id);
+        Assert.Equal("Called twice, left voicemail.", updated?.ContactNotes);
+    }
+
     // ── Model Logic ───────────────────────────────────────────────────────────
 
     [Fact]

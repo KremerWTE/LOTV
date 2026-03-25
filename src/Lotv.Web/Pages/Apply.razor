@@ -141,9 +141,14 @@ else
 
   private void Submit()
   {
-    if (string.IsNullOrWhiteSpace(_f.Parent1LastName) || string.IsNullOrWhiteSpace(_f.Email))
+    if (string.IsNullOrWhiteSpace(_f.Parent1FirstName) || string.IsNullOrWhiteSpace(_f.Parent1LastName))
     {
-      _error = "Please provide your last name and email address.";
+      _error = "Please provide your first and last name.";
+      return;
+    }
+    if (string.IsNullOrWhiteSpace(_f.Email))
+    {
+      _error = "Please provide your email address.";
       return;
     }
 
