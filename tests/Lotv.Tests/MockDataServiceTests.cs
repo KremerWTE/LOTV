@@ -463,6 +463,28 @@ public class MockDataServiceTests
     }
 
     [Fact]
+    public void PackageRequest_IsNotOverdue_WhenCancelled()
+    {
+        var req = new PackageRequest
+        {
+            Status    = CaseStatus.Cancelled,
+            CreatedAt = DateTime.UtcNow.AddDays(-30)
+        };
+        Assert.False(req.IsOverdue);
+    }
+
+    [Fact]
+    public void PackageRequest_IsNotOverdue_WhenShipped()
+    {
+        var req = new PackageRequest
+        {
+            Status    = CaseStatus.Shipped,
+            CreatedAt = DateTime.UtcNow.AddDays(-14)
+        };
+        Assert.False(req.IsOverdue);
+    }
+
+    [Fact]
     public void PackageRequest_IsNotOverdue_WhenRecentlyCreated()
     {
         var req = new PackageRequest

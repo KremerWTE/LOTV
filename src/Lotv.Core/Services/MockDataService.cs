@@ -162,14 +162,14 @@ public class MockDataService : IMockDataService
         var now = DateTime.UtcNow;
         return
         [
-            new() { Id = 1, FamilyId = 1, Reason = PackageReason.Miscarriage, Status = CaseStatus.Fulfilled, AssignedTo = "Mary Roberts", CreatedAt = now.AddDays(-45), ShippedDate = now.AddDays(-40), TrackingNumber = "USPS92345678901234" },
+            new() { Id = 1, FamilyId = 1, Reason = PackageReason.Miscarriage, Status = CaseStatus.Fulfilled, AssignedTo = "Mary Roberts", CreatedAt = now.AddDays(-45), UpdatedAt = now.AddDays(-38), ShippedDate = now.AddDays(-40), TrackingNumber = "USPS92345678901234" },
             new() { Id = 2, FamilyId = 2, Reason = PackageReason.PrenatalDiagnosis, Status = CaseStatus.Shipped, AssignedTo = "Mary Roberts", CreatedAt = now.AddDays(-10), ShippedDate = now.AddDays(-3), TrackingNumber = "USPS92345678902345" },
             new() { Id = 3, FamilyId = 3, Reason = PackageReason.Infertility, Status = CaseStatus.InProgress, AssignedTo = "John Davis", CreatedAt = now.AddDays(-14), InternalNotes = "Assembling package. Lily oil on order." },
             new() { Id = 4, FamilyId = 4, Reason = PackageReason.Stillbirth, Status = CaseStatus.New, AssignedTo = null, CreatedAt = now.AddDays(-2) },
             new() { Id = 5, FamilyId = 5, Reason = PackageReason.InfantLoss, Status = CaseStatus.AwaitingShipment, AssignedTo = "Mary Roberts", CreatedAt = now.AddDays(-6) },
             new() { Id = 6, FamilyId = 6, Reason = PackageReason.PrenatalLifeLimitingDiagnosis, Status = CaseStatus.InProgress, AssignedTo = "Sarah Lee", CreatedAt = now.AddDays(-9) },
             new() { Id = 7, FamilyId = 7, Reason = PackageReason.Miscarriage, Status = CaseStatus.New, AssignedTo = null, CreatedAt = now.AddDays(-1) },
-            new() { Id = 8, FamilyId = 8, Reason = PackageReason.PastLoss, Status = CaseStatus.Fulfilled, AssignedTo = "John Davis", CreatedAt = now.AddDays(-30), ShippedDate = now.AddDays(-24) },
+            new() { Id = 8, FamilyId = 8, Reason = PackageReason.PastLoss, Status = CaseStatus.Fulfilled, AssignedTo = "John Davis", CreatedAt = now.AddDays(-30), UpdatedAt = now.AddDays(-21), ShippedDate = now.AddDays(-24) },
             new() { Id = 9, FamilyId = 9, Reason = PackageReason.Infertility, Status = CaseStatus.OnHold, AssignedTo = "Sarah Lee", CreatedAt = now.AddDays(-18), InternalNotes = "Address undeliverable — awaiting updated address." },
             new() { Id = 10, FamilyId = 10, Reason = PackageReason.Stillbirth, Status = CaseStatus.InProgress, AssignedTo = "Mary Roberts", CreatedAt = now.AddDays(-5) },
             // Additional open cases to reach ~24 total open
@@ -178,6 +178,7 @@ public class MockDataService : IMockDataService
             new() { Id = 13, FamilyId = 2, Reason = PackageReason.PrenatalDiagnosis, Status = CaseStatus.InProgress, AssignedTo = "John Davis", CreatedAt = now.AddDays(-11) },
             new() { Id = 14, FamilyId = 5, Reason = PackageReason.InfantLoss, Status = CaseStatus.New, CreatedAt = now.AddDays(-4) },
             new() { Id = 15, FamilyId = 7, Reason = PackageReason.Miscarriage, Status = CaseStatus.AwaitingShipment, AssignedTo = "Sarah Lee", CreatedAt = now.AddDays(-16) },
+            new() { Id = 16, FamilyId = 6, Reason = PackageReason.Infertility, Status = CaseStatus.Cancelled, AssignedTo = "Anne Collins", CreatedAt = now.AddDays(-22), UpdatedAt = now.AddDays(-17), InternalNotes = "Family requested cancellation — duplicate submission." },
         ];
     }
 

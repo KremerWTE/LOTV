@@ -21,7 +21,7 @@ public class PackageRequest
     public string? InternalNotes { get; set; }
     public string? ChildrenInitials { get; set; }
     public bool StaffOutreachRequested { get; set; } = true;
-    public bool IsOverdue => Status != CaseStatus.Fulfilled && CreatedAt < DateTime.UtcNow.AddDays(-7);
+    public bool IsOverdue => Status is not (CaseStatus.Fulfilled or CaseStatus.Shipped or CaseStatus.Cancelled) && CreatedAt < DateTime.UtcNow.AddDays(-7);
 }
 
 public enum CaseStatus
