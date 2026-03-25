@@ -495,6 +495,87 @@ public class MockDataServiceTests
         Assert.False(req.IsOverdue);
     }
 
+    // ── Dioceses & Parishes ───────────────────────────────────────────────────
+
+    [Fact]
+    public void GetDioceses_ReturnsSeededData()
+    {
+        var svc = CreateSvc();
+        var dioceses = svc.GetDioceses();
+
+        Assert.NotEmpty(dioceses);
+        Assert.All(dioceses, d => Assert.True(d.Id > 0));
+        Assert.All(dioceses, d => Assert.False(string.IsNullOrEmpty(d.Name)));
+    }
+
+    [Fact]
+    public void GetParishes_ReturnsSeededData_WithValidDioceseIds()
+    {
+        var svc      = CreateSvc();
+        var parishes = svc.GetParishes();
+        var dioceseIds = svc.GetDioceses().Select(d => d.Id).ToHashSet();
+
+        Assert.NotEmpty(parishes);
+        Assert.All(parishes, p => Assert.Contains(p.DioceseId, dioceseIds));
+    }
+
+    // ── Request lookup ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetRequest_UnknownId_ReturnsNull()
+    {
+        var svc = CreateSvc();
+        Assert.Null(svc.GetRequest(99999));
+    }
+
+    // ── Donor lookup ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetDonor_UnknownId_ReturnsNull()
+    {
+        var svc = CreateSvc();
+        Assert.Null(svc.GetDonor(99999));
+    }
+
+    // ── Dashboard Stats (extended) ────────────────────────────────────────────
+
+    [Fact]
+    public void GetDashboardStats_OverdueCasesMatchesActual()
+    {
+        var svc    = CreateSvc();
+        var stats  = svc.GetDashboardStats();
+        var actual = svc.GetRequests().Count(r => r.IsOverdue);
+
+        Assert.Equal(actual, stats.OverdueCases);
+    }
+
+    [Fact]
+    public void GetDashboardStats_UnallocatedFundsMatchesActual()
+    {
+        var svc    = CreateSvc();
+        var stats  = svc.GetDashboardStats();
+        var actual = svc.GetDonations()
+            .Where(d => d.AllocationStatus == AllocationStatus.Unallocated)
+            .Sum(d => d.Amount);
+
+        Assert.Equal(actual, stats.UnallocatedFunds);
+    }
+
+    [Fact]
+    public void GetDashboardStats_CancelledCases_NotCountedAsOverdue()
+    {
+        var svc = CreateSvc();
+        // Seed has a Cancelled case older than 7 days — it must not appear as overdue
+        var cancelledOld = svc.GetRequests()
+            .FirstOrDefault(r => r.Status == CaseStatus.Cancelled && r.CreatedAt < DateTime.UtcNow.AddDays(-7));
+        Assert.NotNull(cancelledOld); // confirms our seed case exists
+
+        var stats = svc.GetDashboardStats();
+        var actual = svc.GetRequests().Count(r => r.IsOverdue);
+        Assert.Equal(actual, stats.OverdueCases);
+        Assert.False(cancelledOld.IsOverdue);
+    }
+
     [Fact]
     public void Family_FullName_CombinesParentNames()
     {
