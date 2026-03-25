@@ -58,7 +58,7 @@
               <strong>@v.FullName</strong><br />
               <span style="font-size:.74rem;color:var(--text-light);">@v.Email</span>
             </td>
-            <td><span class="badge @RoleBadge(v.Role)" style="font-size:.68rem;">@v.Role</span></td>
+            <td><span class="badge @RoleBadge(v.Role)" style="font-size:.68rem;">@FormatRole(v.Role)</span></td>
             <td>
               @if (v.Status == VolunteerStatus.Active)
               { <span class="badge badge-fulfilled">Active</span> }
@@ -114,7 +114,7 @@
         <label class="form-label">Role</label>
         <select class="form-input" @bind="_formRole">
           @foreach (var r in Enum.GetValues<VolunteerRole>())
-          { <option value="@r">@r</option> }
+          { <option value="@r">@FormatRole(r)</option> }
         </select>
       </div>
       <div class="form-group">
@@ -273,6 +273,18 @@
     VolunteerRole.ParishLiaison    => "badge-inprogress",
     VolunteerRole.EventHelper      => "badge-new",
     VolunteerRole.Driver           => "badge-onhold",
+    VolunteerRole.Admin            => "badge-cancelled",
     _                              => "badge-new"
+  };
+
+  private static string FormatRole(VolunteerRole r) => r switch
+  {
+    VolunteerRole.PackageAssembler => "Package Assembler",
+    VolunteerRole.PrayerAmbassador => "Prayer Ambassador",
+    VolunteerRole.ParishLiaison    => "Parish Liaison",
+    VolunteerRole.EventHelper      => "Event Helper",
+    VolunteerRole.Driver           => "Driver",
+    VolunteerRole.Admin            => "Admin Support",
+    _                              => r.ToString()
   };
 }
