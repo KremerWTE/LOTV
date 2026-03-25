@@ -190,6 +190,8 @@
 }
 
 @code {
+  [Parameter][SupplyParameterFromQuery(Name = "donor")] public int DonorId { get; set; }
+
   private List<Donor> _donors = [];
   private Donor? _editing;
   private bool _showForm;
@@ -204,7 +206,15 @@
     (!_recurringOnly || d.IsRecurring)
   ).OrderByDescending(d => d.TotalGiven);
 
-  protected override void OnInitialized() => _donors = Data.GetDonors();
+  protected override void OnInitialized()
+  {
+    _donors = Data.GetDonors();
+    if (DonorId > 0)
+    {
+      var target = _donors.FirstOrDefault(d => d.Id == DonorId);
+      if (target is not null) Edit(target);
+    }
+  }
 
   private void Edit(Donor d) { _editing = d; _showForm = true; _formSaved = false; }
   private void CloseForm()   { _showForm = false; _editing = null; _formSaved = false; }
