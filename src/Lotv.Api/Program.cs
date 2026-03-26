@@ -1121,6 +1121,159 @@ dashboard.MapGet("/donations/by-person", async (LotvDbContext db, IChapterContex
     return Results.Ok(rows);
 });
 
+dashboard.MapGet("/donations/by-city", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.Donations.Include(d => d.Donor).AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(d => d.ChapterId == ctx.ChapterId.Value);
+    return await q
+        .Where(d => d.Donor != null && d.Donor.City != null && d.Donor.State != null)
+        .GroupBy(d => new { d.Donor!.City, d.Donor.State })
+        .Select(g => new
+        {
+            City         = g.Key.City!,
+            State        = g.Key.State!,
+            TotalDonors  = g.Select(d => d.DonorId).Distinct().Count(),
+            TotalAmount  = g.Sum(d => d.Amount)
+        })
+        .OrderByDescending(r => r.TotalAmount)
+        .ToListAsync();
+});
+
+dashboard.MapGet("/donations/by-amount", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.Donations.AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(d => d.ChapterId == ctx.ChapterId.Value);
+    var all = await q.Select(d => d.Amount).ToListAsync();
+    var total = all.Count > 0 ? (double)all.Count : 1d;
+    var bands = new[]
+    {
+        ("$1–$49",     all.Where(a => a < 50m).ToList()),
+        ("$50–$99",    all.Where(a => a >= 50m && a < 100m).ToList()),
+        ("$100–$249",  all.Where(a => a >= 100m && a < 250m).ToList()),
+        ("$250–$499",  all.Where(a => a >= 250m && a < 500m).ToList()),
+        ("$500–$999",  all.Where(a => a >= 500m && a < 1000m).ToList()),
+        ("$1,000+",    all.Where(a => a >= 1000m).ToList()),
+    };
+    return bands.Select(b => new
+    {
+        Band        = b.Item1,
+        GiftCount   = b.Item2.Count,
+        TotalAmount = b.Item2.Sum(),
+        Percentage  = Math.Round(b.Item2.Count / total * 100, 1)
+    }).ToList();
+});
+
+dashboard.MapGet("/donations/by-diocese", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.Donations.Include(d => d.Donor).AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(d => d.ChapterId == ctx.ChapterId.Value);
+    var rows = await q
+        .Where(d => d.Donor != null && d.Donor.DioceseId != null)
+        .GroupBy(d => new { d.Donor!.DioceseId, d.Donor.DioceseName })
+        .Select(g => new
+        {
+            DioceseId   = g.Key.DioceseId!.Value,
+            DioceseName = g.Key.DioceseName ?? "Unknown",
+            TotalDonors = g.Select(d => d.DonorId).Distinct().Count(),
+            TotalAmount = g.Sum(d => d.Amount),
+            AverageGift = Math.Round((double)g.Average(d => d.Amount), 2)
+        })
+        .OrderByDescending(r => r.TotalAmount)
+        .ToListAsync();
+    // Enrich with city/state from the Diocese table
+    var dioceseIds = rows.Select(r => r.DioceseId).ToList();
+    var dioceses = await db.Dioceses.Where(d => dioceseIds.Contains(d.Id))
+        .Select(d => new { d.Id, d.City, d.State }).ToListAsync();
+    return rows.Select(r =>
+    {
+        var d = dioceses.FirstOrDefault(x => x.Id == r.DioceseId);
+        return new { r.DioceseId, r.DioceseName, City = d?.City ?? "", State = d?.State ?? "", r.TotalDonors, r.TotalAmount, r.AverageGift };
+    }).ToList();
+});
+
+dashboard.MapGet("/timeline", async (LotvDbContext db, IChapterContextService ctx, int months = 12) =>
+{
+    var cutoff = DateTime.UtcNow.AddMonths(-months);
+    var donQ  = db.Donations.AsQueryable();
+    var reqQ  = db.Requests.AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
+    {
+        donQ = donQ.Where(d => d.ChapterId == ctx.ChapterId.Value);
+        reqQ = reqQ.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    }
+    var donations = await donQ.Where(d => d.Date >= cutoff)
+        .GroupBy(d => new { d.Date.Year, d.Date.Month })
+        .Select(g => new { g.Key.Year, g.Key.Month, Amount = g.Sum(d => d.Amount) })
+        .ToListAsync();
+    var fulfilled = await reqQ
+        .Where(r => (r.Status == CaseStatus.Fulfilled || r.Status == CaseStatus.Shipped)
+                    && r.UpdatedAt >= cutoff)
+        .GroupBy(r => new { r.UpdatedAt.Year, r.UpdatedAt.Month })
+        .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+        .ToListAsync();
+    var newReqs = await reqQ.Where(r => r.CreatedAt >= cutoff)
+        .GroupBy(r => new { r.CreatedAt.Year, r.CreatedAt.Month })
+        .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+        .ToListAsync();
+
+    var result = Enumerable.Range(0, months).Select(i =>
+    {
+        var dt = DateTime.UtcNow.AddMonths(-months + 1 + i);
+        var period = dt.ToString("MMM yyyy");
+        var don  = donations.FirstOrDefault(d => d.Year == dt.Year && d.Month == dt.Month)?.Amount ?? 0m;
+        var ful  = fulfilled.FirstOrDefault(f => f.Year == dt.Year && f.Month == dt.Month)?.Count ?? 0;
+        var nw   = newReqs.FirstOrDefault(n => n.Year == dt.Year && n.Month == dt.Month)?.Count ?? 0;
+        return new { Period = period, Donations = don, RequestsFulfilled = ful, NewRequests = nw };
+    }).ToList();
+    return result;
+});
+
+dashboard.MapGet("/money", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    // Join through Donation to get chapter scoping
+    var q = db.FundAllocations.Include(a => a.Donation).AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
+        q = q.Where(a => a.Donation != null && a.Donation.ChapterId == ctx.ChapterId.Value);
+    var all = await q.ToListAsync();
+    var total = all.Sum(a => (double)a.Amount);
+    if (total == 0) total = 1d;
+    // Extract category from the first segment of AllocatedTo (before " — ", " - ", or "(" )
+    var byCategory = all
+        .GroupBy(a =>
+        {
+            var t = a.AllocatedTo ?? "General";
+            foreach (var sep in new[] { " — ", " - ", " (", ":" })
+                if (t.Contains(sep)) return t[..t.IndexOf(sep, StringComparison.Ordinal)].Trim();
+            return t.Trim();
+        })
+        .Select(g => new
+        {
+            Category     = g.Key,
+            Amount       = g.Sum(a => a.Amount),
+            RequestCount = g.Count(),
+            Percentage   = Math.Round(g.Sum(a => (double)a.Amount) / total * 100, 1)
+        }).OrderByDescending(x => x.Amount).ToList();
+    return byCategory;
+});
+
+dashboard.MapGet("/resources", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.ResourceItems.AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    var all = await q.ToListAsync();
+    var totalQty = all.Sum(r => r.QuantityOnHand);
+    if (totalQty == 0) totalQty = 1;
+    var byCategory = all.GroupBy(r => r.Category.ToString()).Select(g => new
+    {
+        ResourceType = g.Key,
+        Quantity     = g.Sum(r => r.QuantityOnHand),
+        Unit         = "units",
+        RequestCount = g.Count(),
+        Percentage   = Math.Round((double)g.Sum(r => r.QuantityOnHand) / totalQty * 100, 1)
+    }).OrderByDescending(x => x.Quantity).ToList();
+    return byCategory;
+});
+
 // ── Chapters ─────────────────────────────────────────────────────────────────
 var chapters = app.MapGroup("/api/v1/chapters").WithTags("Chapters").RequireAuthorization("HQAdmin");
 
