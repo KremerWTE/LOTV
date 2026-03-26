@@ -21,6 +21,8 @@ public class Family
     public string? ParishName { get; set; }
     public string? DioceseName { get; set; }
     public string? HowHeard { get; set; }
+    public int ChapterId { get; set; }
+    public Chapter? Chapter { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public FamilyStatus Status { get; set; } = FamilyStatus.Active;
     public string? ContactNotes { get; set; }
@@ -40,6 +42,18 @@ public enum PackageReason
     InfantLoss,
     PastLoss,
     Other
+}
+
+public static class PackageReasonExtensions
+{
+    public static string ToDisplayName(this PackageReason r) => r switch
+    {
+        PackageReason.PrenatalDiagnosis             => "Prenatal Diagnosis",
+        PackageReason.PrenatalLifeLimitingDiagnosis => "Prenatal Life-Limiting Diagnosis",
+        PackageReason.InfantLoss                    => "Infant Loss",
+        PackageReason.PastLoss                      => "Past Loss",
+        _                                           => r.ToString()
+    };
 }
 
 public enum FamilyStatus

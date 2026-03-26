@@ -1,6 +1,6 @@
 @page "/admin/by-diocese"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Donations by Diocese — LOTV Staff Portal</PageTitle>
 
@@ -94,5 +94,5 @@
 
 @code {
   private List<Diocese> _dioceses = [];
-  protected override void OnInitialized() => _dioceses = Data.GetDioceses();
+  protected override async Task OnInitializedAsync() => _dioceses = await Api.GetDiocesesAsync();
 }

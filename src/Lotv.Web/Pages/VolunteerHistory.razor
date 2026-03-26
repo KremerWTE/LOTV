@@ -1,0 +1,110 @@
+@page "/volunteer/history"
+@inject ApiService Api
+
+<PageTitle>My Service History — LOTV Volunteer</PageTitle>
+
+<!-- NAV -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry — Volunteer Portal</div>
+  <div style="display:flex;gap:16px;">
+    <a href="/volunteer/dashboard" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">Dashboard</a>
+    <a href="/volunteer/my-assignments" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">My Assignments</a>
+    <a href="/volunteer/history" style="color:white;font-size:.84rem;text-decoration:none;font-weight:600;">History</a>
+  </div>
+</div>
+
+<div style="max-width:860px;margin:0 auto;padding:32px 24px;">
+
+  <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 20px;">My Service History</h2>
+
+  @if (_loading)
+  {
+    <Loading Message="Loading your history…" />
+  }
+  else
+  {
+    <!-- KPI STRIP -->
+    <div class="kpi-grid" style="margin-bottom:24px;">
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">&#9989;</div>
+        <div class="kpi-label">Total Fulfilled</div>
+        <div class="kpi-value" style="color:var(--green)">@_fulfilled.Count</div>
+      </div>
+      <div class="kpi-card kpi-navy">
+        <div class="kpi-icon">&#127975;</div>
+        <div class="kpi-label">Families Served</div>
+        <div class="kpi-value" style="color:var(--navy)">@_fulfilled.Select(r => r.FamilyId).Distinct().Count()</div>
+      </div>
+      <div class="kpi-card kpi-gold">
+        <div class="kpi-icon">&#128197;</div>
+        <div class="kpi-label">Service Since</div>
+        <div class="kpi-value" style="color:var(--gold);font-size:1rem;">@(_fulfilled.Any() ? _fulfilled.Min(r => r.CreatedAt).ToString("MMM yyyy") : "—")</div>
+      </div>
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-icon">&#128149;</div>
+        <div class="kpi-label">Top Category</div>
+        <div class="kpi-value" style="color:var(--amber);font-size:.95rem;">@_topCategory</div>
+      </div>
+    </div>
+
+    @if (!_fulfilled.Any())
+    {
+      <div class="panel" style="text-align:center;padding:40px;">
+        <div style="font-size:2rem;margin-bottom:10px;">&#127803;</div>
+        <p style="color:var(--text-mid);">No fulfilled requests yet. Accept a request from the Available tab to get started!</p>
+        <a href="/volunteer/available" class="btn btn-primary" style="margin-top:12px;">Browse Available Requests</a>
+      </div>
+    }
+    else
+    {
+      <!-- FULFILLMENT HISTORY TABLE -->
+      <div class="panel">
+        <div class="panel-header">Fulfilled Requests</div>
+        <div class="panel-body" style="padding:0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Category</th>
+                <th>Family</th>
+                <th>Fulfilled</th>
+                <th>Priority</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var req in _fulfilled.OrderByDescending(r => r.UpdatedAt))
+              {
+                <tr>
+                  <td style="color:var(--text-light);font-size:.8rem;">@req.Id</td>
+                  <td style="font-weight:600;">@req.Category</td>
+                  <td>Family #@req.FamilyId</td>
+                  <td>@req.UpdatedAt.ToString("MMM d, yyyy")</td>
+                  <td>
+                    <span class="badge @(req.Priority == RequestPriority.Urgent ? "badge-overdue" : req.Priority == RequestPriority.High ? "badge-new" : "badge-onhold")" style="font-size:.66rem;">@req.Priority</span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+</div>
+
+@code {
+  private List<PackageRequest> _fulfilled = [];
+  private bool _loading = true;
+
+  private string _topCategory => _fulfilled.Any()
+    ? _fulfilled.GroupBy(r => r.Category).OrderByDescending(g => g.Count()).First().Key.ToString()
+    : "—";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _loading = true;
+    var all = await Api.GetRequestsAsync(status: "Fulfilled");
+    _fulfilled = all;
+    _loading = false;
+  }
+}

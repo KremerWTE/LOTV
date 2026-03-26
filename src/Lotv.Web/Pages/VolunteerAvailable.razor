@@ -1,0 +1,106 @@
+@page "/volunteer/available"
+@inject ApiService Api
+
+<PageTitle>Available Requests — LOTV Volunteer</PageTitle>
+
+<!-- NAV -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry — Volunteer Portal</div>
+  <div style="display:flex;gap:16px;">
+    <a href="/volunteer/dashboard" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">Dashboard</a>
+    <a href="/volunteer/available" style="color:white;font-size:.84rem;text-decoration:none;font-weight:600;">Available Requests</a>
+    <a href="/volunteer/my-assignments" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">My Assignments</a>
+  </div>
+</div>
+
+<div style="max-width:900px;margin:0 auto;padding:32px 24px;">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <div>
+      <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 4px;">Available Requests Near You</h2>
+      <p style="color:var(--text-mid);margin:0;">Requests waiting for a volunteer — sorted by priority and proximity</p>
+    </div>
+  </div>
+
+  @if (_loading)
+  {
+    <Loading Message="Loading available requests…" />
+  }
+  else if (!_requests.Any())
+  {
+    <div class="panel" style="text-align:center;padding:48px;">
+      <div style="font-size:3rem;margin-bottom:12px;">&#9989;</div>
+      <h3 style="font-family:var(--ff-head);color:var(--navy);">All Clear!</h3>
+      <p style="color:var(--text-mid);">No unassigned requests in your area right now. Check back soon.</p>
+    </div>
+  }
+  else
+  {
+    <!-- FILTER -->
+    <div class="filter-bar" style="margin-bottom:16px;">
+      @foreach (var f in new[]{"All","Urgent","PackageDelivery","PrayerSupport","CounselingReferral","HospitalVisit"})
+      { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+    </div>
+
+    @foreach (var req in Filtered)
+    {
+      <div class="panel" style="margin-bottom:14px;">
+        <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="font-weight:700;color:var(--navy);">@req.Category Assistance</span>
+              @if (req.Priority == RequestPriority.Urgent)
+              { <span class="badge badge-overdue" style="font-size:.66rem;">Urgent</span> }
+              else if (req.Priority == RequestPriority.High)
+              { <span class="badge badge-new" style="font-size:.66rem;">High Priority</span> }
+              @if (req.IsOverdue)
+              { <span class="badge badge-overdue" style="font-size:.66rem;">Overdue</span> }
+            </div>
+            <div style="font-size:.78rem;color:var(--text-mid);display:flex;gap:12px;flex-wrap:wrap;">
+              <span>&#128197; Submitted @req.CreatedAt.ToString("MMM d, yyyy")</span>
+              @if (req.DueDate.HasValue)
+              { <span>&#127919; Due @req.DueDate.Value.ToString("MMM d, yyyy")</span> }
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" @onclick="() => AcceptAsync(req)">Accept Request</button>
+        </div>
+      </div>
+    }
+  }
+
+  @if (!string.IsNullOrEmpty(_toast))
+  {
+    <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;border-radius:10px;padding:12px 20px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2);">
+      &#10003; @_toast
+    </div>
+  }
+</div>
+
+@code {
+  private List<PackageRequest> _requests = [];
+  private bool _loading = true;
+  private string _filter = "All";
+  private string _toast = "";
+
+  private IEnumerable<PackageRequest> Filtered => _requests.Where(r =>
+    _filter == "All" || _filter == "Urgent"
+      ? (_filter == "Urgent" ? r.Priority == RequestPriority.Urgent : true)
+      : r.Category.ToString() == _filter
+  ).OrderBy(r => r.Priority).ThenBy(r => r.CreatedAt);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _loading = true;
+    _requests = await Api.GetRequestQueueAsync();
+    _loading = false;
+  }
+
+  private async Task AcceptAsync(PackageRequest req)
+  {
+    // In production: call accept assignment endpoint
+    _toast = $"Request #{req.Id} accepted! Check My Assignments.";
+    await Task.CompletedTask;
+    await Task.Delay(3000);
+    _toast = "";
+  }
+}

@@ -1,0 +1,122 @@
+@*
+  Reusable bar chart component — horizontal or vertical layout, CSS-based.
+
+  Usage (vertical):
+    <BarChart Items="_rows" LabelFunc="r => r.Channel" ValueFunc="r => (double)r.Amount"
+              FormatFunc="r => r.Amount.ToString("C0")" Color="var(--navy)" />
+
+  Usage (horizontal):
+    <BarChart Items="_rows" LabelFunc="r => r.Label" ValueFunc="r => r.Count"
+              Orientation="horizontal" Color="var(--green)" ShowValues />
+
+  Parameters:
+    Items          — IEnumerable<T> of data rows
+    LabelFunc      — extracts the display label from a row
+    ValueFunc      — extracts the numeric value from a row (used for bar sizing)
+    FormatFunc     — formats the value displayed on/next to the bar (default: value.ToString("N0"))
+    Color          — CSS color for bar fill (default: var(--navy))
+    SecondaryColor — optional second color for alternating bars; if null all bars use Color
+    Orientation    — "vertical" (default) | "horizontal"
+    MaxBarHeight   — max height for vertical bars in px (default 160)
+    ShowValues     — show value label on each bar (default true)
+    ShowPercent    — show percent of max alongside value (default false)
+    Title          — optional chart title above the chart
+*@
+
+@typeparam TItem
+
+@if (Items is null || !Items.Any())
+{
+  <div style="color:var(--text-light);font-size:.82rem;padding:16px 0;">No data available.</div>
+}
+else if (Orientation == "horizontal")
+{
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    @if (!string.IsNullOrEmpty(Title))
+    {
+      <div style="font-weight:600;color:var(--navy);font-size:.85rem;margin-bottom:4px;">@Title</div>
+    }
+    @foreach (var (item, i) in Items.Select((x, i) => (x, i)))
+    {
+      double val  = ValueFunc(item);
+      double pct  = _max > 0 ? val / _max * 100.0 : 0;
+      string fill = (SecondaryColor is not null && i % 2 == 1) ? SecondaryColor : Color;
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:.8rem;color:var(--text-mid);max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            @LabelFunc(item)
+          </span>
+          @if (ShowValues)
+          {
+            <span style="font-size:.8rem;font-weight:700;color:var(--text-body);">
+              @(FormatFunc is not null ? FormatFunc(item) : val.ToString("N0"))
+              @if (ShowPercent) { <span style="font-weight:400;color:var(--text-light);margin-left:4px;">(@((int)pct)%)</span> }
+            </span>
+          }
+        </div>
+        <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:@(pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%;background:@fill;border-radius:4px;transition:width .4s ease;"></div>
+        </div>
+      </div>
+    }
+  </div>
+}
+else
+{
+  @* Vertical *@
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    @if (!string.IsNullOrEmpty(Title))
+    {
+      <div style="font-weight:600;color:var(--navy);font-size:.85rem;margin-bottom:4px;">@Title</div>
+    }
+    <div style="display:flex;align-items:flex-end;gap:8px;height:@(MaxBarHeight)px;">
+      @foreach (var (item, i) in Items.Select((x, i) => (x, i)))
+      {
+        double val     = ValueFunc(item);
+        double pct     = _max > 0 ? val / _max * 100.0 : 0;
+        int    barH    = (int)(pct / 100.0 * MaxBarHeight);
+        string fill    = (SecondaryColor is not null && i % 2 == 1) ? SecondaryColor : Color;
+        <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px;">
+          @if (ShowValues)
+          {
+            <div style="font-size:.7rem;font-weight:700;color:var(--text-body);text-align:center;">
+              @(FormatFunc is not null ? FormatFunc(item) : val.ToString("N0"))
+            </div>
+          }
+          <div style="width:100%;height:@(barH)px;min-height:2px;background:@fill;border-radius:4px 4px 0 0;transition:height .4s ease;"></div>
+        </div>
+      }
+    </div>
+    @* X-axis labels *@
+    <div style="display:flex;gap:8px;">
+      @foreach (var item in Items)
+      {
+        <div style="flex:1;text-align:center;font-size:.68rem;color:var(--text-light);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          @LabelFunc(item)
+        </div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter, EditorRequired] public IEnumerable<TItem> Items { get; set; } = Enumerable.Empty<TItem>();
+  [Parameter, EditorRequired] public Func<TItem, string> LabelFunc { get; set; } = _ => "";
+  [Parameter, EditorRequired] public Func<TItem, double> ValueFunc { get; set; } = _ => 0;
+  [Parameter] public Func<TItem, string>? FormatFunc { get; set; }
+  [Parameter] public string Color { get; set; } = "var(--navy)";
+  [Parameter] public string? SecondaryColor { get; set; }
+  [Parameter] public string Orientation { get; set; } = "vertical";
+  [Parameter] public int MaxBarHeight { get; set; } = 160;
+  [Parameter] public bool ShowValues { get; set; } = true;
+  [Parameter] public bool ShowPercent { get; set; } = false;
+  [Parameter] public string Title { get; set; } = "";
+
+  private double _max;
+
+  protected override void OnParametersSet()
+  {
+    _max = Items.Any() ? Items.Max(ValueFunc) : 1;
+    if (_max == 0) _max = 1;
+  }
+}

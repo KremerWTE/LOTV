@@ -1,7 +1,6 @@
 @page "/admin/families"
 @layout AdminLayout
-@inject IMockDataService Data
-@inject AuthService Auth
+@inject ApiService Api
 
 <PageTitle>Family Directory — LOTV Staff Portal</PageTitle>
 
@@ -43,8 +42,8 @@
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Active","Closed","Follow-Up"})
   { <button class="filter-chip @(_statusFilter == f ? "active" : "")" @onclick="() => _statusFilter = f">@f</button> }
-  @foreach (var r in new[]{"Miscarriage","Stillbirth","PrenatalDiagnosis","InfantLoss","Infertility","PastLoss"})
-  { <button class="filter-chip @(_reasonFilter == r ? "active" : "")" @onclick='() => _reasonFilter = _reasonFilter == r ? string.Empty : r'>@r</button> }
+  @foreach (var r in new[]{ PackageReason.Miscarriage, PackageReason.Stillbirth, PackageReason.PrenatalDiagnosis, PackageReason.InfantLoss, PackageReason.Infertility, PackageReason.PastLoss })
+  { <button class="filter-chip @(_reasonFilter == r.ToString() ? "active" : "")" @onclick='() => _reasonFilter = _reasonFilter == r.ToString() ? string.Empty : r.ToString()'>@r.ToDisplayName()</button> }
   <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
          placeholder="&#128269; Search name, email, parish..."
          @bind="_search" @bind:event="oninput" />
@@ -82,7 +81,7 @@
               <div style="font-size:.74rem;color:var(--text-light);">@f.Phone</div>
             </td>
             <td>
-              <span class="badge @ReasonBadge(f.Reason)" style="font-size:.68rem;">@f.Reason</span>
+              <span class="badge @ReasonBadge(f.Reason)" style="font-size:.68rem;">@f.Reason.ToDisplayName()</span>
             </td>
             <td style="font-size:.78rem;color:var(--text-mid);">
               @(f.ParishName ?? "—")
@@ -152,7 +151,7 @@
       <div>
         <div class="form-label" style="margin-bottom:8px;">Loss Information</div>
         <div style="display:flex;gap:10px;align-items:center;">
-          <span class="badge @ReasonBadge(_selected.Reason)">@_selected.Reason</span>
+          <span class="badge @ReasonBadge(_selected.Reason)">@_selected.Reason.ToDisplayName()</span>
           <span class="badge @(StatusBadge(_selected.Status))">@_selected.Status</span>
         </div>
         @if (!string.IsNullOrEmpty(_selected.Story))
@@ -175,7 +174,7 @@
               <div style="background:var(--bg);border-radius:8px;padding:10px 12px;font-size:.82rem;display:flex;align-items:center;justify-content:space-between;gap:10px;">
                 <div>
                   <span style="font-weight:600;font-size:.8rem;color:var(--text-light);">#@r.Id</span>
-                  <span style="margin-left:8px;">@r.Reason</span>
+                  <span style="margin-left:8px;">@r.Reason.ToDisplayName()</span>
                   <div style="font-size:.74rem;color:var(--text-light);margin-top:2px;">
                     Opened @r.CreatedAt.ToString("MMM d, yyyy")
                     @if (!string.IsNullOrEmpty(r.AssignedTo))
@@ -212,7 +211,7 @@
       { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">&#10003; Family record updated</div> }
     </div>
     <div class="drawer-footer">
-      <button class="btn btn-primary" @onclick="SaveFamily">Save</button>
+      <button class="btn btn-primary" @onclick="SaveFamilyAsync">Save</button>
       <a href="/admin/cases?familyId=@_selected.Id" class="btn btn-sm">New Request &rarr;</a>
     </div>
   </div>
@@ -250,10 +249,10 @@
     return matchStatus && matchReason && matchSearch;
   }).OrderByDescending(f => f.CreatedAt);
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _families = Data.GetFamilies();
-    _requests = Data.GetRequests();
+    _families = await Api.GetFamiliesAsync();
+    _requests = await Api.GetRequestsAsync();
     _requestsByFamily = _requests
       .GroupBy(r => r.FamilyId)
       .ToDictionary(g => g.Key, g => g.ToList());
@@ -267,11 +266,10 @@
 
   private void OpenFamily(Family f) { _selected = f; _drawerSaved = false; }
 
-  private void SaveFamily()
+  private async Task SaveFamilyAsync()
   {
     if (_selected is null) return;
-    Data.UpdateFamily(_selected);
-    Data.LogAction(Auth.UserName, "Updated", "Family", _selected.Id.ToString(), $"{_selected.FullName} — status: {_selected.Status}");
+    await Api.UpdateFamilyAsync(_selected.Id, _selected);
     _drawerSaved = true;
   }
 

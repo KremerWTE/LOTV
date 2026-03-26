@@ -1,6 +1,6 @@
 @page "/admin/by-channel"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Donations by Channel — LOTV Staff Portal</PageTitle>
 
@@ -87,7 +87,13 @@
   private decimal _total;
   private string _dateFilter = "All Time";
 
-  protected override void OnInitialized() => Recalculate();
+  private List<Donation> _allDonations = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _allDonations = await Api.GetDonationsAsync();
+    Recalculate();
+  }
 
   private void SetFilter(string f) { _dateFilter = f; Recalculate(); }
 
@@ -96,13 +102,13 @@
     var now = DateTime.UtcNow;
     var source = _dateFilter switch
     {
-      "This Year"  => Data.GetDonations().Where(d => d.Date.Year == now.Year),
-      "This Month" => Data.GetDonations().Where(d => d.Date.Year == now.Year && d.Date.Month == now.Month),
-      "Last Month" => Data.GetDonations().Where(d => d.Date.Year == now.AddMonths(-1).Year && d.Date.Month == now.AddMonths(-1).Month),
-      _            => Data.GetDonations().AsEnumerable()
+      "This Year"  => _allDonations.Where(d => d.Date.Year == now.Year),
+      "This Month" => _allDonations.Where(d => d.Date.Year == now.Year && d.Date.Month == now.Month),
+      "Last Month" => _allDonations.Where(d => d.Date.Year == now.AddMonths(-1).Year && d.Date.Month == now.AddMonths(-1).Month),
+      _            => _allDonations.AsEnumerable()
     };
     _rows = source
-      .GroupBy(d => d.Channel.ToString())
+      .GroupBy(d => d.Channel.ToDisplayName())
       .Select(g => new ChannelRow(g.Key, g.Count(), g.Sum(d => d.Amount)))
       .OrderByDescending(r => r.Amount)
       .ToList();

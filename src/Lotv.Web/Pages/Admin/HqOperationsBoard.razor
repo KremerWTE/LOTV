@@ -1,0 +1,235 @@
+@page "/admin/hq-board"
+@layout AdminLayout
+@inject ApiService Api
+@inject SignalRService Hub
+@implements IDisposable
+
+<PageTitle>HQ Operations Board — LOTV</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>HQ Operations Board</h2>
+    <p>Live cross-chapter operations — all requests, all chapters</p>
+  </div>
+  <div class="page-hd-actions">
+    <span class="badge @(_hubConnected ? "badge-delivered" : "badge-onhold")" style="font-size:.72rem;">
+      @(_hubConnected ? "&#9679; Live" : "&#9675; Reconnecting")
+    </span>
+    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading all chapter operations…" Size="lg" />
+}
+else
+{
+  <!-- NATIONAL KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:24px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Chapters</div>
+      <div class="kpi-value" style="color:var(--navy)">@_groups.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-label">Total Open</div>
+      <div class="kpi-value" style="color:var(--amber)">@_totalOpen</div>
+    </div>
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--blush)">@_totalOverdue</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Fulfilled (30d)</div>
+      <div class="kpi-value" style="color:var(--green)">@_totalFulfilled</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128282;</div>
+      <div class="kpi-label">Unassigned</div>
+      <div class="kpi-value" style="color:var(--blush)">@_totalUnassigned</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#8987;</div>
+      <div class="kpi-label">Avg Age (days)</div>
+      <div class="kpi-value" style="color:var(--gold)">@_avgAge</div>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center;">
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-light);">Chapter:</span>
+    <button class="btn btn-sm @(_filterChapter == null ? "btn-primary" : "")" @onclick='() => _filterChapter = null'>All</button>
+    @foreach (var g in _groups)
+    {
+      <button class="btn btn-sm @(_filterChapter == g.ChapterId ? "btn-primary" : "")" @onclick='() => _filterChapter = g.ChapterId'>
+        @g.ChapterName
+        @if (g.Requests.Any(r => r.IsOverdue))
+        { <span class="badge badge-overdue" style="margin-left:4px;font-size:.6rem;">!</span> }
+      </button>
+    }
+    <span style="margin-left:auto;font-size:.74rem;color:var(--text-light);">Updated: @_lastRefresh.ToString("h:mm:ss tt")</span>
+  </div>
+
+  <!-- CHAPTER BOARDS -->
+  @foreach (var group in _filteredGroups)
+  {
+    var open       = group.Requests.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment);
+    var overdue    = group.Requests.Count(r => r.IsOverdue);
+    var unassigned = group.Requests.Count(r => r.AssignedToId == null && r.Status is CaseStatus.New or CaseStatus.InProgress);
+
+    <div class="panel" style="margin-bottom:16px;">
+
+      <!-- Chapter header -->
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:12px 12px 0 0;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:@(overdue > 0 ? "var(--blush)" : open > 0 ? "var(--amber)" : "var(--green)");"></div>
+          <span style="font-family:var(--ff-head);font-weight:700;color:var(--navy);">@group.ChapterName</span>
+          <span style="font-size:.74rem;color:var(--text-light);">Chapter #@group.ChapterId</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:.78rem;align-items:center;">
+          <span style="color:var(--amber);font-weight:600;">@open open</span>
+          @if (overdue > 0)
+          { <span style="color:var(--blush);font-weight:600;">&#9888; @overdue overdue</span> }
+          @if (unassigned > 0)
+          { <span style="color:var(--text-mid);">@unassigned unassigned</span> }
+          <a href="/admin/cases" style="color:var(--green);font-size:.74rem;text-decoration:none;font-weight:600;">View Cases &rarr;</a>
+        </div>
+      </div>
+
+      <!-- Status columns -->
+      @if (!group.Requests.Any(r => r.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled)))
+      {
+        <div style="padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">&#10003; No active requests</div>
+      }
+      else
+      {
+        <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+          @foreach (var col in _columns)
+          {
+            var colReqs = group.Requests.Where(r => r.Status == col.Status).ToList();
+            <div>
+              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <span>@col.Label</span>
+                @if (colReqs.Any())
+                { <span style="background:@col.Color;color:white;border-radius:10px;padding:1px 7px;font-size:.62rem;">@colReqs.Count</span> }
+              </div>
+              @foreach (var req in colReqs.Take(5))
+              {
+                <div style="background:white;border:1px solid var(--border);border-left:3px solid @(req.IsOverdue ? "var(--blush)" : col.Color);border-radius:7px;padding:9px 11px;margin-bottom:6px;font-size:.78rem;">
+                  <div style="font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    @(req.Family?.FullName ?? $"Family #{req.FamilyId}")
+                  </div>
+                  <div style="color:var(--text-light);font-size:.7rem;">@req.Reason &bull; @GetAge(req.CreatedAt)</div>
+                  @if (!string.IsNullOrEmpty(req.AssignedTo))
+                  { <div style="font-size:.7rem;color:var(--green);margin-top:2px;">&#10003; @req.AssignedTo</div> }
+                  else
+                  { <div style="font-size:.7rem;color:var(--text-light);margin-top:2px;">Unassigned</div> }
+                </div>
+              }
+              @if (colReqs.Count > 5)
+              { <div style="font-size:.7rem;color:var(--text-light);text-align:center;padding:4px;">+@(colReqs.Count - 5) more</div> }
+              @if (!colReqs.Any())
+              { <div style="font-size:.7rem;color:var(--text-light);text-align:center;padding:8px;">—</div> }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (!_groups.Any())
+  {
+    <div class="panel" style="text-align:center;padding:48px;">
+      <div style="font-size:2rem;margin-bottom:12px;">&#127968;</div>
+      <h3 style="font-family:var(--ff-head);color:var(--navy);">No Chapter Data</h3>
+      <p style="color:var(--text-mid);">No requests found across any chapters.</p>
+    </div>
+  }
+}
+
+@code {
+  private record ChapterGroup(int ChapterId, string ChapterName, List<PackageRequest> Requests);
+  private record BoardColumn(CaseStatus Status, string Label, string Color);
+
+  private static readonly BoardColumn[] _columns =
+  [
+    new(CaseStatus.New,              "New",               "var(--navy)"),
+    new(CaseStatus.InProgress,       "In Progress",       "var(--amber)"),
+    new(CaseStatus.AwaitingShipment, "Awaiting Shipment", "var(--green)"),
+    new(CaseStatus.Shipped,          "Shipped",           "var(--text-mid)"),
+  ];
+
+  private List<ChapterGroup> _groups       = [];
+  private int?               _filterChapter;
+  private bool               _loading      = true;
+  private bool               _hubConnected;
+  private DateTime           _lastRefresh  = DateTime.Now;
+
+  private int _totalOpen      => _groups.Sum(g => g.Requests.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment));
+  private int _totalOverdue   => _groups.Sum(g => g.Requests.Count(r => r.IsOverdue));
+  private int _totalFulfilled => _groups.Sum(g => g.Requests.Count(r => r.Status == CaseStatus.Fulfilled && r.UpdatedAt >= DateTime.UtcNow.AddDays(-30)));
+  private int _totalUnassigned => _groups.Sum(g => g.Requests.Count(r => r.AssignedToId == null && r.Status is CaseStatus.New or CaseStatus.InProgress));
+  private int _avgAge
+  {
+    get
+    {
+      var active = _groups.SelectMany(g => g.Requests)
+                          .Where(r => r.Status is CaseStatus.New or CaseStatus.InProgress)
+                          .ToList();
+      return active.Any() ? (int)active.Average(r => (DateTime.UtcNow - r.CreatedAt).TotalDays) : 0;
+    }
+  }
+
+  private IEnumerable<ChapterGroup> _filteredGroups =>
+    _filterChapter.HasValue
+      ? _groups.Where(g => g.ChapterId == _filterChapter.Value)
+      : _groups;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+    await Hub.ConnectAsync();
+    _hubConnected = Hub.State == Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected;
+
+    Hub.OnCaseStatusChanged += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnCaseCreated       += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnCaseAssigned      += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnReconnected       += async ()        => { _hubConnected = true; await LoadAsync(); await InvokeAsync(StateHasChanged); };
+  }
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    StateHasChanged();
+
+    var requests = await Api.GetRequestsAsync();
+    var hqRows   = await Api.GetHqSummaryAsync();
+    var nameMap  = hqRows.ToDictionary(r => r.ChapterId, r => r.ChapterName);
+
+    _groups = requests
+      .GroupBy(r => r.ChapterId)
+      .Select(g => new ChapterGroup(
+        g.Key,
+        nameMap.TryGetValue(g.Key, out var name) ? name : $"Chapter {g.Key}",
+        g.OrderByDescending(r => r.IsOverdue).ThenBy(r => r.CreatedAt).ToList()
+      ))
+      .OrderByDescending(g => g.Requests.Count(r => r.IsOverdue))
+      .ThenByDescending(g => g.Requests.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress))
+      .ToList();
+
+    _lastRefresh = DateTime.Now;
+    _loading = false;
+  }
+
+  public void Dispose() => _ = Hub.DisconnectAsync();
+
+  private static string GetAge(DateTime dt)
+  {
+    var d = (int)(DateTime.UtcNow - dt).TotalDays;
+    return d == 0 ? "today" : $"{d}d";
+  }
+}

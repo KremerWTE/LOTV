@@ -1,0 +1,128 @@
+@*
+  Reusable donut/pie chart — SVG-based, no external library.
+
+  Usage:
+    <PieChart Items="_rows" LabelFunc="r => r.Channel" ValueFunc="r => (double)r.Amount"
+              FormatFunc="r => r.Amount.ToString("C0")" />
+
+    <PieChart Items="_rows" LabelFunc="r => r.Name" ValueFunc="r => r.Count"
+              Colors="_colors" Size="200" InnerRatio="0" Title="Requests" />
+
+  Parameters:
+    Items       — IEnumerable<T> data rows
+    LabelFunc   — display label for each slice
+    ValueFunc   — numeric value for each slice (determines angle)
+    FormatFunc  — value label shown in legend (default: value.ToString("N0"))
+    Colors      — ordered list of CSS color strings; cycles if fewer than slices
+    Size        — SVG width/height in px (default 200)
+    InnerRatio  — 0 = full pie; 0.6 = donut with 60% hole (default 0.6)
+    ShowLegend  — whether to render the legend below the chart (default true)
+    Title       — optional center label (donut only, InnerRatio > 0)
+*@
+
+@typeparam TItem
+
+@if (Items is null || !Items.Any() || Items.Sum(ValueFunc) == 0)
+{
+  <div style="color:var(--text-light);font-size:.82rem;padding:16px 0;">No data available.</div>
+}
+else
+{
+  double total  = Items.Sum(ValueFunc);
+  double cx     = Size / 2.0;
+  double cy     = Size / 2.0;
+  double r      = cx * 0.9;
+  double inner  = r * InnerRatio;
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+
+    <svg width="@Size" height="@Size" viewBox="0 0 @Size @Size" style="overflow:visible;">
+      @{
+        double cumAngle = -90; // start at top
+        int colorIndex  = 0;
+        var slices = Items.Select(item => new
+        {
+          Item  = item,
+          Value = ValueFunc(item),
+          Pct   = ValueFunc(item) / total
+        }).Where(s => s.Value > 0).ToList();
+      }
+
+      @foreach (var s in slices)
+      {
+        double sweepAngle = s.Pct * 360.0;
+        // clamp tiny slices so SVG arc doesn't collapse
+        if (sweepAngle < 0.5) sweepAngle = 0.5;
+        double startRad = cumAngle * Math.PI / 180.0;
+        double endRad   = (cumAngle + sweepAngle) * Math.PI / 180.0;
+        double x1 = cx + r * Math.Cos(startRad);
+        double y1 = cy + r * Math.Sin(startRad);
+        double x2 = cx + r * Math.Cos(endRad);
+        double y2 = cy + r * Math.Sin(endRad);
+        double xi1 = cx + inner * Math.Cos(startRad);
+        double yi1 = cy + inner * Math.Sin(startRad);
+        double xi2 = cx + inner * Math.Cos(endRad);
+        double yi2 = cy + inner * Math.Sin(endRad);
+        int largeArc = sweepAngle > 180 ? 1 : 0;
+        string color = Colors[colorIndex % Colors.Count];
+        colorIndex++;
+
+        string path = InnerRatio > 0
+          ? $"M {Fmt(x1)} {Fmt(y1)} A {Fmt(r)} {Fmt(r)} 0 {largeArc} 1 {Fmt(x2)} {Fmt(y2)} L {Fmt(xi2)} {Fmt(yi2)} A {Fmt(inner)} {Fmt(inner)} 0 {largeArc} 0 {Fmt(xi1)} {Fmt(yi1)} Z"
+          : $"M {Fmt(cx)} {Fmt(cy)} L {Fmt(x1)} {Fmt(y1)} A {Fmt(r)} {Fmt(r)} 0 {largeArc} 1 {Fmt(x2)} {Fmt(y2)} Z";
+
+        <path d="@path" fill="@color" stroke="white" stroke-width="1.5" />
+
+        cumAngle += sweepAngle;
+      }
+
+      @* Center label for donut *@
+      @if (InnerRatio > 0 && !string.IsNullOrEmpty(Title))
+      {
+        @((MarkupString)$"<text x=\"{Fmt(cx)}\" y=\"{Fmt(cy - 6)}\" text-anchor=\"middle\" dominant-baseline=\"middle\" style=\"font-size:{Fmt(Size * 0.07)}px;fill:var(--navy);font-weight:700;font-family:Georgia,serif;\">{Title}</text>")
+        @((MarkupString)$"<text x=\"{Fmt(cx)}\" y=\"{Fmt(cy + Size * 0.07)}\" text-anchor=\"middle\" dominant-baseline=\"middle\" style=\"font-size:{Fmt(Size * 0.054)}px;fill:var(--text-light);\">total</text>")
+      }
+    </svg>
+
+    @if (ShowLegend)
+    {
+      int li = 0;
+      <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
+        @foreach (var s in slices)
+        {
+          string lc = Colors[li % Colors.Count];
+          int pct   = (int)Math.Round(s.Pct * 100);
+          li++;
+          <div style="display:flex;align-items:center;gap:8px;font-size:.8rem;">
+            <div style="width:12px;height:12px;border-radius:3px;background:@lc;flex-shrink:0;"></div>
+            <span style="flex:1;color:var(--text-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@LabelFunc(s.Item)</span>
+            <span style="font-weight:700;color:var(--text-body);">
+              @(FormatFunc is not null ? FormatFunc(s.Item) : s.Value.ToString("N0"))
+            </span>
+            <span style="color:var(--text-light);min-width:36px;text-align:right;">@pct%</span>
+          </div>
+        }
+      </div>
+    }
+
+  </div>
+}
+
+@code {
+  [Parameter, EditorRequired] public IEnumerable<TItem> Items { get; set; } = Enumerable.Empty<TItem>();
+  [Parameter, EditorRequired] public Func<TItem, string> LabelFunc { get; set; } = _ => "";
+  [Parameter, EditorRequired] public Func<TItem, double> ValueFunc { get; set; } = _ => 0;
+  [Parameter] public Func<TItem, string>? FormatFunc { get; set; }
+  [Parameter] public List<string> Colors { get; set; } = new()
+  {
+    "var(--navy)", "#2d6a2d", "#c07000", "#5a2d9a", "#b91c1c",
+    "#0891b2", "#d97706", "#7c3aed", "#059669", "#dc2626"
+  };
+  [Parameter] public int Size { get; set; } = 200;
+  [Parameter] public double InnerRatio { get; set; } = 0.6;
+  [Parameter] public bool ShowLegend { get; set; } = true;
+  [Parameter] public string Title { get; set; } = "";
+
+  private static string Fmt(double v) =>
+    v.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+}

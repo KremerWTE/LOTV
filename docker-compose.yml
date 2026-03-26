@@ -1,0 +1,42 @@
+services:
+
+  # ── API ───────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: src/Lotv.Api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      # SQLite in dev — swap ConnectionStrings__DefaultConnection for Postgres in prod
+      ConnectionStrings__DefaultConnection: "Data Source=/data/lotv-dev.db"
+      # JWT — CHANGE BEFORE DEPLOYING (min 64 chars for HS256)
+      Jwt__Key: "CHANGE_ME_replace_with_at_least_64_char_secret_before_deploying"
+      Jwt__Issuer: "lotv-api"
+      Jwt__Audience: "lotv-web"
+      AllowedOrigins__0: "http://localhost:80"
+      AllowedOrigins__1: "http://localhost"
+    volumes:
+      - db-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Web (Blazor WASM) ─────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: src/Lotv.Web/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  db-data:

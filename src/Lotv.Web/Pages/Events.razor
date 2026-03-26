@@ -1,0 +1,227 @@
+@page "/events"
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Upcoming Events — LOTV Ministry</PageTitle>
+
+<!-- PUBLIC NAV -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div>
+      <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
+      <div style="font-size:.7rem;opacity:.7;">Events &amp; Fundraisers</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;">
+    <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
+    <a href="/give" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Donate</a>
+    <a href="/volunteer" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Volunteer</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy-dark,#0a1628) 100%);color:white;padding:48px 32px;text-align:center;">
+  <div style="font-size:2.2rem;margin-bottom:10px;">&#128197;</div>
+  <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 8px;">Upcoming Events</h1>
+  <p style="font-size:.95rem;opacity:.8;max-width:540px;margin:0 auto;">Join us for galas, silent auctions, and community gatherings. Every event supports families in need.</p>
+</div>
+
+<div style="max-width:1060px;margin:0 auto;padding:36px 24px;">
+
+  @if (_loading)
+  {
+    <Loading Message="Loading events…" />
+  }
+  else if (!_upcoming.Any())
+  {
+    <div style="text-align:center;padding:60px;color:var(--text-mid);">
+      <div style="font-size:2.5rem;margin-bottom:12px;">&#128197;</div>
+      <h3 style="font-family:var(--ff-head);color:var(--navy);">No Upcoming Events</h3>
+      <p>Check back soon — events are being planned!</p>
+    </div>
+  }
+  else
+  {
+    <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 20px;">Upcoming Events</h2>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;margin-bottom:40px;">
+      @foreach (var ev in _upcoming)
+      {
+        var pct = ev.Capacity.HasValue && ev.Capacity > 0
+          ? Math.Min(100, (int)((double)ev.Registered / ev.Capacity.Value * 100)) : 0;
+        var isFull = ev.Capacity.HasValue && ev.Registered >= ev.Capacity;
+
+        <div class="panel" style="display:flex;flex-direction:column;">
+          <!-- EVENT TYPE COLOR BAND -->
+          <div style="height:5px;background:@GetTypeColor(ev.Type);border-radius:10px 10px 0 0;"></div>
+
+          <div style="padding:18px 20px;flex:1;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+              <div>
+                <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 3px;font-size:1rem;">@ev.Title</h3>
+                <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);">@ev.Type</span>
+              </div>
+              @if (ev.IsVirtual)
+              { <span class="badge badge-shipped" style="font-size:.66rem;">Virtual</span> }
+              else
+              { <span class="badge badge-new" style="font-size:.66rem;">In-Person</span> }
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+              <div>
+                <div style="font-size:.66rem;text-transform:uppercase;color:var(--text-light);margin-bottom:2px;">Date</div>
+                <div style="font-weight:600;font-size:.86rem;">@ev.Date.ToString("MMM d, yyyy")</div>
+                <div style="font-size:.76rem;color:var(--text-mid);">@ev.Date.ToString("h:mm tt")</div>
+              </div>
+              <div>
+                <div style="font-size:.66rem;text-transform:uppercase;color:var(--text-light);margin-bottom:2px;">Location</div>
+                <div style="font-size:.82rem;color:var(--text-mid);">@(string.IsNullOrEmpty(ev.Location) ? (ev.IsVirtual ? "Online" : "TBD") : ev.Location)</div>
+              </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ev.Description))
+            {
+              <p style="font-size:.82rem;color:var(--text-mid);margin:0 0 12px;line-height:1.5;">@(ev.Description.Length > 120 ? ev.Description[..120] + "…" : ev.Description)</p>
+            }
+
+            @if (ev.Capacity.HasValue)
+            {
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:.74rem;margin-bottom:4px;">
+                  <span>@ev.Registered registered</span>
+                  <span style="font-weight:600;">@ev.Capacity spots total</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width:@pct%;"></div>
+                </div>
+                @if (isFull)
+                { <div style="font-size:.7rem;color:var(--blush);margin-top:3px;font-weight:600;">This event is full</div> }
+                else if (pct >= 80)
+                { <div style="font-size:.7rem;color:var(--amber);margin-top:3px;">&#9888; Almost full — @(ev.Capacity - ev.Registered) spots left</div> }
+              </div>
+            }
+          </div>
+
+          <div style="padding:12px 20px;border-top:1px solid var(--border);">
+            @if (isFull)
+            {
+              <button class="btn btn-sm" disabled style="width:100%;opacity:.6;">Event Full</button>
+            }
+            else
+            {
+              <button class="btn btn-primary btn-sm" style="width:100%;" @onclick="() => OpenRSVP(ev)">RSVP / Register</button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    @if (_past.Any())
+    {
+      <h2 style="font-family:var(--ff-head);color:var(--text-mid);margin:0 0 16px;font-size:1.1rem;">Past Events</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:40px;">
+        @foreach (var ev in _past)
+        {
+          <div class="panel" style="opacity:.7;">
+            <div style="padding:14px 18px;">
+              <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">@ev.Title</div>
+              <div style="font-size:.76rem;color:var(--text-mid);">@ev.Date.ToString("MMM d, yyyy") &bull; @ev.Type</div>
+              <div style="font-size:.76rem;color:var(--text-light);margin-top:4px;">@ev.Registered attended</div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
+
+<!-- RSVP MODAL -->
+@if (_rsvpEvent != null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;" @onclick="() => _rsvpEvent = null">
+    <div style="background:white;border-radius:14px;padding:28px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2);" @onclick:stopPropagation>
+      <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;">RSVP: @_rsvpEvent.Title</h3>
+      <p style="color:var(--text-mid);font-size:.84rem;margin:0 0 18px;">@_rsvpEvent.Date.ToString("MMMM d, yyyy") &bull; @(string.IsNullOrEmpty(_rsvpEvent.Location) ? "Online" : _rsvpEvent.Location)</p>
+
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Your Name *</label>
+        <input class="form-input" @bind="_rsvpName" placeholder="Full name" />
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Email *</label>
+        <input class="form-input" type="email" @bind="_rsvpEmail" placeholder="you@example.com" />
+      </div>
+      <div class="form-group" style="margin-bottom:18px;">
+        <label class="form-label">Number of guests</label>
+        <input class="form-input" type="number" @bind="_rsvpCount" min="1" max="10" style="max-width:100px;" />
+      </div>
+
+      @if (!string.IsNullOrEmpty(_rsvpError))
+      {
+        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:12px;">&#9888; @_rsvpError</div>
+      }
+      @if (_rsvpConfirmed)
+      {
+        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);margin-bottom:12px;">&#10003; You are registered! A confirmation will be sent to @_rsvpEmail.</div>
+      }
+
+      <div style="display:flex;gap:10px;">
+        @if (!_rsvpConfirmed)
+        {
+          <button class="btn btn-primary" @onclick="ConfirmRSVP">Confirm Registration</button>
+        }
+        <button class="btn" @onclick="() => _rsvpEvent = null">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<MinistryEvent> _upcoming = [];
+  private List<MinistryEvent> _past = [];
+  private bool _loading = true;
+  private MinistryEvent? _rsvpEvent;
+  private string _rsvpName = "";
+  private string _rsvpEmail = "";
+  private int _rsvpCount = 1;
+  private string _rsvpError = "";
+  private bool _rsvpConfirmed;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _loading = true;
+    var all = await Api.GetEventsAsync();
+    _upcoming = all.Where(e => e.Date >= DateTime.UtcNow).OrderBy(e => e.Date).ToList();
+    _past     = all.Where(e => e.Date < DateTime.UtcNow).OrderByDescending(e => e.Date).Take(6).ToList();
+    _loading  = false;
+  }
+
+  private void OpenRSVP(MinistryEvent ev)
+  {
+    _rsvpEvent = ev; _rsvpName = ""; _rsvpEmail = ""; _rsvpCount = 1;
+    _rsvpError = ""; _rsvpConfirmed = false;
+  }
+
+  private async Task ConfirmRSVP()
+  {
+    _rsvpError = "";
+    if (string.IsNullOrWhiteSpace(_rsvpName)) { _rsvpError = "Name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_rsvpEmail)) { _rsvpError = "Email is required."; return; }
+
+    // In production: call Api.CreateAttendeeAsync(_rsvpEvent.Id, ...)
+    await Task.CompletedTask;
+    _rsvpConfirmed = true;
+  }
+
+  private static string GetTypeColor(EventType t) => t switch
+  {
+    EventType.Gala             => "var(--gold)",
+    EventType.SilentAuction    => "var(--amber)",
+    EventType.Dinner           => "var(--navy)",
+    EventType.Concert          => "var(--green)",
+    EventType.PrayerNight      => "var(--green)",
+    EventType.InPersonGathering=> "var(--navy)",
+    _                          => "var(--text-light)"
+  };
+}

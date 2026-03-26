@@ -1,6 +1,6 @@
 @page "/admin/impact"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Impact Report — LOTV Staff Portal</PageTitle>
 
@@ -177,18 +177,26 @@
   private List<MonthRow>  _monthlyTrend = [];
   private string _avgFulfillDays = "—";
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _families   = Data.GetFamilies();
-    _requests   = Data.GetRequests();
-    _donations  = Data.GetDonations();
-    _volunteers = Data.GetVolunteers();
-    _parishes   = Data.GetParishes();
-    _donors     = Data.GetDonors();
-    _events     = Data.GetEvents();
+    var t1 = Api.GetFamiliesAsync();
+    var t2 = Api.GetRequestsAsync();
+    var t3 = Api.GetDonationsAsync();
+    var t4 = Api.GetVolunteersAsync();
+    var t5 = Api.GetParishesAsync();
+    var t6 = Api.GetDonorsAsync();
+    var t7 = Api.GetEventsAsync();
+    await Task.WhenAll(t1, t2, t3, t4, t5, t6, t7);
+    _families   = t1.Result;
+    _requests   = t2.Result;
+    _donations  = t3.Result;
+    _volunteers = t4.Result;
+    _parishes   = t5.Result;
+    _donors     = t6.Result;
+    _events     = t7.Result;
 
     _byReason = _families
-      .GroupBy(f => f.Reason.ToString())
+      .GroupBy(f => f.Reason.ToDisplayName())
       .Select(g => new ReasonRow(g.Key, g.Count()))
       .OrderByDescending(r => r.Count)
       .ToList();

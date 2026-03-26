@@ -1,7 +1,6 @@
 @page "/admin/events"
 @layout AdminLayout
-@inject IMockDataService Data
-@inject AuthService Auth
+@inject ApiService Api
 
 <PageTitle>Ministry Events — LOTV Staff Portal</PageTitle>
 
@@ -110,6 +109,7 @@
               <span style="font-size:.72rem;color:var(--text-light);">registered</span>
             </div>
           }
+          <a href="/admin/events/@e.Id" class="btn btn-sm">Details</a>
           <button class="btn btn-sm" @onclick="() => OpenEdit(e)">Edit</button>
         </div>
       </div>
@@ -218,7 +218,7 @@
     _           => true
   }).OrderBy(e => e.Date);
 
-  protected override void OnInitialized() => _events = Data.GetEvents();
+  protected override async Task OnInitializedAsync() => _events = await Api.GetEventsAsync();
 
   private void OpenAdd()
   {
@@ -259,7 +259,7 @@
 
   private void CloseAdd() { _showAdd = false; _addSaved = false; _wasEditing = false; _addError = ""; _editing = null; }
 
-  private void SaveEvent()
+  private async Task SaveEvent()
   {
     if (string.IsNullOrWhiteSpace(_form.Title))
     { _addError = "Title is required."; return; }
@@ -277,27 +277,21 @@
     _form.Capacity = _formCapacity;
 
     if (_editing == null)
-    {
-      Data.AddEvent(_form);
-      Data.LogAction(Auth.UserName, "Created", "MinistryEvent", _form.Id.ToString(), $"Event: {_form.Title} on {_form.Date:MMM d, yyyy}");
-    }
+      await Api.CreateEventAsync(_form);
     else
-    {
-      Data.UpdateEvent(_form);
-      Data.LogAction(Auth.UserName, "Updated", "MinistryEvent", _form.Id.ToString(), $"Updated event: {_form.Title}");
-    }
+      await Api.UpdateEventAsync(_form.Id, _form);
 
-    _events     = Data.GetEvents();
+    _events     = await Api.GetEventsAsync();
     _wasEditing = _editing != null;
     _addSaved   = true;
     _addError   = "";
     _editing    = null;
   }
 
-  private void AdjustReg(MinistryEvent ev, int delta)
+  private async Task AdjustReg(MinistryEvent ev, int delta)
   {
     ev.Registered = Math.Max(0, ev.Registered + delta);
     if (ev.Capacity.HasValue) ev.Registered = Math.Min(ev.Registered, ev.Capacity.Value);
-    Data.UpdateEvent(ev);
+    await Api.UpdateEventAsync(ev.Id, ev);
   }
 }

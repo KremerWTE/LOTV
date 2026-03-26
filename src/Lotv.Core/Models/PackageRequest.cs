@@ -12,8 +12,14 @@ public class PackageRequest
     public string? ReferrerEmail { get; set; }
 
     public PackageReason Reason { get; set; }
+    public RequestCategory Category { get; set; } = RequestCategory.Other;
     public CaseStatus Status { get; set; } = CaseStatus.New;
-    public string? AssignedTo { get; set; }
+    public RequestPriority Priority { get; set; } = RequestPriority.Normal;
+    public int? AssignedToId { get; set; }         // VolunteerId or null
+    public string? AssignedTo { get; set; }        // display name (kept for UI compat)
+    public DateTime? DueDate { get; set; }
+    public int ChapterId { get; set; }
+    public Chapter? Chapter { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ShippedDate { get; set; }
@@ -21,7 +27,7 @@ public class PackageRequest
     public string? InternalNotes { get; set; }
     public string? ChildrenInitials { get; set; }
     public bool StaffOutreachRequested { get; set; } = true;
-    public bool IsOverdue => Status is not (CaseStatus.Fulfilled or CaseStatus.Shipped or CaseStatus.Cancelled) && CreatedAt < DateTime.UtcNow.AddDays(-7);
+    public bool IsOverdue => Status is not (CaseStatus.Fulfilled or CaseStatus.Shipped or CaseStatus.Cancelled or CaseStatus.OnHold) && CreatedAt < DateTime.UtcNow.AddDays(-7);
 }
 
 public enum CaseStatus
@@ -33,4 +39,23 @@ public enum CaseStatus
     Fulfilled,
     OnHold,
     Cancelled
+}
+
+public enum RequestPriority
+{
+    Urgent,
+    High,
+    Normal,
+    Low
+}
+
+public enum RequestCategory
+{
+    PackageDelivery,
+    PrayerSupport,
+    CounselingReferral,
+    HospitalVisit,
+    Memorial,
+    ResourceProvision,
+    Other
 }

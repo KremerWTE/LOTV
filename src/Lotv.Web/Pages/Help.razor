@@ -1,0 +1,237 @@
+@page "/help"
+@layout PublicLayout
+
+<PageTitle>Help & FAQ — LOTV Ministry</PageTitle>
+
+<div style="max-width:780px;margin:0 auto;padding:40px 24px;">
+
+  <div style="margin-bottom:36px;">
+    <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">Help &amp; FAQ</h1>
+    <p style="color:var(--text-light);font-size:.9rem;margin:0;">Find answers to common questions about requests, volunteering, and donations.</p>
+  </div>
+
+  <!-- Search -->
+  <div style="margin-bottom:32px;">
+    <input class="form-input" @bind="_search" @bind:event="oninput"
+           placeholder="Search questions…" style="font-size:.9rem;max-width:400px;" />
+  </div>
+
+  <!-- Category tabs -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;">
+    @foreach (var cat in Categories)
+    {
+      <button class="filter-chip @(_category == cat ? "active" : "")" @onclick="() => _category = cat">
+        @cat
+      </button>
+    }
+  </div>
+
+  <!-- FAQ items -->
+  @{
+    var visible = FilteredItems.ToList();
+  }
+
+  @if (!visible.Any())
+  {
+    <div style="padding:40px;text-align:center;color:var(--text-light);font-size:.88rem;">
+      No results for "<strong>@_search</strong>". Try different keywords or browse by category.
+    </div>
+  }
+  else
+  {
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      @foreach (var item in visible)
+      {
+        bool open = _open.Contains(item.Id);
+        <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+          <button @onclick="() => Toggle(item.Id)"
+                  style="width:100%;text-align:left;padding:16px 20px;background:@(open ? "#f0f7ff" : "white");
+                         border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <span style="font-weight:600;color:var(--navy);font-size:.9rem;">@item.Question</span>
+            <span style="color:var(--text-light);font-size:1.1rem;flex-shrink:0;">@(open ? "−" : "+")</span>
+          </button>
+          @if (open)
+          {
+            <div style="padding:0 20px 18px;background:#f0f7ff;border-top:1px solid var(--border);">
+              <div style="font-size:.85rem;color:var(--text-mid);line-height:1.8;padding-top:14px;">
+                @((MarkupString)item.Answer)
+              </div>
+              <div style="margin-top:10px;">
+                <span style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:12px;
+                             padding:2px 10px;font-size:.72rem;color:var(--text-light);">
+                  @item.Category
+                </span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Contact block -->
+  <div style="margin-top:40px;background:#f0faf0;border-radius:12px;padding:28px;text-align:center;">
+    <div style="font-size:1.5rem;margin-bottom:10px;">&#128172;</div>
+    <div style="font-weight:700;color:#2d6a2d;font-size:1rem;margin-bottom:8px;">Still have questions?</div>
+    <p style="color:var(--text-mid);font-size:.85rem;margin:0 0 16px;line-height:1.7;">
+      Our team is here to help. Reach out and we'll get back to you within one business day.
+    </p>
+    <a href="mailto:support@lotvministry.org"
+       style="display:inline-block;background:#2d6a2d;color:white;padding:10px 24px;border-radius:8px;
+              font-size:.88rem;font-weight:700;text-decoration:none;">
+      Email Support
+    </a>
+  </div>
+
+</div>
+
+@code {
+  private string _search   = "";
+  private string _category = "All";
+  private readonly HashSet<int> _open = new();
+
+  private static readonly string[] Categories =
+    { "All", "Requesting Help", "Volunteering", "Donations", "Account & Privacy", "Technical" };
+
+  private IEnumerable<FaqItem> FilteredItems
+  {
+    get
+    {
+      var q = _items.AsEnumerable();
+      if (_category != "All")
+        q = q.Where(i => i.Category == _category);
+      if (!string.IsNullOrWhiteSpace(_search))
+        q = q.Where(i => i.Question.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                      || i.Answer.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return q;
+    }
+  }
+
+  private void Toggle(int id)
+  {
+    if (!_open.Add(id)) _open.Remove(id);
+  }
+
+  private record FaqItem(int Id, string Category, string Question, string Answer);
+
+  private readonly List<FaqItem> _items = new()
+  {
+    // Requesting Help
+    new(1, "Requesting Help", "Who is eligible to request assistance?",
+      "Lily of the Valley Ministry serves families who have experienced the loss of a child — whether through miscarriage, stillbirth, or infant loss. " +
+      "There is no income requirement. If you are walking through this grief, we are here for you."),
+
+    new(2, "Requesting Help", "How do I submit a request for a care package?",
+      "Visit our <a href=\"/apply\" style=\"color:var(--navy);\">Apply page</a> and complete the short intake form. " +
+      "A chapter coordinator will review your request within 24–48 hours and reach out to confirm your information before dispatching a volunteer."),
+
+    new(3, "Requesting Help", "How long does it take to receive my package?",
+      "Most families receive their care package within 5–7 days of submitting a request. Timing depends on volunteer availability in your area. " +
+      "You can track your request status at any time by logging in and visiting <a href=\"/my-requests\" style=\"color:var(--navy);\">My Requests</a>."),
+
+    new(4, "Requesting Help", "Can I request multiple times?",
+      "Yes. If your family has experienced multiple losses, you may submit a new request for each one. " +
+      "Our team treats every request with full care and attention."),
+
+    new(5, "Requesting Help", "What is included in a care package?",
+      "Packages vary by chapter and available inventory but typically include: a memory box, knitted blanket, " +
+      "grief book or journal, a handwritten card, and practical comfort items. " +
+      "If you have a specific need, include it in the notes section of your request."),
+
+    new(6, "Requesting Help", "How do I check the status of my request?",
+      "Log in and visit <a href=\"/my-requests\" style=\"color:var(--navy);\">My Requests</a>. " +
+      "You'll see the current status, the volunteer assigned, and any updates from your chapter coordinator. " +
+      "You'll also receive email notifications when your status changes."),
+
+    // Volunteering
+    new(7, "Volunteering", "How do I sign up to volunteer?",
+      "Visit our <a href=\"/volunteer-signup\" style=\"color:var(--navy);\">Volunteer Sign-Up page</a>. " +
+      "After completing registration, you'll go through a brief onboarding process to confirm your availability and skills, " +
+      "then receive your first assignment notification when a nearby family needs support."),
+
+    new(8, "Volunteering", "What does a volunteer actually do?",
+      "Volunteers assemble care packages using our packing guidelines and deliver them to families — typically a doorstep drop-off. " +
+      "Some volunteers also knit blankets, make comfort calls, or assist with administrative tasks depending on their skills and preferences."),
+
+    new(9, "Volunteering", "How much time does volunteering require?",
+      "Each assignment takes roughly 1–3 hours including assembly and delivery. " +
+      "You set your own availability and can limit how many requests you receive per month (as few as 1). " +
+      "There is no minimum commitment."),
+
+    new(10, "Volunteering", "What if I need to decline an assignment?",
+      "No problem — life happens. When you receive an assignment notification, you have 24 hours to accept or decline. " +
+      "If you decline, the request returns to the queue and another volunteer will be notified. " +
+      "Declining will never count against you."),
+
+    new(11, "Volunteering", "Are supplies provided or do I purchase them myself?",
+      "Your chapter maintains a supply hub where you can pick up packing materials. " +
+      "If you need to purchase items, keep your receipts and submit for reimbursement through your chapter coordinator. " +
+      "Reimbursements are typically processed within one week."),
+
+    new(12, "Volunteering", "Can I volunteer as a knitter or crafter from home?",
+      "Absolutely. Select \"Knitting / Crocheting\" as a skill when you sign up. " +
+      "We will mail or drop off yarn and pattern guidelines. Completed items can be mailed back or dropped off at a chapter hub."),
+
+    // Donations
+    new(13, "Donations", "How do I make a monetary donation?",
+      "Visit our <a href=\"/give\" style=\"color:var(--navy);\">Give page</a>. " +
+      "Donations are processed securely through Stripe. You will receive a tax receipt by email immediately after your gift is processed."),
+
+    new(14, "Donations", "Is my donation tax-deductible?",
+      "Yes. Lily of the Valley Ministry is a 501(c)(3) tax-exempt organization (EIN: XX-XXXXXXX). " +
+      "All monetary donations are deductible to the full extent allowed by law under IRC § 170. " +
+      "You will receive an IRS-compliant receipt for every gift."),
+
+    new(15, "Donations", "How do I get a year-end giving statement?",
+      "Log in and visit your donor profile. Under Giving History, click <strong>Download Year-End Statement</strong>. " +
+      "The statement lists all your contributions for the calendar year and includes the required IRS language. " +
+      "Statements are also emailed automatically in January."),
+
+    new(16, "Donations", "Can I donate physical goods?",
+      "Yes. Visit the <a href=\"/donate-resources\" style=\"color:var(--navy);\">Donate Resources page</a> to log an in-kind donation. " +
+      "Common items include blankets, memory boxes, journals, and baby clothing. " +
+      "A chapter coordinator will follow up to arrange drop-off or pick-up."),
+
+    new(17, "Donations", "Can I set up a recurring gift?",
+      "Yes. During the donation flow, check <strong>Make this a recurring gift</strong> and choose your frequency (monthly, quarterly, etc.). " +
+      "You can pause or cancel your recurring gift at any time from your donor profile."),
+
+    new(18, "Donations", "How is my donation used?",
+      "100% of donor gifts are used to serve families. Funds cover care package supplies, grief books, shipping, " +
+      "volunteer reimbursements, and chapter operations. " +
+      "View the <a href=\"/transparency\" style=\"color:var(--navy);\">Transparency page</a> for a full public breakdown of how funds are allocated."),
+
+    // Account & Privacy
+    new(19, "Account & Privacy", "How do I update my contact information?",
+      "Log in and visit <a href=\"/my-profile\" style=\"color:var(--navy);\">My Profile</a>. " +
+      "You can update your name, email, phone, mailing address, and communication preferences at any time."),
+
+    new(20, "Account & Privacy", "Can I request that my information be kept private?",
+      "Yes. Contact your chapter coordinator or email <a href=\"mailto:support@lotvministry.org\" style=\"color:var(--navy);\">support@lotvministry.org</a> " +
+      "to request anonymization of your donor or family record. Your name will no longer appear in any reports or communications visible to other users."),
+
+    new(21, "Account & Privacy", "What data do you collect and how is it stored?",
+      "We collect only the information needed to deliver services: your name, contact info, address, and giving history. " +
+      "Data is encrypted in transit (TLS) and at rest. We do not sell or share your data with third parties. " +
+      "See our <a href=\"/privacy\" style=\"color:var(--navy);\">Privacy Policy</a> for full details."),
+
+    new(22, "Account & Privacy", "How do I delete my account?",
+      "Email <a href=\"mailto:support@lotvministry.org\" style=\"color:var(--navy);\">support@lotvministry.org</a> with the subject line \"Account Deletion Request.\" " +
+      "We will process your request within 30 days per our data retention policy. " +
+      "Note: donation records required for tax compliance are retained for 7 years as required by law."),
+
+    // Technical
+    new(23, "Technical", "I forgot my password. How do I reset it?",
+      "On the <a href=\"/login\" style=\"color:var(--navy);\">Login page</a>, click <strong>Forgot Password</strong> and enter your email address. " +
+      "You will receive a reset link within a few minutes. Check your spam folder if it doesn't arrive."),
+
+    new(24, "Technical", "The site isn't loading correctly. What should I do?",
+      "Try a hard refresh (Ctrl+Shift+R on Windows, Cmd+Shift+R on Mac). " +
+      "If the issue persists, clear your browser cache or try a different browser. " +
+      "If you're seeing an error message, take a screenshot and email it to <a href=\"mailto:support@lotvministry.org\" style=\"color:var(--navy);\">support@lotvministry.org</a>."),
+
+    new(25, "Technical", "Why isn't my request status updating in real time?",
+      "Real-time updates use a live connection to our server. If updates aren't appearing, " +
+      "your browser may have lost the connection. Refresh the page to reconnect — your data will sync automatically."),
+  };
+}

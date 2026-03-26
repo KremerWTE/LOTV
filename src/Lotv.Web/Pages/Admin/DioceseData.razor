@@ -1,6 +1,6 @@
 @page "/admin/diocese-data"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Diocese &amp; Parish Data — LOTV Staff Portal</PageTitle>
 
@@ -114,10 +114,13 @@
   private IEnumerable<Parish> ParishRows =>
     _selectedDiocese == null ? _parishes : _parishes.Where(p => p.DioceseId == _selectedDiocese.Id);
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _dioceses = Data.GetDioceses();
-    _parishes = Data.GetParishes();
+    var t1 = Api.GetDiocesesAsync();
+    var t2 = Api.GetParishesAsync();
+    await Task.WhenAll(t1, t2);
+    _dioceses = t1.Result;
+    _parishes = t2.Result;
   }
 
   private void SelectDiocese(Diocese d) =>

@@ -1,0 +1,693 @@
+@page "/admin/events/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Event Detail — LOTV Staff Portal</PageTitle>
+
+@if (_loading)
+{
+  <Loading Message="Loading event…" Size="lg" />
+}
+else if (_event is null)
+{
+  <div class="empty-state">
+    <div class="icon">&#10060;</div>
+    <p>Event #@Id not found.</p>
+    <a href="/admin/events" class="btn btn-sm" style="margin-top:16px;">Back to Events</a>
+  </div>
+}
+else
+{
+  <!-- HEADER -->
+  <div class="page-hd">
+    <div>
+      <div style="font-size:.76rem;color:var(--text-light);margin-bottom:4px;">
+        <a href="/admin/events" style="color:var(--green);text-decoration:none;">Events</a> &rsaquo; #@_event.Id
+      </div>
+      <h2>@_event.Title</h2>
+      <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="badge @GetStatusBadge(_event.Status)">@_event.Status</span>
+        <span class="badge badge-new" style="font-size:.68rem;">@_event.Type</span>
+        @if (_event.IsVirtual)
+        { <span class="badge badge-shipped" style="font-size:.68rem;">Virtual</span> }
+        <span style="font-size:.76rem;color:var(--text-light);">@_event.Date.ToString("dddd, MMMM d, yyyy h:mm tt")</span>
+      </div>
+    </div>
+    <div class="page-hd-actions">
+      <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+      @if (_event.Status is not (EventStatus.Cancelled or EventStatus.Completed))
+      {
+        <button class="btn btn-sm" @onclick="OpenEdit">&#9998; Edit</button>
+      }
+      @if (Auth.IsHqAdmin && _event.Status is not (EventStatus.Cancelled or EventStatus.Completed))
+      {
+        <button class="btn btn-sm" style="color:#dc3545;border-color:#dc3545;" @onclick="CancelEventAsync">&#10006; Cancel Event</button>
+      }
+      <a href="/admin/events" class="btn btn-sm">&#8592; All Events</a>
+    </div>
+  </div>
+
+  @if (!string.IsNullOrEmpty(_msg))
+  { <div style="background:var(--green-pale);border-radius:8px;padding:10px 16px;font-size:.84rem;color:var(--green-dark);margin-bottom:16px;">&#10003; @_msg</div> }
+  @if (!string.IsNullOrEmpty(_err))
+  { <div style="background:#fff3cd;border-radius:8px;padding:10px 16px;font-size:.84rem;color:#856404;margin-bottom:16px;">&#9888; @_err</div> }
+
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Registered</div>
+      <div class="kpi-value" style="color:var(--green)">@_event.Registered @(_event.Capacity.HasValue ? $"/ {_event.Capacity}" : "")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Checked In</div>
+      <div class="kpi-value" style="color:var(--navy)">@_attendees.Count(a => a.CheckedIn)</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Ticket Revenue</div>
+      <div class="kpi-value" style="color:var(--gold)">@_revenue?.Tickets.ToString("C") </div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value" style="color:var(--amber)">@_revenue?.Total.ToString("C")</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
+    @foreach (var tab in new[]{"Summary","Attendees","Auction","Revenue"})
+    {
+      <button style="padding:10px 20px;border:none;background:none;font-size:.86rem;font-weight:@(_tab == tab ? "700" : "400");color:@(_tab == tab ? "var(--green)" : "var(--text-mid)");border-bottom:@(_tab == tab ? "2px solid var(--green)" : "2px solid transparent");margin-bottom:-2px;cursor:pointer;"
+              @onclick="() => _tab = tab">@tab</button>
+    }
+  </div>
+
+  <!-- TAB CONTENT -->
+
+  @if (_tab == "Summary")
+  {
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;">
+      <div class="panel">
+        <div class="panel-header">Event Information</div>
+        <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:.85rem;">
+          <div><div class="form-label">Title</div><div>@_event.Title</div></div>
+          <div><div class="form-label">Type</div><div>@_event.Type</div></div>
+          <div><div class="form-label">Date</div><div>@_event.Date.ToString("MMM d, yyyy h:mm tt")</div></div>
+          <div><div class="form-label">End Date</div><div>@(_event.EndDate?.ToString("MMM d, yyyy h:mm tt") ?? "—")</div></div>
+          <div><div class="form-label">Location</div><div>@(string.IsNullOrEmpty(_event.Location) ? "—" : _event.Location)</div></div>
+          <div><div class="form-label">Format</div><div>@(_event.IsVirtual ? "Virtual" : "In-Person")</div></div>
+          <div><div class="form-label">Ticket Price</div><div>@(_event.TicketPrice?.ToString("C") ?? "Free")</div></div>
+          <div><div class="form-label">Goal Amount</div><div>@(_event.GoalAmount?.ToString("C") ?? "—")</div></div>
+          <div><div class="form-label">Capacity</div><div>@(_event.Capacity?.ToString() ?? "Unlimited")</div></div>
+          <div><div class="form-label">Status</div><div>@_event.Status</div></div>
+          @if (!string.IsNullOrEmpty(_event.MeetingLink))
+          { <div style="grid-column:1/-1;"><div class="form-label">Meeting Link</div><div>@_event.MeetingLink</div></div> }
+          @if (!string.IsNullOrEmpty(_event.Description))
+          { <div style="grid-column:1/-1;"><div class="form-label">Description</div><div style="line-height:1.6;">@_event.Description</div></div> }
+          @if (!string.IsNullOrEmpty(_event.Notes))
+          { <div style="grid-column:1/-1;"><div class="form-label">Internal Notes</div><div style="line-height:1.6;color:var(--text-mid);">@_event.Notes</div></div> }
+        </div>
+      </div>
+
+      <!-- CAPACITY GAUGE -->
+      <div class="panel">
+        <div class="panel-header">Registration</div>
+        <div class="panel-body">
+          @{
+            var cap = _event.Capacity ?? 0;
+            var pct = cap > 0 ? Math.Min(100, (int)((double)_event.Registered / cap * 100)) : 0;
+          }
+          @if (cap > 0)
+          {
+            <div style="margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px;">
+                <span>Capacity</span><span style="font-weight:700;">@_event.Registered / @cap</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:@pct%;"></div></div>
+              <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">@pct% full</div>
+            </div>
+          }
+          else
+          {
+            <div style="font-size:.84rem;margin-bottom:12px;"><strong>@_event.Registered</strong> registered — no limit</div>
+          }
+          <div style="font-size:.82rem;display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span>Checked In</span><strong>@_attendees.Count(a => a.CheckedIn)</strong>
+          </div>
+          <div style="font-size:.82rem;display:flex;justify-content:space-between;padding:6px 0;">
+            <span>Not Yet Arrived</span><strong>@_attendees.Count(a => !a.CheckedIn)</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (_tab == "Attendees")
+  {
+    <div class="panel">
+      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Attendees (@_attendees.Count)</span>
+        <button class="btn btn-sm btn-primary" @onclick="OpenAddAttendee">&#43; Register Attendee</button>
+      </div>
+      <div style="padding:12px 16px 0;">
+        <input class="form-input" style="width:240px;padding:5px 12px;font-size:.82rem;" placeholder="&#128269; Search attendees…" @bind="_attendeeSearch" @bind:event="oninput" />
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @{
+          var filtered = _attendees.Where(a => string.IsNullOrEmpty(_attendeeSearch) ||
+            (a.Donor?.FullName ?? "").Contains(_attendeeSearch, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        @if (!filtered.Any())
+        {
+          <div class="empty-state" style="padding:32px;"><p>No attendees registered yet.</p></div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Attendee</th>
+                <th>Tickets</th>
+                <th>Amount Paid</th>
+                <th>Channel</th>
+                <th>Registered</th>
+                <th>Check-In</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var a in filtered.OrderBy(a => a.Donor?.LastName))
+              {
+                <tr>
+                  <td><strong>@(a.Donor?.FullName ?? $"Donor #{a.DonorId}")</strong></td>
+                  <td style="font-size:.82rem;">@a.TicketCount</td>
+                  <td style="font-size:.82rem;">@a.AmountPaid.ToString("C")</td>
+                  <td style="font-size:.78rem;color:var(--text-mid);">@a.PaymentChannel</td>
+                  <td style="font-size:.76rem;color:var(--text-light);">@a.RegisteredAt.ToString("MMM d")</td>
+                  <td>
+                    @if (a.CheckedIn)
+                    {
+                      <span style="color:var(--green);font-size:.8rem;font-weight:600;">&#10003; In (@a.CheckedInAt?.ToString("h:mm tt"))</span>
+                    }
+                    else
+                    {
+                      <button class="btn btn-sm" @onclick="() => CheckInAsync(a)" disabled="@(_checkingIn == a.Id)">
+                        @(_checkingIn == a.Id ? "…" : "Check In")
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+    <!-- ADD ATTENDEE DRAWER -->
+    @if (_showAddAttendee)
+    {
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseAddAttendee"></div>
+      <div style="position:fixed;right:0;top:0;bottom:0;width:420px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="font-family:var(--ff-head);">Register Attendee</h3>
+          <button class="btn btn-sm" @onclick="CloseAddAttendee">&#10005;</button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+          <div class="form-group">
+            <label class="form-label">Donor *</label>
+            <select class="form-input" @bind="_newAttendee.DonorId">
+              <option value="0">— Select donor —</option>
+              @foreach (var d in _donors)
+              { <option value="@d.Id">@d.FullName (@d.Email)</option> }
+            </select>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Ticket Count</label>
+              <input class="form-input" type="number" @bind="_newAttendee.TicketCount" min="1" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Amount Paid</label>
+              <input class="form-input" type="number" @bind="_newAttendee.AmountPaid" min="0" step="0.01" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Channel</label>
+            <select class="form-input" @bind="_newAttendee.PaymentChannel">
+              @foreach (var c in Enum.GetValues<DonationChannel>())
+              { <option value="@c">@c</option> }
+            </select>
+          </div>
+          @if (!string.IsNullOrEmpty(_attendeeErr))
+          { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_attendeeErr</div> }
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-primary" @onclick="AddAttendeeAsync" disabled="@_addingAttendee">@(_addingAttendee ? "Saving…" : "Register")</button>
+            <button class="btn" @onclick="CloseAddAttendee">Cancel</button>
+          </div>
+        </div>
+      </div>
+    }
+  }
+
+  @if (_tab == "Auction")
+  {
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:.84rem;color:var(--text-mid);">@_auctionItems.Count item@(_auctionItems.Count == 1 ? "" : "s") — @_auctionItems.Count(i => i.Status == AuctionItemStatus.Sold) sold</span>
+        <div style="display:flex;gap:8px;">
+          @if (_auctionItems.Any(i => i.Status == AuctionItemStatus.Available) && _event.Status != EventStatus.Cancelled)
+          {
+            <button class="btn btn-sm" style="background:var(--amber);color:white;border-color:var(--amber);" @onclick="CloseBiddingAsync" disabled="@_closingBidding">
+              @(_closingBidding ? "Closing…" : "&#9208; Close Bidding")
+            </button>
+          }
+          <button class="btn btn-sm btn-primary" @onclick="OpenAddItem">&#43; Add Item</button>
+        </div>
+      </div>
+
+      @if (!_auctionItems.Any())
+      {
+        <div class="panel">
+          <div class="panel-body">
+            <div class="empty-state"><div class="icon">&#127942;</div><p>No auction items yet.</p></div>
+          </div>
+        </div>
+      }
+      else
+      {
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+          @foreach (var item in _auctionItems)
+          {
+            var topBid = item.Bids.MaxBy(b => b.BidAmount);
+            <div class="panel" style="@(item.Status == AuctionItemStatus.Sold ? "border-color:var(--green);" : item.Status == AuctionItemStatus.Unsold ? "opacity:.65;" : "")">
+              <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>@item.Name</span>
+                <span class="badge @GetAuctionBadge(item.Status)">@item.Status</span>
+              </div>
+              <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
+                @if (!string.IsNullOrEmpty(item.Description))
+                { <div style="color:var(--text-mid);">@item.Description</div> }
+                <div style="display:flex;justify-content:space-between;">
+                  <span>FMV</span><span>@item.FairMarketValue.ToString("C")</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span>Starting Bid</span><span>@item.StartingBid.ToString("C")</span>
+                </div>
+                @if (item.WinningBid.HasValue)
+                {
+                  <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--green);">
+                    <span>Winning Bid</span><span>@item.WinningBid.Value.ToString("C")</span>
+                  </div>
+                }
+                else if (topBid is not null)
+                {
+                  <div style="display:flex;justify-content:space-between;color:var(--navy);font-weight:600;">
+                    <span>Current High Bid</span><span>@topBid.BidAmount.ToString("C")</span>
+                  </div>
+                }
+                <div style="font-size:.74rem;color:var(--text-light);">@item.Bids.Count bid@(item.Bids.Count == 1 ? "" : "s")</div>
+
+                @if (item.Status == AuctionItemStatus.Available)
+                {
+                  <button class="btn btn-sm" @onclick="() => OpenPlaceBid(item)" style="margin-top:4px;">Place Bid</button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- ADD ITEM DRAWER -->
+    @if (_showAddItem)
+    {
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseAddItem"></div>
+      <div style="position:fixed;right:0;top:0;bottom:0;width:420px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="font-family:var(--ff-head);">Add Auction Item</h3>
+          <button class="btn btn-sm" @onclick="CloseAddItem">&#10005;</button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+          <div class="form-group">
+            <label class="form-label">Item Name *</label>
+            <input class="form-input" @bind="_newItem.Name" placeholder="e.g. Spa Day Package" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-textarea" @bind="_newItem.Description" placeholder="What's included…"></textarea>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Fair Market Value</label>
+              <input class="form-input" type="number" @bind="_newItem.FairMarketValue" min="0" step="0.01" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Starting Bid *</label>
+              <input class="form-input" type="number" @bind="_newItem.StartingBid" min="0" step="0.01" />
+            </div>
+          </div>
+          @if (!string.IsNullOrEmpty(_itemErr))
+          { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_itemErr</div> }
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-primary" @onclick="AddItemAsync" disabled="@_addingItem">@(_addingItem ? "Saving…" : "Add Item")</button>
+            <button class="btn" @onclick="CloseAddItem">Cancel</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- PLACE BID DRAWER -->
+    @if (_biddingOnItem is not null)
+    {
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="() => _biddingOnItem = null"></div>
+      <div style="position:fixed;right:0;top:0;bottom:0;width:380px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="font-family:var(--ff-head);">Place Bid</h3>
+          <button class="btn btn-sm" @onclick="() => _biddingOnItem = null">&#10005;</button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+          <div style="background:var(--green-pale);border-radius:10px;padding:12px 16px;font-size:.84rem;">
+            <div><strong>@_biddingOnItem.Name</strong></div>
+            <div style="color:var(--text-mid);">Starting bid: @_biddingOnItem.StartingBid.ToString("C")</div>
+            @{ var curBid = _biddingOnItem.Bids.MaxBy(b => b.BidAmount); }
+            @if (curBid is not null)
+            { <div style="color:var(--navy);font-weight:600;">Current high: @curBid.BidAmount.ToString("C")</div> }
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bidder *</label>
+            <select class="form-input" @bind="_bidDonorId">
+              <option value="0">— Select bidder —</option>
+              @foreach (var d in _donors)
+              { <option value="@d.Id">@d.FullName</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bid Amount *</label>
+            <input class="form-input" type="number" @bind="_bidAmount" min="@_biddingOnItem.StartingBid" step="5" />
+          </div>
+          @if (!string.IsNullOrEmpty(_bidErr))
+          { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_bidErr</div> }
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-primary" @onclick="SubmitBidAsync" disabled="@_placingBid">@(_placingBid ? "Placing…" : "Place Bid")</button>
+            <button class="btn" @onclick="() => _biddingOnItem = null">Cancel</button>
+          </div>
+        </div>
+      </div>
+    }
+  }
+
+  @if (_tab == "Revenue")
+  {
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div class="panel">
+        <div class="panel-header">Revenue Breakdown</div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:0;">
+          <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:.86rem;">
+            <span>&#127915; Ticket Sales</span>
+            <strong>@(_revenue?.Tickets.ToString("C") ?? "—")</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:.86rem;">
+            <span>&#127942; Silent Auction</span>
+            <strong>@(_revenue?.Auction.ToString("C") ?? "—")</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:14px 0;font-size:.96rem;font-weight:700;color:var(--green);">
+            <span>Total Revenue</span>
+            <span>@(_revenue?.Total.ToString("C") ?? "—")</span>
+          </div>
+          @if (_event.GoalAmount.HasValue)
+          {
+            var goalPct = _revenue is not null ? Math.Min(100, (int)(_revenue.Total / _event.GoalAmount.Value * 100)) : 0;
+            <div style="margin-top:12px;">
+              <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:6px;">
+                <span>Progress to Goal (@_event.GoalAmount.Value.ToString("C"))</span>
+                <span style="font-weight:700;">@goalPct%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:@goalPct%;"></div></div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">Attendee Revenue Detail</div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:0;">
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
+            <span>Total Attendees</span><strong>@_attendees.Count</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
+            <span>Total Tickets</span><strong>@_attendees.Sum(a => a.TicketCount)</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
+            <span>Average Ticket Revenue</span>
+            <strong>@(_attendees.Count > 0 ? (_attendees.Average(a => a.AmountPaid)).ToString("C") : "—")</strong>
+          </div>
+          @if (_auctionItems.Any(i => i.Status == AuctionItemStatus.Sold))
+          {
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
+              <span>Auction Items Sold</span><strong>@_auctionItems.Count(i => i.Status == AuctionItemStatus.Sold)</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;">
+              <span>Unsold Items</span><strong>@_auctionItems.Count(i => i.Status == AuctionItemStatus.Unsold)</strong>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- EDIT EVENT DRAWER -->
+  @if (_showEdit)
+  {
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseEdit"></div>
+    <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+      <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="font-family:var(--ff-head);">Edit Event</h3>
+        <button class="btn btn-sm" @onclick="CloseEdit">&#10005;</button>
+      </div>
+      <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+        <div class="form-group"><label class="form-label">Title *</label><input class="form-input" @bind="_editForm.Title" /></div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-input" @bind="_editForm.Status">
+              @foreach (var s in Enum.GetValues<EventStatus>())
+              { <option value="@s">@s</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input class="form-input" type="datetime-local" value="@_editForm.Date.ToString("yyyy-MM-ddTHH:mm")"
+                   @onchange='e => { if (DateTime.TryParse(e.Value?.ToString(), out var d)) _editForm.Date = d; }' />
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Location</label><input class="form-input" @bind="_editForm.Location" /></div>
+        <div class="form-grid-2">
+          <div class="form-group"><label class="form-label">Ticket Price</label><input class="form-input" type="number" @bind="_editForm.TicketPrice" step="0.01" /></div>
+          <div class="form-group"><label class="form-label">Goal Amount</label><input class="form-input" type="number" @bind="_editForm.GoalAmount" step="0.01" /></div>
+        </div>
+        <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" @bind="_editForm.Notes"></textarea></div>
+        @if (!string.IsNullOrEmpty(_editErr))
+        { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_editErr</div> }
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" @onclick="SaveEditAsync" disabled="@_editSaving">@(_editSaving ? "Saving…" : "Save Changes")</button>
+          <button class="btn" @onclick="CloseEdit">Cancel</button>
+        </div>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private MinistryEvent? _event;
+  private List<EventAttendee> _attendees = [];
+  private List<SilentAuctionItem> _auctionItems = [];
+  private List<Donor> _donors = [];
+  private EventRevenueDto? _revenue;
+  private bool _loading = true;
+  private string _tab = "Summary";
+  private string _msg = "";
+  private string _err = "";
+
+  // Attendee state
+  private string _attendeeSearch = "";
+  private bool _showAddAttendee;
+  private EventAttendee _newAttendee = new() { TicketCount = 1 };
+  private bool _addingAttendee;
+  private string _attendeeErr = "";
+  private int? _checkingIn;
+
+  // Auction state
+  private bool _showAddItem;
+  private SilentAuctionItem _newItem = new();
+  private bool _addingItem;
+  private string _itemErr = "";
+  private bool _closingBidding;
+  private SilentAuctionItem? _biddingOnItem;
+  private int _bidDonorId;
+  private decimal _bidAmount;
+  private bool _placingBid;
+  private string _bidErr = "";
+
+  // Edit event state
+  private bool _showEdit;
+  private MinistryEvent _editForm = new();
+  private bool _editSaving;
+  private string _editErr = "";
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (_event?.Id != Id) await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _msg = _err = "";
+
+    var t1 = Api.GetEventAsync(Id);
+    var t2 = Api.GetAttendeesAsync(Id);
+    var t3 = Api.GetAuctionItemsAsync(Id);
+    var t4 = Api.GetEventRevenueAsync(Id);
+    var t5 = Api.GetDonorsAsync();
+    await Task.WhenAll(t1, t2, t3, t4, t5);
+
+    _event       = t1.Result;
+    _attendees   = t2.Result;
+    _auctionItems = t3.Result;
+    _revenue     = t4.Result;
+    _donors      = t5.Result;
+    _loading     = false;
+  }
+
+  // ── Edit event ────────────────────────────────────────────────────────────
+  private void OpenEdit()
+  {
+    if (_event is null) return;
+    _editForm = new MinistryEvent
+    {
+      Id = _event.Id, Title = _event.Title, Type = _event.Type, Status = _event.Status,
+      Date = _event.Date, EndDate = _event.EndDate, Location = _event.Location,
+      Description = _event.Description, Capacity = _event.Capacity,
+      TicketPrice = _event.TicketPrice, GoalAmount = _event.GoalAmount,
+      IsVirtual = _event.IsVirtual, MeetingLink = _event.MeetingLink, Notes = _event.Notes
+    };
+    _editErr = ""; _showEdit = true;
+  }
+  private void CloseEdit() { _showEdit = false; _editErr = ""; }
+  private async Task SaveEditAsync()
+  {
+    if (string.IsNullOrWhiteSpace(_editForm.Title)) { _editErr = "Title is required."; return; }
+    _editSaving = true;
+    await Api.UpdateEventAsync(Id, _editForm);
+    _editSaving = false;
+    _showEdit = false;
+    _msg = "Event updated.";
+    await LoadAsync();
+  }
+
+  private async Task CancelEventAsync()
+  {
+    _msg = _err = "";
+    var ok = await Api.CancelEventAsync(Id);
+    if (ok) { _msg = "Event cancelled."; await LoadAsync(); }
+    else _err = "Failed to cancel event.";
+  }
+
+  // ── Attendees ─────────────────────────────────────────────────────────────
+  private void OpenAddAttendee() { _newAttendee = new EventAttendee { TicketCount = 1 }; _attendeeErr = ""; _showAddAttendee = true; }
+  private void CloseAddAttendee() { _showAddAttendee = false; _attendeeErr = ""; }
+
+  private async Task AddAttendeeAsync()
+  {
+    if (_newAttendee.DonorId == 0) { _attendeeErr = "Please select a donor."; return; }
+    _addingAttendee = true;
+    var created = await Api.CreateAttendeeAsync(Id, _newAttendee);
+    if (created is not null) { _attendees.Add(created); CloseAddAttendee(); _msg = "Attendee registered."; }
+    else _attendeeErr = "Failed to register attendee.";
+    _addingAttendee = false;
+  }
+
+  private async Task CheckInAsync(EventAttendee a)
+  {
+    _checkingIn = a.Id;
+    var ok = await Api.CheckInAttendeeAsync(Id, a.Id);
+    if (ok) { a.CheckedIn = true; a.CheckedInAt = DateTime.UtcNow; _msg = $"{a.Donor?.FullName ?? "Attendee"} checked in."; }
+    else _err = "Check-in failed.";
+    _checkingIn = null;
+  }
+
+  // ── Auction ───────────────────────────────────────────────────────────────
+  private void OpenAddItem() { _newItem = new SilentAuctionItem(); _itemErr = ""; _showAddItem = true; }
+  private void CloseAddItem() { _showAddItem = false; _itemErr = ""; }
+
+  private async Task AddItemAsync()
+  {
+    if (string.IsNullOrWhiteSpace(_newItem.Name)) { _itemErr = "Item name is required."; return; }
+    if (_newItem.StartingBid <= 0) { _itemErr = "Starting bid must be greater than zero."; return; }
+    _addingItem = true;
+    var created = await Api.CreateAuctionItemAsync(Id, _newItem);
+    if (created is not null) { _auctionItems.Add(created); CloseAddItem(); _msg = "Auction item added."; }
+    else _itemErr = "Failed to add item.";
+    _addingItem = false;
+  }
+
+  private void OpenPlaceBid(SilentAuctionItem item)
+  {
+    _biddingOnItem = item;
+    _bidDonorId = 0;
+    _bidAmount = item.StartingBid;
+    _bidErr = "";
+  }
+
+  private async Task SubmitBidAsync()
+  {
+    if (_biddingOnItem is null || _bidDonorId == 0) { _bidErr = "Please select a bidder."; return; }
+    if (_bidAmount <= 0) { _bidErr = "Bid must be greater than zero."; return; }
+    _placingBid = true;
+    var ok = await Api.PlaceBidAsync(Id, _biddingOnItem.Id, _bidDonorId, _bidAmount);
+    if (ok)
+    {
+      _biddingOnItem.Bids.Add(new AuctionBid { BidderId = _bidDonorId, BidAmount = _bidAmount, BidTime = DateTime.UtcNow });
+      _msg = $"Bid of {_bidAmount:C} placed.";
+      _biddingOnItem = null;
+    }
+    else _bidErr = "Failed to place bid.";
+    _placingBid = false;
+  }
+
+  private async Task CloseBiddingAsync()
+  {
+    _closingBidding = true;
+    var ok = await Api.CloseAuctionAsync(Id);
+    if (ok) { _msg = "Bidding closed. Winners recorded."; await LoadAsync(); }
+    else _err = "Failed to close bidding.";
+    _closingBidding = false;
+  }
+
+  private static string GetStatusBadge(EventStatus s) => s switch
+  {
+    EventStatus.Draft     => "badge-onhold",
+    EventStatus.Published => "badge-new",
+    EventStatus.Open      => "badge-inprogress",
+    EventStatus.Closed    => "badge-shipped",
+    EventStatus.Completed => "badge-fulfilled",
+    EventStatus.Cancelled => "badge-cancelled",
+    _ => ""
+  };
+
+  private static string GetAuctionBadge(AuctionItemStatus s) => s switch
+  {
+    AuctionItemStatus.Sold   => "badge-fulfilled",
+    AuctionItemStatus.Unsold => "badge-cancelled",
+    _                        => "badge-new"
+  };
+}

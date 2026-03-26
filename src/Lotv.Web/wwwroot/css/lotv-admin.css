@@ -230,6 +230,15 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #c0cfc5; border-radius: 3px; }
 
+/* ── LOADING SPINNER ── */
+.loading-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px 24px; }
+.loading-spinner { border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
+.loading-wrap.loading-sm .loading-spinner { width: 20px; height: 20px; border-width: 2px; }
+.loading-wrap.loading-md .loading-spinner { width: 36px; height: 36px; }
+.loading-wrap.loading-lg .loading-spinner { width: 52px; height: 52px; border-width: 4px; }
+.loading-msg { font-size: .82rem; color: var(--text-light); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 @media (max-width: 1100px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .kanban   { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{Year}} Year-End Giving Statement — Lily of the Valley Ministry</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:Georgia,serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:32px 0">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#1a4a6b;padding:32px 40px;text-align:center">
+              <h1 style="color:#ffffff;margin:0;font-size:22px">{{Year}} Year-End Giving Statement</h1>
+              <p style="color:#a8c8e8;margin:8px 0 0;font-size:14px">Lily of the Valley Ministry · EIN: XX-XXXXXXX</p>
+            </td>
+          </tr>
+
+          <!-- Donor info -->
+          <tr>
+            <td style="padding:32px 40px 0">
+              <p style="color:#444;margin:0 0 8px">Dear {{DonorFullName}},</p>
+              <p style="color:#444;line-height:1.7;margin:0 0 24px">
+                Thank you for your faithful generosity throughout {{Year}}. Below is a summary
+                of your contributions to Lily of the Valley Ministry. Please retain this
+                statement for your tax records.
+              </p>
+
+              <!-- Summary box -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f7ff;border-radius:8px;padding:20px;margin:0 0 24px">
+                <tr>
+                  <td style="text-align:center">
+                    <div style="font-size:13px;color:#666;margin-bottom:4px">Total Contributions — {{Year}}</div>
+                    <div style="font-size:36px;font-weight:bold;color:#1a4a6b">{{TotalGiven}}</div>
+                    <div style="font-size:12px;color:#888;margin-top:4px">{{GiftCount}} gift(s)</div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Donation table -->
+              <h3 style="color:#1a4a6b;margin:0 0 12px;font-size:15px">Contribution Detail</h3>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e0e8f0;border-radius:6px;overflow:hidden;margin:0 0 24px">
+                <tr style="background:#f0f7ff">
+                  <th style="padding:10px 14px;text-align:left;font-size:12px;color:#1a4a6b">Date</th>
+                  <th style="padding:10px 14px;text-align:left;font-size:12px;color:#1a4a6b">Method</th>
+                  <th style="padding:10px 14px;text-align:right;font-size:12px;color:#1a4a6b">Amount</th>
+                </tr>
+                {{#each Donations}}
+                <tr style="border-top:1px solid #e8eef4">
+                  <td style="padding:10px 14px;font-size:13px;color:#333">{{Date}}</td>
+                  <td style="padding:10px 14px;font-size:13px;color:#555">{{Channel}}</td>
+                  <td style="padding:10px 14px;font-size:13px;font-weight:bold;color:#1a4a6b;text-align:right">{{Amount}}</td>
+                </tr>
+                {{/each}}
+                <tr style="background:#f0f7ff;border-top:2px solid #1a4a6b">
+                  <td colspan="2" style="padding:10px 14px;font-weight:bold;color:#1a4a6b;font-size:14px">
+                    Total
+                  </td>
+                  <td style="padding:10px 14px;font-weight:bold;color:#1a4a6b;font-size:14px;text-align:right">
+                    {{TotalGiven}}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Legal notice -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff8e6;border:1px solid #ffe08a;border-radius:6px;margin:0 0 24px">
+                <tr>
+                  <td style="padding:16px 20px">
+                    <p style="margin:0;color:#7a5c00;font-size:13px;line-height:1.6">
+                      <strong>No goods or services were provided in exchange for these contributions.</strong>
+                      Lily of the Valley Ministry is a 501(c)(3) tax-exempt organization.
+                      Your contributions are deductible to the full extent allowed by law under IRC § 170.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color:#555;line-height:1.7;margin:0 0 24px;font-size:14px">
+                We are deeply grateful for your partnership in this ministry. Because of donors
+                like you, {{FamiliesHelped}} families received comfort and care in {{Year}}.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f4f7fb;padding:24px 40px;text-align:center;border-top:1px solid #e0e8f0">
+              <p style="color:#888;font-size:12px;margin:0 0 4px">
+                Lily of the Valley Ministry | EIN: XX-XXXXXXX
+              </p>
+              <p style="color:#888;font-size:12px;margin:0">
+                Questions? <a href="mailto:support@lotvministry.org" style="color:#1a4a6b">support@lotvministry.org</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

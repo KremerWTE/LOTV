@@ -1,0 +1,228 @@
+@page "/admin/marketing"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Marketing Email — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Marketing &amp; Outreach Email</h2><p>Compose and send bulk outreach to donors and supporters</p></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;">
+
+  <!-- COMPOSER -->
+  <div>
+    @if (_sent)
+    {
+      <div style="background:var(--green-pale);border-radius:10px;padding:16px 20px;margin-bottom:20px;">
+        <strong style="color:var(--green-dark);">&#10003; Campaign sent!</strong>
+        <div style="font-size:.82rem;color:var(--green-dark);margin-top:4px;">
+          "@_subject" delivered to @_recipientCount recipients.
+        </div>
+        <button class="btn btn-sm" style="margin-top:10px;" @onclick="ResetForm">Start New Campaign</button>
+      </div>
+    }
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-header">Campaign Details</div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+
+        <div class="form-group">
+          <label class="form-label">Campaign Name (internal)</label>
+          <input class="form-input" @bind="_campaignName" placeholder="e.g. December 2026 Year-End Appeal" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Subject Line *</label>
+          <input class="form-input" @bind="_subject" placeholder="e.g. Your generosity is changing lives" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">From Name</label>
+          <input class="form-input" @bind="_fromName" placeholder="LOTV Ministry" />
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Audience</label>
+            <select class="form-input" @bind="_audience">
+              <option value="AllDonors">All Donors</option>
+              <option value="RecentDonors">Recent Donors (past 90 days)</option>
+              <option value="LapsedDonors">Lapsed Donors (90+ days)</option>
+              <option value="HighValueDonors">High-Value Donors ($500+)</option>
+              <option value="EventAttendees">Event Attendees</option>
+              <option value="Volunteers">All Volunteers</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Schedule</label>
+            <select class="form-input" @bind="_schedule">
+              <option value="now">Send immediately</option>
+              <option value="scheduled">Schedule for later</option>
+            </select>
+          </div>
+        </div>
+
+        @if (_schedule == "scheduled")
+        {
+          <div class="form-group">
+            <label class="form-label">Send At</label>
+            <input class="form-input" type="datetime-local" @bind="_sendAt" />
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-header">Email Content</div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+
+        <div class="form-group">
+          <label class="form-label">Template</label>
+          <select class="form-input" @bind="_template" @bind:after="ApplyTemplate">
+            <option value="">— Blank / Custom —</option>
+            <option value="year_end_appeal">Year-End Appeal</option>
+            <option value="spring_campaign">Spring Campaign</option>
+            <option value="event_invitation">Event Invitation</option>
+            <option value="impact_report">Impact Report</option>
+            <option value="thank_you">Donor Thank You</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Body (HTML supported)</label>
+          <textarea class="form-textarea" rows="12" @bind="_body"
+            placeholder="Write your email content here. You may use basic HTML for formatting.&#13;&#10;&#13;&#10;Available tokens: {{donor_name}}, {{total_given}}, {{impact_statement}}, {{unsubscribe_link}}"></textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+        }
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" @onclick="SendAsync">
+            @(_schedule == "now" ? "&#128140; Send Now" : "&#128197; Schedule")
+          </button>
+          <button class="btn" @onclick="() => _preview = !_preview">
+            @(_preview ? "&#10005; Close Preview" : "&#128065; Preview")
+          </button>
+          <button class="btn" @onclick="ResetForm">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW / STATS SIDEBAR -->
+  <div>
+    @if (_preview && !string.IsNullOrEmpty(_body))
+    {
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-header">Email Preview</div>
+        <div style="padding:16px;font-size:.82rem;line-height:1.7;border-radius:0 0 10px 10px;background:white;">
+          <div style="background:var(--navy);color:white;padding:12px 16px;border-radius:8px 8px 0 0;margin:-16px -16px 12px;font-family:var(--ff-head);font-weight:700;">
+            @(string.IsNullOrEmpty(_fromName) ? "LOTV Ministry" : _fromName)
+          </div>
+          <div style="font-weight:700;font-size:.92rem;margin-bottom:8px;color:var(--navy);">@_subject</div>
+          <div>@((MarkupString)_body.Replace("\n", "<br/>"))</div>
+        </div>
+      </div>
+    }
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-header">Audience Estimate</div>
+      <div class="panel-body" style="text-align:center;padding:20px;">
+        <div style="font-size:2.4rem;font-weight:800;color:var(--navy);">~@AudienceSize</div>
+        <div style="font-size:.8rem;color:var(--text-mid);margin-top:4px;">estimated recipients</div>
+        <div style="font-size:.72rem;color:var(--text-light);margin-top:6px;">@_audience</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Recent Campaigns</div>
+      <div class="panel-body" style="padding:0;">
+        @foreach (var c in _campaigns)
+        {
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:.78rem;">
+            <div style="font-weight:600;margin-bottom:2px;">@c.Name</div>
+            <div style="color:var(--text-light);">@c.SentAt.ToString("MMM d, yyyy") &bull; @c.Recipients recipients</div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  private string _campaignName = "";
+  private string _subject = "";
+  private string _fromName = "LOTV Ministry";
+  private string _audience = "AllDonors";
+  private string _schedule = "now";
+  private DateTime _sendAt = DateTime.Now.AddHours(1);
+  private string _template = "";
+  private string _body = "";
+  private string _error = "";
+  private bool _sent;
+  private bool _preview;
+  private int _recipientCount;
+
+  private int AudienceSize => _audience switch
+  {
+    "AllDonors"       => 284,
+    "RecentDonors"    => 112,
+    "LapsedDonors"    => 97,
+    "HighValueDonors" => 38,
+    "EventAttendees"  => 156,
+    "Volunteers"      => 42,
+    _                 => 0
+  };
+
+  private List<Campaign> _campaigns =
+  [
+    new("October Outreach 2026", DateTime.Now.AddMonths(-1), 276),
+    new("Summer Impact Report", DateTime.Now.AddMonths(-3), 301),
+    new("Spring Appeal 2026", DateTime.Now.AddMonths(-6), 318)
+  ];
+
+  private void ApplyTemplate()
+  {
+    if (string.IsNullOrEmpty(_template)) return;
+    (_subject, _body) = _template switch
+    {
+      "year_end_appeal" => (
+        "Will You Help Us Finish Strong This Year?",
+        "Dear {{donor_name}},\n\nAs the year draws to a close, we reflect with gratitude on all that God has allowed us to accomplish together.\n\nThis year, LOTV Ministry served over 400 families experiencing profound grief and loss. Your past generosity of {{total_given}} made this possible.\n\nWill you make a year-end gift to help us serve even more families in the coming year?\n\nWith gratitude and prayers,\nThe LOTV Ministry Team\n\n{{unsubscribe_link}}"
+      ),
+      "event_invitation" => (
+        "You're Invited — LOTV Annual Gala",
+        "Dear {{donor_name}},\n\nYou are cordially invited to the LOTV Ministry Annual Gala — an evening of celebration, community, and impact.\n\nJoin us as we celebrate the families we have served and cast vision for the year ahead. A silent auction and dinner will be included.\n\nRSVP by [DATE] at [LINK].\n\nWe hope to see you there,\nLOTV Ministry\n\n{{unsubscribe_link}}"
+      ),
+      "thank_you" => (
+        "Thank You — Your Gift Made a Difference",
+        "Dear {{donor_name}},\n\n{{impact_statement}}\n\nThank you for your generous gift of {{total_given}} to LOTV Ministry. Because of you, families experiencing loss receive tangible love and support.\n\nYour contribution is fully tax-deductible. A receipt has been sent to your email address on file.\n\nWith gratitude,\nLOTV Ministry\n\n{{unsubscribe_link}}"
+      ),
+      _ => (_subject, _body)
+    };
+  }
+
+  private async Task SendAsync()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_subject)) { _error = "Subject line is required."; return; }
+    if (string.IsNullOrWhiteSpace(_body)) { _error = "Email body is required."; return; }
+
+    _recipientCount = AudienceSize;
+    await Task.CompletedTask; // In production: call Api.SendMarketingEmailAsync(...)
+    _campaigns.Insert(0, new(_campaignName.Length > 0 ? _campaignName : _subject, DateTime.Now, _recipientCount));
+    _sent = true;
+  }
+
+  private void ResetForm()
+  {
+    _campaignName = ""; _subject = ""; _body = ""; _template = "";
+    _audience = "AllDonors"; _schedule = "now"; _error = ""; _sent = false; _preview = false;
+  }
+
+  private record Campaign(string Name, DateTime SentAt, int Recipients);
+}

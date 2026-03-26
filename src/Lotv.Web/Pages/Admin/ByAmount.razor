@@ -1,0 +1,148 @@
+@page "/admin/by-amount"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Donations by Amount — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donations by Gift Size</h2><p>Distribution of giving across dollar-amount bands</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/export" class="btn btn-sm">&#8681; Export</a>
+    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading amount distribution…" Size="lg" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-label">Total Gifts</div>
+      <div class="kpi-value" style="color:var(--navy)">@_bands.Sum(b => b.GiftCount)</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Raised</div>
+      <div class="kpi-value" style="color:var(--gold)">@_bands.Sum(b => b.TotalAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-label">Most Common Band</div>
+      <div class="kpi-value" style="color:var(--green);font-size:1rem;padding-top:4px;">@(_bands.OrderByDescending(b => b.GiftCount).FirstOrDefault()?.Band ?? "—")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127775;</div>
+      <div class="kpi-label">Highest Revenue Band</div>
+      <div class="kpi-value" style="color:var(--amber);font-size:1rem;padding-top:4px;">@(_bands.OrderByDescending(b => b.TotalAmount).FirstOrDefault()?.Band ?? "—")</div>
+    </div>
+  </div>
+
+  <!-- DISTRIBUTION BAR CHART -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">Gift Count Distribution</div>
+    <div class="panel-body">
+      @{
+        var maxCount = _bands.Any() ? _bands.Max(b => b.GiftCount) : 1;
+      }
+      @foreach (var band in _bands)
+      {
+        var pct = maxCount > 0 ? (int)((double)band.GiftCount / maxCount * 100) : 0;
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="width:120px;font-size:.82rem;font-weight:600;white-space:nowrap;">@band.Band</div>
+          <div style="flex:1;height:22px;background:var(--bg);border-radius:11px;overflow:hidden;position:relative;">
+            <div style="height:100%;width:@pct%;background:linear-gradient(90deg,var(--navy),var(--navy-light,#4a6fa5));border-radius:11px;transition:width .3s;"></div>
+            @if (band.GiftCount > 0)
+            {
+              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.7rem;font-weight:700;color:white;mix-blend-mode:difference;">@band.GiftCount gifts</span>
+            }
+          </div>
+          <div style="font-size:.78rem;font-weight:700;color:var(--gold);width:72px;text-align:right;">@band.TotalAmount.ToString("C0")</div>
+          <div style="font-size:.72rem;color:var(--text-light);width:44px;text-align:right;">@band.Percentage.ToString("F1")%</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- REVENUE DISTRIBUTION BAR CHART -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">Revenue Distribution by Band</div>
+    <div class="panel-body">
+      @{
+        var maxRev = _bands.Any() ? _bands.Max(b => b.TotalAmount) : 1m;
+      }
+      @foreach (var band in _bands)
+      {
+        var pct = maxRev > 0 ? (int)((double)band.TotalAmount / (double)maxRev * 100) : 0;
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="width:120px;font-size:.82rem;font-weight:600;white-space:nowrap;">@band.Band</div>
+          <div style="flex:1;height:18px;background:var(--bg);border-radius:9px;overflow:hidden;">
+            <div style="height:100%;width:@pct%;background:var(--gold);border-radius:9px;transition:width .3s;"></div>
+          </div>
+          <div style="font-size:.78rem;font-weight:700;color:var(--gold);width:72px;text-align:right;">@band.TotalAmount.ToString("C0")</div>
+          <div style="font-size:.72rem;color:var(--text-light);width:44px;text-align:right;">@band.Percentage.ToString("F1")%</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- SUMMARY TABLE -->
+  <div class="panel">
+    <div class="panel-header">Band Summary</div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Gift Size Band</th>
+            <th style="text-align:right;">Gift Count</th>
+            <th style="text-align:right;">Total Amount</th>
+            <th style="text-align:right;">% of Revenue</th>
+            <th style="text-align:right;">Avg Gift</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var band in _bands)
+          {
+            var avg = band.GiftCount > 0 ? band.TotalAmount / band.GiftCount : 0;
+            <tr>
+              <td style="font-weight:600;">@band.Band</td>
+              <td style="text-align:right;">@band.GiftCount</td>
+              <td style="text-align:right;font-weight:700;color:var(--gold);">@band.TotalAmount.ToString("C0")</td>
+              <td style="text-align:right;">@band.Percentage.ToString("F1")%</td>
+              <td style="text-align:right;color:var(--text-mid);">@avg.ToString("C0")</td>
+            </tr>
+          }
+          <tr style="font-weight:700;border-top:2px solid var(--border);">
+            <td>Total</td>
+            <td style="text-align:right;">@_bands.Sum(b => b.GiftCount)</td>
+            <td style="text-align:right;color:var(--gold);">@_bands.Sum(b => b.TotalAmount).ToString("C0")</td>
+            <td style="text-align:right;">100%</td>
+            <td style="text-align:right;color:var(--text-mid);">
+              @(_bands.Sum(b => b.GiftCount) > 0
+                ? (_bands.Sum(b => b.TotalAmount) / _bands.Sum(b => b.GiftCount)).ToString("C0")
+                : "$0")
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<DonationByAmountBandDto> _bands = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _bands = await Api.GetDonationsByAmountAsync();
+    _loading = false;
+  }
+}

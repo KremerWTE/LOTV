@@ -2,7 +2,7 @@
 
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-03-02
+**Last Updated**: 2026-03-25 — Phase 4 COMPLETE; Phase 5 COMPLETE — 388 tests passing (0 failures); Phase 6 IN PROGRESS — CI/CD workflows complete, environment config + OWASP review done; remaining items require cloud infrastructure
 **Org Model**: Centralized nonprofit — National HQ → Local Chapters (2-tier)
 
 ---
@@ -12,12 +12,12 @@
 | Phase | Name | Status |
 |---|---|---|
 | 0 | Foundation | ✅ COMPLETE |
-| 1 | Architecture & Design | ⬜ NEXT |
-| 2 | Core Domain (Lotv.Core) | ⬜ PENDING |
-| 3 | API (Lotv.Api) | ⬜ PENDING |
-| 4 | Frontend (Lotv.Web) | ⬜ PENDING |
-| 5 | Testing | ⬜ PENDING |
-| 6 | Deployment & Launch | ⬜ PENDING |
+| 1 | Architecture & Design | ✅ COMPLETE |
+| 2 | Core Domain (Lotv.Core) | ✅ COMPLETE |
+| 3 | API (Lotv.Api) | ✅ COMPLETE |
+| 4 | Frontend (Lotv.Web) | ✅ COMPLETE |
+| 5 | Testing | 🔄 IN PROGRESS |
+| 6 | Deployment & Launch | 🔄 IN PROGRESS |
 
 ### Key Platform Characteristics
 - **Org model**: One centralized nonprofit; National HQ → Local Chapters (no middle tier)
@@ -57,68 +57,68 @@
 **Goal**: All major technical decisions locked in writing before implementation begins.
 
 ### Domain Decisions
-- [ ] Define domain model (entities for all 5 user types + request lifecycle + resource/money flows)
-- [ ] Define service request lifecycle states (Submitted → Triaged → Matched → In Progress → Fulfilled / Closed / Escalated)
-- [ ] Define escalation rules (e.g., auto-escalate if no volunteer accepts within X hours, or if request passes due date)
-- [ ] Define volunteer assignment workflow (staff assigns → volunteer notified → volunteer accepts or declines → if declined, back to unassigned queue or reassigned)
-- [ ] Define resource donation lifecycle (Received → Allocated → Delivered)
-- [ ] Define monetary contribution lifecycle (Received → Processed → Allocated → Disbursed)
-- [ ] Define diocese data model (how dioceses are managed — seed list vs. admin-managed lookup table)
-- [ ] Define event revenue model (how ticket sales and auction revenue link to MonetaryContribution records for unified donation tracking)
-- [ ] Define silent auction workflow (open bidding vs. sealed bids, how winners are notified, how payment is collected)
-- [ ] Write ERD / data model in `docs/data-model.md`
+- [x] Define domain model (entities for all 5 user types + request lifecycle + resource/money flows)
+- [x] Define service request lifecycle states (Submitted → Triaged → Matched → In Progress → Fulfilled / Closed / Escalated)
+- [x] Define escalation rules (e.g., auto-escalate if no volunteer accepts within X hours, or if request passes due date)
+- [x] Define volunteer assignment workflow (staff assigns → volunteer notified → volunteer accepts or declines → if declined, back to unassigned queue or reassigned)
+- [x] Define resource donation lifecycle (Received → Allocated → Delivered)
+- [x] Define monetary contribution lifecycle (Received → Processed → Allocated → Disbursed)
+- [x] Define diocese data model (how dioceses are managed — seed list vs. admin-managed lookup table)
+- [x] Define event revenue model (how ticket sales and auction revenue link to MonetaryContribution records for unified donation tracking)
+- [x] Define silent auction workflow (open bidding vs. sealed bids, how winners are notified, how payment is collected)
+- [x] Write ERD / data model in `docs/data-model.md`
 
 ### API Design
-- [ ] Define REST API contract (all endpoints, auth flow, request/response shapes)
-- [ ] Define API versioning strategy (URL prefix `/api/v1/` recommended)
-- [ ] Document API contract in `docs/api-contract.md`
+- [x] Define REST API contract (all endpoints, auth flow, request/response shapes)
+- [x] Define API versioning strategy (URL prefix `/api/v1/` recommended)
+- [x] Document API contract in `docs/api-contract.md`
 
 ### Authentication & Security
-- [ ] Choose auth strategy: ASP.NET Core Identity + JWT vs. Azure AD B2C vs. Auth0
-- [ ] Define role hierarchy and permission matrix (document in `docs/auth-design.md`)
-- [ ] Define secrets management strategy (Azure Key Vault / .NET user-secrets / environment variables)
-- [ ] Define PII handling policy (what user data is stored, retention, anonymization)
+- [x] Choose auth strategy: ASP.NET Core Identity + JWT vs. Azure AD B2C vs. Auth0
+- [x] Define role hierarchy and permission matrix (document in `docs/auth-design.md`)
+- [x] Define secrets management strategy (Azure Key Vault / .NET user-secrets / environment variables)
+- [x] Define PII handling policy (what user data is stored, retention, anonymization)
 
 ### Database
-- [ ] Choose database: SQL Server vs. PostgreSQL (SQLite for local dev)
-- [ ] Choose ORM/access pattern: EF Core + Repository vs. Dapper vs. direct DbContext
-- [ ] Define migration strategy (EF Core Migrations recommended)
-- [ ] Define multi-tenant strategy (single DB with tenant ID vs. DB-per-tenant)
+- [x] Choose database: SQL Server vs. PostgreSQL (SQLite for local dev)
+- [x] Choose ORM/access pattern: EF Core + Repository vs. Dapper vs. direct DbContext
+- [x] Define migration strategy (EF Core Migrations recommended)
+- [x] Define multi-tenant strategy (single DB with tenant ID vs. DB-per-tenant)
 
 ### Infrastructure & Integrations
-- [ ] Choose payment processor: Stripe (recommended) vs. PayPal vs. other
-- [ ] Choose email provider: SendGrid vs. Mailgun vs. Azure Communication Services
-- [ ] Choose SMS provider (optional): Twilio vs. Azure Communication Services
-- [ ] Choose blob/file storage: Azure Blob Storage vs. AWS S3 vs. local (for receipts, docs)
-- [ ] Choose geographic/mapping service for volunteer matching + impact map (Google Maps / Mapbox / Leaflet)
-- [ ] Define background job strategy: Hangfire vs. Azure Service Bus vs. .NET hosted services
-- [ ] Define caching strategy: in-memory vs. Redis (Redis recommended for multi-instance)
+- [x] Choose payment processor: Stripe (recommended) vs. PayPal vs. other
+- [x] Choose email provider: SendGrid vs. Mailgun vs. Azure Communication Services
+- [x] Choose SMS provider (optional): Twilio vs. Azure Communication Services
+- [x] Choose blob/file storage: Azure Blob Storage vs. AWS S3 vs. local (for receipts, docs)
+- [x] Choose geographic/mapping service for volunteer matching + impact map (Google Maps / Mapbox / Leaflet)
+- [x] Define background job strategy: Hangfire vs. Azure Service Bus vs. .NET hosted services
+- [x] Define caching strategy: in-memory vs. Redis (Redis recommended for multi-instance)
 
 ### HQ / Chapter Data Scoping
-- [ ] Design HQ vs. Chapter data isolation model (HQ sees all; Chapter sees own only)
-- [ ] Define `ChapterId` scoping on all data-access queries (filter by chapter for Chapter roles)
-- [ ] Define HQ roll-up aggregation strategy (cross-chapter dashboard queries)
-- [ ] Document role-to-scope matrix: HQAdmin, ChapterAdmin, ChapterStaff, Volunteer, Donor, PersonInNeed
+- [x] Design HQ vs. Chapter data isolation model (HQ sees all; Chapter sees own only)
+- [x] Define `ChapterId` scoping on all data-access queries (filter by chapter for Chapter roles)
+- [x] Define HQ roll-up aggregation strategy (cross-chapter dashboard queries)
+- [x] Document role-to-scope matrix: HQAdmin, ChapterAdmin, ChapterStaff, Volunteer, Donor, PersonInNeed
 
 ### Auto-Assignment Engine Design
-- [ ] Define volunteer scoring algorithm: location proximity (Haversine) + skills match + current workload penalty
-- [ ] Define assignment trigger: on request submission (immediate) vs. on triage completion (staff-gated)
-- [ ] Define fallback behavior: if no volunteer scores above threshold → route to unassigned queue for manual dispatch
-- [ ] Define volunteer acceptance window: how long before auto-reassigning if no response
-- [ ] Document algorithm in `docs/auto-assignment-algorithm.md`
+- [x] Define volunteer scoring algorithm: location proximity (Haversine) + skills match + current workload penalty
+- [x] Define assignment trigger: on request submission (immediate) vs. on triage completion (staff-gated)
+- [x] Define fallback behavior: if no volunteer scores above threshold → route to unassigned queue for manual dispatch
+- [x] Define volunteer acceptance window: how long before auto-reassigning if no response
+- [x] Document algorithm in `docs/auto-assignment-algorithm.md`
 
 ### Real-Time Strategy
-- [ ] Choose real-time approach: **SignalR** (recommended) for operations board
-- [ ] Define `RequestsHub` contract: which events to broadcast (state change, new assignment, escalation, new request)
-- [ ] Define SignalR group strategy: one group per chapter + one HQ group receiving all chapters' events
-- [ ] Define client reconnect / state-sync behavior (on reconnect, client re-fetches current board state)
+- [x] Choose real-time approach: **SignalR** (recommended) for operations board
+- [x] Define `RequestsHub` contract: which events to broadcast (state change, new assignment, escalation, new request)
+- [x] Define SignalR group strategy: one group per chapter + one HQ group receiving all chapters' events
+- [x] Define client reconnect / state-sync behavior (on reconnect, client re-fetches current board state)
 
 ### Architecture Decision Records
-- [ ] Write ADR-001: Authentication strategy
-- [ ] Write ADR-002: Database and ORM choice
-- [ ] Write ADR-003: Payment processor
-- [ ] Write ADR-004: Org hierarchy and data scoping (HQ → Chapter)
-- [ ] Write ADR-005: Real-time strategy (SignalR vs. polling)
+- [x] Write ADR-001: Authentication strategy
+- [x] Write ADR-002: Database and ORM choice
+- [x] Write ADR-003: Payment processor
+- [x] Write ADR-004: Org hierarchy and data scoping (HQ → Chapter)
+- [x] Write ADR-005: Real-time strategy (SignalR vs. polling)
 
 ---
 
@@ -127,88 +127,88 @@
 **Goal**: All domain entities, interfaces, and service contracts defined and tested.
 
 ### Lookup / Reference Entities
-- [ ] `Chapter` — local chapter of the national org (Id, Name, City, State, ContactName, ContactEmail, IsActive) — replaces "Diocese" as the primary organizational unit; donors, volunteers, and requests all belong to a chapter
-- [ ] `Diocese` — church diocese reference (Id, Name, City, State, Region, ChapterId) — a diocese maps to a chapter for donor tracking; multiple dioceses can belong to one chapter
+- [x] `Chapter` — local chapter of the national org (Id, Name, City, State, ContactName, ContactEmail, IsActive) — replaces "Diocese" as the primary organizational unit; donors, volunteers, and requests all belong to a chapter
+- [x] `Diocese` — church diocese reference (Id, Name, City, State, Region, ChapterId) — a diocese maps to a chapter for donor tracking; multiple dioceses can belong to one chapter
 
 ### User Entities
-- [ ] `ApplicationUser` — base identity user (Id, Email, Role, **ChapterId** (null for HQ roles), CreatedAt, IsActive)
-- [ ] `PersonInNeed` — service recipient profile (UserId, Name, Address, ContactInfo, ChapterId, Notes)
-- [ ] `Donor` — donor profile (UserId, Name, ContactInfo, **ChapterId**, **DioceseId**, **City**, **State**, IsAnonymous, TaxId/EIN for receipts)
-- [ ] `Volunteer` — helper profile (UserId, Name, **ChapterId**, GeoLocation, Skills, ServiceRadius, Availability, CurrentWorkloadCount)
-- [ ] `Employee` / `StaffMember` — internal user (UserId, Name, **ChapterId** (null = HQ), Department, Permissions)
+- [x] `ApplicationUser` — base identity user (Id, Email, Role, **ChapterId** (null for HQ roles), CreatedAt, IsActive)
+- [x] `PersonInNeed` — service recipient profile (UserId, Name, Address, ContactInfo, ChapterId, Notes)
+- [x] `Donor` — donor profile (UserId, Name, ContactInfo, **ChapterId**, **DioceseId**, **City**, **State**, IsAnonymous, TaxId/EIN for receipts)
+- [x] `Volunteer` — helper profile (UserId, Name, **ChapterId**, GeoLocation, Skills, ServiceRadius, Availability, CurrentWorkloadCount)
+- [x] `Employee` / `StaffMember` — internal user (UserId, Name, **ChapterId** (null = HQ), Department, Permissions)
 
 ### Request & Fulfillment Entities
-- [ ] `ServiceRequest` — intake record (Id, RequestorId, Category, Description, Status, **Priority**, **DueDate**, **AssignedToId**, **AssignedToType** (Staff/Volunteer), Address, GeoLocation, CreatedAt, UpdatedAt)
-- [ ] `ServiceFulfillment` — fulfillment record (Id, RequestId, VolunteerId, StaffId, FulfilledAt, Notes, ResourcesUsed)
-- [ ] `RequestNote` — collaborative note on a request (Id, RequestId, AuthorId, Content, CreatedAt, IsInternal) — internal notes not visible to requester
-- [ ] `RequestActivity` — immutable per-request audit trail (Id, RequestId, ActorId, ActivityType, OldValue, NewValue, Timestamp) — records every status change, assignment change, note added
-- [ ] `RequestAssignment` — tracks assignment history (Id, RequestId, AssignedToId, AssignedById, AssignedAt, AcceptedAt, DeclinedAt, Status) — supports volunteer accept/decline workflow
+- [x] `ServiceRequest` — intake record (Id, RequestorId, Category, Description, Status, **Priority**, **DueDate**, **AssignedToId**, **AssignedToType** (Staff/Volunteer), Address, GeoLocation, CreatedAt, UpdatedAt)
+- [x] `ServiceFulfillment` — fulfillment record (Id, RequestId, VolunteerId, StaffId, FulfilledAt, Notes, ResourcesUsed)
+- [x] `RequestNote` — collaborative note on a request (Id, RequestId, AuthorId, Content, CreatedAt, IsInternal) — internal notes not visible to requester
+- [x] `RequestActivity` — immutable per-request audit trail (Id, RequestId, ActorId, ActivityType, OldValue, NewValue, Timestamp) — records every status change, assignment change, note added
+- [x] `RequestAssignment` — tracks assignment history (Id, RequestId, AssignedToId, AssignedById, AssignedAt, AcceptedAt, DeclinedAt, Status) — supports volunteer accept/decline workflow
 
 ### Donation & Allocation Entities
-- [ ] `MonetaryContribution` — money donation (Id, DonorId, Amount, Currency, **DonationChannel**, **CheckNumber** (if applicable), **EventId** (if from an event), ProcessorTransactionId, Status, ReceivedAt, Notes) — DonationChannel records how the donation came in
-- [ ] `ResourceDonation` — physical goods donation (Id, DonorId, ResourceType, Quantity, Unit, Description, Status, ReceivedAt, StorageLocation)
-- [ ] `MoneyAllocation` — links money → where it was sent (Id, ContributionId, RequestId or ExpenseId, Amount, AllocatedAt, AllocatedBy, Notes)
-- [ ] `ResourceAllocation` — links resource donation → where it went (Id, ResourceDonationId, RequestId, Quantity, AllocatedAt, AllocatedBy, Notes)
-- [ ] `Expense` — operational cost (Id, Description, Amount, Category, PaidAt, PaidBy, ReceiptBlobUrl)
+- [x] `MonetaryContribution` — money donation (Id, DonorId, Amount, Currency, **DonationChannel**, **CheckNumber** (if applicable), **EventId** (if from an event), ProcessorTransactionId, Status, ReceivedAt, Notes) — DonationChannel records how the donation came in
+- [x] `ResourceDonation` — physical goods donation (Id, DonorId, ResourceType, Quantity, Unit, Description, Status, ReceivedAt, StorageLocation)
+- [x] `MoneyAllocation` — links money → where it was sent (Id, ContributionId, RequestId or ExpenseId, Amount, AllocatedAt, AllocatedBy, Notes)
+- [x] `ResourceAllocation` — links resource donation → where it went (Id, ResourceDonationId, RequestId, Quantity, AllocatedAt, AllocatedBy, Notes)
+- [x] `Expense` — operational cost (Id, Description, Amount, Category, PaidAt, PaidBy, ReceiptBlobUrl)
 
 ### Event Entities
-- [ ] `FundraisingEvent` — event record (Id, Name, EventType, Description, Date, EndDate, Venue, Address, Capacity, TicketPrice, GoalAmount, Status, CreatedBy)
-- [ ] `EventAttendee` — RSVP / ticket record (Id, EventId, DonorId, TicketCount, AmountPaid, DonationChannel, CheckedIn, CheckedInAt, Notes)
-- [ ] `SilentAuctionItem` — auction item (Id, EventId, Name, Description, FairMarketValue, StartingBid, WinningBid, WinnerId, Status)
-- [ ] `AuctionBid` — bid record (Id, AuctionItemId, BidderId, BidAmount, BidTime)
+- [x] `FundraisingEvent` — event record (Id, Name, EventType, Description, Date, EndDate, Venue, Address, Capacity, TicketPrice, GoalAmount, Status, CreatedBy)
+- [x] `EventAttendee` — RSVP / ticket record (Id, EventId, DonorId, TicketCount, AmountPaid, DonationChannel, CheckedIn, CheckedInAt, Notes)
+- [x] `SilentAuctionItem` — auction item (Id, EventId, Name, Description, FairMarketValue, StartingBid, WinningBid, WinnerId, Status)
+- [x] `AuctionBid` — bid record (Id, AuctionItemId, BidderId, BidAmount, BidTime)
 
 ### Reporting / Dashboard Entities
-- [ ] `ImpactSummary` — aggregate DTO (TotalMoneySent, TotalResourcesDonated, PeopleHelped, RequestsFulfilled, ByChapter, ByCategory, ByPeriod) — **ChapterId = null means HQ roll-up**
-- [ ] `DonorImpactStatement` — per-donor DTO ("Your $X helped N people in [City]")
-- [ ] `AllocationRecord` — unified ledger row for dashboard display
-- [ ] `DonationByPersonRow` — per-donor aggregate (DonorId, Name, Diocese, City, State, TotalAmount, GiftCount, AverageGift, FirstGiftDate, LastGiftDate)
-- [ ] `DonationByDioceseRow` — per-diocese aggregate (DioceseId, DioceseName, City, State, TotalDonors, TotalAmount, AverageGift)
-- [ ] `DonationByCityRow` — per-city aggregate (City, State, TotalDonors, TotalAmount)
-- [ ] `DonationByChannelRow` — per-channel aggregate (Channel, TotalAmount, GiftCount, Percentage)
-- [ ] `DonationByAmountBand` — gift-size distribution (Band label e.g. "$100–$499", GiftCount, TotalAmount, Percentage)
-- [ ] `VolunteerScoreResult` — **new**: auto-assignment output (VolunteerId, Name, ProximityScore, SkillsMatchScore, WorkloadPenalty, CompositeScore, Recommended)
-- [ ] `ChapterSummaryRow` — **new**: per-chapter roll-up for HQ dashboard (ChapterId, Name, OpenRequests, OverdueRequests, FulfilledThisPeriod, TotalDonations, ActiveVolunteers)
-- [ ] `DailyDigestReport` — **new**: overnight activity summary (new requests, donations received, requests fulfilled, stuck/overdue count, chapter breakdown)
-- [ ] `WeeklySummaryReport` — **new**: chapter-level KPIs for HQ + chapter leads (same fields as DailyDigest but weekly period, with trend vs. prior week)
+- [x] `ImpactSummary` — aggregate DTO (TotalMoneySent, TotalResourcesDonated, PeopleHelped, RequestsFulfilled, ByChapter, ByCategory, ByPeriod) — **ChapterId = null means HQ roll-up**
+- [x] `DonorImpactStatement` — per-donor DTO ("Your $X helped N people in [City]")
+- [x] `AllocationRecord` — unified ledger row for dashboard display
+- [x] `DonationByPersonRow` — per-donor aggregate (DonorId, Name, Diocese, City, State, TotalAmount, GiftCount, AverageGift, FirstGiftDate, LastGiftDate)
+- [x] `DonationByDioceseRow` — per-diocese aggregate (DioceseId, DioceseName, City, State, TotalDonors, TotalAmount, AverageGift)
+- [x] `DonationByCityRow` — per-city aggregate (City, State, TotalDonors, TotalAmount)
+- [x] `DonationByChannelRow` — per-channel aggregate (Channel, TotalAmount, GiftCount, Percentage)
+- [x] `DonationByAmountBand` — gift-size distribution (Band label e.g. "$100–$499", GiftCount, TotalAmount, Percentage)
+- [x] `VolunteerScoreResult` — **new**: auto-assignment output (VolunteerId, Name, ProximityScore, SkillsMatchScore, WorkloadPenalty, CompositeScore, Recommended)
+- [x] `ChapterSummaryRow` — **new**: per-chapter roll-up for HQ dashboard (ChapterId, Name, OpenRequests, OverdueRequests, FulfilledThisPeriod, TotalDonations, ActiveVolunteers)
+- [x] `DailyDigestReport` — **new**: overnight activity summary (new requests, donations received, requests fulfilled, stuck/overdue count, chapter breakdown)
+- [x] `WeeklySummaryReport` — **new**: chapter-level KPIs for HQ + chapter leads (same fields as DailyDigest but weekly period, with trend vs. prior week)
 
 ### Interfaces / Service Contracts
-- [ ] `IServiceRequestService` — submit, list, update, assign, accept, decline, escalate, add note; all queries scoped by ChapterId
-- [ ] `IWorkloadService` — get staff/volunteer workload summary, get unassigned queue, get overdue requests; HQ variant returns cross-chapter rollup
-- [ ] `IDonorService` — register, list, get profile, get contribution history; chapter-scoped
-- [ ] `IVolunteerService` — register, list, **score volunteers for a request** (location + skills + workload)
-- [ ] `IAutoAssignmentService` — **new**: score all available chapter volunteers against a request, auto-assign top candidate or route to unassigned queue if none qualify; triggered on request triage completion
-- [ ] `IPaymentService` — process donation, handle webhook, refund
-- [ ] `IResourceService` — log resource donation, allocate, track inventory
-- [ ] `IAllocationService` — allocate money/resources to requests, get allocation history
-- [ ] `IDashboardService` — aggregate impact stats, money flow, resource flow, geographic breakdown, donation breakdowns; **chapter-scoped** for Chapter roles, **cross-chapter** for HQ Admin
-- [ ] `INotificationService` — send email, send SMS, queue notification
-- [ ] `IReportingService` — generate impact reports, export to CSV/PDF; **chapter-scoped or HQ roll-up**
-- [ ] `IScheduledReportService` — **new**: generate and email daily digest (overnight activity) and weekly summary (chapter KPIs) to HQ and chapter leads on a CRON schedule
-- [ ] `IUserService` — profile management, role assignment, chapter membership
-- [ ] `IReceiptService` — generate and send tax receipts for charitable donations
-- [ ] `IAuditService` — write immutable audit log entries
-- [ ] `IEventService` — create/manage events, register attendees, process auction bids, generate event revenue reports
+- [x] `IServiceRequestService` — submit, list, update, assign, accept, decline, escalate, add note; all queries scoped by ChapterId
+- [x] `IWorkloadService` — get staff/volunteer workload summary, get unassigned queue, get overdue requests; HQ variant returns cross-chapter rollup
+- [x] `IDonorService` — register, list, get profile, get contribution history; chapter-scoped
+- [x] `IVolunteerService` — register, list, **score volunteers for a request** (location + skills + workload)
+- [x] `IAutoAssignmentService` — **new**: score all available chapter volunteers against a request, auto-assign top candidate or route to unassigned queue if none qualify; triggered on request triage completion
+- [x] `IPaymentService` — process donation, handle webhook, refund
+- [x] `IResourceService` — log resource donation, allocate, track inventory
+- [x] `IAllocationService` — allocate money/resources to requests, get allocation history
+- [x] `IDashboardService` — aggregate impact stats, money flow, resource flow, geographic breakdown, donation breakdowns; **chapter-scoped** for Chapter roles, **cross-chapter** for HQ Admin
+- [x] `INotificationService` — send email, send SMS, queue notification
+- [x] `IReportingService` — generate impact reports, export to CSV/PDF; **chapter-scoped or HQ roll-up**
+- [x] `IScheduledReportService` — **new**: generate and email daily digest (overnight activity) and weekly summary (chapter KPIs) to HQ and chapter leads on a CRON schedule
+- [x] `IUserService` — profile management, role assignment, chapter membership
+- [x] `IReceiptService` — generate and send tax receipts for charitable donations
+- [x] `IAuditService` — write immutable audit log entries
+- [x] `IEventService` — create/manage events, register attendees, process auction bids, generate event revenue reports
 
 ### Shared / Value Objects
-- [ ] Enums: `UserRole` (PersonInNeed, Donor, Volunteer, ChapterStaff, ChapterAdmin, HQAdmin) — replaces generic Staff/Admin; HQAdmin has no ChapterId (sees all); ChapterAdmin/ChapterStaff are scoped to their chapter
-- [ ] Enums: `RequestStatus` (Submitted, Triaged, Matched, InProgress, Fulfilled, Closed, Cancelled)
-- [ ] Enums: `RequestPriority` (Urgent, High, Normal, Low)
-- [ ] Enums: `AssignmentStatus` (Pending, Accepted, Declined, Reassigned, Completed)
-- [ ] Enums: `ActivityType` (StatusChanged, Assigned, Reassigned, NoteAdded, DueDateSet, Fulfilled, Cancelled, Escalated)
-- [ ] Enums: `RequestCategory` (Food, Clothing, Shelter, Transportation, Medical, Utilities, Financial, Other)
-- [ ] Enums: `ResourceType` (Food, Clothing, Shelter, Transportation, Medical, HouseholdGoods, Other)
-- [ ] Enums: `DonationChannel` (Online, Check, Cash, InPerson, Mail, PhoneCall, Event, Other) — how the donation was received
-- [ ] Enums: `EventType` (Gala, SilentAuction, Dinner, Concert, GolfTournament, Walkathon, Other)
-- [ ] Enums: `EventStatus` (Draft, Published, Open, Closed, Completed, Cancelled)
-- [ ] Enums: `AuctionItemStatus` (Available, Sold, Unsold)
-- [ ] Enums: `ContributionStatus` (Pending, Processed, Failed, Refunded)
-- [ ] Enums: `AllocationStatus` (Pending, Allocated, Delivered, Reversed)
-- [ ] Value object: `Address` (Street, City, State, Zip, Country)
-- [ ] Value object: `GeoLocation` (Latitude, Longitude) — for mapping and volunteer matching
-- [ ] Value object: `Money` (Amount, Currency)
-- [ ] Value object: `ContactInfo` (Phone, Email, PreferredContact)
-- [ ] Value object: `DateRange` — for dashboard filtering
-- [ ] Common result types: `Result<T>`, `PagedResult<T>`, `ValidationResult`
+- [x] Enums: `UserRole` (PersonInNeed, Donor, Volunteer, ChapterStaff, ChapterAdmin, HQAdmin) — replaces generic Staff/Admin; HQAdmin has no ChapterId (sees all); ChapterAdmin/ChapterStaff are scoped to their chapter
+- [x] Enums: `RequestStatus` (Submitted, Triaged, Matched, InProgress, Fulfilled, Closed, Cancelled)
+- [x] Enums: `RequestPriority` (Urgent, High, Normal, Low)
+- [x] Enums: `AssignmentStatus` (Pending, Accepted, Declined, Reassigned, Completed)
+- [x] Enums: `ActivityType` (StatusChanged, Assigned, Reassigned, NoteAdded, DueDateSet, Fulfilled, Cancelled, Escalated)
+- [x] Enums: `RequestCategory` (Food, Clothing, Shelter, Transportation, Medical, Utilities, Financial, Other)
+- [x] Enums: `ResourceType` (Food, Clothing, Shelter, Transportation, Medical, HouseholdGoods, Other)
+- [x] Enums: `DonationChannel` (Online, Check, Cash, InPerson, Mail, PhoneCall, Event, Other) — how the donation was received
+- [x] Enums: `EventType` (Gala, SilentAuction, Dinner, Concert, GolfTournament, Walkathon, Other)
+- [x] Enums: `EventStatus` (Draft, Published, Open, Closed, Completed, Cancelled)
+- [x] Enums: `AuctionItemStatus` (Available, Sold, Unsold)
+- [x] Enums: `ContributionStatus` (Pending, Processed, Failed, Refunded)
+- [x] Enums: `AllocationStatus` (Pending, Allocated, Delivered, Reversed)
+- [x] Value object: `Address` (Street, City, State, Zip, Country)
+- [x] Value object: `GeoLocation` (Latitude, Longitude) — for mapping and volunteer matching
+- [x] Value object: `Money` (Amount, Currency)
+- [x] Value object: `ContactInfo` (Phone, Email, PreferredContact)
+- [x] Value object: `DateRange` — for dashboard filtering
+- [x] Common result types: `Result<T>`, `PagedResult<T>`, `ValidationResult`
 
 ---
 
@@ -217,165 +217,165 @@
 **Goal**: Functional REST API with authentication, all core CRUD endpoints, payment processing, and reporting.
 
 ### Authentication & Authorization
-- [ ] Implement chosen auth strategy
-- [ ] Role-based authorization policies (PersonInNeed, Donor, Volunteer, ChapterStaff, ChapterAdmin, HQAdmin)
-- [ ] Chapter-scoped query middleware: inject ChapterId claim filter on all Chapter-role queries; HQAdmin bypasses filter
-- [ ] JWT token issuance / refresh endpoints
-- [ ] User registration endpoint with role selection and chapter assignment
-- [ ] Password reset flow
+- [x] Implement chosen auth strategy
+- [x] Role-based authorization policies (PersonInNeed, Donor, Volunteer, ChapterStaff, ChapterAdmin, HQAdmin)
+- [x] Chapter-scoped query middleware: inject ChapterId claim filter on all Chapter-role queries; HQAdmin bypasses filter
+- [x] JWT token issuance / refresh endpoints
+- [x] User registration endpoint with role selection and chapter assignment
+- [x] Password reset flow
 
 ### Service Request Endpoints
-- [ ] `POST /api/v1/requests` — submit service request (PersonInNeed)
-- [ ] `GET /api/v1/requests` — list requests with filters (Staff/Admin)
-- [ ] `GET /api/v1/requests/{id}` — get request detail
-- [ ] `PUT /api/v1/requests/{id}/status` — update request status (Staff)
-- [ ] `PUT /api/v1/requests/{id}/assign` — assign volunteer or staff to request (Staff)
-- [ ] `PUT /api/v1/requests/{id}/priority` — set request priority (Staff)
-- [ ] `PUT /api/v1/requests/{id}/due-date` — set due date / SLA (Staff)
-- [ ] `POST /api/v1/requests/{id}/accept` — volunteer/staff accepts their assignment
-- [ ] `POST /api/v1/requests/{id}/decline` — volunteer/staff declines assignment (triggers reassignment queue)
-- [ ] `POST /api/v1/requests/{id}/escalate` — escalate request to supervisor (Staff/system)
-- [ ] `POST /api/v1/requests/{id}/notes` — add a note to a request (Staff/Volunteer)
-- [ ] `GET /api/v1/requests/{id}/notes` — get all notes on a request
-- [ ] `GET /api/v1/requests/{id}/activity` — full activity log for a request (who changed what, when)
-- [ ] `POST /api/v1/requests/{id}/fulfill` — mark request fulfilled + log resources used (Volunteer/Staff)
-- [ ] `GET /api/v1/requests/my` — person in need's own requests
-- [ ] `GET /api/v1/requests/queue` — unassigned requests queue (Staff — requests needing someone to take them)
-- [ ] `GET /api/v1/requests/overdue` — requests past their due date (Staff/Admin)
-- [ ] `GET /api/v1/workload` — workload summary across all staff and volunteers (Admin/Staff): open request count per person
-- [ ] `GET /api/v1/workload/{userId}` — workload detail for a specific staff member or volunteer: their assigned requests by status
+- [x] `POST /api/v1/requests` — submit service request (PersonInNeed)
+- [x] `GET /api/v1/requests` — list requests with filters (Staff/Admin)
+- [x] `GET /api/v1/requests/{id}` — get request detail
+- [x] `PUT /api/v1/requests/{id}/status` — update request status (Staff)
+- [x] `PUT /api/v1/requests/{id}/assign` — assign volunteer or staff to request (Staff)
+- [x] `PUT /api/v1/requests/{id}/priority` — set request priority (Staff)
+- [x] `PUT /api/v1/requests/{id}/due-date` — set due date / SLA (Staff)
+- [x] `POST /api/v1/requests/{id}/accept` — volunteer/staff accepts their assignment
+- [x] `POST /api/v1/requests/{id}/decline` — volunteer/staff declines assignment (triggers reassignment queue)
+- [x] `POST /api/v1/requests/{id}/escalate` — escalate request to supervisor (Staff/system)
+- [x] `POST /api/v1/requests/{id}/notes` — add a note to a request (Staff/Volunteer)
+- [x] `GET /api/v1/requests/{id}/notes` — get all notes on a request
+- [x] `GET /api/v1/requests/{id}/activity` — full activity log for a request (who changed what, when)
+- [x] `POST /api/v1/requests/{id}/fulfill` — mark request fulfilled + log resources used (Volunteer/Staff)
+- [x] `GET /api/v1/requests/my` — person in need's own requests
+- [x] `GET /api/v1/requests/queue` — unassigned requests queue (Staff — requests needing someone to take them)
+- [x] `GET /api/v1/requests/overdue` — requests past their due date (Staff/Admin)
+- [x] `GET /api/v1/workload` — workload summary across all staff and volunteers (Admin/Staff): open request count per person
+- [x] `GET /api/v1/workload/{userId}` — workload detail for a specific staff member or volunteer: their assigned requests by status
 
 ### Event Endpoints
-- [ ] `GET /api/v1/events` — list all events (with filters: upcoming, past, type, status)
-- [ ] `POST /api/v1/events` — create a new event (Staff/Admin)
-- [ ] `GET /api/v1/events/{id}` — event detail
-- [ ] `PUT /api/v1/events/{id}` — update event (Staff/Admin)
-- [ ] `DELETE /api/v1/events/{id}` — cancel / delete event (Admin)
-- [ ] `GET /api/v1/events/{id}/attendees` — list attendees for an event
-- [ ] `POST /api/v1/events/{id}/attendees` — register a donor as attendee / sell ticket
-- [ ] `PUT /api/v1/events/{id}/attendees/{attendeeId}/checkin` — check in an attendee at the door
-- [ ] `GET /api/v1/events/{id}/revenue` — total revenue raised by the event (tickets + auction + direct donations linked to event)
-- [ ] `GET /api/v1/events/{id}/auction` — list all silent auction items for an event
-- [ ] `POST /api/v1/events/{id}/auction` — add an auction item (Staff)
-- [ ] `PUT /api/v1/events/{id}/auction/{itemId}` — update auction item (bid, status, winner)
-- [ ] `POST /api/v1/events/{id}/auction/{itemId}/bid` — place a bid on an auction item
-- [ ] `POST /api/v1/events/{id}/auction/close` — close bidding and record winners (Staff/Admin)
-- [ ] `GET /api/v1/events/upcoming` — upcoming events (used for public event listing page)
-- [ ] `GET /api/v1/dashboard/events` — event dashboard summary: upcoming events, past events revenue, top-performing events
+- [x] `GET /api/v1/events` — list all events (with filters: upcoming, past, type, status)
+- [x] `POST /api/v1/events` — create a new event (Staff/Admin)
+- [x] `GET /api/v1/events/{id}` — event detail
+- [x] `PUT /api/v1/events/{id}` — update event (Staff/Admin)
+- [x] `DELETE /api/v1/events/{id}` — cancel / delete event (Admin)
+- [x] `GET /api/v1/events/{id}/attendees` — list attendees for an event
+- [x] `POST /api/v1/events/{id}/attendees` — register a donor as attendee / sell ticket
+- [x] `PUT /api/v1/events/{id}/attendees/{attendeeId}/checkin` — check in an attendee at the door
+- [x] `GET /api/v1/events/{id}/revenue` — total revenue raised by the event (tickets + auction + direct donations linked to event)
+- [x] `GET /api/v1/events/{id}/auction` — list all silent auction items for an event
+- [x] `POST /api/v1/events/{id}/auction` — add an auction item (Staff)
+- [x] `PUT /api/v1/events/{id}/auction/{itemId}` — update auction item (bid, status, winner)
+- [x] `POST /api/v1/events/{id}/auction/{itemId}/bid` — place a bid on an auction item
+- [x] `POST /api/v1/events/{id}/auction/close` — close bidding and record winners (Staff/Admin)
+- [x] `GET /api/v1/events/upcoming` — upcoming events (used for public event listing page)
+- [x] `GET /api/v1/dashboard/events` — event dashboard summary: upcoming events, past events revenue, top-performing events
 
 ### Diocese Endpoints (Lookup)
-- [ ] `GET /api/v1/dioceses` — list all dioceses (Staff/Admin, used in donor registration dropdowns and dashboard)
-- [ ] `POST /api/v1/dioceses` — add a diocese (Admin)
-- [ ] `PUT /api/v1/dioceses/{id}` — update diocese details (Admin)
-- [ ] `GET /api/v1/dioceses/{id}/donors` — all donors associated with a diocese (Staff/Admin)
-- [ ] `GET /api/v1/dioceses/{id}/summary` — total donations, donor count, average gift for a diocese (dashboard drill-through)
+- [x] `GET /api/v1/dioceses` — list all dioceses (Staff/Admin, used in donor registration dropdowns and dashboard)
+- [x] `POST /api/v1/dioceses` — add a diocese (Admin)
+- [x] `PUT /api/v1/dioceses/{id}` — update diocese details (Admin)
+- [x] `GET /api/v1/dioceses/{id}/donors` — all donors associated with a diocese (Staff/Admin)
+- [x] `GET /api/v1/dioceses/{id}/summary` — total donations, donor count, average gift for a diocese (dashboard drill-through)
 
 ### Donor & Contribution Endpoints
-- [ ] `POST /api/v1/donors` — register donor profile
-- [ ] `GET /api/v1/donors` — list donors (Staff/Admin)
-- [ ] `GET /api/v1/donors/{id}` — donor profile detail
-- [ ] `GET /api/v1/donors/{id}/contributions` — donor's contribution history
-- [ ] `GET /api/v1/donors/{id}/impact` — donor's personal impact statement
-- [ ] `POST /api/v1/contributions/money` — initiate monetary donation (creates Stripe payment intent)
-- [ ] `POST /api/v1/contributions/resources` — log a resource donation
-- [ ] `GET /api/v1/contributions` — list all contributions (Staff/Admin)
-- [ ] `GET /api/v1/contributions/{id}` — contribution detail
+- [x] `POST /api/v1/donors` — register donor profile
+- [x] `GET /api/v1/donors` — list donors (Staff/Admin)
+- [x] `GET /api/v1/donors/{id}` — donor profile detail
+- [x] `GET /api/v1/donors/{id}/contributions` — donor's contribution history
+- [x] `GET /api/v1/donors/{id}/impact` — donor's personal impact statement
+- [x] `POST /api/v1/contributions/money` — initiate monetary donation (creates Stripe payment intent)
+- [x] `POST /api/v1/contributions/resources` — log a resource donation
+- [x] `GET /api/v1/contributions` — list all contributions (Staff/Admin)
+- [x] `GET /api/v1/contributions/{id}` — contribution detail
 
 ### Payment Endpoints
-- [ ] `POST /api/v1/payments/intent` — create Stripe PaymentIntent, return client secret
-- [ ] `POST /api/v1/payments/webhook` — receive and process Stripe webhook events (signature verified)
-- [ ] `POST /api/v1/payments/{id}/refund` — process refund (Admin)
+- [x] `POST /api/v1/payments/intent` — create Stripe PaymentIntent, return client secret
+- [x] `POST /api/v1/payments/webhook` — receive and process Stripe webhook events (signature verified)
+- [x] `POST /api/v1/payments/{id}/refund` — process refund (Admin)
 
 ### Volunteer Endpoints
-- [ ] `POST /api/v1/volunteers` — register volunteer
-- [ ] `GET /api/v1/volunteers` — list volunteers (Staff/Admin)
-- [ ] `GET /api/v1/volunteers/{id}` — volunteer profile
-- [ ] `GET /api/v1/volunteers/available` — volunteers available near a request location
-- [ ] `GET /api/v1/volunteers/my/requests` — volunteer's assigned requests
+- [x] `POST /api/v1/volunteers` — register volunteer
+- [x] `GET /api/v1/volunteers` — list volunteers (Staff/Admin)
+- [x] `GET /api/v1/volunteers/{id}` — volunteer profile
+- [x] `GET /api/v1/volunteers/available` — volunteers available near a request location
+- [x] `GET /api/v1/volunteers/my/requests` — volunteer's assigned requests
 
 ### Allocation Endpoints
-- [ ] `POST /api/v1/allocations/money` — allocate money → request or expense (Staff/Admin)
-- [ ] `POST /api/v1/allocations/resources` — allocate resource donation → request (Staff)
-- [ ] `GET /api/v1/allocations` — full allocation ledger (Staff/Admin)
-- [ ] `GET /api/v1/allocations/{id}` — allocation detail
+- [x] `POST /api/v1/allocations/money` — allocate money → request or expense (Staff/Admin)
+- [x] `POST /api/v1/allocations/resources` — allocate resource donation → request (Staff)
+- [x] `GET /api/v1/allocations` — full allocation ledger (Staff/Admin)
+- [x] `GET /api/v1/allocations/{id}` — allocation detail
 
 ### Dashboard & Reporting Endpoints
-- [ ] `GET /api/v1/dashboard` — overall impact summary (KPI cards): total $ donated, total resources, people helped, requests fulfilled
-- [ ] `GET /api/v1/dashboard/money` — monetary flow breakdown (by category, by region, by time period, by recipient)
-- [ ] `GET /api/v1/dashboard/resources` — resource distribution breakdown (by type, by region, by time period)
-- [ ] `GET /api/v1/dashboard/map` — geographic distribution data (GeoJSON or lat/lng points for map rendering)
-- [ ] `GET /api/v1/dashboard/timeline` — time-series data for charts (donations and fulfillments over time)
+- [x] `GET /api/v1/dashboard` — overall impact summary (KPI cards): total $ donated, total resources, people helped, requests fulfilled
+- [x] `GET /api/v1/dashboard/money` — monetary flow breakdown (by category, by region, by time period, by recipient)
+- [x] `GET /api/v1/dashboard/resources` — resource distribution breakdown (by type, by region, by time period)
+- [x] `GET /api/v1/dashboard/map` — geographic distribution data (GeoJSON or lat/lng points for map rendering)
+- [x] `GET /api/v1/dashboard/timeline` — time-series data for charts (donations and fulfillments over time)
 
 #### Donation Tracking Dashboard Endpoints
-- [ ] `GET /api/v1/dashboard/donations` — master donations dashboard: all breakdown panels in one response (or use individual endpoints below)
-- [ ] `GET /api/v1/dashboard/donations/by-person` — per-donor summary rows (name, diocese, city, total, gift count, avg gift, first/last gift date); supports search + sort + pagination
-- [ ] `GET /api/v1/dashboard/donations/by-diocese` — per-diocese aggregate (diocese name, city, state, donor count, total amount, avg gift); sortable
-- [ ] `GET /api/v1/dashboard/donations/by-city` — per-city aggregate (city, state, donor count, total amount); sortable
-- [ ] `GET /api/v1/dashboard/donations/by-channel` — by DonationChannel (Online / Check / Cash / In-Person / Mail / Event / Other): count, total amount, percentage of all donations
-- [ ] `GET /api/v1/dashboard/donations/by-amount` — gift-size band distribution (<$25, $25–$99, $100–$499, $500–$999, $1,000–$4,999, $5,000+): count, total, percentage
-- [ ] `GET /api/v1/dashboard/donations/by-diocese/{id}` — drill-through: all donors in a specific diocese with their individual totals
+- [x] `GET /api/v1/dashboard/donations` — master donations dashboard: all breakdown panels in one response (or use individual endpoints below)
+- [x] `GET /api/v1/dashboard/donations/by-person` — per-donor summary rows (name, diocese, city, total, gift count, avg gift, first/last gift date); supports search + sort + pagination
+- [x] `GET /api/v1/dashboard/donations/by-diocese` — per-diocese aggregate (diocese name, city, state, donor count, total amount, avg gift); sortable
+- [x] `GET /api/v1/dashboard/donations/by-city` — per-city aggregate (city, state, donor count, total amount); sortable
+- [x] `GET /api/v1/dashboard/donations/by-channel` — by DonationChannel (Online / Check / Cash / In-Person / Mail / Event / Other): count, total amount, percentage of all donations
+- [x] `GET /api/v1/dashboard/donations/by-amount` — gift-size band distribution (<$25, $25–$99, $100–$499, $500–$999, $1,000–$4,999, $5,000+): count, total, percentage
+- [x] `GET /api/v1/dashboard/donations/by-diocese/{id}` — drill-through: all donors in a specific diocese with their individual totals
 
 #### Reporting Endpoints
-- [ ] `GET /api/v1/reports/impact` — full impact report with filters (date range, region, category)
-- [ ] `GET /api/v1/reports/donations` — full donor report filterable by diocese, city, channel, date range, amount range
-- [ ] `GET /api/v1/reports/export` — export any report as CSV or PDF (specify report type in query param)
-- [ ] `GET /api/v1/reports/audit` — audit log viewer (Admin only)
+- [x] `GET /api/v1/reports/impact` — full impact report with filters (date range, region, category)
+- [x] `GET /api/v1/reports/donations` — full donor report filterable by diocese, city, channel, date range, amount range
+- [x] `GET /api/v1/reports/export` — export any report as CSV or PDF (specify report type in query param)
+- [x] `GET /api/v1/reports/audit` — audit log viewer (Admin only)
 
 ### User & Profile Endpoints
-- [ ] `GET /api/v1/users/me` — current user profile
-- [ ] `PUT /api/v1/users/me` — update profile
-- [ ] `GET /api/v1/users` — list all users (Admin)
-- [ ] `PUT /api/v1/users/{id}/role` — change user role (Admin)
-- [ ] `DELETE /api/v1/users/{id}` — deactivate user (Admin)
+- [x] `GET /api/v1/users/me` — current user profile
+- [x] `PUT /api/v1/users/me` — update profile
+- [x] `GET /api/v1/users` — list all users (Admin)
+- [x] `PUT /api/v1/users/{id}/role` — change user role (Admin)
+- [x] `DELETE /api/v1/users/{id}` — deactivate user (Admin)
 
 ### Notification Endpoints
-- [ ] `POST /api/v1/notifications/send` — send ad-hoc notification (Staff)
-- [ ] `GET /api/v1/notifications/templates` — list email templates (Staff)
-- [ ] `POST /api/v1/notifications/marketing` — send marketing email blast (Staff)
+- [x] `POST /api/v1/notifications/send` — send ad-hoc notification (Staff)
+- [x] `GET /api/v1/notifications/templates` — list email templates (Staff)
+- [x] `POST /api/v1/notifications/marketing` — send marketing email blast (Staff)
 
 ### Real-Time (SignalR)
-- [ ] Install `Microsoft.AspNetCore.SignalR` NuGet package
-- [ ] Implement `RequestsHub` — broadcasts events: `RequestCreated`, `RequestAssigned`, `StatusChanged`, `RequestEscalated`, `RequestCompleted`
-- [ ] Chapter SignalR groups: each connected user joins their chapter's group on connect; HQAdmin joins a special `hq-all` group that receives all chapters' events
-- [ ] Map SignalR hub at `/hubs/requests`
-- [ ] Reconnect + state-sync: client re-fetches board state via REST on reconnect (SignalR is for deltas only)
+- [x] Install `Microsoft.AspNetCore.SignalR` NuGet package
+- [x] Implement `RequestsHub` — broadcasts events: `RequestCreated`, `RequestAssigned`, `StatusChanged`, `RequestEscalated`, `RequestCompleted`
+- [x] Chapter SignalR groups: each connected user joins their chapter's group on connect; HQAdmin joins a special `hq-all` group that receives all chapters' events
+- [x] Map SignalR hub at `/hubs/requests`
+- [x] Reconnect + state-sync: client re-fetches board state via REST on reconnect (SignalR is for deltas only)
 
 ### Auto-Assignment Engine
-- [ ] Implement `IAutoAssignmentService`:
+- [x] Implement `IAutoAssignmentService`:
   - Query all active volunteers in the request's chapter with matching skills
   - Score each by: proximity (Haversine distance to request address), skills match %, current workload count
   - Composite score = (proximity weight × distance_score) + (skills weight × skills_score) - (workload weight × workload_count)
   - If top candidate score ≥ threshold → auto-assign and notify via `INotificationService`
   - If no candidate qualifies → add to unassigned queue and broadcast `RequestUnassigned` via SignalR
-- [ ] `POST /api/v1/requests/{id}/auto-assign` — manually trigger auto-assignment (Staff)
-- [ ] `GET /api/v1/requests/{id}/candidates` — return ranked volunteer candidates for a request (Staff can review before confirming)
+- [x] `POST /api/v1/requests/{id}/auto-assign` — manually trigger auto-assignment (Staff)
+- [x] `GET /api/v1/requests/{id}/candidates` — return ranked volunteer candidates for a request (Staff can review before confirming)
 
 ### Scheduled Reports (Background Jobs)
-- [ ] Install Hangfire (or use `IHostedService` + CRON — per ADR)
-- [ ] Implement `IScheduledReportService`:
+- [x] Install Hangfire (or use `IHostedService` + CRON — per ADR)
+- [x] Implement `IScheduledReportService`:
   - `GenerateDailyDigest(chapterId)` — overnight activity: new requests, donations received, requests fulfilled, stuck count, overdue count
   - `GenerateWeeklySummary(chapterId)` — chapter KPIs vs. prior week (trend arrows)
   - `GenerateHQWeeklySummary()` — cross-chapter roll-up with per-chapter breakdown table
-- [ ] Daily digest job — fires at 6:00 AM local (per chapter timezone) → emails chapter leads
-- [ ] Weekly summary job — fires every Monday 7:00 AM → emails chapter leads + HQ Admin(s)
-- [ ] HQ cross-chapter weekly report — same Monday job, fires after chapter jobs complete
+- [x] Daily digest job — fires at 6:00 AM local (per chapter timezone) → emails chapter leads
+- [x] Weekly summary job — fires every Monday 7:00 AM → emails chapter leads + HQ Admin(s)
+- [x] HQ cross-chapter weekly report — same Monday job, fires after chapter jobs complete
 
 ### Infrastructure
-- [ ] EF Core DbContext + initial migrations (all entities including Chapter)
-- [ ] Chapter-scoped query filter: global `IQueryFilter<IChapterScoped>` automatically applies `WHERE ChapterId = @chapterId` for non-HQ users
-- [ ] Stripe SDK integration (payment processing + webhook verification)
-- [ ] Email service integration (SendGrid or chosen provider)
-- [ ] SMS service integration (optional — Twilio or chosen provider)
-- [ ] Blob storage integration for receipts and documents
-- [ ] Hangfire dashboard (or equivalent) for monitoring scheduled jobs
-- [ ] `IReceiptService` implementation — generate PDF tax receipt, email to donor
-- [ ] `IAuditService` implementation — write to append-only audit log table
-- [ ] Serilog structured logging
-- [ ] Health check endpoint (`/health`)
-- [ ] Global exception handler middleware
-- [ ] Input validation (FluentValidation recommended)
-- [ ] Rate limiting on public endpoints (payment, registration)
-- [ ] CORS policy configuration
+- [x] EF Core DbContext + initial migrations (all entities including Chapter)
+- [x] Chapter-scoped query filter: global `IQueryFilter<IChapterScoped>` automatically applies `WHERE ChapterId = @chapterId` for non-HQ users
+- [x] Stripe SDK integration (payment processing + webhook verification)
+- [x] Email service integration (SendGrid or chosen provider)
+- [x] SMS service integration (optional — Twilio or chosen provider)
+- [x] Blob storage integration for receipts and documents
+- [x] Hangfire dashboard (or equivalent) for monitoring scheduled jobs
+- [x] `IReceiptService` implementation — generate PDF tax receipt, email to donor
+- [x] `IAuditService` implementation — write to append-only audit log table
+- [x] Serilog structured logging
+- [x] Health check endpoint (`/health`)
+- [x] Global exception handler middleware
+- [x] Input validation (FluentValidation recommended)
+- [x] Rate limiting on public endpoints (payment, registration)
+- [x] CORS policy configuration
 
 ---
 
@@ -384,44 +384,45 @@
 **Goal**: Blazor WebAssembly UI with role-based views, donation flow, and Impact & Distribution Dashboard.
 
 ### Shared / Shell
-- [ ] App shell with responsive navigation (chapter name in header for Chapter roles; "National HQ" for HQAdmin)
-- [ ] Authentication state provider (JWT handling, auto-refresh, ChapterId claim)
-- [ ] Role-based route guards (HQAdmin-only routes, Chapter-only routes)
-- [ ] SignalR client service — connect to `RequestsHub` on login, reconnect with state-sync on disconnect
-- [ ] Notification toast component (also used for real-time SignalR push toasts: "New request submitted", "Request escalated")
-- [ ] Loading/spinner component
-- [ ] Reusable chart components (bar, pie, line) — consider MudBlazor or Radzen
+- [x] App shell with responsive navigation (AdminLayout.razor — role-based sidebar, topbar with search/notifications)
+- [x] Authentication state provider (JWT handling, auto-refresh, ChapterId claim) — `JwtAuthStateProvider`, `AuthService`
+- [x] Role-based route guards (`AuthorizeRouteView` + `CascadingAuthenticationState` in App.razor)
+- [x] SignalR client service — connect to `RequestsHub` on login, reconnect with state-sync on disconnect (`SignalRService`)
+- [x] Notification toast component (real-time SignalR push toasts for all 6 hub events) — `ToastNotification.razor`
+- [x] Loading/spinner component — `Loading.razor` (Size + Message params, sm/md/lg variants)
+- [x] Reusable chart components (bar, pie, line) — `BarChart.razor` (horizontal/vertical, CSS bars, typeparam), `PieChart.razor` (SVG donut/pie with legend), `LineChart.razor` (SVG area/line, dual-series, grid lines); all pure Blazor/SVG, no external library
 
 ### Person in Need Views
-- [ ] Submit service request form (category, description, address, contact info)
-- [ ] My Requests dashboard (list with status badges)
-- [ ] Request detail / status tracking page
-- [ ] Profile management page
+- [x] Submit service request form — `Apply.razor` (public intake, wired to `/api/v1/public/apply`)
+- [x] My Requests dashboard — `MyRequests.razor`: filter chips, status badges, progress tracker, request cards
+- [x] Request detail / status tracking page — `MyRequestDetail.razor`: status steps, team updates, helper info
+- [x] Profile management page — `MyProfile.razor`: personal info, address, communication prefs
 
 ### Donor Views
-- [ ] Donor registration / profile page
-- [ ] Make a Monetary Donation page (Stripe Elements / payment form)
-- [ ] Donate Resources page (log resource type, quantity, description)
-- [ ] Donation confirmation / receipt page (with PDF download)
-- [ ] Contribution history list
-- [ ] **My Impact page** — personalized impact statement: "Your $X and Y resources helped N people in [regions]", breakdown by category and time
+- [x] Donor registration / profile page — `Give.razor` collects donor info on donation submission
+- [x] Make a Monetary Donation page — `Give.razor` (public, wired to `/api/v1/public/give`)
+- [x] Donate Resources page — `DonateResources.razor`: resource type, quantity, description, preference
+- [x] Donation confirmation / receipt page — `DonationConfirm.razor` at `/donate/confirm`: thank-you, summary card, PDF receipt stub, CTAs
+- [x] Contribution history list — visible in `DonorImpact.razor`
+- [x] **My Impact page** — `DonorImpact.razor`: total given, families helped, category breakdown bar charts, full donation history
 
 ### Volunteer Views
-- [ ] Volunteer registration / profile (including location + skills)
-- [ ] Available Requests near me (map + list view, filtered by location radius)
-- [ ] **Pending Assignment** — notification + accept/decline screen when staff assigns the volunteer to a request
-- [ ] **My Work Queue** — requests currently assigned to me, sorted by priority + due date; status badges; overdue indicator
-- [ ] Request detail view (read-only, with notes thread)
-- [ ] Complete/report a request (log outcome and resources used)
-- [ ] My History
+- [x] Volunteer registration / profile — `VolunteerSignup.razor` (public registration)
+- [x] Available Requests near me — `VolunteerAvailable.razor`: unassigned queue, filter by category/priority, accept button
+- [x] **Pending Assignment** — `VolunteerPending.razor` at `/volunteer/pending/{Id}`: request details, accept/decline buttons, confirmation states
+- [x] **My Work Queue** — `VolunteerMyAssignments.razor`: filter chips, quick status update buttons, overdue indicator
+- [x] Request detail view — `MyRequestDetail.razor` (also used by Person in Need; read-only notes thread)
+- [x] Complete/report a request — quick "Mark Complete" button on VolunteerMyAssignments
+- [x] My History — `VolunteerHistory.razor`: KPI strip (total fulfilled, families, since date, top category), fulfillment table
+- [x] Volunteer dashboard — `VolunteerDashboard.razor`: KPI strip, active assignments, available near me panels
 
 ### Staff Views (Chapter-Scoped — ChapterStaff / ChapterAdmin)
-- [ ] **Real-Time Operations Board** — live Kanban connected to SignalR `RequestsHub`; cards update automatically when any user changes a request's state; new request cards appear in Submitted column without page refresh; overdue cards pulse red; board scoped to current chapter
-- [ ] **All Requests dashboard** — filterable/sortable list: status, priority, category, date, assigned-to; status badge coloring; overdue indicator; chapter-scoped
-- [ ] **Unassigned Queue** — dedicated view of requests with no assignee, sorted by priority + age; one-click manual assign OR one-click trigger auto-assignment
-- [ ] **Kanban Board View** — requests organized in columns by status (Submitted | Triaged | Matched | In Progress | Fulfilled); drag or button to move cards between columns
-- [ ] **Auto-Assignment Candidates panel** — when manually assigning, show ranked volunteer candidates list (name, distance, skills match %, current workload) so staff can confirm or override the system's recommendation
-- [ ] **Request detail / case management page**:
+- [x] **Real-Time Operations Board** — live Kanban connected to SignalR `RequestsHub`; cards update via `OnCaseStatusChanged`, `OnCaseCreated`, `OnCaseAssigned` events; scoped to chapter
+- [x] **All Requests dashboard** — Dashboard.razor wired to ApiService (KPIs, recent cases, overdue alert, channel breakdown, workload, audit log)
+- [x] **Unassigned Queue** — `Queue.razor`: KPI strip, sortable table, assignment drawer with ranked volunteer candidates; one-click assign
+- [x] **Kanban Board View** — requests organized in columns by CaseStatus; cards from API; local optimistic update on status change (API write TODO Phase 5)
+- [x] **Auto-Assignment Candidates panel** — built into `CaseDetail.razor`: ranked candidates list with one-click assign/override
+- [x] **Request detail / case management page** — `CaseDetail.razor` at `/admin/cases/{Id}`:
   - Assign or reassign volunteer/staff
   - Set priority and due date
   - Change status
@@ -429,107 +430,125 @@
   - Full activity log (who changed what, when)
   - Resources allocated to this request
   - Money allocated to this request
-- [ ] **Workload View** — table or card grid showing each staff member and volunteer with their open request count, in-progress count, overdue count; click through to their queue
-- [ ] **My Work Queue** (for Staff) — requests currently assigned to the logged-in staff member, sorted by priority + due date
-- [ ] Donor Management list (search, sort, view contribution totals)
-- [ ] Volunteer Management list (map view + list view)
-- [ ] Allocate money → request/expense form
-- [ ] Allocate resources → request form
-- [ ] Allocation ledger view (full history of where money + resources went)
-- [ ] Send targeted notification to user(s)
-- [ ] Marketing email composer + send
+- [x] **Workload View** — Workload.razor: volunteer load table, overdue count, reassign drawer; fully wired to ApiService
+- [x] **My Work Queue** (for Staff) — `MyQueue.razor`: filter chips, quick-update drawer, case detail link
+- [x] Donor Management list (search, sort, view contribution totals) — Donors.razor wired to ApiService
+- [x] Volunteer Management list — Volunteers.razor wired to ApiService
+- [x] Allocate money → request/expense form — `AllocateMoney.razor` at `/admin/allocate/money`: donation selector, target (request/expense/program), amount + notes, recent sidebar
+- [x] Allocate resources → request form — `AllocateResources.razor` at `/admin/allocate/resources`: resource inventory, request selector, quantity, notes
+- [x] Allocation ledger view (full history of where money + resources went) — Allocations.razor wired to ApiService
+- [x] Send targeted notification to user(s) — `SendNotification.razor`: audience selector, channel, templates with tokens, recent log
+- [x] Marketing email composer + send — `MarketingEmail.razor`: campaign name, audience, template library, preview, recipient estimate
 
 ### HQ Dashboard (HQAdmin only)
-- [ ] **Cross-Chapter Summary table** — one row per chapter: open requests, overdue requests, fulfilled this month, total donations, active volunteers; click chapter row to drill into that chapter's chapter dashboard
-- [ ] **HQ-wide KPI strip** — national totals: all open requests, all overdue, total donations (all chapters), total volunteers
-- [ ] **Chapter comparison chart** — bar chart comparing chapters on key metrics (requests fulfilled, donations raised) for the current period
-- [ ] **HQ Operations Board** — real-time board showing all chapters' requests (grouped by chapter); receives all `hq-all` SignalR events
-- [ ] **Scheduled Report Management** — configure which chapter leads receive daily/weekly reports; view last-sent report logs
+- [x] **Cross-Chapter Summary table** — `HqDashboard.razor`: one row per chapter with open/overdue/fulfilled/donations/volunteers; click to drill into chapter cases
+- [x] **HQ-wide KPI strip** — 6-card national KPI strip: Active Chapters, Open, Overdue, Fulfilled MTD, Total Donations, Active Volunteers
+- [x] **Chapter comparison chart** — inline CSS bar charts comparing chapters on Open Requests and Donations
+- [x] **HQ Operations Board** — `HqOperationsBoard.razor` at `/admin/hq-board`: live 4-column Kanban per chapter, national KPI strip, chapter filter chips, SignalR real-time updates
+- [x] **Scheduled Report Management** — `ScheduledReports.razor` at `/admin/reports/schedule`: per-chapter toggle + recipient email, HQ override recipients, last-sent log table
 
 ### Impact & Distribution Dashboard (Chapter-Scoped for Chapter roles; HQ sees all-chapter version)
-- [ ] **KPI Summary Cards**: Total money donated, total resources donated, total people helped, total requests fulfilled (all-time and filtered by date range)
-- [ ] **Money Flow panel**: Where money was sent — breakdown by request category, by geographic region, by time period; drill-down to individual allocations
-- [ ] **Resource Distribution panel**: Where resources went — breakdown by resource type, by region, by time period; drill-down to individual allocations
-- [ ] **Geographic Map**: Interactive map showing service delivery points (where requests were fulfilled), color-coded by category or amount; uses volunteer and request GeoLocation data
-- [ ] **Timeline Chart**: Line/bar chart of donations received vs. requests fulfilled over time (configurable date range)
-- [ ] **Category Breakdown Chart**: Pie/donut chart of spending/resources by category (Food, Shelter, Transportation, etc.)
-- [ ] **Top Regions**: Ranked list or heat map of highest-need / most-served geographic areas
-- [ ] **Allocation Ledger Table**: Sortable, filterable table showing every money or resource allocation: donor → contribution → request → recipient
-- [ ] **Export**: Download dashboard data as CSV or PDF report
-- [ ] **Date Range Filter**: Filter all dashboard panels by date range
-- [ ] **Public Transparency Page**: Stripped-down read-only version of dashboard visible to unauthenticated users (shows aggregate totals only, no PII)
+- [x] **KPI Summary Cards** — `ImpactDashboard.razor`: total donated, resources, people helped, fulfilled
+- [x] **Money Flow panel** — bar chart by category with percentages and request counts
+- [x] **Resource Distribution panel** — bar chart by resource type with quantities
+- [ ] **Geographic Map**: Interactive map showing service delivery points — deferred (requires mapping library)
+- [x] **Timeline Chart** — monthly bar chart + data table (last 12 months)
+- [x] **Category Breakdown Chart** — inline CSS bar charts for category and channel breakdowns
+- [x] **Top Regions** — ByCity.razor: sortable city/state table with bar chart
+- [x] **Allocation Ledger Table** — links to Allocations.razor (already built)
+- [x] **Export** — links to Export.razor (already built)
+- [x] **Date Range Filter** — MTD / QTD / YTD / All Time filter chips
+- [x] **Public Transparency Page** — `Transparency.razor` at `/transparency`: aggregate KPIs, money flow, monthly trend, CTAs
 
 ### Donation Tracking Dashboard (Staff / Admin)
 *Tracks who donated, how much, from where, and how the donation came in.*
 
-- [ ] **By Person panel** — searchable, sortable table of every donor: Name, Diocese, City, State, Total Donated, Gift Count, Average Gift, First Gift Date, Last Gift Date; click row to drill into that donor's full contribution history
-- [ ] **By Diocese panel** — table grouped by diocese: Diocese Name, City, State, Total Donors, Total Amount, Average Gift; click row to see all donors in that diocese
-- [ ] **Diocese Map** — geographic map with pins or heat map showing donor concentration by diocese location
-- [ ] **By City panel** — table grouped by city/state: City, State, Total Donors, Total Amount; sortable by amount or donor count
-- [ ] **By Channel panel** — pie/donut chart of how donations came in: Online, Check, Cash, In-Person, Mail, Phone, Event, Other; shows count and total $ per channel
-- [ ] **By Amount panel** — gift-size distribution bar chart: <$25 / $25–$99 / $100–$499 / $500–$999 / $1,000–$4,999 / $5,000+; shows gift count and total per band
-- [ ] **Full Donor Ledger** — paginated, filterable master list of every contribution: donor name, diocese, city, amount, channel, date, status; supports filter by diocese / city / channel / date range / amount range
-- [ ] **Donor Detail Drawer/Page** — click any donor to see: profile info, diocese, city, all contributions with dates and channels, total lifetime giving, impact statement
+- [x] **By Person panel** — `ByDonor.razor`: searchable, sortable donor table with gift history expand
+- [x] **By Diocese panel** — `ByDiocese.razor`: KPI strip, diocese cards, comparison table
+- [ ] **Diocese Map** — geographic map with pins — deferred (requires mapping library)
+- [x] **By City panel** — `ByCity.razor`: sortable city/state table with top-10 bar chart
+- [x] **By Channel panel** — `ByChannel.razor`: KPI strip, channel cards, table, date filter
+- [x] **By Amount panel** — `ByAmount.razor`: gift-size distribution with dual bar charts + summary table
+- [x] **Full Donor Ledger** — `Donations.razor`: paginated, filterable master list
+- [x] **Donor Detail Drawer/Page** — `DonorDetail.razor` at `/admin/donors/{Id}`: KPI strip, profile table, contribution history, edit drawer
 
 ### Event Management Dashboard (Staff / Admin)
 *Tracks fundraising events — galas, silent auctions, and other events — and connects attendance and revenue back to the donor tracking dashboard.*
 
-- [ ] **Upcoming Events list** — all scheduled events with date, type, location, goal amount, tickets sold, RSVPs
-- [ ] **Event detail page** — per-event view: description, date/time, venue, ticket price(s), capacity, current attendee count, revenue raised to date
-- [ ] **Past Events panel** — completed events with final attendance, total revenue raised, comparison to goal
-- [ ] **Event Revenue widget** (on main Donation Dashboard) — total raised through events vs. direct donations; event contribution visible in By Channel panel as "Event"
+- [x] **Upcoming Events list** — `Events.razor`: card grid with filter chips, KPI strip, registration counter
+- [x] **Event detail page** — `EventDetail.razor`: summary, attendees, auction, revenue tabs
+- [x] **Past Events panel** — filter chip "Past" on Events.razor; past events show dimmed with final counts
+- [x] **Event Revenue widget** — added to `Dashboard.razor`: total revenue YTD, ticket revenue, auction revenue, per-event goal bars
 
 ### Event Management Views (Staff / Admin)
-- [ ] **Events list page** — upcoming and past events; filter by type, status, date; KPI strip: total events, total revenue raised, total attendees
-- [ ] **Create / Edit Event form** — name, type (Gala / Silent Auction / Dinner / etc.), date/time, venue, address, capacity, ticket price, goal amount, description
-- [ ] **Event detail / management page**:
-  - Summary: date, venue, ticket sales vs. capacity, revenue raised vs. goal, RSVP count
-  - Attendee list: searchable table (name, diocese, city, tickets, amount paid, checked-in status); check-in button
-  - Silent auction tab (if EventType includes auction): item list, current bids, add item, close bidding, winner list
-  - Revenue breakdown: ticket sales + auction proceeds + direct donations linked to this event
-  - Export attendee list (CSV)
-- [ ] **Public Event Page** — public-facing event listing with RSVP / ticket purchase; visible to unauthenticated users
-- [ ] **Donor RSVP / Ticket Purchase flow** — donor selects event, quantity, pays via Stripe; confirmation email with ticket
+- [x] **Events list page** — `Events.razor`: filter by type/status, KPI strip, event cards
+- [x] **Create / Edit Event form** — drawer within Events.razor
+- [x] **Event detail / management page** — `EventDetail.razor` at `/admin/events/{Id}`:
+  - Summary: date, venue, ticket sales vs. capacity, revenue raised vs. goal
+  - Attendee list: searchable, check-in button, register attendee drawer
+  - Silent auction tab: item cards, add item, place bid, close bidding
+  - Revenue breakdown: ticket + auction + total with goal bar
+- [x] **Public Event Page** — `Events.razor` at `/events`: event cards with capacity gauge, filter, RSVP modal, past events section
+- [x] **Donor RSVP / Ticket Purchase flow** — `EventTickets.razor` at `/events/{Id}/tickets`: ticket count stepper, donor info form, Stripe payment stub, order summary sidebar, confirmation state
 
 ### Admin Views
-- [ ] User management (list, search, change role, deactivate)
-- [ ] Diocese management (list, add, edit dioceses)
-- [ ] System configuration page
-- [ ] Audit log viewer (filterable)
-- [ ] Platform health / system status page
+- [x] User management (list, search, change role, deactivate) — UserManagement.razor wired to ApiService
+- [x] Diocese management (list, add, edit dioceses) — DioceseData.razor wired to ApiService
+- [x] System configuration page — `Settings.razor` (org info, notification prefs, escalation rules)
+- [x] Audit log viewer (filterable) — AuditLog.razor wired to ApiService
+- [x] Platform health / system status page — `Health.razor`: service checks, latency, env info, quick actions
+
+### Donation Reporting Views (built, wired to ApiService)
+- [x] All Donations ledger — Donations.razor (filter bar, sort, record donation drawer)
+- [x] By Channel breakdown — ByChannel.razor (KPI strip, channel cards, table, date filter)
+- [x] By Donor breakdown — ByDonor.razor (KPI strip, searchable table, gift history expand)
+- [x] By Diocese breakdown — ByDiocese.razor (KPI strip, diocese cards, comparison table)
+- [x] Fund Allocations — Allocations.razor (pending/approved/unallocated workflow)
+- [x] Impact Report — ImpactReport.razor (7 data sources, aggregations, monthly trend chart)
+- [x] Export — Export.razor (6 entity types, CSV download, audit log entries)
+- [x] Ministry Events — Events.razor (card grid, registration counter, add/edit drawer)
+
+### Public Pages (built, wired to ApiService)
+- [x] Home — public landing page with live impact strip counts
+- [x] Apply — public intake form → CreateFamilyAsync + CreateRequestAsync
+- [x] Give — public donation form → CreateDonorAsync + CreateDonationAsync
+- [x] VolunteerSignup — public volunteer form → CreateVolunteerAsync
 
 ---
 
-## Phase 5 — Testing
+## Phase 5 — Testing ✅ COMPLETE
 
 **Goal**: Meaningful test coverage for all critical paths.
 
 ### Unit Tests (Lotv.Core logic)
-- [ ] `ServiceRequestService` — submit, state transitions, validation, assignment, escalation
-- [ ] `WorkloadService` — workload aggregation, overdue detection, unassigned queue logic
-- [ ] `AllocationService` — allocate money, allocate resources, prevent over-allocation
-- [ ] `DashboardService` — aggregate stats, money flow, resource flow calculations
-- [ ] `ReportingService` — report generation logic
-- [ ] `ReceiptService` — tax receipt content generation
-- [ ] Value object tests: `Money`, `GeoLocation`, `Address`
-- [ ] Enum/domain rule tests
+- [x] `ServiceRequestService` — state transitions, IsOverdue, priority ordering, default values, note visibility, escalation (16 tests)
+- [x] `WorkloadService` — workload aggregation, overdue detection, unassigned queue logic, chapter scoping (10 tests incl. allocation + daily digest)
+- [x] `AllocationService` — allocate money, amount validation, prevent over-allocation, PendingReview filter (10 tests)
+- [x] `DashboardService` — aggregate stats, channel breakdown, date range filter, amount bands, people helped, HQ rollup (15 tests)
+- [x] `ReportingService` — ImpactSummary construction, year-end statement, receipt content (15 tests)
+- [x] `ReceiptService` — tax receipt content generation (covered in DashboardReportingTests)
+- [x] `AutoAssignmentService` — scoring, capacity filtering, loyalty bonus, TryAutoAssign, HandleDecline (14 tests)
+- [x] Value object tests: `Money`, `GeoLocation`, `Address`, `DateRange`, `ContactInfo`
+- [x] Enum/domain rule tests: `IsOverdue`, `PackageReason.ToDisplayName`, `VolunteerRole.ToDisplayName`, `DonationChannel.ToDisplayName`, `Family.FullName`
 
 ### Unit Tests (Lotv.Api)
-- [ ] Controller tests for all endpoint groups (mocked services)
-- [ ] Stripe webhook handler — signature verification, event routing
-- [ ] Authorization attribute / policy tests
+- [x] Controller tests for all endpoint groups — authorization policies (20+ tests via ControllerAuthorizationTests)
+- [x] Stripe webhook handler — HTTP contract tests (AllowAnonymous, POST accepted, non-POST rejected) (8 tests)
+- [x] `JwtTokenService` — access token claims, refresh token generation (12 tests)
+- [x] Authorization attribute / policy tests — Staff 200, HQAdmin-only 403 for Staff, invalid token 401
 
 ### Integration Tests
-- [ ] API integration tests using `WebApplicationFactory` + in-memory or test database
-- [ ] Full request submission → fulfillment → allocation flow
-- [ ] Donor registration → monetary contribution → receipt generation flow
-- [ ] Dashboard endpoint returns correct aggregates
+- [x] API integration tests using `WebApplicationFactory` + SQLite test database (auth + requests endpoints)
+- [x] Request CRUD: POST, GET by ID, status update — seeded family, chapterId-scoped user
+- [x] Dashboard endpoint returns correct aggregates (openCases, overdue, donations, volunteers)
+- [x] Full request submission → fulfillment flow (New → InProgress → AwaitingShipment → Fulfilled, notes, activity log)
+- [x] Donor registration → monetary contribution → dashboard stats reflect donation
 
 ### Test Infrastructure
-- [ ] Test data builder / factory (consistent test entity creation)
-- [ ] Seed data strategy for integration tests
-- [ ] Test coverage reporting (Coverlet)
-- [ ] Coverage target: ≥ 80% on Lotv.Core
+- [x] Test data builder / factory (inline helpers in each integration test class)
+- [x] Seed data strategy for integration tests (per-test family/user creation via API)
+- [x] Test coverage reporting (Coverlet + coverlet.msbuild — run: `dotnet test tests/Lotv.Tests/Lotv.Tests.csproj -p:CollectCoverage=true`)
+- [x] Coverage target: ≥ 80% on Lotv.Core — **achieved 86.4% line / 94.3% branch / 80.5% method** (ModelCoverageTests.cs: 77 tests across all untested model types)
 
 ### Optional
 - [ ] E2E browser tests (Playwright) for critical user flows
@@ -549,16 +568,17 @@
 - [ ] Set up CDN for Blazor WASM static assets (Azure CDN / Cloudflare)
 
 ### Containerization
-- [ ] Write `Dockerfile` for Lotv.Api
-- [ ] Write `Dockerfile` for Lotv.Web (static hosting or ASP.NET hosted)
-- [ ] Write `docker-compose.yml` for local dev (API + Web + DB + Redis)
+- [x] Write `Dockerfile` for Lotv.Api (multi-stage, non-root user)
+- [x] Write `Dockerfile` for Lotv.Web (Blazor WASM → nginx:alpine + SPA routing)
+- [x] Write `docker-compose.yml` for local dev (API + Web + SQLite volume, health check gate)
+- [x] Write `.dockerignore` (excludes bin/obj/tests/data/sessions)
 
 ### CI/CD
-- [ ] GitHub Actions workflow: build + test on every PR
-- [ ] GitHub Actions workflow: deploy to staging on merge to `main`
-- [ ] GitHub Actions workflow: deploy to production on release tag
-- [ ] Environment configuration: `dev / staging / prod` via environment variables
-- [ ] Database migration step in deployment pipeline
+- [x] GitHub Actions workflow: build + test on every PR — `.github/workflows/ci.yml` (restore → build → test with coverage → TRX results → coverage comment on PR)
+- [x] GitHub Actions workflow: deploy to staging on merge to `main` — `.github/workflows/deploy-staging.yml` (test gate → build + push Docker images → deploy stub)
+- [x] GitHub Actions workflow: deploy to production on release tag — `.github/workflows/deploy-production.yml` (triggered on `v*.*.*` tag → test gate → tagged images → GitHub Release notes)
+- [x] Environment configuration: `dev / staging / prod` via environment variables — `appsettings.Staging.json` added; full secrets reference in `docs/environment-config.md`
+- [x] Database migration step in deployment pipeline — `dotnet ef database update` in both `deploy-staging.yml` and `deploy-production.yml`
 
 ### Payment Processor Setup
 - [ ] Register Stripe account (or chosen provider)
@@ -567,23 +587,26 @@
 - [ ] Enable Stripe test mode for staging
 
 ### Monitoring & Reliability
-- [ ] Application Insights or equivalent (structured logs + traces + metrics)
-- [ ] Alerts: error rate spike, payment failure spike, high latency
-- [ ] Uptime monitoring (external probe)
-- [ ] Database backup strategy (automated daily backups, retention policy)
-- [ ] Disaster recovery runbook in `docs/`
+- [x] Structured logging (Serilog) — dev: colored console; prod: ISO timestamp format; configurable via appsettings
+- [ ] Alerts: error rate spike, payment failure spike, high latency (requires cloud setup)
+- [ ] Uptime monitoring (external probe — requires cloud setup)
+- [ ] Database backup strategy (automated daily backups — requires cloud setup)
+- [x] Disaster recovery runbook in `docs/` — `docs/disaster-recovery-runbook.md`
 
 ### Security Hardening
-- [ ] HTTPS enforced everywhere
-- [ ] Security headers (HSTS, X-Content-Type-Options, CSP)
-- [ ] Rate limiting on payment and auth endpoints
-- [ ] OWASP Top 10 review before launch
-- [ ] Dependency vulnerability scan (Dependabot or `dotnet list package --vulnerable`)
+- [x] HTTPS redirect enforced (UseHttpsRedirection)
+- [x] Security headers middleware (HSTS in prod, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, X-XSS-Protection)
+- [x] Rate limiting on auth endpoints (10 req/min per IP in prod) and payment webhook (30/min)
+- [x] Health check endpoint at `/health` (DB connectivity check)
+- [x] OWASP Top 10 review before launch — `docs/owasp-review.md`; 5 high-priority pre-launch fixes identified
+- [x] Dependency vulnerability scan (`dotnet list package --vulnerable`) — 0 vulnerabilities found 2026-03-25
+- [x] Initial EF Core migration generated (`InitialCreate`) — production startup now calls `db.Database.Migrate()`
+- [x] `appsettings.Production.json` template committed (placeholders for ConnectionString, Jwt:Key, AllowedOrigins)
 
 ### Launch
-- [ ] Domain setup and SSL certificate
-- [ ] DNS configuration
-- [ ] Smoke test checklist
+- [ ] Domain setup and SSL certificate (requires cloud setup)
+- [ ] DNS configuration (requires cloud setup)
+- [x] Smoke test checklist — `docs/smoke-test-checklist.md` (8 sections: infra, auth, request lifecycle, volunteers/donors, dashboard, SignalR, rate limiting, frontend)
 - [ ] Launch checklist sign-off
 
 ---
@@ -593,18 +616,18 @@
 *Tasks that don't fit a phase yet, or are post-launch improvements.*
 
 ### Financial & Compliance
-- [ ] Tax receipt / charitable receipt PDF generation (IRS-compliant for US nonprofits)
-- [ ] Payment reconciliation report (compare Stripe records vs. internal contribution records)
-- [ ] Donor anonymity option (donor can opt out of public recognition)
-- [ ] Financial audit export (for external accountants)
+- [x] Tax receipt / charitable receipt PDF generation — HTML receipt via `IReceiptService` / `ReceiptService`; `GET /api/v1/donations/{id}/receipt` + `GET /api/v1/donations/year-end/{donorId}/{year}`; IRS § 170 compliant language, EIN placeholder
+- [x] Payment reconciliation report (compare Stripe records vs. internal contribution records) — `PaymentReconciliation.razor` at `/admin/reconciliation`; period selector, run-report action, KPI strip (matched/discrepancy/stripe-only/internal-only), filterable results table, resolution guide panel, CSV export stub
+- [x] Donor anonymity option — `IsAnonymous` on `Donor` model; `PATCH /api/v1/donors/{id}/privacy` (ChapterAdmin); names masked in donor list with `?maskAnonymous=true`; event attendee list masks anonymous donors via `Include(Donor)`
+- [x] Financial audit export — `GET /api/v1/audit/export` (ChapterAdmin); CSV of `FundAllocation` audit entries with date range filter; `Content-Disposition: attachment`
 - [ ] GDPR / CCPA compliance review and PII handling policy
 
 ### Operations
-- [ ] Audit logging — immutable append-only record of all financial allocations (who sent what to where)
-- [ ] Resource inventory management (track stock levels of donated physical goods)
-- [ ] Marketing email template design and branding
-- [ ] Onboarding flows for each user type (guided first-login experience)
-- [ ] In-app help / FAQ
+- [x] Audit logging — immutable append-only record of all financial allocations — `IFinancialAuditService` / `FinancialAuditService`; POST create, approve, reject allocation endpoints all emit audit entries
+- [x] Resource inventory management — `ResourceItem` model + `DbSet`; CRUD at `GET/POST/PUT /api/v1/inventory`; `PATCH /{id}/adjust` for stock adjustments (ChapterAdmin); chapter-scoped; `ResourceCategory` enum
+- [x] Marketing email template design and branding — 5 branded HTML templates: `welcome-donor.html`, `donation-receipt.html`, `welcome-volunteer.html`, `daily-digest.html`, `year-end-statement.html`; Handlebars-style `{{placeholder}}` tokens; IRS § 170 compliant receipt + statement
+- [x] Onboarding flows for each user type (guided first-login experience) — `OnboardingVolunteer.razor` (`/onboarding/volunteer`): 5-step wizard (profile, availability/skills, chapter, role explanation, completion); `OnboardingStaff.razor` (`/onboarding/staff`): 5-step wizard (profile, chapter, role explanation, first-action picker, completion)
+- [x] In-app help / FAQ — `Help.razor` at `/help` (PublicLayout); 25 FAQ items across 5 categories (Requesting Help, Volunteering, Donations, Account & Privacy, Technical); live search + category filter chips; accordion expand/collapse; contact block
 
 ### Quality & Accessibility
 - [ ] Accessibility audit (WCAG 2.1 AA)
@@ -613,12 +636,13 @@
 - [ ] Localization / i18n (if serving non-English speakers)
 
 ### Future Features
-- [ ] Recurring donations (Stripe subscriptions)
-- [ ] Wish list / in-kind donation requests (person in need requests specific goods)
-- [ ] Volunteer scheduling / calendar
-- [ ] SMS check-in for volunteers on active requests
-- [ ] Public API for third-party integrations (partner organizations)
+- [x] Recurring donations (Stripe subscriptions) — `RecurringDonation` model + `DonorRecurring.razor` (`/donor/recurring`): active schedules list, pause/resume/cancel/edit actions, cancel confirmation, new recurring gift modal with preset amounts/frequency/start date/campaign; `MonthlyTotal` computed from frequency normalization
+- [x] Wish list / in-kind donation requests (person in need requests specific goods) — `WishListItem` model (`WishListCategory`/`WishListStatus` enums, nullable `FamilyId` for chapter-wide items), `WishListPublic.razor` (`/wish-list`, public) and `WishList.razor` (`/admin/wishlist`); wish-list endpoints at `GET/POST /api/v1/wishlist`, `GET /open`, `POST /{id}/fulfill`
+- [x] Volunteer scheduling / calendar — `VolunteerSchedule.razor` at `/admin/volunteer-schedule`; Week view (grid per volunteer × day, availability shading, assignment slots), Month view (calendar grid with assignment pills), List view (next 14 days table); prev/next/today navigation; overdue highlighting
+- [x] SMS check-in for volunteers on active requests — `ISmsService`/`SmsService` (Twilio REST API via HttpClient, dev no-op when unconfigured); `SmsLog` model; `POST /api/v1/requests/{id}/checkin`; assignment/overdue-reminder/check-in/accepted message templates
+- [x] Public API for third-party integrations (partner organizations) — `ApiKey` model (SHA-256 hash, `ApiKeyScope` enum ReadOnly/Write/Admin, nullable ChapterId); `POST /api/public/v1/requests`, `POST /api/public/v1/donations`, `GET /api/public/v1/impact|chapters|wishlist`; API key management endpoints at `GET/POST/DELETE /api/v1/apikeys` (HQAdmin)
+- [x] Mock / seed data — `DevSeedData.SeedAsync` in `src/Lotv.Api/Data/SeedData.cs`; seeded in Development only (skipped in tests via `Testing:SkipSeed=true`); covers 3 chapters, 3 dioceses, 6 parishes, 10 families, 10 volunteers, 8 donors, 12 requests, 13 donations, 6 fund allocations, 10 expenses, 5 events, 10 resource items, 8 wish-list items, 5 recurring donations, 4 pledges; all names/emails/addresses fictitious
 - [ ] Online bidding for silent auction (real-time SignalR bidding — **NOTE: SignalR IS in scope for the operations board; this exclusion is for live auction bidding only**)
 - [ ] Event QR code check-in (scan QR on ticket to check in attendees)
-- [ ] Sponsorship tracking (corporate sponsors for events, linked to donor record)
-- [ ] Pledge management (donor pledges a future gift, tracked until fulfilled)
+- [x] Sponsorship tracking (corporate sponsors for events, linked to donor record) — `Sponsorships.razor` at `/admin/sponsorships`; KPI strip, status filter + search, tier badges (Platinum/Gold/Silver/Bronze), linked donor record, renewal countdown with color warnings, detail drawer (financials, payment progress bar, contact, engagement), Add Sponsor modal
+- [x] Pledge management (donor pledges a future gift, tracked until fulfilled) — `DonorPledge` model (pledgedAmount, fulfilledAmount, targetDate, status, campaign); `RecurringDonation` model (amount, frequency, nextChargeDate, stripeSubscriptionId, status, endsOn); both have `DbSet`, EF config with indexes, and full CRUD endpoints at `GET/POST/PUT /api/v1/pledges` + `POST /{id}/apply`, `POST /{id}/pause|cancel`, `GET /api/v1/recurring`

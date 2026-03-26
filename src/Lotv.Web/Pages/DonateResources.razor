@@ -1,0 +1,135 @@
+@page "/donate-resources"
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Donate Resources — LOTV Ministry</PageTitle>
+
+<!-- PUBLIC NAV -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
+  </div>
+  <div style="display:flex;gap:12px;">
+    <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
+    <a href="/give" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Donate Money</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<div style="background:linear-gradient(135deg,var(--green) 0%,var(--green-dark,#1a5c2a) 100%);color:white;padding:48px 32px;text-align:center;">
+  <div style="font-size:2.5rem;margin-bottom:10px;">&#128230;</div>
+  <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 8px;">Donate Resources</h1>
+  <p style="font-size:.95rem;opacity:.85;max-width:520px;margin:0 auto;">Physical goods, clothing, food, and supplies go directly to families we serve. Every item makes a difference.</p>
+</div>
+
+<div style="max-width:680px;margin:0 auto;padding:36px 24px;">
+
+  @if (_submitted)
+  {
+    <div style="text-align:center;padding:40px;">
+      <div style="font-size:3rem;margin-bottom:12px;">&#127800;</div>
+      <h2 style="font-family:var(--ff-head);color:var(--navy);">Thank You!</h2>
+      <p style="color:var(--text-mid);margin-bottom:20px;">Your resource donation has been logged. Our team will contact you to arrange pick-up or drop-off.</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <a href="/" class="btn btn-primary">Return Home</a>
+        <button class="btn" @onclick="() => _submitted = false">Log Another Donation</button>
+      </div>
+    </div>
+  }
+  else
+  {
+    <div class="panel">
+      <div class="panel-header">Resource Donation Form</div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:16px;">
+
+        <div class="form-group">
+          <label class="form-label">Your Name *</label>
+          <input class="form-input" @bind="_name" placeholder="Full name" />
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" @bind="_email" placeholder="you@example.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 000-0000" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Resource Type *</label>
+          <select class="form-input" @bind="_resourceType">
+            <option value="">— Select a type —</option>
+            <option value="Clothing">Clothing</option>
+            <option value="Food">Food / Pantry Items</option>
+            <option value="Baby Items">Baby Items</option>
+            <option value="Household Goods">Household Goods</option>
+            <option value="Hygiene Products">Hygiene Products</option>
+            <option value="Medical Supplies">Medical Supplies</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Quantity *</label>
+            <input class="form-input" type="number" @bind="_quantity" min="1" placeholder="1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unit</label>
+            <input class="form-input" @bind="_unit" placeholder="e.g. bags, boxes, items" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" @bind="_description" placeholder="Describe the items (size, brand, condition, etc.)…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Preferred Drop-Off / Pick-Up</label>
+          <select class="form-input" @bind="_preference">
+            <option value="drop-off">I will drop off at your location</option>
+            <option value="pick-up">Please arrange pick-up</option>
+            <option value="mail">I will ship by mail</option>
+          </select>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+        }
+
+        <button class="btn btn-primary" @onclick="SubmitAsync">&#128230; Log My Donation</button>
+      </div>
+    </div>
+  }
+</div>
+
+@code {
+  private string _name = "";
+  private string _email = "";
+  private string _phone = "";
+  private string _resourceType = "";
+  private int _quantity = 1;
+  private string _unit = "items";
+  private string _description = "";
+  private string _preference = "drop-off";
+  private bool _submitted;
+  private string _error = "";
+
+  private async Task SubmitAsync()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_name)) { _error = "Name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_resourceType)) { _error = "Please select a resource type."; return; }
+    if (_quantity < 1) { _error = "Quantity must be at least 1."; return; }
+
+    // In production: call Api.CreateResourceDonationAsync(...)
+    await Task.CompletedTask;
+    _submitted = true;
+  }
+}

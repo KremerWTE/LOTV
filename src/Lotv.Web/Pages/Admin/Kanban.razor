@@ -1,8 +1,10 @@
 @page "/admin/kanban"
 @layout AdminLayout
-@inject IMockDataService Data
-@inject NavigationManager Nav
+@inject ApiService Api
+@inject SignalRService Hub
 @inject AuthService Auth
+@inject NavigationManager Nav
+@implements IDisposable
 
 <PageTitle>Kanban Board — LOTV Staff Portal</PageTitle>
 
@@ -30,7 +32,7 @@
         <div class="kanban-card" @onclick="() => SelectCase(r)">
           <div class="kanban-card-id">#@r.Id</div>
           <div class="kanban-card-name">@r.Family?.FullName</div>
-          <div class="kanban-card-reason">@r.Reason</div>
+          <div class="kanban-card-reason">@r.Reason.ToDisplayName()</div>
           <div class="kanban-card-footer">
             <span class="kanban-assignee">@(r.AssignedTo ?? "Unassigned")</span>
             <span class="kanban-age @(r.IsOverdue ? "badge-overdue" : "")">@GetAge(r.CreatedAt)</span>
@@ -57,7 +59,7 @@
     <div class="drawer-body" style="gap:14px;">
       <div style="background:var(--bg);border-radius:8px;padding:12px 14px;font-size:.84rem;display:flex;flex-direction:column;gap:6px;">
         <div><strong>Family:</strong> @_selected.Family?.FullName</div>
-        <div><strong>Reason:</strong> @_selected.Reason</div>
+        <div><strong>Reason:</strong> @_selected.Reason.ToDisplayName()</div>
         <div><strong>Created:</strong> @_selected.CreatedAt.ToString("MMM d, yyyy") &bull; @GetAge(_selected.CreatedAt)</div>
         @if (_selected.IsOverdue)
         { <div style="color:var(--amber);font-weight:600;">&#9888; Overdue</div> }
@@ -122,18 +124,22 @@
   private string _editAssignedTo = "";
   private bool _drawerSaved;
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _volunteers = Data.GetVolunteers().Where(v => v.Status == VolunteerStatus.Active).ToList();
-    Load();
+    await LoadAsync();
+    await Hub.ConnectAsync();
+    Hub.OnCaseStatusChanged += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnCaseCreated       += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnCaseAssigned      += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnReconnected       += async ()         => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
   }
 
-  private void Load()
+  private async Task LoadAsync()
   {
-    var requests = Data.GetRequests()
-      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
-      .ToList();
+    var vols = await Api.GetVolunteersAsync("Active");
+    _volunteers = vols;
 
+    var requests = await Api.GetRequestsAsync();
     _byStatus = _columns.ToDictionary(
       c => c.Status,
       c => requests.Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
@@ -152,15 +158,21 @@
 
   private void SaveFromDrawer()
   {
+    // Optimistic local update — API write (POST /api/v1/requests/{id}/status) to be wired in Phase 5
     if (_selected is null) return;
     _selected.Status     = _editStatus;
     _selected.AssignedTo = string.IsNullOrEmpty(_editAssignedTo) ? null : _editAssignedTo;
     _selected.UpdatedAt  = DateTime.UtcNow;
-    Data.UpdateRequest(_selected);
-    Data.LogAction(Auth.UserName, "Updated", "PackageRequest", _selected.Id.ToString(),
-      $"Status → {_editStatus}, assigned to {_editAssignedTo}");
     _drawerSaved = true;
-    Load(); // refresh columns
+    _byStatus = _columns.ToDictionary(
+      c => c.Status,
+      c => _byStatus.SelectMany(kv => kv.Value).Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
+    );
+  }
+
+  public void Dispose()
+  {
+    _ = Hub.DisconnectAsync();
   }
 
   private static string GetBadge(CaseStatus s) => s switch

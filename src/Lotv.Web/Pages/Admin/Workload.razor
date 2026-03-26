@@ -1,8 +1,7 @@
 @page "/admin/workload"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 @inject NavigationManager Nav
-@inject AuthService Auth
 
 <PageTitle>Workload View — LOTV Staff Portal</PageTitle>
 
@@ -29,7 +28,7 @@
           <div class="user-avatar" style="width:36px;height:36px;font-size:.82rem;">@Initials(row.Volunteer.FullName)</div>
           <div>
             <div style="font-weight:700;font-size:.9rem;">@row.Volunteer.FullName</div>
-            <div style="font-size:.73rem;color:var(--text-light);">@row.Volunteer.Role &bull; @(row.Volunteer.ParishName ?? "No parish")</div>
+            <div style="font-size:.73rem;color:var(--text-light);">@row.Volunteer.Role.ToDisplayName() &bull; @(row.Volunteer.ParishName ?? "No parish")</div>
           </div>
         </div>
         <span class="badge @(row.Volunteer.Status == VolunteerStatus.Active ? "badge-fulfilled" : "badge-onhold")">
@@ -93,15 +92,15 @@
       </div>
       <div class="form-group">
         <label class="form-label">Reassign To</label>
-        <select class="form-input" @bind="_reassignTo">
-          <option value="">— Unassigned —</option>
+        <select class="form-input" @bind="_reassignToVolId">
+          <option value="">— Select volunteer —</option>
           @foreach (var v in _allVolunteers)
-          { <option value="@v.FullName">@v.FullName (@v.ActiveCases open)</option> }
+          { <option value="@v.Id">@v.FullName (@v.ActiveCases open)</option> }
         </select>
       </div>
     </div>
     <div class="drawer-footer">
-      <button class="btn btn-primary" @onclick="SaveReassign">Save</button>
+      <button class="btn btn-primary" @onclick="SaveReassignAsync">Save</button>
       <button class="btn" @onclick="CloseReassign">Cancel</button>
     </div>
   </div>
@@ -125,47 +124,42 @@
   private List<Volunteer> _allVolunteers = [];
   private bool _activeOnly = true;
   private PackageRequest? _reassignCase;
-  private string _reassignTo = "";
+  private int? _reassignToVolId;
   private bool _reassignToast;
 
-  protected override void OnInitialized() => Load();
+  protected override async Task OnInitializedAsync() => await LoadAsync();
 
-  private void Load()
+  private async Task LoadAsync()
   {
-    _allVolunteers = Data.GetVolunteers().Where(v => v.Status == VolunteerStatus.Active).ToList();
+    var volunteers = await Api.GetVolunteersAsync();
+    var requests   = await Api.GetRequestsAsync();
 
-    var requests = Data.GetRequests()
-      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
-      .ToList();
+    _allVolunteers = volunteers.Where(v => v.Status == VolunteerStatus.Active).ToList();
 
-    _rows = Data.GetVolunteers()
-      .Select(v => new WorkloadRow(v, requests.Where(r => r.AssignedTo == v.FullName).ToList()))
+    _rows = volunteers
+      .Select(v => new WorkloadRow(v, requests.Where(r => r.AssignedToId == v.Id).ToList()))
       .OrderByDescending(r => r.OpenCases)
       .ToList();
   }
 
   private void OpenReassign(PackageRequest c)
   {
-    _reassignCase = c;
-    _reassignTo   = c.AssignedTo ?? "";
+    _reassignCase    = c;
+    _reassignToVolId = c.AssignedToId;
   }
 
   private void CloseReassign() => _reassignCase = null;
 
-  private async Task SaveReassign()
+  private async Task SaveReassignAsync()
   {
-    if (_reassignCase is null) return;
-    _reassignCase.AssignedTo = string.IsNullOrEmpty(_reassignTo) ? null : _reassignTo;
-    _reassignCase.UpdatedAt  = DateTime.UtcNow;
-    Data.UpdateRequest(_reassignCase);
-    Data.LogAction(Auth.UserName, "Updated", "PackageRequest", _reassignCase.Id.ToString(),
-      $"Reassigned to {_reassignTo ?? "unassigned"}");
+    if (_reassignCase is null || !_reassignToVolId.HasValue) return;
+    await Api.AssignRequestAsync(_reassignCase.Id, _reassignToVolId.Value);
     _reassignCase  = null;
     _reassignToast = true;
     StateHasChanged();
     await Task.Delay(2000);
     _reassignToast = false;
-    Load();
+    await LoadAsync();
   }
 
   private static string Initials(string name)

@@ -1,0 +1,23 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/*.user
+**/bin
+**/obj
+**/packages
+**/node_modules
+**/coverage
+**/TestResults
+# Exclude test project from API/Web builds
+tests/
+# Exclude local SQLite databases and sensitive data files
+data/
+*.db
+*.db-shm
+*.db-wal
+# Exclude session notes and docs
+sessions/
+# Docker artifacts
+**/.dockerignore
+docker-compose*.yml

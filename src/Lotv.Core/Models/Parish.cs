@@ -6,6 +6,8 @@ public class Parish
     public string Name { get; set; } = "";
     public int DioceseId { get; set; }
     public string DioceseName { get; set; } = "";
+    public int ChapterId { get; set; }
+    public Chapter? Chapter { get; set; }
     public string? LiaisonName { get; set; }
     public string? LiaisonEmail { get; set; }
     public CertificationLevel CertificationLevel { get; set; }

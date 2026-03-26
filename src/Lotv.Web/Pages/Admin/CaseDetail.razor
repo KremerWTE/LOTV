@@ -1,0 +1,578 @@
+@page "/admin/cases/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Case #@Id — LOTV Staff Portal</PageTitle>
+
+@if (_loading)
+{
+  <Loading Message="Loading case…" Size="lg" />
+}
+else if (_request is null)
+{
+  <div class="empty-state">
+    <div class="icon">&#10060;</div>
+    <p>Case #@Id not found.</p>
+    <a href="/admin/cases" class="btn btn-sm" style="margin-top:16px;">Back to Cases</a>
+  </div>
+}
+else
+{
+  <!-- BREADCRUMB / HEADER -->
+  <div class="page-hd">
+    <div>
+      <div style="font-size:.76rem;color:var(--text-light);margin-bottom:4px;">
+        <a href="/admin/cases" style="color:var(--green);text-decoration:none;">Cases</a> &rsaquo; #@_request.Id
+      </div>
+      <h2 style="margin:0;">Case #@_request.Id — @(_request.Family?.FullName ?? "Unknown Family")</h2>
+      <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="badge @GetStatusBadge(_request.Status)">@_request.Status</span>
+        <span class="badge @GetPriorityBadge(_request.Priority)">@_request.Priority</span>
+        @if (_request.IsOverdue)
+        { <span class="badge badge-overdue">Overdue</span> }
+        <span style="font-size:.76rem;color:var(--text-light);">Created @_request.CreatedAt.ToString("MMM d, yyyy")</span>
+      </div>
+    </div>
+    <div class="page-hd-actions">
+      <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+      <a href="/admin/cases" class="btn btn-sm">&#8592; All Cases</a>
+    </div>
+  </div>
+
+  @if (!string.IsNullOrEmpty(_saveMsg))
+  {
+    <div style="background:var(--green-pale);border-radius:8px;padding:10px 16px;font-size:.84rem;color:var(--green-dark);margin-bottom:16px;">&#10003; @_saveMsg</div>
+  }
+  @if (!string.IsNullOrEmpty(_errorMsg))
+  {
+    <div style="background:#fff3cd;border-radius:8px;padding:10px 16px;font-size:.84rem;color:#856404;margin-bottom:16px;">&#9888; @_errorMsg</div>
+  }
+
+  <!-- MAIN GRID -->
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;">
+
+    <!-- LEFT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- CASE DETAILS PANEL -->
+      <div class="panel">
+        <div class="panel-header">Case Details</div>
+        <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-input" @bind="_editStatus">
+              @foreach (var s in Enum.GetValues<CaseStatus>())
+              { <option value="@s">@s</option> }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select class="form-input" @bind="_editPriority">
+              @foreach (var p in Enum.GetValues<RequestPriority>())
+              { <option value="@p">@p</option> }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Assigned Volunteer</label>
+            <select class="form-input" @bind="_editAssignedVolId">
+              <option value="">— Unassigned —</option>
+              @foreach (var v in _volunteers)
+              { <option value="@v.Id">@v.FullName (@v.ActiveCases active)</option> }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Due Date</label>
+            <input class="form-input" type="date"
+                   value="@(_editDueDate?.ToString("yyyy-MM-dd") ?? "")"
+                   @onchange='e => _editDueDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_request.Reason.ToDisplayName()</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Chapter</label>
+            <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_request.ChapterId</div>
+          </div>
+
+          @if (_editStatus is CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.Fulfilled)
+          {
+            <div class="form-group">
+              <label class="form-label">Tracking Number</label>
+              <input class="form-input" @bind="_editTracking" placeholder="1Z999AA10123456784" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Shipped Date</label>
+              <input class="form-input" type="date"
+                     value="@(_editShippedDate?.ToString("yyyy-MM-dd") ?? "")"
+                     @onchange='e => _editShippedDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
+            </div>
+          }
+
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="form-label">Internal Notes (staff only)</label>
+            <textarea class="form-textarea" @bind="_editInternalNotes" placeholder="Add notes visible only to staff…"></textarea>
+          </div>
+
+          <div style="grid-column:1/-1;display:flex;gap:10px;">
+            <button class="btn btn-primary" @onclick="SaveDetailsAsync" disabled="@_saving">
+              @(_saving ? "Saving…" : "Save Changes")
+            </button>
+            <button class="btn" @onclick="ResetDetails">Discard</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTES THREAD -->
+      <div class="panel">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Notes Thread</span>
+          <span style="font-size:.76rem;color:var(--text-light);">@_notes.Count note@(_notes.Count == 1 ? "" : "s")</span>
+        </div>
+        <div class="panel-body">
+
+          @if (!_notes.Any())
+          {
+            <div class="empty-state" style="padding:24px;">
+              <div class="icon" style="font-size:28px;">&#128172;</div>
+              <p>No notes yet — add the first one below.</p>
+            </div>
+          }
+          else
+          {
+            <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+              @foreach (var note in _notes)
+              {
+                <div style="border-radius:10px;padding:12px 16px;background:@(note.IsInternal ? "var(--navy-pale)" : "var(--green-pale)");">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:.8rem;font-weight:600;">@note.AuthorName</span>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                      @if (note.IsInternal)
+                      { <span style="font-size:.7rem;background:var(--navy);color:white;padding:1px 7px;border-radius:12px;">Internal</span> }
+                      <span style="font-size:.72rem;color:var(--text-light);">@note.CreatedAt.ToString("MMM d, h:mm tt")</span>
+                    </div>
+                  </div>
+                  <div style="font-size:.85rem;line-height:1.6;white-space:pre-wrap;">@note.Content</div>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Add note form -->
+          <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:10px;">
+            <textarea class="form-textarea" @bind="_newNoteText" placeholder="Add a note…" style="min-height:80px;"></textarea>
+            <div style="display:flex;align-items:center;gap:16px;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;">
+                <input type="checkbox" @bind="_newNoteInternal" />
+                <span>Internal only (hidden from recipient)</span>
+              </label>
+              <button class="btn btn-sm btn-primary" @onclick="AddNoteAsync" disabled="@(string.IsNullOrWhiteSpace(_newNoteText) || _addingNote)">
+                @(_addingNote ? "Adding…" : "Add Note")
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY LOG -->
+      <div class="panel">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Activity Log</span>
+          <span style="font-size:.76rem;color:var(--text-light);">@_activity.Count events</span>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          @if (!_activity.Any())
+          {
+            <div class="empty-state" style="padding:24px;"><p>No activity yet.</p></div>
+          }
+          else
+          {
+            <div style="position:relative;padding:8px 0;">
+              @foreach (var ev in _activity.OrderByDescending(a => a.Timestamp))
+              {
+                <div style="display:flex;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);">
+                  <div style="width:28px;height:28px;border-radius:50%;background:var(--green-pale);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">
+                    @GetActivityIcon(ev.ActivityType)
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:.84rem;">
+                      <strong>@ev.ActorName</strong>
+                      <span style="color:var(--text-mid);"> @GetActivityLabel(ev)</span>
+                    </div>
+                    <div style="font-size:.73rem;color:var(--text-light);margin-top:2px;">@ev.Timestamp.ToString("MMM d, yyyy h:mm tt")</div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- FAMILY INFO -->
+      @if (_request.Family is not null)
+      {
+        <div class="panel">
+          <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Family</span>
+            <a href="/admin/families?family=@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile &#8594;</a>
+          </div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
+            <div><strong>Name:</strong> @_request.Family.FullName</div>
+            <div><strong>Email:</strong> @_request.Family.Email</div>
+            <div><strong>Phone:</strong> @(_request.Family.Phone ?? "—")</div>
+            <div><strong>Location:</strong> @(_request.Family.City ?? "—"), @(_request.Family.State ?? "—")</div>
+            <div><strong>Parish:</strong> @(_request.Family.ParishName ?? "—")</div>
+            <div><strong>Faith:</strong> @(_request.Family.FaithTradition ?? "Not specified")</div>
+            @if (!string.IsNullOrEmpty(_request.Family.ChildrenInitials))
+            { <div><strong>Children's Initials:</strong> @_request.Family.ChildrenInitials</div> }
+          </div>
+        </div>
+      }
+
+      <!-- ASSIGNMENT CANDIDATES -->
+      <div class="panel">
+        <div class="panel-header">Auto-Assignment Candidates</div>
+        <div class="panel-body">
+          @if (!_candidatesLoaded)
+          {
+            <Loading Size="sm" Message="Scoring volunteers…" />
+          }
+          else if (!_candidates.Any())
+          {
+            <div class="empty-state" style="padding:16px;"><p>No available volunteers found.</p></div>
+          }
+          else
+          {
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              @foreach (var c in _candidates.Take(6))
+              {
+                <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:.84rem;font-weight:600;">@c.Name</span>
+                    @if (c.Recommended)
+                    { <span style="font-size:.7rem;background:var(--green);color:white;padding:1px 8px;border-radius:12px;">&#10003; Best fit</span> }
+                  </div>
+                  <div style="font-size:.76rem;color:var(--text-light);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;">
+                    <span>Score: @c.CompositeScore.ToString("F0")</span>
+                    <span>@c.DistanceMiles.ToString("F1") mi</span>
+                  </div>
+                  <button class="btn btn-sm" style="margin-top:8px;width:100%;"
+                          @onclick="() => AssignAsync(c.VolunteerId)"
+                          disabled="@(_assigningId == c.VolunteerId)">
+                    @(_assigningId == c.VolunteerId ? "Assigning…" : "Assign")
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- FUND ALLOCATIONS -->
+      <div class="panel">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Fund Allocations</span>
+          <a href="/admin/allocations" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View All &#8594;</a>
+        </div>
+        <div class="panel-body">
+          @{
+            var caseKey = $"case-{_request.Id}";
+            var caseAllocs = _allocations.Where(a => a.AllocatedTo == caseKey || a.AllocatedTo == _request.Id.ToString()).ToList();
+          }
+          @if (!caseAllocs.Any())
+          {
+            <div class="empty-state" style="padding:16px;"><p>No funds allocated to this case.</p></div>
+          }
+          else
+          {
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              @foreach (var alloc in caseAllocs)
+              {
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.84rem;">
+                  <div>
+                    <div style="font-weight:600;">@alloc.Amount.ToString("C")</div>
+                    <div style="font-size:.73rem;color:var(--text-light);">@alloc.CreatedAt.ToString("MMM d, yyyy")</div>
+                  </div>
+                  <span class="badge @GetAllocBadge(alloc.Status)">@alloc.Status</span>
+                </div>
+              }
+              <div style="font-size:.8rem;font-weight:700;text-align:right;color:var(--navy);padding-top:4px;">
+                Total: @caseAllocs.Sum(a => a.Amount).ToString("C")
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- QUICK ACTIONS -->
+      <div class="panel">
+        <div class="panel-header">Quick Actions</div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
+          @if (_request.Status == CaseStatus.New || _request.Status == CaseStatus.InProgress)
+          {
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.AwaitingShipment)'>&#128230; Mark Awaiting Shipment</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Fulfilled)'>&#9989; Mark Fulfilled</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.OnHold)'>&#9208; Put On Hold</button>
+          }
+          @if (_request.Status == CaseStatus.AwaitingShipment)
+          {
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Shipped)'>&#128230; Mark Shipped</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Fulfilled)'>&#9989; Mark Fulfilled</button>
+          }
+          @if (_request.Status == CaseStatus.OnHold)
+          {
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.InProgress)'>&#9654; Resume (→ In Progress)</button>
+          }
+          @if (_request.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled))
+          {
+            <button class="btn btn-sm" style="background:#fff3cd;color:#856404;border-color:#f0d060;"
+                    @onclick='() => QuickStatusAsync(CaseStatus.Cancelled)'>&#10006; Cancel Case</button>
+          }
+          <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;" />
+          <a href="/admin/cases?familyId=@_request.FamilyId" class="btn btn-sm">&#43; New Case for This Family</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private PackageRequest? _request;
+  private List<RequestNote> _notes = [];
+  private List<RequestActivity> _activity = [];
+  private List<FundAllocation> _allocations = [];
+  private List<Volunteer> _volunteers = [];
+  private List<VolunteerScoreResult> _candidates = [];
+  private bool _loading = true;
+  private bool _candidatesLoaded;
+  private bool _saving;
+  private bool _addingNote;
+  private int? _assigningId;
+
+  // Edit state for case details panel
+  private CaseStatus _editStatus;
+  private RequestPriority _editPriority;
+  private int? _editAssignedVolId;
+  private DateTime? _editDueDate;
+  private string? _editTracking;
+  private DateTime? _editShippedDate;
+  private string? _editInternalNotes;
+
+  // New note state
+  private string _newNoteText = "";
+  private bool _newNoteInternal = true;
+
+  // Feedback messages
+  private string _saveMsg = "";
+  private string _errorMsg = "";
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (_request?.Id != Id)
+      await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _saveMsg = _errorMsg = "";
+
+    var t1 = Api.GetRequestAsync(Id);
+    var t2 = Api.GetRequestNotesAsync(Id);
+    var t3 = Api.GetRequestActivityAsync(Id);
+    var t4 = Api.GetAllocationsAsync();
+    var t5 = Api.GetVolunteersAsync("Active");
+    await Task.WhenAll(t1, t2, t3, t4, t5);
+
+    _request   = t1.Result;
+    _notes     = t2.Result;
+    _activity  = t3.Result;
+    _allocations = t4.Result;
+    _volunteers  = t5.Result;
+
+    if (_request is not null)
+    {
+      _editStatus        = _request.Status;
+      _editPriority      = _request.Priority;
+      _editAssignedVolId = _request.AssignedToId;
+      _editDueDate       = _request.DueDate;
+      _editTracking      = _request.TrackingNumber;
+      _editShippedDate   = _request.ShippedDate;
+      _editInternalNotes = _request.InternalNotes;
+    }
+
+    _loading = false;
+
+    // Load volunteer candidates asynchronously (non-blocking — sidebar populates after)
+    _candidatesLoaded = false;
+    StateHasChanged();
+    _candidates = await Api.GetVolunteerCandidatesAsync(Id);
+    _candidatesLoaded = true;
+  }
+
+  private void ResetDetails()
+  {
+    if (_request is null) return;
+    _editStatus        = _request.Status;
+    _editPriority      = _request.Priority;
+    _editAssignedVolId = _request.AssignedToId;
+    _editDueDate       = _request.DueDate;
+    _editTracking      = _request.TrackingNumber;
+    _editShippedDate   = _request.ShippedDate;
+    _editInternalNotes = _request.InternalNotes;
+    _saveMsg = _errorMsg = "";
+  }
+
+  private async Task SaveDetailsAsync()
+  {
+    if (_request is null) return;
+    _saving = true;
+    _saveMsg = _errorMsg = "";
+
+    if (_editStatus != _request.Status)
+      await Api.UpdateRequestStatusAsync(_request.Id, _editStatus);
+
+    if (_editPriority != _request.Priority)
+      await Api.UpdateRequestPriorityAsync(_request.Id, _editPriority);
+
+    if (_editAssignedVolId.HasValue && _editAssignedVolId != _request.AssignedToId)
+      await Api.AssignRequestAsync(_request.Id, _editAssignedVolId.Value);
+
+    if (_editDueDate.HasValue && _editDueDate != _request.DueDate)
+      await Api.UpdateRequestDueDateAsync(_request.Id, _editDueDate.Value);
+
+    await Api.PatchRequestAsync(_request.Id, _editTracking, _editShippedDate, _editInternalNotes);
+
+    _saving = false;
+    _saveMsg = "Changes saved successfully.";
+    await LoadAsync();
+  }
+
+  private async Task QuickStatusAsync(CaseStatus status)
+  {
+    if (_request is null) return;
+    _saveMsg = _errorMsg = "";
+    var ok = await Api.UpdateRequestStatusAsync(_request.Id, status);
+    if (ok) { _saveMsg = $"Status updated to {status}."; await LoadAsync(); }
+    else _errorMsg = "Failed to update status.";
+  }
+
+  private async Task AddNoteAsync()
+  {
+    if (_request is null || string.IsNullOrWhiteSpace(_newNoteText)) return;
+    _addingNote = true;
+    _errorMsg = "";
+
+    var note = new RequestNote
+    {
+      RequestId  = _request.Id,
+      AuthorName = Auth.UserName,
+      Content    = _newNoteText.Trim(),
+      IsInternal = _newNoteInternal,
+      CreatedAt  = DateTime.UtcNow
+    };
+    var created = await Api.CreateRequestNoteAsync(_request.Id, note);
+    if (created is not null)
+    {
+      _notes.Add(created);
+      _newNoteText = "";
+    }
+    else
+    {
+      _errorMsg = "Failed to add note.";
+    }
+    _addingNote = false;
+  }
+
+  private async Task AssignAsync(int volunteerId)
+  {
+    if (_request is null) return;
+    _assigningId = volunteerId;
+    _errorMsg = "";
+    var ok = await Api.AssignRequestAsync(_request.Id, volunteerId);
+    if (ok)
+    {
+      _saveMsg = "Volunteer assigned successfully.";
+      await LoadAsync();
+    }
+    else _errorMsg = "Assignment failed.";
+    _assigningId = null;
+  }
+
+  private static string GetStatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.Fulfilled        => "badge-fulfilled",
+    CaseStatus.OnHold           => "badge-onhold",
+    CaseStatus.Cancelled        => "badge-cancelled",
+    _ => ""
+  };
+
+  private static string GetPriorityBadge(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "badge-overdue",
+    RequestPriority.High   => "badge-inprogress",
+    RequestPriority.Normal => "badge-new",
+    RequestPriority.Low    => "badge-fulfilled",
+    _ => ""
+  };
+
+  private static string GetAllocBadge(AllocationStatus s) => s switch
+  {
+    AllocationStatus.Allocated   => "badge-fulfilled",
+    AllocationStatus.Restricted  => "badge-inprogress",
+    AllocationStatus.PendingReview => "badge-new",
+    _                            => "badge-new"
+  };
+
+  private static string GetActivityIcon(ActivityType t) => t switch
+  {
+    ActivityType.Created        => "&#128196;",
+    ActivityType.StatusChanged  => "&#128260;",
+    ActivityType.Assigned       => "&#128100;",
+    ActivityType.Reassigned     => "&#128257;",
+    ActivityType.NoteAdded      => "&#128172;",
+    ActivityType.PriorityChanged => "&#9650;",
+    ActivityType.DueDateSet     => "&#128336;",
+    ActivityType.Escalated      => "&#9888;",
+    ActivityType.Fulfilled      => "&#9989;",
+    ActivityType.Cancelled      => "&#10006;",
+    _ => "&#8226;"
+  };
+
+  private static string GetActivityLabel(RequestActivity ev) => ev.ActivityType switch
+  {
+    ActivityType.Created        => "created this case",
+    ActivityType.StatusChanged  => $"changed status from {ev.OldValue} → {ev.NewValue}",
+    ActivityType.Assigned       => $"assigned to {ev.NewValue}",
+    ActivityType.Reassigned     => $"reassigned to {ev.NewValue}",
+    ActivityType.NoteAdded      => "added a note",
+    ActivityType.PriorityChanged => $"set priority to {ev.NewValue}",
+    ActivityType.DueDateSet     => $"set due date to {ev.NewValue}",
+    ActivityType.Escalated      => $"escalated — {ev.Details}",
+    ActivityType.Fulfilled      => "marked as fulfilled",
+    ActivityType.Cancelled      => "cancelled this case",
+    _ => ev.ActivityType.ToString()
+  };
+}

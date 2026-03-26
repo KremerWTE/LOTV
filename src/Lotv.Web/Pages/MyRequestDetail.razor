@@ -1,0 +1,177 @@
+@page "/my-requests/{Id:int}"
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Request Details — LOTV Ministry</PageTitle>
+
+<!-- PUBLIC NAV HEADER -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="/my-requests" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">&#8592; My Requests</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
+  </div>
+</div>
+
+<div style="max-width:760px;margin:0 auto;padding:32px 24px;">
+
+  @if (_loading)
+  {
+    <Loading Message="Loading request details…" />
+  }
+  else if (_request == null)
+  {
+    <div class="panel" style="text-align:center;padding:48px;">
+      <p style="color:var(--text-mid);">Request not found.</p>
+      <a href="/my-requests" class="btn btn-primary" style="margin-top:12px;">Back to My Requests</a>
+    </div>
+  }
+  else
+  {
+    <!-- STATUS HEADER -->
+    <div class="panel" style="margin-bottom:20px;">
+      <div style="padding:20px 24px;background:var(--navy);border-radius:12px 12px 0 0;color:white;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+          <div>
+            <h2 style="font-family:var(--ff-head);margin:0 0 6px;font-size:1.2rem;">@_request.Category.ToString() Assistance Request</h2>
+            <div style="font-size:.8rem;opacity:.8;">Request #@_request.Id &bull; Submitted @_request.CreatedAt.ToString("MMMM d, yyyy")</div>
+          </div>
+          <span class="badge @GetStatusBadge(_request.Status)" style="font-size:.78rem;padding:6px 14px;">@_request.Status</span>
+        </div>
+      </div>
+
+      <!-- PROGRESS STEPS -->
+      <div style="padding:20px 24px;background:var(--bg);border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
+          @foreach (var (label, active, done) in GetSteps(_request.Status))
+          {
+            <div style="display:flex;align-items:center;gap:4px;">
+              <div style="padding:6px 16px;border-radius:20px;font-size:.76rem;font-weight:700;white-space:nowrap;
+                background:@(done ? "var(--green)" : active ? "var(--navy)" : "white");
+                color:@(done || active ? "white" : "var(--text-light)");
+                border:1px solid @(done ? "var(--green)" : active ? "var(--navy)" : "var(--border)");">
+                @(done ? "✓ " : active ? "● " : "")@label
+              </div>
+              @if (label != "Complete")
+              { <span style="color:var(--border);">›</span> }
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <div class="form-label" style="margin-bottom:4px;">Category</div>
+            <div style="font-weight:600;">@_request.Category</div>
+          </div>
+          <div>
+            <div class="form-label" style="margin-bottom:4px;">Priority</div>
+            <div style="font-weight:600;color:@(_request.Priority == RequestPriority.Urgent ? "var(--blush)" : "inherit");">@_request.Priority</div>
+          </div>
+          @if (_request.DueDate.HasValue)
+          {
+            <div>
+              <div class="form-label" style="margin-bottom:4px;">Expected By</div>
+              <div style="font-weight:600;">@_request.DueDate.Value.ToString("MMMM d, yyyy")</div>
+            </div>
+          }
+          @if (!string.IsNullOrEmpty(_request.AssignedTo))
+          {
+            <div>
+              <div class="form-label" style="margin-bottom:4px;">Your Helper</div>
+              <div style="font-weight:600;color:var(--navy);">&#129309; @_request.AssignedTo</div>
+            </div>
+          }
+          @if (!string.IsNullOrEmpty(_request.TrackingNumber))
+          {
+            <div>
+              <div class="form-label" style="margin-bottom:4px;">Tracking Number</div>
+              <div style="font-weight:600;font-family:monospace;">@_request.TrackingNumber</div>
+            </div>
+          }
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <div class="form-label" style="margin-bottom:6px;">Request Type</div>
+          <p style="font-size:.88rem;color:var(--text-mid);line-height:1.6;margin:0;background:var(--bg);border-radius:8px;padding:12px;">@_request.Reason</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PUBLIC NOTES (non-internal only) -->
+    @if (_notes.Any(n => !n.IsInternal))
+    {
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">Updates from Our Team</div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+          @foreach (var note in _notes.Where(n => !n.IsInternal).OrderByDescending(n => n.CreatedAt))
+          {
+            <div style="background:var(--bg);border-radius:8px;padding:12px 14px;">
+              <div style="font-size:.7rem;color:var(--text-light);margin-bottom:6px;">@note.CreatedAt.ToString("MMM d, yyyy h:mm tt")</div>
+              <p style="font-size:.84rem;margin:0;line-height:1.5;">@note.Content</p>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- HELPFUL LINKS -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="/my-requests" class="btn">&#8592; All My Requests</a>
+      <a href="/apply" class="btn btn-primary">&#43; Submit Another Request</a>
+      <a href="/" class="btn">Home</a>
+    </div>
+  }
+</div>
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private PackageRequest? _request;
+  private List<RequestNote> _notes = [];
+  private bool _loading = true;
+
+  protected override async Task OnParametersSetAsync()
+  {
+    _loading = true;
+    var t1 = Api.GetRequestAsync(Id);
+    var t2 = Api.GetRequestNotesAsync(Id);
+    await Task.WhenAll(t1, t2);
+    _request = t1.Result;
+    _notes   = t2.Result;
+    _loading = false;
+  }
+
+  private static string GetStatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New             => "badge-new",
+    CaseStatus.InProgress      => "badge-shipped",
+    CaseStatus.AwaitingShipment=> "badge-onhold",
+    CaseStatus.Shipped         => "badge-onhold",
+    CaseStatus.Fulfilled       => "badge-delivered",
+    CaseStatus.OnHold          => "badge-onhold",
+    _                          => "badge-overdue"
+  };
+
+  private static List<(string Label, bool Active, bool Done)> GetSteps(CaseStatus s)
+  {
+    var order = new[] { CaseStatus.New, CaseStatus.InProgress, CaseStatus.AwaitingShipment, CaseStatus.Shipped, CaseStatus.Fulfilled };
+    var idx = Array.IndexOf(order, s);
+    if (idx < 0) idx = 0;
+    return order.Select((step, i) => (
+      Label: step switch
+      {
+        CaseStatus.New              => "Received",
+        CaseStatus.InProgress       => "In Progress",
+        CaseStatus.AwaitingShipment => "Packing",
+        CaseStatus.Shipped          => "On Its Way",
+        CaseStatus.Fulfilled        => "Complete",
+        _                           => step.ToString()
+      },
+      Active: i == idx,
+      Done: i < idx
+    )).ToList();
+  }
+}

@@ -1,0 +1,322 @@
+@page "/onboarding/staff"
+@layout EmptyLayout
+@inject NavigationManager Nav
+@inject ApiService Api
+
+<PageTitle>Staff Setup — LOTV Ministry</PageTitle>
+
+<div style="min-height:100vh;background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 100%);display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:600px;">
+
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:2rem;border:3px solid rgba(255,255,255,.35);margin:0 auto 12px;">&#127803;</div>
+      <div style="font-family:var(--ff-head);font-size:1.4rem;font-weight:700;color:white;">LOTV Ministry</div>
+      <div style="font-size:.75rem;color:rgba(255,255,255,.6);margin-top:4px;letter-spacing:.07em;text-transform:uppercase;">Staff Onboarding</div>
+    </div>
+
+    <!-- Card -->
+    <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 24px 48px rgba(0,0,0,.3);">
+
+      <!-- Step progress -->
+      <div style="background:#f0f7ff;padding:16px 32px;border-bottom:1px solid #c8dff5;">
+        <div style="display:flex;align-items:center;">
+          @for (int i = 1; i <= TotalSteps; i++)
+          {
+            int step = i;
+            bool active = step == _step;
+            bool done   = step < _step;
+            <div style="display:flex;align-items:center;flex:1;">
+              <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;
+                          background:@(done ? "var(--navy)" : active ? "var(--navy)" : "#c8dff5");
+                          color:@(done || active ? "white" : "#888");">
+                @(done ? "✓" : step.ToString())
+              </div>
+              @if (step < TotalSteps)
+              {
+                <div style="flex:1;height:2px;background:@(done ? "var(--navy)" : "#c8dff5");margin:0 4px;"></div>
+              }
+            </div>
+          }
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;">
+          <span style="font-size:.7rem;color:var(--navy);font-weight:600;">Profile</span>
+          <span style="font-size:.7rem;color:var(--navy);font-weight:600;">Chapter</span>
+          <span style="font-size:.7rem;color:var(--navy);font-weight:600;">Your Role</span>
+          <span style="font-size:.7rem;color:var(--navy);font-weight:600;">First Action</span>
+          <span style="font-size:.7rem;color:var(--navy);font-weight:600;">Ready!</span>
+        </div>
+      </div>
+
+      <div style="padding:32px;">
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:20px;">
+            &#9888; @_error
+          </div>
+        }
+
+        <!-- Step 1: Profile -->
+        @if (_step == 1)
+        {
+          <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;font-size:1.25rem;">Complete your staff profile</h2>
+          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">This information appears on case notes and family communications.</p>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input class="form-input" @bind="_firstName" placeholder="Mary" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name *</label>
+              <input class="form-input" @bind="_lastName" placeholder="Roberts" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Title / Position</label>
+            <input class="form-input" @bind="_title" placeholder="Chapter Coordinator" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Work Phone</label>
+            <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 000-0000" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Preferred notification method</label>
+            <select class="form-input" @bind="_notifyPref">
+              <option value="Email">Email only</option>
+              <option value="Both">Email + SMS</option>
+              <option value="SMS">SMS only</option>
+            </select>
+          </div>
+        }
+
+        <!-- Step 2: Chapter -->
+        @if (_step == 2)
+        {
+          <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;font-size:1.25rem;">Select your chapter</h2>
+          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">All cases, volunteers, and donors you manage will be scoped to this chapter.</p>
+
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+            @foreach (var ch in _chapters)
+            {
+              bool sel = _selectedChapterId == ch.Id;
+              <label style="display:flex;align-items:flex-start;gap:14px;cursor:pointer;
+                             background:@(sel ? "#f0f7ff" : "white");
+                             border:2px solid @(sel ? "var(--navy)" : "var(--border)");
+                             border-radius:10px;padding:16px;transition:border .15s;">
+                <input type="radio" name="chapter" checked="@sel"
+                       @onchange="() => _selectedChapterId = ch.Id"
+                       style="margin-top:2px;accent-color:var(--navy);" />
+                <div>
+                  <div style="font-weight:600;color:var(--navy);font-size:.9rem;">@ch.Name</div>
+                  <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@ch.City, @ch.State · @ch.VolunteerCount volunteers</div>
+                </div>
+              </label>
+            }
+          </div>
+
+          <div style="background:#fff8e6;border:1px solid #ffe08a;border-radius:8px;padding:12px 16px;font-size:.82rem;color:#7a5c00;line-height:1.6;">
+            <strong>HQ Admin?</strong> If you manage multiple chapters, contact <a href="mailto:support@lotvministry.org" style="color:#7a5c00;">support@lotvministry.org</a> to have HQ Admin access granted. This wizard is for chapter-level staff.
+          </div>
+        }
+
+        <!-- Step 3: Role explanation -->
+        @if (_step == 3)
+        {
+          <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;font-size:1.25rem;">What you can do as Chapter Staff</h2>
+          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">Your role gives you access to manage cases, volunteers, and donations for your chapter.</p>
+
+          @foreach (var (icon, title, body) in _rolePanels)
+          {
+            <div style="display:flex;gap:16px;background:#f0f7ff;border-radius:10px;padding:16px 18px;margin-bottom:14px;border-left:4px solid var(--navy);">
+              <div style="font-size:1.6rem;flex-shrink:0;line-height:1;">@icon</div>
+              <div>
+                <div style="font-weight:700;color:var(--navy);font-size:.9rem;margin-bottom:4px;">@title</div>
+                <div style="font-size:.83rem;color:#444;line-height:1.6;">@body</div>
+              </div>
+            </div>
+          }
+        }
+
+        <!-- Step 4: First action -->
+        @if (_step == 4)
+        {
+          <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;font-size:1.25rem;">Choose your first action</h2>
+          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">Where would you like to start? You can always change this later.</p>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            @foreach (var action in _firstActions)
+            {
+              bool sel = _selectedAction == action.Key;
+              <label style="display:flex;align-items:center;gap:14px;cursor:pointer;
+                             background:@(sel ? "#f0f7ff" : "white");
+                             border:2px solid @(sel ? "var(--navy)" : "var(--border)");
+                             border-radius:10px;padding:16px 18px;">
+                <input type="radio" name="firstAction" checked="@sel"
+                       @onchange="() => _selectedAction = action.Key"
+                       style="accent-color:var(--navy);" />
+                <div style="font-size:1.5rem;">@action.Icon</div>
+                <div>
+                  <div style="font-weight:600;color:var(--navy);font-size:.88rem;">@action.Label</div>
+                  <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@action.Description</div>
+                </div>
+              </label>
+            }
+          </div>
+        }
+
+        <!-- Step 5: Done -->
+        @if (_step == 5)
+        {
+          <div style="text-align:center;padding:16px 0 8px;">
+            <div style="width:72px;height:72px;border-radius:50%;background:#f0f7ff;border:3px solid var(--navy);display:flex;align-items:center;justify-content:center;font-size:2.2rem;margin:0 auto 20px;">&#10003;</div>
+            <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 10px;font-size:1.4rem;">Welcome aboard, @_firstName!</h2>
+            <p style="color:var(--text-mid);line-height:1.7;margin:0 0 28px;font-size:.9rem;">
+              Your staff profile is ready. The dashboard will show all cases and activity for your chapter in real time.
+            </p>
+
+            <div style="background:#f0f7ff;border-radius:10px;padding:20px;margin-bottom:28px;text-align:left;">
+              <div style="font-weight:700;color:var(--navy);font-size:.85rem;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Profile Summary</div>
+              <div style="font-size:.84rem;color:#444;line-height:2;">
+                <div><strong>Name:</strong> @_firstName @_lastName @(string.IsNullOrWhiteSpace(_title) ? "" : $"· {_title}")</div>
+                <div><strong>Chapter:</strong> @(_chapters.FirstOrDefault(c => c.Id == _selectedChapterId).Name ?? "—")</div>
+                <div><strong>Notifications:</strong> @_notifyPref</div>
+                <div><strong>First action:</strong> @(_firstActions.FirstOrDefault(a => a.Key == _selectedAction)?.Label ?? "Dashboard")</div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;font-weight:700;"
+                    @onclick="GoToDashboard">
+              @GetFirstActionLabel() &#8594;
+            </button>
+          </div>
+        }
+
+        <!-- Navigation -->
+        @if (_step < 5)
+        {
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--border);">
+            @if (_step > 1)
+            {
+              <button class="btn" @onclick="PrevStep" style="min-width:90px;">&#8592; Back</button>
+            }
+            else
+            {
+              <div></div>
+            }
+            <button class="btn btn-primary" @onclick="NextStep"
+                    style="min-width:120px;"
+                    disabled="@_saving">
+              @(_step == 4 ? (_saving ? "Saving…" : "Finish Setup") : "Continue &#8594;")
+            </button>
+          </div>
+        }
+
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:16px;">
+      <a href="/login" style="font-size:.75rem;color:rgba(255,255,255,.5);text-decoration:none;">
+        Already have an account? Sign in
+      </a>
+    </div>
+  </div>
+</div>
+
+@code {
+  private const int TotalSteps = 5;
+  private int _step = 1;
+  private bool _saving;
+  private string _error = "";
+
+  // Step 1
+  private string _firstName  = "";
+  private string _lastName   = "";
+  private string _title      = "";
+  private string _phone      = "";
+  private string _notifyPref = "Email";
+
+  // Step 2
+  private int _selectedChapterId = 0;
+  private readonly List<(int Id, string Name, string City, string State, int VolunteerCount)> _chapters = new()
+  {
+    (1, "Chicago North Shore Chapter",   "Evanston",     "IL", 18),
+    (2, "Naperville-DuPage Chapter",     "Naperville",   "IL", 24),
+    (3, "Indianapolis Central Chapter",  "Indianapolis", "IN", 11),
+    (4, "Milwaukee Chapter",             "Milwaukee",    "WI",  9),
+    (5, "Detroit Metro Chapter",         "Dearborn",     "MI", 15),
+  };
+
+  // Step 3
+  private readonly (string Icon, string Title, string Body)[] _rolePanels =
+  {
+    ("📋", "Manage service requests",
+     "Review incoming requests from families, assign them to volunteers, update statuses, and resolve escalations. All activity is logged automatically."),
+    ("👥", "Oversee volunteers",
+     "View volunteer availability and workload, manually assign or reassign cases, and approve new volunteer registrations for your chapter."),
+    ("💰", "Track donations",
+     "See all donations associated with your chapter, allocate funds to specific requests or expenses, and generate tax receipts on demand."),
+    ("📊", "Run chapter reports",
+     "Access the dashboard to monitor KPIs, export CSV reports, and view the impact summary for your chapter at any time."),
+  };
+
+  // Step 4
+  private string _selectedAction = "dashboard";
+
+  private record FirstAction(string Key, string Icon, string Label, string Description, string Url);
+  private readonly FirstAction[] _firstActions =
+  {
+    new("dashboard",  "📊", "View the Chapter Dashboard",   "See KPIs, recent activity, and the unassigned queue.",                     "/admin/dashboard"),
+    new("queue",      "📋", "Review the Request Queue",     "Check in on open and unassigned requests waiting for a volunteer.",        "/admin/queue"),
+    new("volunteers", "👥", "Meet your Volunteer Team",     "Browse your active volunteers and their current workload.",                 "/admin/volunteers"),
+    new("donors",     "💛", "Explore Donor Records",        "Look up your chapter's donors, giving history, and allocation status.",     "/admin/donors"),
+  };
+
+  private void NextStep()
+  {
+    _error = "";
+
+    if (_step == 1)
+    {
+      if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
+      { _error = "First and last name are required."; return; }
+    }
+    else if (_step == 2)
+    {
+      if (_selectedChapterId == 0)
+      { _error = "Please select your chapter before continuing."; return; }
+    }
+    else if (_step == 4)
+    {
+      _ = FinishAsync();
+      return;
+    }
+
+    _step++;
+  }
+
+  private void PrevStep() => _step--;
+
+  private async Task FinishAsync()
+  {
+    _saving = true;
+    StateHasChanged();
+    // In production: call Api.CompleteStaffOnboardingAsync(...)
+    await Task.Delay(600);
+    _step = 5;
+    _saving = false;
+  }
+
+  private string GetFirstActionLabel()
+  {
+    var action = _firstActions.FirstOrDefault(a => a.Key == _selectedAction);
+    return action?.Label ?? "Go to Dashboard";
+  }
+
+  private void GoToDashboard()
+  {
+    var action = _firstActions.FirstOrDefault(a => a.Key == _selectedAction);
+    Nav.NavigateTo(action?.Url ?? "/admin/dashboard", replace: true);
+  }
+}

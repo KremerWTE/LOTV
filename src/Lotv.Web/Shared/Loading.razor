@@ -1,0 +1,20 @@
+@* Reusable loading / skeleton spinner.
+   Usage:
+     @if (_loading) { <Loading /> }          — centered spinner in a flex container
+     <Loading Message="Loading cases…" />    — custom message
+     <Loading Size="lg" />                   — lg | md (default) | sm
+*@
+
+<div class="loading-wrap loading-@Size">
+  <div class="loading-spinner"></div>
+  @if (!string.IsNullOrEmpty(Message))
+  {
+    <div class="loading-msg">@Message</div>
+  }
+</div>
+
+@code {
+  [Parameter] public string Message { get; set; } = "";
+  /// <summary>sm | md (default) | lg</summary>
+  [Parameter] public string Size { get; set; } = "md";
+}

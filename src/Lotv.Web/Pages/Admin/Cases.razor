@@ -1,6 +1,6 @@
 @page "/admin/cases"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 @inject NavigationManager Nav
 @inject AuthService Auth
 
@@ -80,13 +80,14 @@
               @if (r.IsOverdue)
               { <span class="badge badge-overdue" style="margin-left:6px;">Overdue</span> }
             </td>
-            <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason</td>
+            <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason.ToDisplayName()</td>
             <td><span class="badge @GetStatusBadge(r.Status)">@r.Status</span></td>
             <td style="font-size:.82rem;">@(r.AssignedTo ?? "—")</td>
             <td style="font-size:.76rem;color:var(--text-light);">@r.CreatedAt.ToString("MMM d, yyyy")</td>
             <td style="font-size:.76rem;color:var(--text-light);">@GetAge(r.CreatedAt)</td>
             <td>
-              <button class="btn btn-sm" @onclick="() => OpenCase(r)">Details</button>
+              <a href="/admin/cases/@r.Id" class="btn btn-sm">Details</a>
+              <button class="btn btn-sm" @onclick="() => OpenCase(r)">Quick Edit</button>
             </td>
           </tr>
         }
@@ -155,7 +156,7 @@
         <label class="form-label">Reason for Request *</label>
         <select class="form-input" @bind="_nf.Reason">
           @foreach (var r in Enum.GetValues<PackageReason>())
-          { <option value="@r">@r</option> }
+          { <option value="@r">@r.ToDisplayName()</option> }
         </select>
       </div>
 
@@ -184,10 +185,10 @@
 
       <div class="form-group">
         <label class="form-label">Override Auto-Assign</label>
-        <select class="form-input" @bind="_newAssignOverride">
-          <option value="">Auto (next available: @(_nextVol?.FullName ?? "none"))</option>
+        <select class="form-input" @bind="_newAssignOverrideVolId">
+          <option value="">Auto (next available)</option>
           @foreach (var v in _volunteers)
-          { <option value="@v.FullName">@v.FullName</option> }
+          { <option value="@v.Id">@v.FullName</option> }
         </select>
       </div>
 
@@ -195,8 +196,8 @@
       { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_newError</div> }
 
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" @onclick="SubmitNewRequest">Submit &amp; Auto-Assign</button>
-        <button class="btn" @onclick="CloseNew">Cancel</button>
+        <button class="btn btn-primary" @onclick="SubmitNewRequestAsync" disabled="@_submitting">@(_submitting ? "Submitting…" : "Submit & Auto-Assign")</button>
+        <button class="btn" @onclick="CloseNew" disabled="@_submitting">Cancel</button>
       </div>
     </div>
   </div>
@@ -215,7 +216,7 @@
 
       <div>
         <div class="form-label" style="margin-bottom:8px;">Status</div>
-        <select class="form-select" @bind="_selected.Status">
+        <select class="form-select" @bind="_editStatus">
           @foreach (var s in Enum.GetValues<CaseStatus>())
           { <option value="@s">@s</option> }
         </select>
@@ -227,17 +228,17 @@
           @if (!string.IsNullOrEmpty(_selected.AssignedTo))
           { <a href="/admin/volunteers?q=@Uri.EscapeDataString(_selected.AssignedTo)" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Volunteer &rarr;</a> }
         </div>
-        <select class="form-select" @bind="_selected.AssignedTo">
+        <select class="form-select" @bind="_editAssignedVolId">
           <option value="">— Unassigned —</option>
           @foreach (var v in _volunteers)
-          { <option value="@v.FullName">@v.FullName</option> }
+          { <option value="@v.Id">@v.FullName</option> }
         </select>
       </div>
 
       <div class="form-grid-2">
         <div class="form-group">
           <label class="form-label">Reason</label>
-          <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_selected.Reason</div>
+          <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_selected.Reason.ToDisplayName()</div>
         </div>
         <div class="form-group">
           <label class="form-label">Created</label>
@@ -265,30 +266,30 @@
         </div>
       }
 
-      @if (_selected.Status is CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.Fulfilled)
+      @if (_editStatus is CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.Fulfilled)
       {
         <div class="form-grid-2">
           <div class="form-group">
             <label class="form-label">Tracking Number</label>
-            <input class="form-input" @bind="_selected.TrackingNumber" placeholder="e.g. 1Z999AA10123456784" />
+            <input class="form-input" @bind="_editTrackingNumber" placeholder="e.g. 1Z999AA10123456784" />
           </div>
           <div class="form-group">
             <label class="form-label">Shipped Date</label>
             <input class="form-input" type="date"
-                   value="@(_selected.ShippedDate?.ToString("yyyy-MM-dd") ?? "")"
-                   @onchange='e => _selected.ShippedDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
+                   value="@(_editShippedDate?.ToString("yyyy-MM-dd") ?? "")"
+                   @onchange='e => _editShippedDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
           </div>
         </div>
       }
 
       <div class="form-group">
         <label class="form-label">Internal Notes</label>
-        <textarea class="form-textarea" @bind="_selected.InternalNotes" placeholder="Add notes visible only to staff..."></textarea>
+        <textarea class="form-textarea" @bind="_editInternalNotes" placeholder="Add notes visible only to staff..."></textarea>
       </div>
 
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" @onclick="SaveCase">Save Changes</button>
-        <button class="btn" @onclick="CloseCase">Cancel</button>
+        <button class="btn btn-primary" @onclick="SaveCaseAsync" disabled="@_saving">@(_saving ? "Saving…" : "Save Changes")</button>
+        <button class="btn" @onclick="CloseCase" disabled="@_saving">Cancel</button>
       </div>
 
       @if (_saved)
@@ -304,30 +305,38 @@
   private List<PackageRequest> _filtered = [];
   private List<Volunteer> _volunteers = [];
   private PackageRequest? _selected;
+
+  // Case detail drawer edit state (separate from _selected to track changes)
+  private CaseStatus _editStatus;
+  private int? _editAssignedVolId;
+  private string? _editTrackingNumber;
+  private DateTime? _editShippedDate;
+  private string? _editInternalNotes;
+
   private string _activeFilter = "All";
   private string _search = "";
   private bool _showNew;
   private bool _saved;
+  private bool _saving;
   private string _avgAgeOpen = "—";
 
   // New request form state
   private Family _nf = new();
-  private Family? _prefillFamily;   // set when navigating from Families page
-  private string _newAssignOverride = "";
+  private Family? _prefillFamily;
+  private int? _newAssignOverrideVolId;
   private string _newError = "";
-  private Volunteer? _nextVol;
+  private bool _submitting;
 
   private readonly string[] _filters = ["All", "New", "In Progress", "Awaiting Shipment", "Shipped", "Fulfilled", "On Hold", "Cancelled", "Overdue"];
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _volunteers = Data.GetVolunteers().Where(v => v.Status == VolunteerStatus.Active).ToList();
-    Load();
+    _volunteers = await Api.GetVolunteersAsync("Active");
+    await LoadAsync();
 
-    // Auto-open new request drawer if navigated with ?new=1 or ?familyId=X
     if (FamilyId > 0)
     {
-      _prefillFamily = Data.GetFamily(FamilyId);
+      _prefillFamily = await Api.GetFamilyAsync(FamilyId);
       OpenNew();
     }
     else if (Nav.Uri.Contains("?new=1") || Nav.Uri.Contains("&new=1"))
@@ -336,19 +345,14 @@
     }
   }
 
-  private void Load()
+  private async Task LoadAsync()
   {
-    _all = Data.GetRequests()
-      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
-      .OrderByDescending(r => r.CreatedAt)
-      .ToList();
-
+    _all = await Api.GetRequestsAsync();
     var openAges = _all
       .Where(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)
       .Select(r => (DateTime.UtcNow - r.CreatedAt).TotalDays)
       .ToList();
     _avgAgeOpen = openAges.Count > 0 ? $"{openAges.Average():F0}d" : "—";
-
     ApplyFilter();
   }
 
@@ -377,7 +381,17 @@
     }).ToList();
   }
 
-  private void OpenCase(PackageRequest r) { _selected = r; _saved = false; }
+  private void OpenCase(PackageRequest r)
+  {
+    _selected            = r;
+    _editStatus          = r.Status;
+    _editAssignedVolId   = r.AssignedToId;
+    _editTrackingNumber  = r.TrackingNumber;
+    _editShippedDate     = r.ShippedDate;
+    _editInternalNotes   = r.InternalNotes;
+    _saved               = false;
+  }
+
   private void CloseCase() { _selected = null; _saved = false; }
 
   private void OpenNew()
@@ -397,75 +411,72 @@
           ChildrenInitials = _prefillFamily.ChildrenInitials
         }
       : new Family();
-    _newAssignOverride = "";
+    _newAssignOverrideVolId = null;
     _newError = "";
-    _nextVol = Data.GetNextAvailableVolunteer();
     _showNew = true;
   }
 
   private void CloseNew() { _showNew = false; _newError = ""; }
 
-  private void SubmitNewRequest()
+  private async Task SubmitNewRequestAsync()
   {
     if (string.IsNullOrWhiteSpace(_nf.Parent1FirstName) || string.IsNullOrWhiteSpace(_nf.Parent1LastName))
-    {
-      _newError = "First and last name are required.";
-      return;
-    }
+    { _newError = "First and last name are required."; return; }
     if (string.IsNullOrWhiteSpace(_nf.Email))
-    {
-      _newError = "Email address is required.";
-      return;
-    }
+    { _newError = "Email address is required."; return; }
+
+    _submitting = true;
+    _newError = "";
 
     int familyId;
-    string familyName;
     if (_prefillFamily is not null)
     {
-      familyId   = _prefillFamily.Id;
-      familyName = _prefillFamily.FullName;
+      familyId = _prefillFamily.Id;
     }
     else
     {
-      Data.AddFamily(_nf);
-      familyId   = _nf.Id;
-      familyName = _nf.FullName;
+      var created = await Api.CreateFamilyAsync(_nf);
+      if (created is null) { _newError = "Failed to create family record. Please try again."; _submitting = false; return; }
+      familyId = created.Id;
     }
 
-    var assignTo = !string.IsNullOrEmpty(_newAssignOverride) ? _newAssignOverride : _nextVol?.FullName;
     var req = new PackageRequest
     {
-      FamilyId   = familyId,
-      Status     = CaseStatus.New,
-      AssignedTo = assignTo,
-      Reason     = _prefillFamily?.Reason ?? _nf.Reason,
-      CreatedAt  = DateTime.UtcNow
+      FamilyId  = familyId,
+      Status    = CaseStatus.New,
+      Reason    = _prefillFamily?.Reason ?? _nf.Reason,
     };
-    Data.AddRequest(req);
+    var createdReq = await Api.CreateRequestAsync(req);
+    if (createdReq is null) { _newError = "Failed to create request. Please try again."; _submitting = false; return; }
 
-    // bump volunteer open case count
-    if (assignTo != null)
-    {
-      var vol = _volunteers.FirstOrDefault(v => v.FullName == assignTo);
-      if (vol != null) { vol.ActiveCases++; Data.UpdateVolunteer(vol); }
-    }
-
-    Data.LogAction(Auth.UserName, "Created", "PackageRequest", req.Id.ToString(),
-      $"New request for {familyName}, assigned to {assignTo ?? "unassigned"}");
+    // Override auto-assign if user selected a specific volunteer
+    if (_newAssignOverrideVolId.HasValue)
+      await Api.AssignRequestAsync(createdReq.Id, _newAssignOverrideVolId.Value);
 
     _prefillFamily = null;
     _showNew = false;
-    Load();
+    _submitting = false;
+    await LoadAsync();
   }
 
-  private void SaveCase()
+  private async Task SaveCaseAsync()
   {
     if (_selected is null) return;
-    _selected.UpdatedAt = DateTime.UtcNow;
-    Data.UpdateRequest(_selected);
-    Data.LogAction(Auth.UserName, "Updated", "PackageRequest", _selected.Id.ToString(), $"Status: {_selected.Status}");
+    _saving = true;
+
+    await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
+
+    if (_editAssignedVolId.HasValue && _editAssignedVolId != _selected.AssignedToId)
+      await Api.AssignRequestAsync(_selected.Id, _editAssignedVolId.Value);
+
+    await Api.PatchRequestAsync(_selected.Id, _editTrackingNumber, _editShippedDate, _editInternalNotes);
+
+    _saving = false;
     _saved = true;
-    Load();
+    await LoadAsync();
+
+    // Re-sync _selected with the refreshed data
+    _selected = _all.FirstOrDefault(r => r.Id == _selected.Id) ?? _selected;
   }
 
   private static string GetStatusBadge(CaseStatus s) => s switch

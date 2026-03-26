@@ -1,7 +1,6 @@
 @page "/admin/donors"
 @layout AdminLayout
-@inject IMockDataService Data
-@inject AuthService Auth
+@inject ApiService Api
 
 <PageTitle>Donors Database — LOTV Staff Portal</PageTitle>
 
@@ -11,7 +10,7 @@
     <p>All recorded donors and giving history</p>
   </div>
   <div class="page-hd-actions">
-    <button class="btn btn-primary btn-sm" @onclick="() => { _editing = new Donor(); _showForm = true; _formSaved = false; }">&#43; Add Donor</button>
+    <button class="btn btn-primary btn-sm" @onclick='() => EditAsync(new Donor())'>&#43; Add Donor</button>
   </div>
 </div>
 
@@ -82,7 +81,7 @@
             <td style="font-size:.78rem;color:var(--text-light);">@d.LastGiftDate.ToString("MMM d, yyyy")</td>
             <td style="font-size:.78rem;color:var(--text-mid);">@(d.ParishName ?? d.DioceseName ?? "—")</td>
             <td>
-              <button class="btn btn-sm" @onclick="() => Edit(d)">Edit</button>
+              <button class="btn btn-sm" @onclick="() => EditAsync(d)">Edit</button>
             </td>
           </tr>
         }
@@ -148,7 +147,7 @@
         <textarea class="form-textarea" @bind="_editing.Notes" placeholder="Internal notes..."></textarea>
       </div>
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" @onclick="SaveDonor">Save</button>
+        <button class="btn btn-primary" @onclick="SaveDonorAsync">Save</button>
         <button class="btn" @onclick="CloseForm">Cancel</button>
       </div>
       @if (_formSaved)
@@ -156,7 +155,7 @@
 
       @if (_editing.Id != 0)
       {
-        var history = Data.GetDonations().Where(d => d.DonorId == _editing.Id).OrderByDescending(d => d.Date).ToList();
+        var history = _donorHistory;
         <div>
           <div class="form-label" style="margin-bottom:8px;">Giving History (@history.Count gift@(history.Count != 1 ? "s" : ""))</div>
           @if (history.Any())
@@ -171,7 +170,7 @@
                     @if (!string.IsNullOrEmpty(gift.Campaign))
                     { <div style="font-size:.72rem;color:var(--text-light);margin-top:2px;">@gift.Campaign</div> }
                   </div>
-                  <span style="font-size:.72rem;background:var(--bg-page);border:1px solid var(--border);border-radius:6px;padding:2px 8px;color:var(--text-mid);">@gift.Channel</span>
+                  <span style="font-size:.72rem;background:var(--bg-page);border:1px solid var(--border);border-radius:6px;padding:2px 8px;color:var(--text-mid);">@gift.Channel.ToDisplayName()</span>
                 </div>
               }
             </div>
@@ -193,6 +192,7 @@
   [Parameter][SupplyParameterFromQuery(Name = "donor")] public int DonorId { get; set; }
 
   private List<Donor> _donors = [];
+  private List<Donation> _donorHistory = [];
   private Donor? _editing;
   private bool _showForm;
   private bool _formSaved;
@@ -206,36 +206,43 @@
     (!_recurringOnly || d.IsRecurring)
   ).OrderByDescending(d => d.TotalGiven);
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _donors = Data.GetDonors();
+    _donors = await Api.GetDonorsAsync();
     if (DonorId > 0)
     {
       var target = _donors.FirstOrDefault(d => d.Id == DonorId);
-      if (target is not null) Edit(target);
+      if (target is not null) await EditAsync(target);
     }
   }
 
-  private void Edit(Donor d) { _editing = d; _showForm = true; _formSaved = false; }
-  private void CloseForm()   { _showForm = false; _editing = null; _formSaved = false; }
+  private async Task EditAsync(Donor d)
+  {
+    _editing      = d;
+    _showForm     = true;
+    _formSaved    = false;
+    _donorHistory = d.Id != 0
+      ? (await Api.GetDonorContributionsAsync(d.Id)).OrderByDescending(x => x.Date).ToList()
+      : [];
+  }
 
-  private void SaveDonor()
+  private void CloseForm() { _showForm = false; _editing = null; _formSaved = false; _donorHistory = []; }
+
+  private async Task SaveDonorAsync()
   {
     if (_editing is null) return;
     if (_editing.Id == 0)
     {
       _editing.FirstGiftDate = DateTime.UtcNow;
       _editing.LastGiftDate  = DateTime.UtcNow;
-      Data.AddDonor(_editing);
-      Data.LogAction(Auth.UserName, "Created", "Donor", _editing.Id.ToString(), $"Added donor {_editing.FullName}");
+      await Api.CreateDonorAsync(_editing);
     }
     else
     {
-      Data.UpdateDonor(_editing);
-      Data.LogAction(Auth.UserName, "Updated", "Donor", _editing.Id.ToString(), $"Updated {_editing.FullName}");
+      await Api.UpdateDonorAsync(_editing.Id, _editing);
     }
 
-    _donors = Data.GetDonors();
+    _donors    = await Api.GetDonorsAsync();
     _formSaved = true;
   }
 

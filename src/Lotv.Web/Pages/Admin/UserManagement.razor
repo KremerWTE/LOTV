@@ -1,5 +1,6 @@
 @page "/admin/users"
 @layout AdminLayout
+@inject ApiService Api
 @inject AuthService Auth
 
 <PageTitle>User Management — LOTV Staff Portal</PageTitle>
@@ -20,10 +21,10 @@
       <tbody>
         @foreach (var u in _users)
         {
-          var isMe = u.Email.Equals(Auth.UserEmail, StringComparison.OrdinalIgnoreCase);
+          var isMe = u.Email?.Equals(Auth.UserEmail, StringComparison.OrdinalIgnoreCase) == true;
           <tr style="@(isMe ? "background:var(--green-pale);" : "")">
             <td>
-              <strong>@u.Name</strong>
+              <strong>@(u.FullName ?? u.Email ?? u.Id)</strong>
               @if (isMe) { <span class="badge badge-fulfilled" style="font-size:.6rem;margin-left:6px;">You</span> }
             </td>
             <td style="font-size:.78rem;color:var(--text-light);">@u.Email</td>
@@ -34,13 +35,10 @@
               else
               { <span class="badge badge-onhold">Inactive</span> }
             </td>
-            <td style="font-size:.76rem;color:var(--text-light);">@(u.LastLogin?.ToString("MMM d, yyyy h:mm tt") ?? "Never")</td>
+            <td style="font-size:.76rem;color:var(--text-light);">—</td>
             <td style="display:flex;gap:6px;">
-              <button class="btn btn-sm" @onclick="() => OpenEdit(u)">Edit</button>
-              @if (u.IsActive)
-              { <button class="btn btn-sm" style="color:var(--amber);" @onclick="() => ToggleActive(u)">Deactivate</button> }
-              else
-              { <button class="btn btn-sm" style="color:var(--green);" @onclick="() => ToggleActive(u)">Activate</button> }
+              @if (!isMe)
+              { <button class="btn btn-sm" @onclick="() => OpenEdit(u)">Edit Role</button> }
             </td>
           </tr>
         }
@@ -59,29 +57,25 @@
       <button class="drawer-close" @onclick="CloseDrawer">&#10005;</button>
     </div>
     <div class="drawer-body">
-      <div class="form-group">
-        <label class="form-label">Name</label>
-        <input class="form-input" @bind="_formName" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" type="email" @bind="_formEmail" />
-      </div>
+      @if (_editUser is not null)
+      {
+        <div class="form-group">
+          <label class="form-label">User</label>
+          <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@(_editUser.FullName ?? _editUser.Email ?? _editUser.Id)</div>
+        </div>
+      }
       <div class="form-group">
         <label class="form-label">Role</label>
         <select class="form-input" @bind="_formRole">
-          <option>Administrator</option>
-          <option>Case Manager</option>
-          <option>Finance</option>
-          <option>Volunteer Coordinator</option>
-          <option>Read Only</option>
+          @foreach (var r in Enum.GetValues<UserRole>())
+          { <option value="@r">@r</option> }
         </select>
       </div>
       @if (!string.IsNullOrEmpty(_formError))
       { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_formError</div> }
     </div>
     <div class="drawer-footer">
-      <button class="btn btn-primary" @onclick="Save">@(_editUser == null ? "Send Invite" : "Save")</button>
+      <button class="btn btn-primary" @onclick="SaveAsync">@(_editUser == null ? "Send Invite" : "Save")</button>
       <button class="btn" @onclick="CloseDrawer">Cancel</button>
     </div>
   </div>
@@ -95,73 +89,40 @@
 }
 
 @code {
-  private record StaffUser(int Id, string Name, string Email, string Role, bool IsActive, DateTime? LastLogin);
-
-  private List<StaffUser> _users =
-  [
-    new(1, "Mary Roberts",   "mary.roberts@lotvministry.org",   "Administrator",         true,  DateTime.UtcNow.AddHours(-2)),
-    new(2, "Anne Collins",   "anne.collins@lotvministry.org",   "Case Manager",          true,  DateTime.UtcNow.AddDays(-1)),
-    new(3, "David Kim",      "david.kim@lotvministry.org",      "Finance",               true,  DateTime.UtcNow.AddDays(-3)),
-    new(4, "Sara Mitchell",  "sara.mitchell@lotvministry.org",  "Volunteer Coordinator", true,  DateTime.UtcNow.AddDays(-5)),
-    new(5, "Tom Nguyen",     "tom.nguyen@lotvministry.org",     "Read Only",             false, DateTime.UtcNow.AddDays(-30)),
-  ];
-
+  private List<StaffUserDto> _users = [];
   private bool _drawerOpen;
-  private StaffUser? _editUser;
-  private string _formName    = "";
-  private string _formEmail   = "";
-  private string _formRole    = "Case Manager";
-  private string _formError   = "";
+  private StaffUserDto? _editUser;
+  private UserRole _formRole = UserRole.ChapterStaff;
+  private string _formError  = "";
   private string? _toast;
+
+  protected override async Task OnInitializedAsync()
+    => _users = await Api.GetUsersAsync();
 
   private void OpenAdd()
   {
-    _editUser  = null;
-    _formName  = "";
-    _formEmail = "";
-    _formRole  = "Case Manager";
-    _formError = "";
+    _editUser   = null;
+    _formRole   = UserRole.ChapterStaff;
+    _formError  = "";
     _drawerOpen = true;
   }
 
-  private void OpenEdit(StaffUser u)
+  private void OpenEdit(StaffUserDto u)
   {
-    _editUser  = u;
-    _formName  = u.Name;
-    _formEmail = u.Email;
-    _formRole  = u.Role;
-    _formError = "";
+    _editUser   = u;
+    _formRole   = u.Role;
+    _formError  = "";
     _drawerOpen = true;
   }
 
-  private async Task Save()
+  private async Task SaveAsync()
   {
     _formError = "";
-    if (string.IsNullOrWhiteSpace(_formName))
-    { _formError = "Name is required."; return; }
-    if (string.IsNullOrWhiteSpace(_formEmail))
-    { _formError = "Email address is required."; return; }
-
-    if (_editUser == null)
-    {
-      var id = _users.Max(u => u.Id) + 1;
-      _users.Add(new StaffUser(id, _formName, _formEmail, _formRole, true, null));
-      await ShowToast($"Invite sent to {_formEmail}");
-    }
-    else
-    {
-      var idx = _users.IndexOf(_editUser);
-      _users[idx] = _editUser with { Name = _formName, Email = _formEmail, Role = _formRole };
-      await ShowToast("User updated");
-    }
+    if (_editUser == null) { await ShowToast("Invite not yet supported — use the register endpoint."); _drawerOpen = false; return; }
+    await Api.UpdateUserRoleAsync(_editUser.Id, _formRole, _editUser.ChapterId);
+    _users = await Api.GetUsersAsync();
     _drawerOpen = false;
-  }
-
-  private async Task ToggleActive(StaffUser u)
-  {
-    var idx = _users.IndexOf(u);
-    _users[idx] = u with { IsActive = !u.IsActive };
-    await ShowToast(u.IsActive ? $"{u.Name} deactivated" : $"{u.Name} activated");
+    await ShowToast("Role updated");
   }
 
   private void CloseDrawer() { _drawerOpen = false; _formError = ""; }
@@ -174,12 +135,12 @@
     _toast = null;
   }
 
-  private static string RoleBadge(string role) => role switch
+  private static string RoleBadge(UserRole role) => role switch
   {
-    "Administrator"          => "badge-fulfilled",
-    "Case Manager"           => "badge-shipped",
-    "Finance"                => "badge-inprogress",
-    "Volunteer Coordinator"  => "badge-new",
-    _                        => "badge-onhold"
+    UserRole.HQAdmin       => "badge-fulfilled",
+    UserRole.ChapterAdmin  => "badge-shipped",
+    UserRole.ChapterStaff  => "badge-inprogress",
+    UserRole.Volunteer     => "badge-new",
+    _                      => "badge-onhold"
   };
 }

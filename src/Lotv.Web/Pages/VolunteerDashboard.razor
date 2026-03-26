@@ -1,0 +1,147 @@
+@page "/volunteer/dashboard"
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Volunteer Dashboard — LOTV Ministry</PageTitle>
+
+<!-- NAV -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
+  </div>
+  <div style="display:flex;gap:16px;align-items:center;">
+    <a href="/volunteer/dashboard" style="color:white;font-size:.84rem;text-decoration:none;font-weight:600;">Dashboard</a>
+    <a href="/volunteer/available" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">Available Requests</a>
+    <a href="/volunteer/my-assignments" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">My Assignments</a>
+    <a href="/volunteer/history" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">History</a>
+  </div>
+</div>
+
+<div style="max-width:960px;margin:0 auto;padding:32px 24px;">
+
+  <div style="margin-bottom:24px;">
+    <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 4px;">Welcome back, volunteer!</h2>
+    <p style="color:var(--text-mid);margin:0;">Here's a summary of your service activity</p>
+  </div>
+
+  @if (_loading)
+  {
+    <Loading Message="Loading your dashboard…" />
+  }
+  else
+  {
+    <!-- KPI STRIP -->
+    <div class="kpi-grid" style="margin-bottom:24px;">
+      <div class="kpi-card kpi-navy">
+        <div class="kpi-icon">&#128203;</div>
+        <div class="kpi-label">Active Assignments</div>
+        <div class="kpi-value" style="color:var(--navy)">@_myRequests.Count(r => r.Status is CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
+      </div>
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-icon">&#9888;</div>
+        <div class="kpi-label">Overdue</div>
+        <div class="kpi-value" style="color:var(--amber)">@_myRequests.Count(r => r.IsOverdue)</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">&#9989;</div>
+        <div class="kpi-label">Fulfilled (All Time)</div>
+        <div class="kpi-value" style="color:var(--green)">@_myRequests.Count(r => r.Status == CaseStatus.Fulfilled)</div>
+      </div>
+      <div class="kpi-card kpi-gold">
+        <div class="kpi-icon">&#128197;</div>
+        <div class="kpi-label">Available Near Me</div>
+        <div class="kpi-value" style="color:var(--gold)">@_available.Count</div>
+      </div>
+    </div>
+
+    <!-- PENDING ASSIGNMENTS (needs accept/decline) -->
+    @if (_pending.Any())
+    {
+      <div style="background:var(--amber);color:white;border-radius:12px;padding:14px 20px;margin-bottom:20px;">
+        <strong>&#128276; @_pending.Count new assignment@(_pending.Count > 1 ? "s" : "") awaiting your response!</strong>
+        <a href="/volunteer/pending" style="color:white;margin-left:10px;font-weight:700;text-decoration:underline;">Review now &#8594;</a>
+      </div>
+    }
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+      <!-- MY ACTIVE ASSIGNMENTS -->
+      <div class="panel">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>My Active Assignments</span>
+          <a href="/volunteer/my-assignments" style="font-size:.76rem;color:var(--navy);">View all</a>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          @if (!_myRequests.Any(r => r.Status is CaseStatus.InProgress or CaseStatus.AwaitingShipment))
+          {
+            <div style="text-align:center;padding:24px;color:var(--text-light);font-size:.84rem;">No active assignments</div>
+          }
+          else
+          {
+            @foreach (var req in _myRequests.Where(r => r.Status is CaseStatus.InProgress or CaseStatus.AwaitingShipment).Take(5))
+            {
+              <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-weight:600;font-size:.86rem;">@req.Category — Family #@req.FamilyId</div>
+                  <div style="font-size:.74rem;color:var(--text-light);">@req.Status @(req.IsOverdue ? "· OVERDUE" : "")</div>
+                </div>
+                <a href="/volunteer/request/@req.Id" class="btn btn-sm">View</a>
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      <!-- AVAILABLE REQUESTS -->
+      <div class="panel">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Available Near Me</span>
+          <a href="/volunteer/available" style="font-size:.76rem;color:var(--navy);">View all</a>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          @if (!_available.Any())
+          {
+            <div style="text-align:center;padding:24px;color:var(--text-light);font-size:.84rem;">No requests near you right now</div>
+          }
+          else
+          {
+            @foreach (var req in _available.Take(5))
+            {
+              <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-weight:600;font-size:.86rem;">@req.Category</div>
+                  <div style="font-size:.74rem;color:var(--text-light);">
+                    @req.Priority priority
+                    @if (req.DueDate.HasValue)
+                    { <span> · Due @req.DueDate.Value.ToString("MMM d")</span> }
+                  </div>
+                </div>
+                <a href="/volunteer/available" class="btn btn-sm btn-primary">Accept</a>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+@code {
+  private List<PackageRequest> _myRequests = [];
+  private List<PackageRequest> _available = [];
+  private List<PackageRequest> _pending = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _loading = true;
+    var t1 = Api.GetRequestsAsync();
+    var t2 = Api.GetRequestQueueAsync();
+    await Task.WhenAll(t1, t2);
+    _myRequests = t1.Result;
+    _available  = t2.Result;
+    _pending    = [];
+    _loading    = false;
+  }
+}

@@ -1,49 +1,164 @@
+using Lotv.Core.Models;
+using Microsoft.JSInterop;
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Json;
+using System.Security.Claims;
+
 namespace Lotv.Web.Services;
 
 public class AuthService
 {
-    // Demo credentials — in production these come from Identity/JWT
-    private static readonly (string Email, string Password, string Name, string Role)[] _users =
-    [
-        ("mary.roberts@lotvministry.org",   "lotv2026!", "Mary Roberts",   "Administrator"),
-        ("anne.collins@lotvministry.org",   "lotv2026!", "Anne Collins",   "Case Manager"),
-        ("david.kim@lotvministry.org",      "lotv2026!", "David Kim",      "Finance"),
-        ("sara.mitchell@lotvministry.org",  "lotv2026!", "Sara Mitchell",  "Volunteer Coordinator"),
-    ];
+    private readonly HttpClient _http;
+    private readonly JwtAuthStateProvider _authState;
+    private readonly IJSRuntime _js;
 
-    public bool IsAuthenticated { get; private set; }
-    public string UserName      { get; private set; } = "";
-    public string UserEmail     { get; private set; } = "";
-    public string UserRole      { get; private set; } = "";
-    public string UserInitials  => UserName.Length > 0
-        ? string.Concat(UserName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(p => p.Length > 0).Take(2).Select(p => p[0]))
-        : "?";
+    private string? _refreshToken;
+
+    public AuthService(HttpClient http, JwtAuthStateProvider authState, IJSRuntime js)
+    {
+        _http = http;
+        _authState = authState;
+        _js = js;
+    }
+
+    // ── Public state ──────────────────────────────────────────────────────────
+    public bool IsAuthenticated => _authState.GetAccessToken() is not null;
+    public string UserName  => GetClaim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier") is string id
+        ? id : GetClaim(JwtRegisteredClaimNames.Email) ?? "";
+    public string UserEmail => GetClaim(JwtRegisteredClaimNames.Email) ?? "";
+    public string UserRole  => GetClaim("role") ?? "";
+    public int? ChapterId
+    {
+        get
+        {
+            var c = GetClaim("chapterId");
+            return int.TryParse(c, out var id) ? id : null;
+        }
+    }
+    public bool IsHqAdmin => UserRole == nameof(Lotv.Core.Models.UserRole.HQAdmin);
+    public string UserInitials
+    {
+        get
+        {
+            var name = UserName;
+            if (string.IsNullOrEmpty(name)) return "?";
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return string.Concat(parts.Take(2).Select(p => p[0]));
+        }
+    }
 
     public event Action? OnChange;
 
+    // ── Login ─────────────────────────────────────────────────────────────────
+    public async Task<bool> LoginAsync(string email, string password)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/v1/auth/login",
+                new { Email = email, Password = password });
+
+            if (!resp.IsSuccessStatusCode) return false;
+
+            var result = await resp.Content.ReadFromJsonAsync<LoginResponse>();
+            if (result is null) return false;
+
+            _authState.SetToken(result.AccessToken);
+            _refreshToken = result.RefreshToken;
+
+            // Persist refresh token in sessionStorage (cleared when tab closes)
+            await _js.InvokeVoidAsync("sessionStorage.setItem", "lotv_rt", result.RefreshToken);
+
+            OnChange?.Invoke();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ── Restore session on page load ──────────────────────────────────────────
+    public async Task TryRestoreSessionAsync()
+    {
+        try
+        {
+            _refreshToken = await _js.InvokeAsync<string?>("sessionStorage.getItem", "lotv_rt");
+            if (string.IsNullOrEmpty(_refreshToken)) return;
+
+            await RefreshTokenAsync();
+        }
+        catch { /* session restore failure is non-fatal */ }
+    }
+
+    // ── Token refresh ─────────────────────────────────────────────────────────
+    public async Task<bool> RefreshTokenAsync()
+    {
+        if (string.IsNullOrEmpty(_refreshToken)) return false;
+
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/v1/auth/refresh",
+                new { RefreshToken = _refreshToken });
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                await LogoutAsync();
+                return false;
+            }
+
+            var result = await resp.Content.ReadFromJsonAsync<LoginResponse>();
+            if (result is null) return false;
+
+            _authState.SetToken(result.AccessToken);
+            _refreshToken = result.RefreshToken;
+            await _js.InvokeVoidAsync("sessionStorage.setItem", "lotv_rt", result.RefreshToken);
+            OnChange?.Invoke();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ── Logout ────────────────────────────────────────────────────────────────
+    public async Task LogoutAsync()
+    {
+        if (!string.IsNullOrEmpty(_refreshToken))
+        {
+            try { await _http.PostAsJsonAsync("/api/v1/auth/logout", new { RefreshToken = _refreshToken }); }
+            catch { }
+        }
+
+        _authState.SetToken(null);
+        _refreshToken = null;
+        await _js.InvokeVoidAsync("sessionStorage.removeItem", "lotv_rt");
+        OnChange?.Invoke();
+    }
+
+    // ── Backwards-compat sync Login (used by Login.razor during transition) ───
+    /// <summary>Legacy sync wrapper — prefer LoginAsync.</summary>
     public bool Login(string email, string password)
     {
-        var match = _users.FirstOrDefault(u =>
-            u.Email.Equals(email.Trim(), StringComparison.OrdinalIgnoreCase) &&
-            u.Password == password);
-
-        if (match == default) return false;
-
-        IsAuthenticated = true;
-        UserName        = match.Name;
-        UserEmail       = match.Email;
-        UserRole        = match.Role;
-        OnChange?.Invoke();
-        return true;
+        // Falls through to async; used only during demo/mock mode
+        // Real pages should call LoginAsync directly.
+        return false;
     }
 
-    public void Logout()
+    public void Logout() => _ = LogoutAsync();
+
+    // ── Helper ────────────────────────────────────────────────────────────────
+    private string? GetClaim(string type)
     {
-        IsAuthenticated = false;
-        UserName        = "";
-        UserEmail       = "";
-        UserRole        = "";
-        OnChange?.Invoke();
+        var token = _authState.GetAccessToken();
+        if (string.IsNullOrEmpty(token)) return null;
+        try
+        {
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            return jwt.Claims.FirstOrDefault(c => c.Type == type)?.Value;
+        }
+        catch { return null; }
     }
+
+    private record LoginResponse(string AccessToken, string RefreshToken, string Role, int? ChapterId);
 }

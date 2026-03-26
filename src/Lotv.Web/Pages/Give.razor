@@ -1,6 +1,6 @@
 @page "/give"
 @layout PublicLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Donate — Lily of the Valley Ministry</PageTitle>
 
@@ -121,7 +121,7 @@ else
         }
       </div>
 
-      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="Submit">
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync">
         @(_recurring ? "Set Up Monthly Gift" : "Give Now") &rarr;
       </button>
 
@@ -164,63 +164,43 @@ else
     }
   }
 
-  private void Submit()
+  private async Task SubmitAsync()
   {
     if (_amount <= 0)             { _error = "Please select or enter a gift amount."; return; }
     if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
     { _error = "Please enter your first and last name."; return; }
     if (string.IsNullOrWhiteSpace(_email))   { _error = "Please enter your email address."; return; }
 
-    // Find or create donor
-    var existing = Data.GetDonors()
-      .FirstOrDefault(d => d.Email.Equals(_email, StringComparison.OrdinalIgnoreCase));
-
-    Donor donor;
-    if (existing == null)
+    var newDonor = new Donor
     {
-      donor = new Donor
-      {
-        FirstName      = _firstName,
-        LastName       = _lastName,
-        Email          = _email,
-        ParishName     = string.IsNullOrEmpty(_parish) ? null : _parish,
-        IsRecurring    = _recurring,
-        RecurringAmount = _recurring ? _amount : null,
-        FirstGiftDate  = DateTime.UtcNow,
-        LastGiftDate   = DateTime.UtcNow,
-        TotalGiven     = _amount,
-        GiftCount      = 1,
-        Tier           = CalcTier(_amount)
-      };
-      Data.AddDonor(donor);
-    }
-    else
-    {
-      donor = existing;
-      donor.TotalGiven  += _amount;
-      donor.GiftCount   += 1;
-      donor.LastGiftDate = DateTime.UtcNow;
-      donor.Tier         = CalcTier(donor.TotalGiven);
-      if (_recurring) { donor.IsRecurring = true; donor.RecurringAmount = _amount; }
-      Data.UpdateDonor(donor);
-    }
+      FirstName       = _firstName,
+      LastName        = _lastName,
+      Email           = _email,
+      ParishName      = string.IsNullOrEmpty(_parish) ? null : _parish,
+      IsRecurring     = _recurring,
+      RecurringAmount = _recurring ? _amount : null,
+      FirstGiftDate   = DateTime.UtcNow,
+      LastGiftDate    = DateTime.UtcNow,
+      TotalGiven      = _amount,
+      GiftCount       = 1,
+      Tier            = CalcTier(_amount)
+    };
 
     var donation = new Donation
     {
-      DonorId    = donor.Id,
-      Amount     = _amount,
-      Date       = DateTime.UtcNow,
-      Channel    = DonationChannel.Online,
+      Amount      = _amount,
+      Date        = DateTime.UtcNow,
+      Channel     = DonationChannel.Online,
       IsRecurring = _recurring,
-      Campaign   = string.IsNullOrEmpty(_dedicationMsg) ? null : _dedicationMsg
+      Campaign    = string.IsNullOrEmpty(_dedicationMsg) ? null : _dedicationMsg
     };
-    Data.AddDonation(donation);
-    Data.LogAction("Public Portal", "Created", "Donation", donation.Id.ToString(),
-      $"{donor.FullName} gave {_amount:C0} via public portal");
 
-    _confirmedAmount   = _amount;
+    var ok = await Api.PublicGiveAsync(newDonor, donation);
+    if (!ok) { _error = "Unable to process your gift. Please try again."; return; }
+
+    _confirmedAmount    = _amount;
     _confirmedRecurring = _recurring;
-    _confirmedName     = $"{_firstName} {_lastName}";
+    _confirmedName      = $"{_firstName} {_lastName}";
     _submitted = true;
   }
 

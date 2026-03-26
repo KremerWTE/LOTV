@@ -1,0 +1,214 @@
+@page "/admin/reports/schedule"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Scheduled Report Management — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Scheduled Report Management</h2>
+    <p>Configure daily digests and weekly summaries for each chapter</p>
+  </div>
+  <div class="page-hd-actions">
+    @if (_saved)
+    { <span class="badge badge-delivered" style="font-size:.74rem;">&#10003; Saved</span> }
+    <button class="btn btn-primary btn-sm" @onclick="SaveAsync" disabled="@_saving">
+      @(_saving ? "Saving…" : "Save All Changes")
+    </button>
+  </div>
+</div>
+
+<!-- INFO PANEL -->
+<div style="background:var(--green-pale);border:1px solid var(--green);border-radius:10px;padding:14px 18px;margin-bottom:24px;font-size:.84rem;color:var(--green-dark);">
+  <strong>How reports work:</strong> The daily digest fires at 6:00 AM per chapter's local time and emails a summary of overnight activity to the chapter lead.
+  The weekly summary fires every Monday at 7:00 AM and is also sent to all HQ Admins.
+</div>
+
+<!-- SCHEDULE TABLE -->
+@if (_loading)
+{
+  <Loading Message="Loading chapter configuration…" />
+}
+else
+{
+  <div class="panel" style="margin-bottom:24px;">
+    <div class="panel-header">Chapter Report Configuration</div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Chapter</th>
+            <th>Daily Digest</th>
+            <th>Daily Email Recipient</th>
+            <th>Weekly Summary</th>
+            <th>Weekly Email Recipient</th>
+            <th>Last Daily</th>
+            <th>Last Weekly</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var cfg in _configs)
+          {
+            <tr>
+              <td style="font-weight:600;">@cfg.ChapterName</td>
+              <td>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" checked="@cfg.DailyEnabled" @onchange='e => cfg.DailyEnabled = (bool)(e.Value ?? false)' />
+                  <span style="font-size:.8rem;">@(cfg.DailyEnabled ? "On" : "Off")</span>
+                </label>
+              </td>
+              <td>
+                <input class="form-input" style="font-size:.8rem;padding:5px 8px;"
+                       type="email" placeholder="lead@example.com"
+                       value="@cfg.DailyEmail"
+                       @onchange='e => cfg.DailyEmail = e.Value?.ToString() ?? ""'
+                       disabled="@(!cfg.DailyEnabled)" />
+              </td>
+              <td>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" checked="@cfg.WeeklyEnabled" @onchange='e => cfg.WeeklyEnabled = (bool)(e.Value ?? false)' />
+                  <span style="font-size:.8rem;">@(cfg.WeeklyEnabled ? "On" : "Off")</span>
+                </label>
+              </td>
+              <td>
+                <input class="form-input" style="font-size:.8rem;padding:5px 8px;"
+                       type="email" placeholder="lead@example.com"
+                       value="@cfg.WeeklyEmail"
+                       @onchange='e => cfg.WeeklyEmail = e.Value?.ToString() ?? ""'
+                       disabled="@(!cfg.WeeklyEnabled)" />
+              </td>
+              <td style="font-size:.76rem;color:var(--text-light);">@(cfg.LastDailyAt?.ToString("MMM d, h:mm tt") ?? "—")</td>
+              <td style="font-size:.76rem;color:var(--text-light);">@(cfg.LastWeeklyAt?.ToString("MMM d, yyyy") ?? "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- HQ OVERRIDE ROW -->
+  <div class="panel" style="margin-bottom:24px;">
+    <div class="panel-header">HQ Admin Recipients (All Chapters)</div>
+    <div class="panel-body">
+      <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 14px;">HQ Admins receive a cross-chapter roll-up every Monday in addition to the per-chapter summaries.</p>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">HQ Weekly Summary Recipient(s)</label>
+          <input class="form-input" type="email" @bind="_hqWeeklyEmail" placeholder="hq@lotvministry.org" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">HQ Daily Digest Recipient(s)</label>
+          <input class="form-input" type="email" @bind="_hqDailyEmail" placeholder="hq@lotvministry.org" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECENT REPORT LOGS -->
+  <div class="panel">
+    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Recent Report Log</span>
+      <span style="font-size:.76rem;color:var(--text-light);">Last 20 reports sent</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_logs.Any())
+      {
+        <div style="text-align:center;padding:24px;color:var(--text-light);font-size:.84rem;">No reports have been sent yet.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Report Type</th>
+              <th>Chapter</th>
+              <th>Sent At</th>
+              <th>Recipient</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var log in _logs)
+            {
+              <tr>
+                <td><span class="badge @(log.ReportType == "Daily" ? "badge-inprogress" : "badge-shipped")" style="font-size:.66rem;">@log.ReportType</span></td>
+                <td style="font-size:.82rem;">@log.ChapterName</td>
+                <td style="font-size:.78rem;color:var(--text-mid);">@log.SentAt.ToString("MMM d, h:mm tt")</td>
+                <td style="font-size:.78rem;color:var(--text-light);">@log.RecipientEmail</td>
+                <td>
+                  @if (log.Success)
+                  { <span class="badge badge-delivered" style="font-size:.66rem;">&#10003; Delivered</span> }
+                  else
+                  { <span class="badge badge-onhold" style="font-size:.66rem;">&#10007; Failed</span> }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private class ReportConfig
+  {
+    public int     ChapterId     { get; set; }
+    public string  ChapterName   { get; set; } = "";
+    public bool    DailyEnabled  { get; set; }
+    public string  DailyEmail    { get; set; } = "";
+    public bool    WeeklyEnabled { get; set; }
+    public string  WeeklyEmail   { get; set; } = "";
+    public DateTime? LastDailyAt  { get; set; }
+    public DateTime? LastWeeklyAt { get; set; }
+  }
+
+  private record ReportLog(string ReportType, int ChapterId, string ChapterName, DateTime SentAt, string RecipientEmail, bool Success);
+
+  private List<ReportConfig> _configs = [];
+  private List<ReportLog>    _logs    = [];
+  private string _hqWeeklyEmail = "";
+  private string _hqDailyEmail  = "";
+  private bool   _loading       = true;
+  private bool   _saving;
+  private bool   _saved;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var hqRows = await Api.GetHqSummaryAsync();
+
+    _configs = hqRows.Select(r => new ReportConfig
+    {
+      ChapterId     = r.ChapterId,
+      ChapterName   = r.ChapterName,
+      DailyEnabled  = true,
+      DailyEmail    = $"lead.ch{r.ChapterId}@lotvministry.org",
+      WeeklyEnabled = true,
+      WeeklyEmail   = $"lead.ch{r.ChapterId}@lotvministry.org",
+      LastDailyAt   = DateTime.UtcNow.AddHours(-18),
+      LastWeeklyAt  = DateTime.UtcNow.AddDays(-7),
+    }).ToList();
+
+    // Stub log entries
+    var now = DateTime.UtcNow;
+    _logs = _configs.Take(3).SelectMany(c => new[]
+    {
+      new ReportLog("Daily",  c.ChapterId, c.ChapterName, now.AddHours(-18),  c.DailyEmail,  true),
+      new ReportLog("Weekly", c.ChapterId, c.ChapterName, now.AddDays(-7),    c.WeeklyEmail, true),
+    }).Take(20).ToList();
+
+    _hqWeeklyEmail = "hqadmin@lotvministry.org";
+    _hqDailyEmail  = "hqadmin@lotvministry.org";
+    _loading = false;
+  }
+
+  private async Task SaveAsync()
+  {
+    _saving = true;
+    _saved  = false;
+    // In production: call Api.SaveScheduledReportConfigAsync(_configs, _hqWeeklyEmail, _hqDailyEmail)
+    await Task.Delay(400);
+    _saving = false;
+    _saved  = true;
+  }
+}

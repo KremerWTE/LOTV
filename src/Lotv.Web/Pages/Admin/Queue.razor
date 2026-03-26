@@ -1,0 +1,253 @@
+@page "/admin/queue"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Unassigned Queue — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Unassigned Queue</h2>
+    <p>Cases awaiting volunteer assignment — oldest first</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+    <a href="/admin/cases" class="btn btn-sm">All Cases</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128282;</div>
+    <div class="kpi-label">Unassigned</div>
+    <div class="kpi-value" style="color:var(--amber)">@_queue.Count</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#9888;</div>
+    <div class="kpi-label">Overdue &amp; Unassigned</div>
+    <div class="kpi-value" style="color:var(--navy)">@_queue.Count(r => r.IsOverdue)</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-label">Available Volunteers</div>
+    <div class="kpi-value" style="color:var(--green)">@_volunteers.Count</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">Oldest Waiting</div>
+    <div class="kpi-value" style="color:var(--gold)">@_oldestAge</div>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading unassigned queue…" />
+}
+else if (!_queue.Any())
+{
+  <div class="panel">
+    <div class="panel-body">
+      <div class="empty-state">
+        <div class="icon">&#9989;</div>
+        <p>No unassigned cases — all caught up!</p>
+      </div>
+    </div>
+  </div>
+}
+else
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Family</th>
+            <th>Reason</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Age</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var r in _queue)
+          {
+            <tr>
+              <td style="font-size:.76rem;color:var(--text-light);">#@r.Id</td>
+              <td>
+                <strong>@r.Family?.FullName</strong>
+                @if (r.IsOverdue)
+                { <span class="badge badge-overdue" style="margin-left:6px;">Overdue</span> }
+              </td>
+              <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason.ToDisplayName()</td>
+              <td><span class="badge @GetPriorityBadge(r.Priority)">@r.Priority</span></td>
+              <td><span class="badge @GetStatusBadge(r.Status)">@r.Status</span></td>
+              <td style="font-size:.76rem;color:var(--text-light);">@r.CreatedAt.ToString("MMM d, yyyy")</td>
+              <td style="font-size:.76rem;color:@(r.IsOverdue ? "var(--red)" : "var(--text-light)");">@GetAge(r.CreatedAt)</td>
+              <td style="display:flex;gap:6px;">
+                <button class="btn btn-sm btn-primary" @onclick="() => OpenAssign(r)">Assign</button>
+                <a href="/admin/cases/@r.Id" class="btn btn-sm">Details</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+<!-- ASSIGN DRAWER -->
+@if (_assigning is not null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseAssign"></div>
+  <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+    <div style="padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="font-family:var(--ff-head);">Assign Case #@_assigning.Id</h3>
+      <button class="btn btn-sm" @onclick="CloseAssign">&#10005;</button>
+    </div>
+    <div style="padding:24px;display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Case summary -->
+      <div style="background:var(--navy-pale);border-radius:10px;padding:14px 16px;font-size:.84rem;display:grid;gap:6px;">
+        <div><strong>Family:</strong> @_assigning.Family?.FullName</div>
+        <div><strong>Reason:</strong> @_assigning.Reason.ToDisplayName()</div>
+        <div><strong>Created:</strong> @_assigning.CreatedAt.ToString("MMM d, yyyy") (@GetAge(_assigning.CreatedAt) old)</div>
+        @if (_assigning.IsOverdue)
+        { <div style="color:var(--red);font-weight:600;">&#9888; This case is overdue.</div> }
+      </div>
+
+      <!-- Volunteer picker -->
+      <div class="form-group">
+        <label class="form-label">Assign To *</label>
+        <select class="form-input" @bind="_assignVolId">
+          <option value="">— Select volunteer —</option>
+          @foreach (var v in _volunteers)
+          { <option value="@v.Id">@v.FullName (@v.ActiveCases active cases)</option> }
+        </select>
+      </div>
+
+      @if (_candidatesLoaded && _candidates.Any())
+      {
+        <div>
+          <div class="form-label" style="margin-bottom:8px;">&#127775; Suggested (ranked by workload)</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            @foreach (var c in _candidates.Take(5))
+            {
+              <div style="display:flex;align-items:center;justify-content:space-between;background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;cursor:pointer;"
+                   @onclick="() => _assignVolId = c.VolunteerId">
+                <span><strong>@c.Name</strong> — @c.CompositeScore.ToString("F0") pts</span>
+                <span style="color:var(--green);font-weight:600;">Select &#8594;</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      @if (!string.IsNullOrEmpty(_assignError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_assignError</div> }
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="ConfirmAssignAsync" disabled="@(_assignVolId == 0 || _assigning is null || _assignWorking)">
+          @(_assignWorking ? "Assigning…" : "Confirm Assignment")
+        </button>
+        <button class="btn" @onclick="CloseAssign" disabled="@_assignWorking">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<PackageRequest> _queue = [];
+  private List<Volunteer> _volunteers = [];
+  private List<VolunteerScoreResult> _candidates = [];
+  private PackageRequest? _assigning;
+  private bool _loading = true;
+  private bool _candidatesLoaded;
+  private bool _assignWorking;
+  private int _assignVolId;
+  private string _assignError = "";
+  private string _oldestAge = "—";
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    var t1 = Api.GetRequestQueueAsync();
+    var t2 = Api.GetVolunteersAsync("Active");
+    await Task.WhenAll(t1, t2);
+    _queue = t1.Result;
+    _volunteers = t2.Result;
+
+    var oldest = _queue.OrderBy(r => r.CreatedAt).FirstOrDefault();
+    _oldestAge = oldest is not null ? GetAge(oldest.CreatedAt) : "—";
+    _loading = false;
+  }
+
+  private async Task OpenAssign(PackageRequest r)
+  {
+    _assigning = r;
+    _assignVolId = 0;
+    _assignError = "";
+    _candidates = [];
+    _candidatesLoaded = false;
+
+    // Load ranked candidates in the background
+    _candidates = await Api.GetVolunteerCandidatesAsync(r.Id);
+    _candidatesLoaded = true;
+  }
+
+  private void CloseAssign()
+  {
+    _assigning = null;
+    _assignError = "";
+    _candidates = [];
+    _candidatesLoaded = false;
+  }
+
+  private async Task ConfirmAssignAsync()
+  {
+    if (_assigning is null || _assignVolId == 0) return;
+    _assignWorking = true;
+    _assignError = "";
+
+    var ok = await Api.AssignRequestAsync(_assigning.Id, _assignVolId);
+    if (!ok)
+    {
+      _assignError = "Assignment failed. Please try again.";
+      _assignWorking = false;
+      return;
+    }
+
+    _assignWorking = false;
+    CloseAssign();
+    await LoadAsync();
+  }
+
+  private static string GetPriorityBadge(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent   => "badge-overdue",
+    RequestPriority.High     => "badge-inprogress",
+    RequestPriority.Normal   => "badge-new",
+    RequestPriority.Low      => "badge-fulfilled",
+    _ => ""
+  };
+
+  private static string GetStatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.OnHold           => "badge-onhold",
+    _ => ""
+  };
+
+  private static string GetAge(DateTime dt)
+  {
+    var d = (int)(DateTime.UtcNow - dt).TotalDays;
+    return d == 0 ? "Today" : $"{d}d";
+  }
+}

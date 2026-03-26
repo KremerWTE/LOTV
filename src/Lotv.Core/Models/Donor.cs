@@ -13,6 +13,11 @@ public class Donor
     public string? Zip { get; set; }
     public string? ParishName { get; set; }
     public string? DioceseName { get; set; }
+    public int? DioceseId { get; set; }
+    public int ChapterId { get; set; }
+    public Chapter? Chapter { get; set; }
+    public bool IsAnonymous { get; set; }
+    public string? StripeCustomerId { get; set; }
     public bool IsRecurring { get; set; }
     public decimal? RecurringAmount { get; set; }
     public DateTime FirstGiftDate { get; set; }

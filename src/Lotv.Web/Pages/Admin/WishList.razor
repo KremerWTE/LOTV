@@ -1,0 +1,283 @@
+@page "/admin/wishlist"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Wish List — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Family Wish List</h2>
+    <p>Specific goods families have requested — visible to donors on the public site</p>
+  </div>
+  <button class="btn btn-primary" @onclick="() => _adding = true">+ Add Item</button>
+</div>
+
+<!-- KPI strip -->
+<div class="kpi-grid" style="margin-bottom:24px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-label">Open Requests</div>
+    <div class="kpi-value" style="color:var(--navy);">@_items.Count(i => i.Status == "Open")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-label">Partially Fulfilled</div>
+    <div class="kpi-value" style="color:var(--amber);">@_items.Count(i => i.Status == "Partial")</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Fulfilled (this month)</div>
+    <div class="kpi-value" style="color:var(--green);">@_items.Count(i => i.Status == "Fulfilled")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128100;</div>
+    <div class="kpi-label">Families Requesting</div>
+    <div class="kpi-value" style="color:var(--gold);">@_items.Select(i => i.FamilyName).Distinct().Count()</div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+  <div class="filter-bar" style="margin-bottom:0;">
+    @foreach (var f in new[]{"All","Open","Partial","Fulfilled","Cancelled"})
+    {
+      <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button>
+    }
+  </div>
+  <div style="flex:1;"></div>
+  <input class="form-input" @bind="_search" @bind:event="oninput"
+         placeholder="Search items or families…" style="max-width:260px;font-size:.84rem;" />
+</div>
+
+<!-- Item cards -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px;">
+  @foreach (var item in Filtered)
+  {
+    int pct = item.Requested > 0 ? (int)(item.Fulfilled * 100.0 / item.Requested) : 0;
+    <div style="border:1px solid var(--border);border-radius:12px;background:white;overflow:hidden;">
+      <div style="padding:16px 18px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+          <div style="font-weight:700;color:var(--navy);font-size:.9rem;line-height:1.4;">@item.Title</div>
+          <span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:.68rem;font-weight:700;flex-shrink:0;
+                       background:@StatusBg(item.Status);color:@StatusColor(item.Status);">
+            @item.Status
+          </span>
+        </div>
+        <div style="font-size:.78rem;color:var(--text-light);margin-bottom:6px;">@item.Category</div>
+        @if (!string.IsNullOrEmpty(item.Description))
+        {
+          <p style="font-size:.82rem;color:var(--text-mid);margin:0 0 10px;line-height:1.5;">@item.Description</p>
+        }
+        <div style="font-size:.8rem;color:var(--text-mid);margin-bottom:10px;">
+          <strong>Family:</strong> @item.FamilyName
+        </div>
+      </div>
+
+      <div style="padding:0 18px 16px;">
+        <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--text-light);margin-bottom:4px;">
+          <span>Fulfilled: @item.Fulfilled / @item.Requested</span>
+          <span>@pct%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:@pct%;background:@(item.Status == "Fulfilled" ? "#2d6a2d" : "var(--navy)");"></div></div>
+      </div>
+
+      <div style="padding:10px 18px;background:#f4f7fb;border-top:1px solid var(--border);display:flex;gap:8px;">
+        <button class="btn" style="flex:1;font-size:.78rem;" @onclick="() => OpenFulfill(item)">
+          Mark Fulfilled
+        </button>
+        @if (item.Status != "Cancelled")
+        {
+          <button class="btn" style="padding:6px 10px;font-size:.78rem;color:#b91c1c;border-color:#fecaca;"
+                  @onclick="() => CancelItem(item.Id)">
+            ✕
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+@if (!Filtered.Any())
+{
+  <div class="panel">
+    <div class="panel-body" style="text-align:center;padding:40px;color:var(--text-light);font-size:.85rem;">
+      No wish-list items match this filter.
+    </div>
+  </div>
+}
+
+<!-- Fulfill drawer -->
+@if (_fulfillItem is not null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:white;border-radius:16px;max-width:420px;width:100%;padding:32px;">
+      <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">Mark Fulfilled</h3>
+      <p style="color:var(--text-mid);font-size:.84rem;margin:0 0 20px;">@_fulfillItem.Title</p>
+      <div class="form-group">
+        <label class="form-label">Quantity fulfilled</label>
+        <input class="form-input" type="number" @bind="_fulfillQty" min="1" max="@(_fulfillItem.Requested - _fulfillItem.Fulfilled)" style="max-width:100px;" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fulfilled by (donor name, optional)</label>
+        <input class="form-input" @bind="_fulfillDonor" placeholder="Anonymous" />
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button class="btn" @onclick="() => _fulfillItem = null">Cancel</button>
+        <button class="btn btn-primary" @onclick="SaveFulfillAsync">Save</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Add item modal -->
+@if (_adding)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:white;border-radius:16px;max-width:500px;width:100%;padding:32px;max-height:90vh;overflow-y:auto;">
+      <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 20px;">Add Wish-List Item</h3>
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" @bind="_newTitle" placeholder="Knitted blanket — newborn size" />
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-input" @bind="_newCategory">
+            <option value="KnittedBlanket">Knitted Blanket</option>
+            <option value="MemoryBox">Memory Box</option>
+            <option value="GriefBook">Grief Book</option>
+            <option value="BabyClothing">Baby Clothing</option>
+            <option value="CarePackage">Care Package</option>
+            <option value="HospitalSupply">Hospital Supply</option>
+            <option value="PhotoAlbum">Photo Album</option>
+            <option value="JournalOrKeepsake">Journal / Keepsake</option>
+            <option value="GiftCard">Gift Card</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantity Needed</label>
+          <input class="form-input" type="number" @bind="_newQty" min="1" style="max-width:100px;" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (optional)</label>
+        <textarea class="form-input" @bind="_newDesc" rows="2" style="resize:vertical;"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Family</label>
+        <select class="form-input" @bind="_newFamilyId">
+          @foreach (var f in _families)
+          { <option value="@f.Id">@f.Name</option> }
+        </select>
+      </div>
+      @if (!string.IsNullOrEmpty(_addError))
+      {
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:16px;">&#9888; @_addError</div>
+      }
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button class="btn" @onclick="() => { _adding = false; _addError = ""; }">Cancel</button>
+        <button class="btn btn-primary" @onclick="SaveAddAsync">Add Item</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private string _filter = "Open";
+  private string _search = "";
+  private bool   _adding;
+  private string _addError = "";
+
+  private string  _newTitle      = "";
+  private string  _newCategory   = "KnittedBlanket";
+  private int     _newQty        = 1;
+  private string  _newDesc       = "";
+  private int     _newFamilyId   = 1;
+
+  private WishRow? _fulfillItem;
+  private int    _fulfillQty    = 1;
+  private string _fulfillDonor  = "";
+
+  private IEnumerable<WishRow> Filtered
+  {
+    get
+    {
+      var q = _items.AsEnumerable();
+      if (_filter != "All") q = q.Where(i => i.Status == _filter);
+      if (!string.IsNullOrWhiteSpace(_search))
+        q = q.Where(i => i.Title.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                      || i.FamilyName.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return q;
+    }
+  }
+
+  private void OpenFulfill(WishRow item) { _fulfillItem = item; _fulfillQty = 1; _fulfillDonor = ""; }
+
+  private async Task SaveFulfillAsync()
+  {
+    if (_fulfillItem is null) return;
+    await Task.Delay(200);
+    var idx = _items.IndexOf(_fulfillItem);
+    int newFulfilled = Math.Min(_fulfillItem.Requested, _fulfillItem.Fulfilled + _fulfillQty);
+    string newStatus = newFulfilled >= _fulfillItem.Requested ? "Fulfilled"
+                     : newFulfilled > 0 ? "Partial" : _fulfillItem.Status;
+    _items[idx] = _fulfillItem with { Fulfilled = newFulfilled, Status = newStatus };
+    _fulfillItem = null;
+  }
+
+  private async Task SaveAddAsync()
+  {
+    if (string.IsNullOrWhiteSpace(_newTitle)) { _addError = "Title is required."; return; }
+    await Task.Delay(200);
+    var family = _families.First(f => f.Id == _newFamilyId);
+    _items.Insert(0, new WishRow(
+      _items.Count + 10, _newTitle, _newCategory.Replace("OrKeepsake", " / Keepsake").Replace("GriefBook", "Grief Book"),
+      _newDesc, family.Name, _newQty, 0, "Open"));
+    _adding = false; _newTitle = _newDesc = ""; _newQty = 1; _addError = "";
+  }
+
+  private void CancelItem(int id)
+  {
+    var idx = _items.FindIndex(i => i.Id == id);
+    if (idx >= 0) _items[idx] = _items[idx] with { Status = "Cancelled" };
+  }
+
+  private static string StatusBg(string s) => s switch
+  {
+    "Open"      => "#f0f7ff",
+    "Partial"   => "#fff8e6",
+    "Fulfilled" => "#f0faf0",
+    _           => "#fafafa"
+  };
+
+  private static string StatusColor(string s) => s switch
+  {
+    "Open"      => "var(--navy)",
+    "Partial"   => "#c07000",
+    "Fulfilled" => "#2d6a2d",
+    _           => "#888"
+  };
+
+  private record WishRow(int Id, string Title, string Category, string? Description,
+                         string FamilyName, int Requested, int Fulfilled, string Status);
+  private record FamilyOption(int Id, string Name);
+
+  private readonly List<FamilyOption> _families = new()
+  {
+    new(1, "Johnson Family"), new(2, "Rivera Family"), new(3, "Smith Family"),
+    new(4, "Lee Family"),     new(5, "Brown Family"),
+  };
+
+  // MOCK DATA — replace with Api.GetWishListAsync() when backend is live
+  private readonly List<WishRow> _items = new()
+  {
+    new(1, "Knitted blanket — newborn size",       "Knitted Blanket",  "Soft, neutral colors preferred.",                         "Johnson Family", 2, 1, "Partial"),
+    new(2, "Memory box with engraving",             "Memory Box",       "Any color; photo frame slot preferred.",                   "Rivera Family",  1, 0, "Open"),
+    new(3, "Empty Arms by Sherokee Ilse (grief book)", "Grief Book",  null,                                                      "Smith Family",   1, 1, "Fulfilled"),
+    new(4, "Newborn onesie set (preemie size)",     "Baby Clothing",    "Premature size 000 in neutral tones.",                    "Lee Family",     3, 0, "Open"),
+    new(5, "Pregnancy journal / keepsake book",     "Journal / Keepsake", "To preserve memories of baby.",                        "Brown Family",   1, 0, "Open"),
+    new(6, "Hospital comfort care package",         "Care Package",     "Tissues, lotion, warm socks, snacks for family waiting.", "Johnson Family", 1, 1, "Fulfilled"),
+    new(7, "Photo album — small format",            "Photo Album",      "For tiny handprints and footprints.",                     "Rivera Family",  1, 0, "Open"),
+  };
+}

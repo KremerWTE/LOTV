@@ -1,0 +1,96 @@
+@inject SignalRService Hub
+@implements IDisposable
+
+@if (_toasts.Any())
+{
+    <div style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:360px;">
+        @foreach (var t in _toasts)
+        {
+            <div style="background:var(--navy);color:white;padding:14px 18px;border-radius:12px;
+                        box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:.85rem;line-height:1.5;
+                        display:flex;align-items:flex-start;gap:12px;
+                        animation:slideIn .25s ease;">
+                <span style="font-size:1.2rem;flex-shrink:0;">@t.Icon</span>
+                <div style="flex:1;">
+                    <div style="font-weight:700;margin-bottom:2px;">@t.Title</div>
+                    <div style="opacity:.8;">@t.Message</div>
+                </div>
+                <button @onclick="() => Remove(t)" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:1rem;padding:0;line-height:1;">✕</button>
+            </div>
+        }
+    </div>
+}
+
+<style>
+@@keyframes slideIn {
+    from { opacity:0; transform:translateY(12px); }
+    to   { opacity:1; transform:translateY(0); }
+}
+</style>
+
+@code {
+    private readonly List<Toast> _toasts = [];
+
+    protected override void OnInitialized()
+    {
+        Hub.OnCaseStatusChanged += OnStatusChanged;
+        Hub.OnCaseCreated       += OnCaseCreated;
+        Hub.OnCaseEscalated     += OnEscalated;
+        Hub.OnCaseAssigned      += OnAssigned;
+        Hub.OnDonationReceived  += OnDonation;
+    }
+
+    private async Task OnStatusChanged(int id, string status, string by)
+    {
+        await AddToast("🔄", "Case Updated", $"Case #{id} → {status}");
+    }
+
+    private async Task OnCaseCreated(int id, string family, string reason)
+    {
+        await AddToast("📋", "New Request", $"#{id} — {family} ({reason})");
+    }
+
+    private async Task OnEscalated(int id, string reason)
+    {
+        await AddToast("⚠️", "Case Escalated", $"Case #{id}: {reason}");
+    }
+
+    private async Task OnAssigned(int id, int volId, string name)
+    {
+        await AddToast("👤", "Case Assigned", $"Case #{id} → {name}");
+    }
+
+    private async Task OnDonation(int id, decimal amount, string channel)
+    {
+        await AddToast("💚", "Donation Received", $"{amount:C0} via {channel}");
+    }
+
+    private async Task AddToast(string icon, string title, string message)
+    {
+        var toast = new Toast(icon, title, message);
+        _toasts.Add(toast);
+        await InvokeAsync(StateHasChanged);
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            _toasts.Remove(toast);
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void Remove(Toast t)
+    {
+        _toasts.Remove(t);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Hub.OnCaseStatusChanged -= OnStatusChanged;
+        Hub.OnCaseCreated       -= OnCaseCreated;
+        Hub.OnCaseEscalated     -= OnEscalated;
+        Hub.OnCaseAssigned      -= OnAssigned;
+        Hub.OnDonationReceived  -= OnDonation;
+    }
+
+    private record Toast(string Icon, string Title, string Message);
+}

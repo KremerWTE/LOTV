@@ -1,0 +1,414 @@
+@page "/admin/sponsorships"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Sponsorships — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Corporate Sponsorships</h2>
+    <p>Track corporate sponsors, event sponsorships, and linked donor records</p>
+  </div>
+  <button class="btn btn-primary" @onclick="OpenAdd">+ Add Sponsor</button>
+</div>
+
+<!-- KPI strip -->
+<div class="kpi-grid" style="margin-bottom:24px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#127970;</div>
+    <div class="kpi-label">Active Sponsors</div>
+    <div class="kpi-value" style="color:var(--green);">@_sponsors.Count(s => s.Status == "Active")</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Committed</div>
+    <div class="kpi-value" style="color:var(--navy);">@_sponsors.Sum(s => s.CommittedAmount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Total Received</div>
+    <div class="kpi-value" style="color:var(--green);">@_sponsors.Sum(s => s.ReceivedAmount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">Renewal Due (&lt;60 days)</div>
+    <div class="kpi-value" style="color:var(--amber);">@_sponsors.Count(s => s.DaysUntilRenewal is >= 0 and <= 60)</div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+  <div class="filter-bar" style="margin-bottom:0;">
+    @foreach (var f in new[]{"All","Active","Pending","Expired","Lapsed"})
+    {
+      <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button>
+    }
+  </div>
+  <div style="flex:1;"></div>
+  <input class="form-input" @bind="_search" @bind:event="oninput"
+         placeholder="Search sponsors…" style="max-width:240px;font-size:.84rem;" />
+</div>
+
+<!-- Sponsor table -->
+<div class="panel" style="margin-bottom:24px;">
+  <div class="panel-body" style="padding:0;">
+    @if (!FilteredSponsors.Any())
+    {
+      <div style="padding:32px;text-align:center;color:var(--text-light);font-size:.85rem;">
+        No sponsors match this filter.
+      </div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Tier</th>
+            <th>Contact</th>
+            <th>Linked Donor</th>
+            <th>Event</th>
+            <th style="text-align:right;">Committed</th>
+            <th style="text-align:right;">Received</th>
+            <th>Renewal</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var s in FilteredSponsors)
+          {
+            <tr @onclick="() => _selected = s" style="cursor:pointer;">
+              <td>
+                <div style="font-weight:600;color:var(--navy);">@s.CompanyName</div>
+                @if (!string.IsNullOrEmpty(s.Website))
+                {
+                  <div style="font-size:.72rem;color:var(--text-light);">@s.Website</div>
+                }
+              </td>
+              <td>
+                <span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700;
+                             background:@TierBg(s.Tier);color:@TierColor(s.Tier);">
+                  @s.Tier
+                </span>
+              </td>
+              <td>
+                <div style="font-size:.84rem;">@s.ContactName</div>
+                <div style="font-size:.72rem;color:var(--text-light);">@s.ContactEmail</div>
+              </td>
+              <td>
+                @if (s.DonorId.HasValue)
+                {
+                  <a href="/admin/donors/@s.DonorId" style="color:var(--navy);font-size:.84rem;">
+                    @s.DonorName
+                  </a>
+                }
+                else
+                {
+                  <span style="color:#aaa;font-size:.84rem;">—</span>
+                }
+              </td>
+              <td style="font-size:.84rem;color:var(--text-mid);">@(s.EventName ?? "—")</td>
+              <td style="text-align:right;font-weight:700;">@s.CommittedAmount.ToString("C0")</td>
+              <td style="text-align:right;color:@(s.ReceivedAmount >= s.CommittedAmount ? "#2d6a2d" : "var(--amber)");">
+                @s.ReceivedAmount.ToString("C0")
+              </td>
+              <td>
+                @if (s.RenewalDate.HasValue)
+                {
+                  int days = s.DaysUntilRenewal!.Value;
+                  <div style="font-size:.82rem;color:@(days < 30 ? "#b91c1c" : days < 60 ? "var(--amber)" : "var(--text-mid)");">
+                    @s.RenewalDate.Value.ToString("MM/dd/yyyy")
+                    @if (days >= 0)
+                    {
+                      <span style="font-size:.7rem;display:block;">@days days</span>
+                    }
+                    else
+                    {
+                      <span style="font-size:.7rem;display:block;color:#b91c1c;">Expired</span>
+                    }
+                  </div>
+                }
+                else
+                {
+                  <span style="color:#aaa;font-size:.84rem;">—</span>
+                }
+              </td>
+              <td>
+                <span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700;
+                             background:@StatusBg(s.Status);color:@StatusColor(s.Status);">
+                  @s.Status
+                </span>
+              </td>
+              <td style="text-align:right;">
+                <button class="btn" style="padding:4px 10px;font-size:.78rem;" @onclick:stopPropagation
+                        @onclick="() => { _selected = s; }">View</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+<!-- Detail drawer -->
+@if (_selected is not null)
+{
+  <div style="position:fixed;top:0;right:0;width:440px;height:100vh;background:white;box-shadow:-4px 0 20px rgba(0,0,0,.15);
+              z-index:1000;display:flex;flex-direction:column;overflow-y:auto;">
+    <div style="padding:20px 24px;background:var(--navy);color:white;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-weight:700;font-size:1rem;">@_selected.CompanyName</div>
+        <div style="font-size:.78rem;opacity:.75;">@_selected.Tier Sponsor</div>
+      </div>
+      <button @onclick="() => _selected = null" style="background:none;border:none;color:white;font-size:1.4rem;cursor:pointer;">&#10005;</button>
+    </div>
+
+    <div style="padding:24px;display:flex;flex-direction:column;gap:20px;flex:1;">
+
+      <!-- Financials -->
+      <div class="panel">
+        <div class="panel-header">Financials</div>
+        <div class="panel-body">
+          <div style="display:flex;gap:16px;">
+            <div style="flex:1;text-align:center;">
+              <div style="font-size:.72rem;color:var(--text-light);margin-bottom:2px;">Committed</div>
+              <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@_selected.CommittedAmount.ToString("C0")</div>
+            </div>
+            <div style="flex:1;text-align:center;">
+              <div style="font-size:.72rem;color:var(--text-light);margin-bottom:2px;">Received</div>
+              <div style="font-size:1.4rem;font-weight:700;color:#2d6a2d;">@_selected.ReceivedAmount.ToString("C0")</div>
+            </div>
+            <div style="flex:1;text-align:center;">
+              <div style="font-size:.72rem;color:var(--text-light);margin-bottom:2px;">Outstanding</div>
+              <div style="font-size:1.4rem;font-weight:700;color:@(_selected.Outstanding > 0 ? "var(--amber)" : "#aaa");">
+                @_selected.Outstanding.ToString("C0")
+              </div>
+            </div>
+          </div>
+          @{
+            int pct = _selected.CommittedAmount > 0 ? (int)(_selected.ReceivedAmount / _selected.CommittedAmount * 100) : 0;
+          }
+          <div style="margin-top:14px;">
+            <div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-light);margin-bottom:4px;">
+              <span>Payment Progress</span><span>@pct%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:@pct%;background:#2d6a2d;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contact -->
+      <div class="panel">
+        <div class="panel-header">Primary Contact</div>
+        <div class="panel-body">
+          <div style="font-size:.84rem;line-height:2;">
+            <div><strong>Name:</strong> @_selected.ContactName</div>
+            <div><strong>Email:</strong> <a href="mailto:@_selected.ContactEmail" style="color:var(--navy);">@_selected.ContactEmail</a></div>
+            <div><strong>Phone:</strong> @(_selected.ContactPhone ?? "—")</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Engagement -->
+      <div class="panel">
+        <div class="panel-header">Engagement</div>
+        <div class="panel-body">
+          <div style="font-size:.84rem;line-height:2;">
+            <div><strong>Linked Event:</strong> @(_selected.EventName ?? "None")</div>
+            <div><strong>Linked Donor Record:</strong>
+              @if (_selected.DonorId.HasValue)
+              { <a href="/admin/donors/@_selected.DonorId" style="color:var(--navy);">@_selected.DonorName</a> }
+              else { <span>None</span> }
+            </div>
+            <div><strong>Renewal Date:</strong> @(_selected.RenewalDate?.ToString("MMMM d, yyyy") ?? "—")</div>
+          </div>
+        </div>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_selected.Notes))
+      {
+        <div class="panel">
+          <div class="panel-header">Notes</div>
+          <div class="panel-body">
+            <p style="font-size:.84rem;color:var(--text-mid);line-height:1.7;margin:0;">@_selected.Notes</p>
+          </div>
+        </div>
+      }
+
+      <div style="display:flex;gap:10px;margin-top:auto;">
+        <button class="btn btn-primary" style="flex:1;">Edit Sponsor</button>
+        <button class="btn" @onclick="() => _selected = null">Close</button>
+      </div>
+    </div>
+  </div>
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:999;" @onclick="() => _selected = null"></div>
+}
+
+<!-- Add modal (stub) -->
+@if (_adding)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:white;border-radius:16px;width:100%;max-width:520px;padding:32px;">
+      <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 20px;">Add Corporate Sponsor</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Company Name *</label>
+          <input class="form-input" @bind="_newCompany" placeholder="Acme Corp" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sponsorship Tier</label>
+          <select class="form-input" @bind="_newTier">
+            <option>Platinum</option><option>Gold</option><option>Silver</option><option>Bronze</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Contact Name *</label>
+          <input class="form-input" @bind="_newContact" placeholder="Jane Smith" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contact Email *</label>
+          <input class="form-input" type="email" @bind="_newEmail" placeholder="jane@acme.com" />
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Committed Amount</label>
+          <input class="form-input" type="number" @bind="_newAmount" placeholder="5000" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Renewal Date</label>
+          <input class="form-input" type="date" @bind="_newRenewal" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" @bind="_newNotes" rows="3" placeholder="Internal notes…" style="resize:vertical;"></textarea>
+      </div>
+      @if (!string.IsNullOrEmpty(_addError))
+      {
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:16px;">
+          &#9888; @_addError
+        </div>
+      }
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button class="btn" @onclick="() => _adding = false">Cancel</button>
+        <button class="btn btn-primary" @onclick="SaveAddAsync">Add Sponsor</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private string _filter = "All";
+  private string _search = "";
+  private SponsorRow? _selected;
+  private bool _adding;
+  private string _addError = "";
+
+  private string _newCompany  = "";
+  private string _newContact  = "";
+  private string _newEmail    = "";
+  private string _newTier     = "Gold";
+  private decimal _newAmount  = 0;
+  private DateTime? _newRenewal;
+  private string _newNotes    = "";
+
+  private IEnumerable<SponsorRow> FilteredSponsors
+  {
+    get
+    {
+      var q = _sponsors.AsEnumerable();
+      if (_filter != "All") q = q.Where(s => s.Status == _filter);
+      if (!string.IsNullOrWhiteSpace(_search))
+        q = q.Where(s => s.CompanyName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                      || s.ContactName.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return q.OrderByDescending(s => s.CommittedAmount);
+    }
+  }
+
+  private void OpenAdd() { _adding = true; _addError = ""; }
+
+  private async Task SaveAddAsync()
+  {
+    if (string.IsNullOrWhiteSpace(_newCompany)) { _addError = "Company name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_newContact)) { _addError = "Contact name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_newEmail))   { _addError = "Contact email is required."; return; }
+    // In production: call Api.CreateSponsorAsync(...)
+    await Task.CompletedTask;
+    _sponsors.Add(new SponsorRow(
+      _sponsors.Max(s => s.Id) + 1, _newCompany, _newTier, _newContact, _newEmail, null,
+      null, null, null, _newAmount, 0, _newRenewal, "Active", _newNotes));
+    _adding = false;
+    _newCompany = _newContact = _newEmail = _newNotes = "";
+    _newAmount = 0; _newRenewal = null;
+  }
+
+  private static string TierBg(string tier) => tier switch
+  {
+    "Platinum" => "#f0f7ff",
+    "Gold"     => "#fff8e6",
+    "Silver"   => "#f4f7fb",
+    _          => "#fff3e0"
+  };
+
+  private static string TierColor(string tier) => tier switch
+  {
+    "Platinum" => "var(--navy)",
+    "Gold"     => "#c07000",
+    "Silver"   => "#555",
+    _          => "#a0522d"
+  };
+
+  private static string StatusBg(string s) => s switch
+  {
+    "Active"  => "#f0faf0",
+    "Pending" => "#f0f7ff",
+    "Expired" => "#fef2f2",
+    _         => "#fafafa"
+  };
+
+  private static string StatusColor(string s) => s switch
+  {
+    "Active"  => "#2d6a2d",
+    "Pending" => "var(--navy)",
+    "Expired" => "#b91c1c",
+    _         => "#555"
+  };
+
+  private record SponsorRow(
+    int Id, string CompanyName, string Tier, string ContactName, string ContactEmail,
+    string? ContactPhone, string? Website, int? DonorId, string? DonorName,
+    decimal CommittedAmount, decimal ReceivedAmount, DateTime? RenewalDate,
+    string Status, string? Notes = null, string? EventName = null)
+  {
+    public decimal Outstanding => CommittedAmount - ReceivedAmount;
+    public int? DaysUntilRenewal => RenewalDate.HasValue
+      ? (int)(RenewalDate.Value.Date - DateTime.Today).TotalDays : null;
+  }
+
+  private readonly List<SponsorRow> _sponsors = new()
+  {
+    new(1, "Mercy Health Systems",  "Platinum", "Dr. Anne Carter",  "a.carter@mercyhealth.org",
+        "(312) 555-0100", "mercyhealth.org",    1041, "Thomas Grant",   25000m, 25000m,
+        new DateTime(2026, 12, 31), "Active",   "Annual gala title sponsor. Invoice net-30.", "Spring Gala 2026"),
+    new(2, "Lakeside Community Bank", "Gold",   "James Novak",      "j.novak@lakesidebank.com",
+        "(630) 555-0200", "lakesidebank.com",   null, null,            10000m,  5000m,
+        new DateTime(2026, 9, 30),  "Active",   "Second installment due July. Very responsive.", null),
+    new(3, "Horizon Law Group",     "Gold",     "Patricia Ward",    "p.ward@horizonlaw.com",
+        null,             "horizonlaw.com",     1049, "Carol Adams",    10000m, 10000m,
+        new DateTime(2026, 6, 15),  "Active",   "Renewal discussion scheduled for May.", "Golf Tournament 2026"),
+    new(4, "Summit Realty Corp",    "Silver",   "Robert Kim",       "r.kim@summitrealty.com",
+        "(847) 555-0300", null,                 null, null,             5000m,   5000m,
+        new DateTime(2026, 3, 31),  "Expired",  "Agreed verbally to renew at Gold tier. Follow up needed.", null),
+    new(5, "Prairie Financial",     "Bronze",   "Helen Torres",     "h.torres@prairiefin.com",
+        null,             null,                 null, null,             2500m,   2500m,
+        new DateTime(2027, 1, 31),  "Active",   null, null),
+    new(6, "Midwest Print Co.",     "Silver",   "David Chen",       "d.chen@mwprint.com",
+        "(773) 555-0400", "mwprint.com",        null, null,             5000m,      0m,
+        new DateTime(2026, 5, 1),   "Pending",  "Waiting on board approval. In-kind printing also discussed.", null),
+  };
+}

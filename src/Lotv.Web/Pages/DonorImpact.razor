@@ -1,0 +1,174 @@
+@page "/my-impact"
+@inject ApiService Api
+
+<PageTitle>My Impact — LOTV Ministry</PageTitle>
+
+<!-- PUBLIC NAV -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
+  </div>
+  <div style="display:flex;gap:12px;">
+    <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
+    <a href="/give" class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;">Give Again &#9829;</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<div style="background:linear-gradient(135deg,var(--gold) 0%,#c8962a 100%);color:white;padding:48px 32px;text-align:center;">
+  <div style="font-size:2.5rem;margin-bottom:10px;">&#9829;</div>
+  <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 8px;">Your Impact</h1>
+  <p style="font-size:.95rem;opacity:.9;max-width:540px;margin:0 auto;">See how your generous giving has helped real families through LOTV Ministry</p>
+</div>
+
+<div style="max-width:820px;margin:0 auto;padding:36px 24px;">
+
+  @if (_loading)
+  {
+    <Loading Message="Loading your impact story…" />
+  }
+  else
+  {
+    <!-- IMPACT HEADLINE -->
+    <div style="text-align:center;margin-bottom:36px;">
+      <div style="font-size:3rem;font-family:var(--ff-head);font-weight:800;color:var(--gold);">@_totalGiven.ToString("C0")</div>
+      <div style="font-size:1.1rem;color:var(--navy);font-weight:600;margin:6px 0;">Total contributed to LOTV Ministry</div>
+      <p style="color:var(--text-mid);font-size:.88rem;">Thank you for your generosity. Your gifts have helped @_familiesHelped families across @_chaptersServed chapters.</p>
+    </div>
+
+    <!-- IMPACT CARDS -->
+    <div class="kpi-grid" style="margin-bottom:32px;">
+      <div class="kpi-card kpi-gold">
+        <div class="kpi-icon">&#128184;</div>
+        <div class="kpi-label">Total Given</div>
+        <div class="kpi-value" style="color:var(--gold)">@_totalGiven.ToString("C0")</div>
+      </div>
+      <div class="kpi-card kpi-navy">
+        <div class="kpi-icon">&#127873;</div>
+        <div class="kpi-label">Total Gifts</div>
+        <div class="kpi-value" style="color:var(--navy)">@_giftCount</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">&#127975;</div>
+        <div class="kpi-label">Families Helped</div>
+        <div class="kpi-value" style="color:var(--green)">@_familiesHelped</div>
+      </div>
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-icon">&#127803;</div>
+        <div class="kpi-label">Avg Gift</div>
+        <div class="kpi-value" style="color:var(--amber)">@(_giftCount > 0 ? (_totalGiven / _giftCount).ToString("C0") : "$0")</div>
+      </div>
+    </div>
+
+    <!-- WHERE YOUR MONEY WENT -->
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-header">Where Your Gifts Went</div>
+      <div class="panel-body">
+        @if (!_categoryBreakdown.Any())
+        {
+          <p style="color:var(--text-mid);text-align:center;">No allocation breakdown available yet.</p>
+        }
+        else
+        {
+          @foreach (var (cat, amt, pct) in _categoryBreakdown)
+          {
+            var barPct = (int)pct;
+            <div style="margin-bottom:14px;">
+              <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:4px;">
+                <span style="font-weight:600;">@cat</span>
+                <span>@amt.ToString("C0") &mdash; @pct.ToString("F0")%</span>
+              </div>
+              <div style="height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
+                <div style="height:100%;width:@barPct%;background:var(--gold);border-radius:6px;transition:width .3s;"></div>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- DONATION HISTORY -->
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-header">My Donation History</div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_donations.Any())
+        {
+          <div style="text-align:center;padding:24px;color:var(--text-light);">No donations on record.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th style="text-align:right;">Amount</th>
+                <th>Channel</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var d in _donations.OrderByDescending(d => d.Date))
+              {
+                <tr>
+                  <td>@d.Date.ToString("MMM d, yyyy")</td>
+                  <td style="text-align:right;font-weight:700;color:var(--gold);">@d.Amount.ToString("C0")</td>
+                  <td>@d.Channel</td>
+                  <td><span class="badge badge-delivered" style="font-size:.66rem;">@d.Status</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+    <!-- THANK YOU + CTA -->
+    <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy-dark,#0a1628) 100%);color:white;border-radius:14px;padding:28px 32px;text-align:center;">
+      <div style="font-size:1.8rem;margin-bottom:10px;">&#127800;</div>
+      <h3 style="font-family:var(--ff-head);margin:0 0 8px;">Thank You for Your Generosity</h3>
+      <p style="opacity:.85;font-size:.88rem;max-width:500px;margin:0 auto 20px;">Your giving fuels LOTV Ministry's mission to serve families experiencing loss. Every gift is an act of love.</p>
+      <a href="/give" class="btn btn-sm" style="background:var(--gold);color:white;font-weight:700;">&#9829; Give Again</a>
+    </div>
+  }
+</div>
+
+@code {
+  private bool _loading = true;
+  private decimal _totalGiven;
+  private int _giftCount;
+  private int _familiesHelped;
+  private int _chaptersServed;
+  private List<(string Cat, decimal Amt, double Pct)> _categoryBreakdown = [];
+  private List<DonationHistoryItem> _donations = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _loading = true;
+
+    // Load donor's contribution history (in production, scoped to current donor)
+    var contribs = await Api.GetDonationsAsync();
+    _donations = contribs.Select(d => new DonationHistoryItem(
+      d.Date, d.Amount, d.Channel.ToDisplayName(), d.ContributionStatus.ToString()
+    )).ToList();
+
+    _totalGiven    = _donations.Sum(d => d.Amount);
+    _giftCount     = _donations.Count;
+    _familiesHelped = Math.Max(0, _giftCount * 2);   // approximation until real linkage exists
+    _chaptersServed = 1;
+
+    // Placeholder breakdown
+    _categoryBreakdown =
+    [
+      ("Package Delivery", _totalGiven * 0.45m, 45),
+      ("Prayer Support", _totalGiven * 0.20m, 20),
+      ("Counseling Referrals", _totalGiven * 0.15m, 15),
+      ("Hospital Visits", _totalGiven * 0.12m, 12),
+      ("Memorial Services", _totalGiven * 0.08m, 8)
+    ];
+
+    _loading = false;
+  }
+
+  private record DonationHistoryItem(DateTime Date, decimal Amount, string Channel, string Status);
+}

@@ -1,0 +1,274 @@
+@page "/admin/impact"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Impact &amp; Distribution — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Impact &amp; Distribution Dashboard</h2>
+    <p>Where money and resources are going — by category, region, and time</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/export" class="btn btn-sm">&#8681; Export</a>
+    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+  </div>
+</div>
+
+<!-- DATE RANGE FILTER -->
+<div class="filter-bar" style="margin-bottom:20px;">
+  @foreach (var r in new[]{"MTD","QTD","YTD","All Time"})
+  { <button class="filter-chip @(_range == r ? "active" : "")" @onclick="() => SetRange(r)">@r</button> }
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading impact data…" Size="lg" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:24px;">
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Donated</div>
+      <div class="kpi-value" style="color:var(--gold)">@_stats?.DonationsThisMonth.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-label">Resources Donated</div>
+      <div class="kpi-value" style="color:var(--green)">@_totalResources</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">People Helped</div>
+      <div class="kpi-value" style="color:var(--navy)">@_stats?.OpenCases</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Requests Fulfilled</div>
+      <div class="kpi-value" style="color:var(--amber)">@_moneyFlow.Sum(m => m.RequestCount)</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+
+    <!-- MONEY FLOW BY CATEGORY -->
+    <div class="panel">
+      <div class="panel-header">Money Flow by Category</div>
+      <div class="panel-body">
+        @if (!_moneyFlow.Any())
+        {
+          <div class="empty-state"><p>No allocation data.</p></div>
+        }
+        else
+        {
+          @foreach (var row in _moneyFlow.OrderByDescending(r => r.Amount))
+          {
+            var pct = _maxMoney > 0 ? (int)((double)row.Amount / (double)_maxMoney * 100) : 0;
+            <div style="margin-bottom:14px;">
+              <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+                <span style="font-weight:600;">@row.Category</span>
+                <span>@row.Amount.ToString("C0") &mdash; @row.RequestCount cases</span>
+              </div>
+              <div style="height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
+                <div style="height:100%;width:@pct%;background:var(--gold);border-radius:6px;transition:width .3s;"></div>
+              </div>
+              <div style="font-size:.7rem;color:var(--text-light);margin-top:2px;">@row.Percentage.ToString("F1")% of total</div>
+            </div>
+          }
+          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;">
+            <span>Total Allocated</span>
+            <span>@_moneyFlow.Sum(m => m.Amount).ToString("C0")</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- RESOURCE DISTRIBUTION BY TYPE -->
+    <div class="panel">
+      <div class="panel-header">Resource Distribution by Type</div>
+      <div class="panel-body">
+        @if (!_resourceFlow.Any())
+        {
+          <div class="empty-state"><p>No resource data.</p></div>
+        }
+        else
+        {
+          @foreach (var row in _resourceFlow.OrderByDescending(r => r.Quantity))
+          {
+            var pct = _maxResource > 0 ? (int)((double)row.Quantity / _maxResource * 100) : 0;
+            <div style="margin-bottom:14px;">
+              <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+                <span style="font-weight:600;">@row.ResourceType</span>
+                <span>@row.Quantity @row.Unit &mdash; @row.RequestCount requests</span>
+              </div>
+              <div style="height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
+                <div style="height:100%;width:@pct%;background:var(--green);border-radius:6px;transition:width .3s;"></div>
+              </div>
+              <div style="font-size:.7rem;color:var(--text-light);margin-top:2px;">@row.Percentage.ToString("F1")% of total items</div>
+            </div>
+          }
+          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;">
+            <span>Total Items Distributed</span>
+            <span>@_totalResources</span>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="panel" style="margin-bottom:24px;">
+    <div class="panel-header">Monthly Activity Timeline</div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_timeline.Any())
+      {
+        <div class="empty-state"><p>No timeline data.</p></div>
+      }
+      else
+      {
+        <!-- Mini bar chart -->
+        <div style="padding:16px 20px 8px;display:flex;align-items:flex-end;gap:6px;height:100px;overflow-x:auto;">
+          @{
+            var maxDonation = _timeline.Any() ? _timeline.Max(t => t.Donations) : 1m;
+          }
+          @foreach (var pt in _timeline.TakeLast(12))
+          {
+            var barH = maxDonation > 0 ? (int)((double)pt.Donations / (double)maxDonation * 72) : 0;
+            <div style="flex:1;min-width:32px;display:flex;flex-direction:column;align-items:center;gap:2px;">
+              <div style="font-size:.6rem;color:var(--text-light);white-space:nowrap;">@pt.Donations.ToString("C0")</div>
+              <div style="width:100%;height:@(barH)px;background:var(--navy);border-radius:3px 3px 0 0;min-height:2px;"></div>
+            </div>
+          }
+        </div>
+        <!-- Data table -->
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th style="text-align:right;">Donations Received</th>
+              <th style="text-align:right;">Requests Fulfilled</th>
+              <th style="text-align:right;">New Requests</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var pt in _timeline.AsEnumerable().Reverse().Take(12))
+            {
+              <tr>
+                <td style="font-weight:600;">@pt.Period</td>
+                <td style="text-align:right;color:var(--gold);font-weight:600;">@pt.Donations.ToString("C0")</td>
+                <td style="text-align:right;color:var(--green);font-weight:600;">@pt.RequestsFulfilled</td>
+                <td style="text-align:right;">@pt.NewRequests</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+
+  <!-- TOP REGIONS / DONATION CHANNEL BREAKDOWN -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+
+    <!-- DONATION CHANNELS -->
+    <div class="panel">
+      <div class="panel-header">Donations by Channel</div>
+      <div class="panel-body">
+        @if (!_channels.Any())
+        {
+          <div class="empty-state"><p>No channel data.</p></div>
+        }
+        else
+        {
+          @foreach (var ch in _channels.OrderByDescending(c => c.TotalAmount))
+          {
+            var pct = _channels.Sum(c => c.TotalAmount) > 0
+              ? (int)((double)ch.TotalAmount / (double)_channels.Sum(c => c.TotalAmount) * 100) : 0;
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <div style="width:90px;font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@ch.Channel</div>
+              <div style="flex:1;height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
+                <div style="height:100%;width:@pct%;background:var(--navy-light,#4a6fa5);border-radius:6px;"></div>
+              </div>
+              <div style="font-size:.76rem;font-weight:600;width:60px;text-align:right;">@ch.TotalAmount.ToString("C0")</div>
+              <div style="font-size:.7rem;color:var(--text-light);width:36px;text-align:right;">@ch.GiftCount gifts</div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- ALLOCATION LEDGER QUICK LINK -->
+    <div class="panel">
+      <div class="panel-header">Allocation Ledger</div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+        <p style="font-size:.84rem;color:var(--text-mid);margin:0;">
+          The full allocation ledger shows every money and resource allocation — donor, contribution, request, and recipient — with dates and status.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="kpi-card kpi-gold" style="padding:14px;">
+            <div class="kpi-label">Total Allocated</div>
+            <div class="kpi-value" style="color:var(--gold);font-size:1.4rem;">@_moneyFlow.Sum(m => m.Amount).ToString("C0")</div>
+          </div>
+          <div class="kpi-card kpi-green" style="padding:14px;">
+            <div class="kpi-label">Resource Items</div>
+            <div class="kpi-value" style="color:var(--green);font-size:1.4rem;">@_totalResources</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <a href="/admin/allocations" class="btn btn-primary btn-sm">View Full Ledger</a>
+          <a href="/admin/export" class="btn btn-sm">&#8681; Export CSV</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PUBLIC TRANSPARENCY LINK -->
+  <div style="background:var(--navy);color:white;border-radius:12px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;margin-bottom:4px;">Public Transparency Page</div>
+      <div style="font-size:.82rem;opacity:.8;">Share aggregate impact data with the public — no PII, no donor names.</div>
+    </div>
+    <a href="/transparency" class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;">View Public Page &#8594;</a>
+  </div>
+}
+
+@code {
+  private bool _loading = true;
+  private string _range = "MTD";
+
+  private DashboardStatsDto? _stats;
+  private List<MoneyFlowCategoryDto> _moneyFlow = [];
+  private List<ResourceFlowTypeDto> _resourceFlow = [];
+  private List<TimelinePointDto> _timeline = [];
+  private List<ChannelBreakdownDto> _channels = [];
+
+  private int _totalResources => _resourceFlow.Sum(r => r.Quantity);
+  private decimal _maxMoney   => _moneyFlow.Any() ? _moneyFlow.Max(m => m.Amount) : 1m;
+  private int _maxResource    => _resourceFlow.Any() ? Math.Max(1, _resourceFlow.Max(r => r.Quantity)) : 1;
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    var t1 = Api.GetDashboardStatsAsync();
+    var t2 = Api.GetMoneyFlowAsync();
+    var t3 = Api.GetResourceFlowAsync();
+    var t4 = Api.GetTimelineAsync();
+    var t5 = Api.GetDonationsByChannelAsync();
+    await Task.WhenAll(t1, t2, t3, t4, t5);
+    _stats        = t1.Result;
+    _moneyFlow    = t2.Result;
+    _resourceFlow = t3.Result;
+    _timeline     = t4.Result;
+    _channels     = t5.Result;
+    _loading = false;
+  }
+
+  private async Task SetRange(string range)
+  {
+    _range = range;
+    await LoadAsync();
+  }
+}

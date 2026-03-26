@@ -1,0 +1,366 @@
+@page "/onboarding/volunteer"
+@layout EmptyLayout
+@inject NavigationManager Nav
+@inject ApiService Api
+
+<PageTitle>Welcome, Volunteer — LOTV Ministry</PageTitle>
+
+<div style="min-height:100vh;background:linear-gradient(135deg,#1b5e20 0%,#2d6a2d 100%);display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:560px;">
+
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:2rem;border:3px solid rgba(255,255,255,.35);margin:0 auto 12px;">&#127803;</div>
+      <div style="font-family:var(--ff-head);font-size:1.4rem;font-weight:700;color:white;">LOTV Ministry</div>
+      <div style="font-size:.75rem;color:rgba(255,255,255,.6);margin-top:4px;letter-spacing:.07em;text-transform:uppercase;">Volunteer Onboarding</div>
+    </div>
+
+    <!-- Card -->
+    <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 24px 48px rgba(0,0,0,.3);">
+
+      <!-- Step progress -->
+      <div style="background:#f0faf0;padding:16px 32px;border-bottom:1px solid #d4edda;">
+        <div style="display:flex;align-items:center;gap:0;">
+          @for (int i = 1; i <= TotalSteps; i++)
+          {
+            int step = i;
+            bool active  = step == _step;
+            bool done    = step < _step;
+            <div style="display:flex;align-items:center;flex:1;">
+              <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;
+                          background:@(done ? "#2d6a2d" : active ? "#2d6a2d" : "#d4edda");
+                          color:@(done || active ? "white" : "#888");">
+                @(done ? "✓" : step.ToString())
+              </div>
+              @if (step < TotalSteps)
+              {
+                <div style="flex:1;height:2px;background:@(done ? "#2d6a2d" : "#d4edda");margin:0 4px;"></div>
+              }
+            </div>
+          }
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;">
+          <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Profile</span>
+          <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Availability</span>
+          <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Chapter</span>
+          <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Your Role</span>
+          <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Ready!</span>
+        </div>
+      </div>
+
+      <div style="padding:32px;">
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:20px;">
+            &#9888; @_error
+          </div>
+        }
+
+        <!-- Step 1: Profile -->
+        @if (_step == 1)
+        {
+          <h2 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 6px;font-size:1.25rem;">Complete your profile</h2>
+          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">This helps us match you with families in your area.</p>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input class="form-input" @bind="_firstName" placeholder="Jane" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name *</label>
+              <input class="form-input" @bind="_lastName" placeholder="Smith" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 000-0000" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Street Address *</label>
+            <input class="form-input" @bind="_street" placeholder="123 Main Street" />
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">City *</label>
+              <input class="form-input" @bind="_city" placeholder="Springfield" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">State *</label>
+              <input class="form-input" @bind="_state" placeholder="IL" maxlength="2" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ZIP Code *</label>
+            <input class="form-input" @bind="_zip" placeholder="62701" maxlength="10" style="max-width:160px;" />
+          </div>
+        }
+
+        <!-- Step 2: Availability & Skills -->
+        @if (_step == 2)
+        {
+          <h2 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 6px;font-size:1.25rem;">When can you serve?</h2>
+          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">We use your availability to assign requests that fit your schedule.</p>
+
+          <div class="panel" style="margin-bottom:20px;">
+            <div class="panel-header">Available Days</div>
+            <div class="panel-body">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                @foreach (var day in _days)
+                {
+                  bool selected = _selectedDays.Contains(day);
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+                                 background:@(selected ? "#f0faf0" : "var(--bg)");
+                                 border:1px solid @(selected ? "#2d6a2d" : "var(--border)");
+                                 border-radius:8px;padding:8px 14px;font-size:.85rem;font-weight:@(selected ? "600" : "400");">
+                    <input type="checkbox" checked="@selected"
+                           @onchange="e => ToggleDay(day, (bool)e.Value!)"
+                           style="accent-color:#2d6a2d;" />
+                    @day
+                  </label>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:20px;">
+            <div class="panel-header">Skills &amp; Interests</div>
+            <div class="panel-body">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                @foreach (var skill in _skills)
+                {
+                  bool selected = _selectedSkills.Contains(skill);
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+                                 background:@(selected ? "#f0faf0" : "var(--bg)");
+                                 border:1px solid @(selected ? "#2d6a2d" : "var(--border)");
+                                 border-radius:8px;padding:8px 14px;font-size:.85rem;font-weight:@(selected ? "600" : "400");">
+                    <input type="checkbox" checked="@selected"
+                           @onchange="e => ToggleSkill(skill, (bool)e.Value!)"
+                           style="accent-color:#2d6a2d;" />
+                    @skill
+                  </label>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Max requests per month</label>
+            <select class="form-input" @bind="_maxRequestsPerMonth" style="max-width:200px;">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="4">4</option>
+              <option value="8">8 (no limit)</option>
+            </select>
+          </div>
+        }
+
+        <!-- Step 3: Chapter -->
+        @if (_step == 3)
+        {
+          <h2 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 6px;font-size:1.25rem;">Select your chapter</h2>
+          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">You will serve families in your chapter. Choose the one closest to you.</p>
+
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+            @foreach (var ch in _chapters)
+            {
+              bool sel = _selectedChapterId == ch.Id;
+              <label style="display:flex;align-items:flex-start;gap:14px;cursor:pointer;
+                             background:@(sel ? "#f0faf0" : "white");
+                             border:2px solid @(sel ? "#2d6a2d" : "var(--border)");
+                             border-radius:10px;padding:16px;transition:border .15s;">
+                <input type="radio" name="chapter" checked="@sel"
+                       @onchange="() => _selectedChapterId = ch.Id"
+                       style="margin-top:2px;accent-color:#2d6a2d;" />
+                <div>
+                  <div style="font-weight:600;color:var(--navy);font-size:.9rem;">@ch.Name</div>
+                  <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@ch.City, @ch.State</div>
+                </div>
+              </label>
+            }
+          </div>
+
+          <p style="font-size:.78rem;color:var(--text-light);margin:0;">
+            Don't see your area? Contact <a href="mailto:support@lotvministry.org" style="color:#2d6a2d;">support@lotvministry.org</a> and we'll help you find the right fit.
+          </p>
+        }
+
+        <!-- Step 4: Role explanation -->
+        @if (_step == 4)
+        {
+          <h2 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 6px;font-size:1.25rem;">Your role as a Volunteer</h2>
+          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">Here's what you'll do once you start receiving assignments.</p>
+
+          @foreach (var (icon, title, body) in _rolePanels)
+          {
+            <div style="display:flex;gap:16px;background:#f0faf0;border-radius:10px;padding:16px 18px;margin-bottom:14px;border-left:4px solid #2d6a2d;">
+              <div style="font-size:1.6rem;flex-shrink:0;line-height:1;">@icon</div>
+              <div>
+                <div style="font-weight:700;color:#2d6a2d;font-size:.9rem;margin-bottom:4px;">@title</div>
+                <div style="font-size:.83rem;color:#444;line-height:1.6;">@body</div>
+              </div>
+            </div>
+          }
+
+          <div style="background:#fff8e6;border:1px solid #ffe08a;border-radius:8px;padding:14px 18px;margin-top:20px;font-size:.83rem;color:#7a5c00;line-height:1.6;">
+            <strong>Acceptance window:</strong> When a request is assigned to you, you have <strong>24 hours</strong> to accept or decline. Declining returns the request to the queue — no judgment, life happens.
+          </div>
+        }
+
+        <!-- Step 5: Done -->
+        @if (_step == 5)
+        {
+          <div style="text-align:center;padding:16px 0 8px;">
+            <div style="width:72px;height:72px;border-radius:50%;background:#f0faf0;border:3px solid #2d6a2d;display:flex;align-items:center;justify-content:center;font-size:2.2rem;margin:0 auto 20px;">&#10003;</div>
+            <h2 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 10px;font-size:1.4rem;">You're all set, @_firstName!</h2>
+            <p style="color:var(--text-mid);line-height:1.7;margin:0 0 28px;font-size:.9rem;">
+              Your volunteer profile is ready. Watch your email for your first assignment — we'll notify you as soon as a family in your chapter needs support.
+            </p>
+
+            <div style="background:#f0faf0;border-radius:10px;padding:20px;margin-bottom:28px;text-align:left;">
+              <div style="font-weight:700;color:#2d6a2d;font-size:.85rem;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Profile Summary</div>
+              <div style="font-size:.84rem;color:#444;line-height:2;">
+                <div><strong>Name:</strong> @_firstName @_lastName</div>
+                <div><strong>Location:</strong> @_city, @_state @_zip</div>
+                <div><strong>Skills:</strong> @(_selectedSkills.Count == 0 ? "None selected" : string.Join(", ", _selectedSkills))</div>
+                <div><strong>Availability:</strong> @(_selectedDays.Count == 0 ? "Flexible" : string.Join(", ", _selectedDays))</div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;font-weight:700;background:#2d6a2d;border-color:#2d6a2d;"
+                    @onclick="GoToDashboard">
+              Go to My Dashboard &#8594;
+            </button>
+          </div>
+        }
+
+        <!-- Navigation -->
+        @if (_step < 5)
+        {
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--border);">
+            @if (_step > 1)
+            {
+              <button class="btn" @onclick="PrevStep" style="min-width:90px;">&#8592; Back</button>
+            }
+            else
+            {
+              <div></div>
+            }
+            <button class="btn btn-primary" @onclick="NextStep"
+                    style="min-width:120px;background:#2d6a2d;border-color:#2d6a2d;"
+                    disabled="@_saving">
+              @(_step == 4 ? (_saving ? "Saving…" : "Finish Setup") : "Continue &#8594;")
+            </button>
+          </div>
+        }
+
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:16px;">
+      <a href="/login" style="font-size:.75rem;color:rgba(255,255,255,.5);text-decoration:none;">
+        Already have an account? Sign in
+      </a>
+    </div>
+  </div>
+</div>
+
+@code {
+  private const int TotalSteps = 5;
+  private int _step = 1;
+  private bool _saving;
+  private string _error = "";
+
+  // Step 1
+  private string _firstName = "";
+  private string _lastName  = "";
+  private string _phone     = "";
+  private string _street    = "";
+  private string _city      = "";
+  private string _state     = "";
+  private string _zip       = "";
+
+  // Step 2
+  private readonly string[] _days   = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+  private readonly string[] _skills = { "Driving / Delivery", "Knitting / Crocheting", "Package Assembly", "Hospital Visits", "Grief Support Calls", "Translation / Spanish", "Photography", "Admin / Data Entry" };
+  private readonly HashSet<string> _selectedDays   = new();
+  private readonly HashSet<string> _selectedSkills = new();
+  private string _maxRequestsPerMonth = "4";
+
+  // Step 3
+  private int _selectedChapterId = 0;
+  private readonly List<(int Id, string Name, string City, string State)> _chapters = new()
+  {
+    (1, "Chicago North Shore Chapter",   "Evanston",     "IL"),
+    (2, "Naperville-DuPage Chapter",     "Naperville",   "IL"),
+    (3, "Indianapolis Central Chapter",  "Indianapolis", "IN"),
+    (4, "Milwaukee Chapter",             "Milwaukee",    "WI"),
+    (5, "Detroit Metro Chapter",         "Dearborn",     "MI"),
+  };
+
+  // Step 4
+  private readonly (string Icon, string Title, string Body)[] _rolePanels =
+  {
+    ("📦", "Assemble care packages",
+     "We provide a packing guide and supply list. You pick up items from your chapter's supply hub or purchase from our approved list — we reimburse promptly."),
+    ("🚗", "Deliver to families",
+     "Deliveries are typically doorstep drop-offs. You will receive the family's first name and address via the app. No need to ring — leave the package with a note."),
+    ("✅", "Mark fulfilled in the app",
+     "Once delivered, log the completion in your volunteer dashboard. The family is automatically notified and a receipt is generated for our records."),
+    ("💬", "Stay in touch with your coordinator",
+     "Your chapter coordinator is your first point of contact for questions. Use the in-app messaging or reply to any assignment email."),
+  };
+
+  private void ToggleDay(string day, bool on)
+  {
+    if (on) _selectedDays.Add(day);
+    else _selectedDays.Remove(day);
+  }
+
+  private void ToggleSkill(string skill, bool on)
+  {
+    if (on) _selectedSkills.Add(skill);
+    else _selectedSkills.Remove(skill);
+  }
+
+  private void NextStep()
+  {
+    _error = "";
+
+    if (_step == 1)
+    {
+      if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
+      { _error = "First and last name are required."; return; }
+      if (string.IsNullOrWhiteSpace(_city) || string.IsNullOrWhiteSpace(_state) || string.IsNullOrWhiteSpace(_zip))
+      { _error = "City, state, and ZIP are required so we can match you with nearby families."; return; }
+    }
+    else if (_step == 3)
+    {
+      if (_selectedChapterId == 0)
+      { _error = "Please select a chapter to continue."; return; }
+    }
+
+    if (_step == 4)
+    {
+      _ = FinishAsync();
+      return;
+    }
+
+    _step++;
+  }
+
+  private void PrevStep() => _step--;
+
+  private async Task FinishAsync()
+  {
+    _saving = true;
+    StateHasChanged();
+    // In production: call Api.CompleteVolunteerOnboardingAsync(...)
+    await Task.Delay(600);
+    _step = 5;
+    _saving = false;
+  }
+
+  private void GoToDashboard() => Nav.NavigateTo("/volunteer/dashboard", replace: true);
+}

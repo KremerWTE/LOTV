@@ -1,0 +1,222 @@
+@page "/admin/donors/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Donor Detail — LOTV Staff Portal</PageTitle>
+
+@if (_loading)
+{
+  <Loading Message="Loading donor profile…" Size="lg" />
+}
+else if (_donor == null)
+{
+  <div class="panel" style="text-align:center;padding:48px;">
+    <p style="color:var(--text-mid);">Donor not found.</p>
+    <a href="/admin/donors" class="btn btn-primary" style="margin-top:12px;">Back to Donors</a>
+  </div>
+}
+else
+{
+  <div class="page-hd">
+    <div>
+      <h2>@_donor.FullName</h2>
+      <p>@_donor.Email @(string.IsNullOrEmpty(_donor.City) ? "" : $"· {_donor.City}, {_donor.State}")</p>
+    </div>
+    <div class="page-hd-actions">
+      <a href="/admin/donors" class="btn btn-sm">&#8592; Back</a>
+      <button class="btn btn-sm btn-primary" @onclick="() => _editing = true">Edit Profile</button>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:24px;">
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Lifetime Given</div>
+      <div class="kpi-value" style="color:var(--gold)">@_donor.TotalGiven.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-label">Total Gifts</div>
+      <div class="kpi-value" style="color:var(--navy)">@_donations.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">First Gift</div>
+      <div class="kpi-value" style="color:var(--green);font-size:.95rem;">@(_donations.Any() ? _donations.Min(d => d.Date).ToString("MMM yyyy") : "—")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128336;</div>
+      <div class="kpi-label">Last Gift</div>
+      <div class="kpi-value" style="color:var(--amber);font-size:.95rem;">@(_donations.Any() ? _donations.Max(d => d.Date).ToString("MMM d, yyyy") : "—")</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start;">
+
+    <!-- PROFILE CARD -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-header">Profile</div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;font-size:.84rem;">
+            @foreach (var (label, val) in ProfileRows)
+            {
+              if (string.IsNullOrEmpty(val)) continue;
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:7px 0;color:var(--text-light);width:100px;font-size:.76rem;text-transform:uppercase;">@label</td>
+                <td style="padding:7px 0;font-weight:600;">@val</td>
+              </tr>
+            }
+          </table>
+        </div>
+      </div>
+
+      <!-- IMPACT STATEMENT -->
+      <div class="panel">
+        <div class="panel-header">Impact Statement</div>
+        <div class="panel-body">
+          <p style="font-size:.84rem;color:var(--text-mid);line-height:1.6;margin:0;">
+            <strong>@_donor.FullName</strong> has contributed
+            <strong style="color:var(--gold);">@_donor.TotalGiven.ToString("C0")</strong>
+            across @_donations.Count gift@(_donations.Count == 1 ? "" : "s") to LOTV Ministry,
+            helping families across the community through our programs.
+          </p>
+          <div style="margin-top:12px;">
+            <a href="/admin/notify?recipient=@_donor.Id" class="btn btn-sm">&#128140; Send Message</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTRIBUTION HISTORY -->
+    <div>
+      <div class="panel">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Contribution History</span>
+          <span style="font-size:.76rem;color:var(--text-light);">@_donations.Count total</span>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          @if (!_donations.Any())
+          {
+            <div style="text-align:center;padding:24px;color:var(--text-light);">No donations on record.</div>
+          }
+          else
+          {
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th style="text-align:right;">Amount</th>
+                  <th>Channel</th>
+                  <th>Status</th>
+                  <th>Allocation</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach (var d in _donations.OrderByDescending(d => d.Date))
+                {
+                  <tr>
+                    <td>@d.Date.ToString("MMM d, yyyy")</td>
+                    <td style="text-align:right;font-weight:700;color:var(--gold);">@d.Amount.ToString("C0")</td>
+                    <td style="font-size:.8rem;">@d.Channel.ToDisplayName()</td>
+                    <td>
+                      <span class="badge @(d.ContributionStatus == ContributionStatus.Processed ? "badge-delivered" : "badge-onhold")" style="font-size:.66rem;">@d.ContributionStatus</span>
+                    </td>
+                    <td>
+                      <span class="badge @(d.AllocationStatus == AllocationStatus.Allocated ? "badge-shipped" : "badge-onhold")" style="font-size:.66rem;">@d.AllocationStatus</span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- EDIT DRAWER -->
+@if (_editing && _donor != null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="() => _editing = false"></div>
+  <div style="position:fixed;right:0;top:0;bottom:0;width:440px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="font-family:var(--ff-head);margin:0;">Edit Donor</h3>
+      <button class="btn btn-sm" @onclick="() => _editing = false">&#10005;</button>
+    </div>
+    <div style="padding:22px;display:flex;flex-direction:column;gap:14px;">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">First Name</label>
+          <input class="form-input" @bind="_donor.FirstName" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name</label>
+          <input class="form-input" @bind="_donor.LastName" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" @bind="_donor.Email" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-input" @bind="_donor.Phone" />
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">City</label>
+          <input class="form-input" @bind="_donor.City" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">State</label>
+          <input class="form-input" @bind="_donor.State" maxlength="2" />
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button class="btn btn-primary" @onclick="SaveAsync">Save Changes</button>
+        <button class="btn" @onclick="() => _editing = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Donor? _donor;
+  private List<Donation> _donations = [];
+  private bool _loading = true;
+  private bool _editing;
+
+  private IEnumerable<(string Label, string? Val)> ProfileRows => _donor == null ? [] :
+  [
+    ("Email",   _donor.Email),
+    ("Phone",   _donor.Phone),
+    ("City",    _donor.City),
+    ("State",   _donor.State),
+    ("Tier",    _donor.Tier.ToString()),
+    ("Diocese", _donor.DioceseName),
+    ("Parish",  _donor.ParishName)
+  ];
+
+  protected override async Task OnParametersSetAsync()
+  {
+    _loading = true;
+    var t1 = Api.GetDonorAsync(Id);
+    var t2 = Api.GetDonationsAsync(donorId: Id);
+    await Task.WhenAll(t1, t2);
+    _donor    = t1.Result;
+    _donations = t2.Result;
+    _loading  = false;
+  }
+
+  private async Task SaveAsync()
+  {
+    if (_donor != null) await Api.UpdateDonorAsync(_donor.Id, _donor);
+    _editing = false;
+  }
+}

@@ -1,0 +1,195 @@
+@page "/admin/notify"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Send Notification — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Send Notification</h2><p>Send targeted messages to families, volunteers, or donors</p></div>
+</div>
+
+<div style="max-width:720px;">
+
+  @if (_sent)
+  {
+    <div style="background:var(--green-pale);border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:1.2rem;">&#10003;</span>
+      <div>
+        <strong>Notification sent!</strong>
+        <div style="font-size:.82rem;color:var(--green-dark);">Sent to @_recipientCount recipient@(_recipientCount == 1 ? "" : "s") via @_channel</div>
+      </div>
+      <button class="btn btn-sm" style="margin-left:auto;" @onclick="Reset">Send Another</button>
+    </div>
+  }
+
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">Recipients</div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label">Send To</label>
+        <select class="form-input" @bind="_audience">
+          <option value="Family">Specific Family</option>
+          <option value="Volunteer">Specific Volunteer</option>
+          <option value="AllFamilies">All Active Families</option>
+          <option value="AllVolunteers">All Active Volunteers</option>
+          <option value="OverdueFamilies">Families with Overdue Requests</option>
+          <option value="UnassignedQueue">Staff (Unassigned Queue Alert)</option>
+        </select>
+      </div>
+
+      @if (_audience is "Family" or "Volunteer")
+      {
+        <div class="form-group">
+          <label class="form-label">Search for @_audience</label>
+          <input class="form-input" @bind="_recipientSearch" placeholder="Type a name to search…" />
+        </div>
+      }
+
+      <div class="form-group">
+        <label class="form-label">Channel</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          @foreach (var ch in new[]{"Email","SMS","Both"})
+          {
+            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;cursor:pointer;">
+              <input type="radio" name="channel" value="@ch" checked="@(_channel == ch)" @onchange="() => _channel = ch" />
+              @ch
+            </label>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">Message</div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:16px;">
+      <div class="form-group">
+        <label class="form-label">Subject (email)</label>
+        <input class="form-input" @bind="_subject" placeholder="e.g. Update on your LOTV request" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Template (optional)</label>
+        <select class="form-input" @bind="_template" @bind:after="ApplyTemplate">
+          <option value="">— Custom message —</option>
+          <option value="package_shipped">Package Shipped</option>
+          <option value="assignment_reminder">Assignment Reminder (Volunteer)</option>
+          <option value="overdue_alert">Overdue Request Alert</option>
+          <option value="follow_up">Follow-Up Check-In</option>
+          <option value="thank_you">Thank You / Closure</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Message Body *</label>
+        <textarea class="form-textarea" rows="6" @bind="_body" placeholder="Type your message here…"></textarea>
+        <div style="font-size:.72rem;color:var(--text-light);margin-top:4px;">
+          Available tokens: <code style="font-size:.72rem;">{{name}}</code>, <code style="font-size:.72rem;">{{requestId}}</code>, <code style="font-size:.72rem;">{{status}}</code>, <code style="font-size:.72rem;">{{dueDate}}</code>
+        </div>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_error))
+      {
+        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+      }
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SendAsync">&#128140; Send Notification</button>
+        <button class="btn" @onclick="Reset">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECENT NOTIFICATIONS -->
+  <div class="panel">
+    <div class="panel-header">Recent Notifications Sent</div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Sent</th>
+            <th>Audience</th>
+            <th>Channel</th>
+            <th>Subject</th>
+            <th style="text-align:right;">Recipients</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var n in _recent)
+          {
+            <tr>
+              <td style="font-size:.78rem;color:var(--text-mid);">@n.SentAt.ToString("MMM d, h:mm tt")</td>
+              <td style="font-size:.82rem;">@n.Audience</td>
+              <td>@n.Channel</td>
+              <td style="font-size:.82rem;">@n.Subject</td>
+              <td style="text-align:right;font-weight:600;">@n.RecipientCount</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+@code {
+  private string _audience = "Family";
+  private string _recipientSearch = "";
+  private string _channel = "Email";
+  private string _subject = "";
+  private string _body = "";
+  private string _template = "";
+  private string _error = "";
+  private bool _sent;
+  private int _recipientCount;
+
+  private List<RecentNotif> _recent =
+  [
+    new(DateTime.Now.AddHours(-2), "All Active Volunteers", "Email", "Assignment reminder: overdue cases in your queue", 14),
+    new(DateTime.Now.AddDays(-1), "Families with Overdue Requests", "SMS", "Update on your LOTV request", 3),
+    new(DateTime.Now.AddDays(-3), "Specific Family", "Email", "Your package has been shipped!", 1)
+  ];
+
+  private void ApplyTemplate()
+  {
+    if (string.IsNullOrEmpty(_template)) return;
+    (_subject, _body) = _template switch
+    {
+      "package_shipped"      => ("Your LOTV Package Has Been Shipped", "Dear {{name}},\n\nWe are delighted to let you know that your LOTV package has been shipped! You can expect delivery within 3-5 business days.\n\nTracking: {{requestId}}\n\nWith love and prayers,\nThe LOTV Ministry Team"),
+      "assignment_reminder"  => ("Reminder: Open Assignment in Your Queue", "Dear {{name}},\n\nThis is a friendly reminder that you have an open assignment (Request #{{requestId}}) that is due on {{dueDate}}.\n\nPlease log in to update the status or reach out if you need support.\n\nGod bless,\nLOTV Ministry"),
+      "overdue_alert"        => ("Action Needed: Overdue Request", "Dear {{name}},\n\nRequest #{{requestId}} is now past its expected completion date. Please review and update the status at your earliest convenience.\n\nCurrent status: {{status}}\n\nThank you,\nLOTV Staff"),
+      "follow_up"            => ("Checking In — LOTV Ministry", "Dear {{name}},\n\nWe wanted to check in on how you are doing. Your LOTV request ({{requestId}}) has been {{status}}.\n\nPlease don't hesitate to reach out if you need anything further.\n\nWith prayers,\nThe LOTV Team"),
+      "thank_you"            => ("Thank You from LOTV Ministry", "Dear {{name}},\n\nWe wanted to take a moment to thank you for allowing us to serve you. Your LOTV request has been fulfilled and we are honored to have been part of your journey.\n\nYou remain in our prayers.\n\nWith love,\nLOTV Ministry"),
+      _                      => (_subject, _body)
+    };
+  }
+
+  private async Task SendAsync()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_body)) { _error = "Message body is required."; return; }
+
+    // Estimate recipient count
+    _recipientCount = _audience switch
+    {
+      "AllFamilies"      => 42,
+      "AllVolunteers"    => 18,
+      "OverdueFamilies"  => 7,
+      "UnassignedQueue"  => 5,
+      _                  => 1
+    };
+
+    // In production: call Api.SendNotificationAsync(...)
+    await Task.CompletedTask;
+
+    _recent.Insert(0, new(DateTime.Now, _audience, _channel, _subject, _recipientCount));
+    _sent = true;
+  }
+
+  private void Reset()
+  {
+    _audience = "Family"; _recipientSearch = ""; _channel = "Email";
+    _subject = ""; _body = ""; _template = ""; _error = ""; _sent = false;
+  }
+
+  private record RecentNotif(DateTime SentAt, string Audience, string Channel, string Subject, int RecipientCount);
+}

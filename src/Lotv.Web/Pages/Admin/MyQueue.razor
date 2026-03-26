@@ -1,0 +1,305 @@
+@page "/admin/my-queue"
+@layout AdminLayout
+@inject ApiService Api
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>My Work Queue — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>My Work Queue</h2>
+    <p>Cases assigned to you — @Auth.UserName</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+    <a href="/admin/cases" class="btn btn-sm">All Cases</a>
+    <a href="/admin/queue" class="btn btn-sm">Unassigned Queue</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-label">My Open Cases</div>
+    <div class="kpi-value" style="color:var(--navy)">@_mine.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9888;</div>
+    <div class="kpi-label">My Overdue</div>
+    <div class="kpi-value" style="color:var(--amber)">@_mine.Count(r => r.IsOverdue)</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-label">Fulfilled (All Time)</div>
+    <div class="kpi-value" style="color:var(--green)">@_fulfilled</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">Avg Age (Open)</div>
+    <div class="kpi-value" style="color:var(--gold)">@_avgAge</div>
+  </div>
+</div>
+
+<!-- FILTER CHIPS -->
+<div class="filter-bar">
+  @foreach (var f in _filters)
+  {
+    <button class="filter-chip @(_activeFilter == f ? "active" : "")" @onclick="() => SetFilter(f)">@f</button>
+  }
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading your cases…" />
+}
+else if (!_filtered.Any())
+{
+  <div class="panel">
+    <div class="panel-body">
+      <div class="empty-state">
+        <div class="icon">&#9989;</div>
+        <p>@(_activeFilter == "All" ? "No cases assigned to you." : $"No {_activeFilter.ToLower()} cases.")</p>
+      </div>
+    </div>
+  </div>
+}
+else
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Family</th>
+            <th>Reason</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Age</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var r in _filtered)
+          {
+            <tr>
+              <td style="font-size:.76rem;color:var(--text-light);">#@r.Id</td>
+              <td>
+                <strong>@r.Family?.FullName</strong>
+                @if (r.IsOverdue)
+                { <span class="badge badge-overdue" style="margin-left:6px;">Overdue</span> }
+              </td>
+              <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason.ToDisplayName()</td>
+              <td><span class="badge @GetPriorityBadge(r.Priority)">@r.Priority</span></td>
+              <td><span class="badge @GetStatusBadge(r.Status)">@r.Status</span></td>
+              <td style="font-size:.76rem;color:var(--text-light);">@r.CreatedAt.ToString("MMM d, yyyy")</td>
+              <td style="font-size:.76rem;color:@(r.IsOverdue ? "var(--red)" : "var(--text-light)");">@GetAge(r.CreatedAt)</td>
+              <td style="display:flex;gap:6px;">
+                <a href="/admin/cases/@r.Id" class="btn btn-sm">Details</a>
+                <button class="btn btn-sm" @onclick="() => OpenCase(r)">Quick Update</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+<!-- CASE UPDATE DRAWER -->
+@if (_selected is not null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CloseCase"></div>
+  <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
+    <div style="padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="font-family:var(--ff-head);">Case #@_selected.Id — @_selected.Family?.FullName</h3>
+      <button class="btn btn-sm" @onclick="CloseCase">&#10005;</button>
+    </div>
+    <div style="padding:24px;display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Family summary -->
+      @if (_selected.Family is not null)
+      {
+        <div style="background:var(--green-pale);border-radius:10px;padding:14px 16px;font-size:.84rem;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><strong>Name:</strong> @_selected.Family.FullName</div>
+          <div><strong>Email:</strong> @_selected.Family.Email</div>
+          <div><strong>Phone:</strong> @(_selected.Family.Phone ?? "—")</div>
+          <div><strong>City:</strong> @_selected.Family.City, @_selected.Family.State</div>
+          @if (!string.IsNullOrEmpty(_selected.Family.ChildrenInitials))
+          { <div style="grid-column:1/-1;"><strong>Children's Initials:</strong> @_selected.Family.ChildrenInitials</div> }
+        </div>
+      }
+
+      <!-- Status update -->
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" @bind="_editStatus">
+          @foreach (var s in Enum.GetValues<CaseStatus>())
+          { <option value="@s">@s</option> }
+        </select>
+      </div>
+
+      @if (_editStatus is CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.Fulfilled)
+      {
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Tracking Number</label>
+            <input class="form-input" @bind="_editTracking" placeholder="1Z999AA10123456784" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shipped Date</label>
+            <input class="form-input" type="date"
+                   value="@(_editShippedDate?.ToString("yyyy-MM-dd") ?? "")"
+                   @onchange='e => _editShippedDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
+          </div>
+        </div>
+      }
+
+      <!-- Note -->
+      <div class="form-group">
+        <label class="form-label">Add Note</label>
+        <textarea class="form-textarea" @bind="_noteText" placeholder="Add an internal note about this case…"></textarea>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_saveError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_saveError</div> }
+      @if (_saved)
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Case updated successfully.</div> }
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+        <button class="btn" @onclick="CloseCase" disabled="@_saving">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<PackageRequest> _mine = [];
+  private List<PackageRequest> _filtered = [];
+  private PackageRequest? _selected;
+  private bool _loading = true;
+  private bool _saving;
+  private bool _saved;
+  private int _fulfilled;
+  private string _avgAge = "—";
+  private string _activeFilter = "All";
+  private string _saveError = "";
+
+  // Drawer edit state
+  private CaseStatus _editStatus;
+  private string? _editTracking;
+  private DateTime? _editShippedDate;
+  private string _noteText = "";
+
+  private readonly string[] _filters = ["All", "New", "In Progress", "Awaiting Shipment", "Overdue"];
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    var all = await Api.GetRequestsAsync();
+
+    // Filter to cases assigned to this user by matching the displayed username
+    var myName = Auth.UserName;
+    _mine = all.Where(r => r.AssignedTo != null &&
+      r.AssignedTo.Equals(myName, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    _fulfilled = _mine.Count(r => r.Status == CaseStatus.Fulfilled);
+
+    var open = _mine.Where(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment).ToList();
+    _avgAge = open.Count > 0
+      ? $"{open.Average(r => (DateTime.UtcNow - r.CreatedAt).TotalDays):F0}d"
+      : "—";
+
+    // Show open cases by default; exclude Fulfilled/Cancelled from the list
+    _mine = _mine.Where(r => r.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled)).ToList();
+    ApplyFilter();
+    _loading = false;
+  }
+
+  private void SetFilter(string f) { _activeFilter = f; ApplyFilter(); }
+
+  private void ApplyFilter()
+  {
+    _filtered = _activeFilter switch
+    {
+      "New"               => _mine.Where(r => r.Status == CaseStatus.New).ToList(),
+      "In Progress"       => _mine.Where(r => r.Status == CaseStatus.InProgress).ToList(),
+      "Awaiting Shipment" => _mine.Where(r => r.Status == CaseStatus.AwaitingShipment).ToList(),
+      "Overdue"           => _mine.Where(r => r.IsOverdue).ToList(),
+      _                   => _mine.OrderByDescending(r => r.IsOverdue).ThenBy(r => r.CreatedAt).ToList()
+    };
+  }
+
+  private void OpenCase(PackageRequest r)
+  {
+    _selected       = r;
+    _editStatus     = r.Status;
+    _editTracking   = r.TrackingNumber;
+    _editShippedDate = r.ShippedDate;
+    _noteText       = "";
+    _saved          = false;
+    _saveError      = "";
+  }
+
+  private void CloseCase() { _selected = null; _saved = false; _saveError = ""; }
+
+  private async Task SaveAsync()
+  {
+    if (_selected is null) return;
+    _saving = true;
+    _saveError = "";
+
+    await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
+    await Api.PatchRequestAsync(_selected.Id, _editTracking, _editShippedDate, null);
+
+    if (!string.IsNullOrWhiteSpace(_noteText))
+    {
+      var note = new RequestNote
+      {
+        RequestId  = _selected.Id,
+        AuthorName = Auth.UserName,
+        Content    = _noteText,
+        IsInternal = true,
+        CreatedAt  = DateTime.UtcNow
+      };
+      await Api.CreateRequestNoteAsync(_selected.Id, note);
+    }
+
+    _saving = false;
+    _saved = true;
+    _noteText = "";
+    await LoadAsync();
+    _selected = _mine.FirstOrDefault(r => r.Id == _selected?.Id) ?? _selected;
+  }
+
+  private static string GetPriorityBadge(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "badge-overdue",
+    RequestPriority.High   => "badge-inprogress",
+    RequestPriority.Normal => "badge-new",
+    RequestPriority.Low    => "badge-fulfilled",
+    _ => ""
+  };
+
+  private static string GetStatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.OnHold           => "badge-onhold",
+    _ => ""
+  };
+
+  private static string GetAge(DateTime dt)
+  {
+    var d = (int)(DateTime.UtcNow - dt).TotalDays;
+    return d == 0 ? "Today" : $"{d}d";
+  }
+}

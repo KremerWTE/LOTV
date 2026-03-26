@@ -1,0 +1,209 @@
+@page "/admin/allocate/resources"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Allocate Resources — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Allocate Resource Donation</h2>
+    <p>Assign donated physical goods to a specific family request</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/allocations" class="btn btn-sm">&#8592; Back to Allocations</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;">
+
+  <!-- FORM -->
+  <div class="panel">
+    <div class="panel-header">Resource Allocation</div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Step 1: Resource donation -->
+      <div class="form-group">
+        <label class="form-label">1. Select Resource Donation *</label>
+        @if (_resourceDonations.Any())
+        {
+          <select class="form-input" @onchange="OnResourceSelected">
+            <option value="">— Choose a donated resource —</option>
+            @foreach (var r in _resourceDonations)
+            {
+              <option value="@r.Id">@r.Type — @r.Quantity @r.Unit (@r.ReceivedAt.ToString("MMM d, yyyy"))</option>
+            }
+          </select>
+        }
+        else
+        {
+          <div style="font-size:.84rem;color:var(--text-light);padding:10px 0;">No unallocated resource donations found.</div>
+        }
+      </div>
+
+      @if (_selected != null)
+      {
+        <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.84rem;">
+          <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">@_selected.Type — @_selected.Description</div>
+          <div style="color:var(--text-mid);">
+            Available: <strong style="color:var(--green);">@_selected.Quantity @_selected.Unit</strong>
+            &bull; Received: @_selected.ReceivedAt.ToString("MMM d, yyyy")
+            @if (!string.IsNullOrEmpty(_selected.StorageLocation))
+            { <span> &bull; Location: @_selected.StorageLocation</span> }
+          </div>
+        </div>
+      }
+
+      <!-- Step 2: Target request -->
+      <div class="form-group">
+        <label class="form-label">2. Allocate To Request *</label>
+        <select class="form-input" @onchange='e => int.TryParse(e.Value?.ToString(), out _requestId)'>
+          <option value="0">— Select a family request —</option>
+          @foreach (var req in _requests)
+          {
+            <option value="@req.Id">Case #@req.Id — @(req.Family?.FullName ?? $"Family #{req.FamilyId}") (@req.Category)</option>
+          }
+        </select>
+      </div>
+
+      <!-- Step 3: Quantity -->
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">3. Quantity to Allocate *</label>
+          <input class="form-input" type="number" min="1" @bind="_quantity" placeholder="0" />
+          @if (_selected != null && _quantity > _selected.Quantity)
+          {
+            <div style="font-size:.76rem;color:var(--blush);margin-top:3px;">&#9888; Exceeds available quantity of @_selected.Quantity @_selected.Unit</div>
+          }
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unit</label>
+          <input class="form-input" value="@(_selected?.Unit ?? "")" disabled />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Delivery Notes</label>
+        <textarea class="form-input" rows="3" @bind="_notes" placeholder="e.g. Confirm delivery address, leave with neighbor, etc."></textarea>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_error))
+      {
+        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+      }
+      @if (_success)
+      {
+        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Resource allocation recorded. <a href="/admin/allocations" style="color:var(--green);">View ledger &rarr;</a></div>
+      }
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@(_busy || _success)">
+          @(_busy ? "Saving…" : "Record Allocation")
+        </button>
+        <button class="btn" @onclick="ResetForm">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR: summary -->
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-header">Resource Inventory</div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_resourceDonations.Any())
+        {
+          <div style="padding:16px;text-align:center;color:var(--text-light);font-size:.82rem;">No resources in inventory</div>
+        }
+        else
+        {
+          @foreach (var r in _resourceDonations.Take(8))
+          {
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:.8rem;">
+              <div style="font-weight:600;margin-bottom:2px;">@r.Type</div>
+              <div style="color:var(--text-light);">@r.Quantity @r.Unit &bull; @r.ReceivedAt.ToString("MMM d")</div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Tip</div>
+      <div class="panel-body">
+        <p style="font-size:.82rem;color:var(--text-mid);margin:0;line-height:1.5;">
+          After recording an allocation, the family's case will show which resources have been assigned.
+          Update the case status to <strong>AwaitingShipment</strong> once resources are ready to be delivered.
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+@code {
+  private record ResourceDonationItem(int Id, string Type, int Quantity, string Unit, string Description, string StorageLocation, DateTime ReceivedAt);
+
+  private List<ResourceDonationItem> _resourceDonations = [];
+  private List<PackageRequest>       _requests          = [];
+
+  private ResourceDonationItem? _selected;
+  private int     _requestId;
+  private int     _quantity;
+  private string  _notes = "";
+
+  private bool   _busy;
+  private bool   _success;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _requests = (await Api.GetRequestsAsync()).Where(r => r.Status is CaseStatus.New or CaseStatus.InProgress).ToList();
+
+    // Stub resource donations — in production replace with Api.GetResourceDonationsAsync()
+    _resourceDonations =
+    [
+      new(1, "Baby Clothing",     25, "items",    "Newborn-3mo, mixed gender",    "Shelf A3",  DateTime.UtcNow.AddDays(-3)),
+      new(2, "Memory Boxes",      10, "boxes",    "Handmade, navy/white",          "Cabinet 2", DateTime.UtcNow.AddDays(-7)),
+      new(3, "Grief Books",       15, "books",    "Empty Arms, various titles",    "Shelf B1",  DateTime.UtcNow.AddDays(-14)),
+      new(4, "Knitted Blankets",  8,  "blankets", "Hand-knit, various sizes",      "Bin 4",     DateTime.UtcNow.AddDays(-2)),
+      new(5, "Care Packages",     6,  "packages", "Pre-assembled grief care kits", "Shelf A1",  DateTime.UtcNow.AddDays(-5)),
+    ];
+  }
+
+  private void OnResourceSelected(ChangeEventArgs e)
+  {
+    if (int.TryParse(e.Value?.ToString(), out var id))
+    {
+      _selected = _resourceDonations.FirstOrDefault(r => r.Id == id);
+      _quantity  = _selected?.Quantity ?? 0;
+    }
+    else
+    {
+      _selected = null;
+      _quantity  = 0;
+    }
+  }
+
+  private async Task SubmitAsync()
+  {
+    _error = "";
+    if (_selected == null)          { _error = "Please select a resource donation.";    return; }
+    if (_requestId == 0)            { _error = "Please select a request to allocate to."; return; }
+    if (_quantity <= 0)             { _error = "Quantity must be greater than zero.";   return; }
+    if (_quantity > _selected.Quantity) { _error = "Quantity exceeds available stock."; return; }
+
+    _busy = true;
+    await Task.Delay(400); // stub
+    _success = true;
+    _busy = false;
+  }
+
+  private void ResetForm()
+  {
+    _selected   = null;
+    _requestId  = 0;
+    _quantity   = 0;
+    _notes      = "";
+    _error      = "";
+    _success    = false;
+  }
+}

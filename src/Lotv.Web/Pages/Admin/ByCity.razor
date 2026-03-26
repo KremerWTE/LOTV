@@ -1,0 +1,148 @@
+@page "/admin/by-city"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Donations by City — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donations by City</h2><p>Geographic breakdown of where donations are coming from</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/export" class="btn btn-sm">&#8681; Export</a>
+    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading city data…" Size="lg" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127970;</div>
+      <div class="kpi-label">Cities Represented</div>
+      <div class="kpi-value" style="color:var(--navy)">@_rows.Count</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Donated</div>
+      <div class="kpi-value" style="color:var(--gold)">@_rows.Sum(r => r.TotalAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Total Donors</div>
+      <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.TotalDonors)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128202;</div>
+      <div class="kpi-label">Top City</div>
+      <div class="kpi-value" style="color:var(--amber);font-size:1rem;padding-top:4px;">@(_sorted.FirstOrDefault()?.City ?? "—")</div>
+    </div>
+  </div>
+
+  <!-- SORT + SEARCH -->
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+    <input class="form-input" style="max-width:280px;height:36px;" placeholder="&#128269; Filter by city or state…"
+           @bind="_search" @bind:event="oninput" />
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-sm @(_sortBy == "amount" ? "btn-primary" : "")" @onclick='() => _sortBy = "amount"'>Sort: Amount</button>
+      <button class="btn btn-sm @(_sortBy == "donors" ? "btn-primary" : "")" @onclick='() => _sortBy = "donors"'>Donors</button>
+      <button class="btn btn-sm @(_sortBy == "city" ? "btn-primary" : "")" @onclick='() => _sortBy = "city"'>City A–Z</button>
+    </div>
+  </div>
+
+  <!-- TOP CITIES BAR CHART -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">Top 10 Cities by Donations</div>
+    <div class="panel-body">
+      @foreach (var row in _sorted.Take(10))
+      {
+        var pct = _maxAmount > 0 ? (int)((double)row.TotalAmount / (double)_maxAmount * 100) : 0;
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div style="width:160px;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <strong>@row.City</strong>
+            <span style="color:var(--text-light);font-size:.7rem;">, @row.State</span>
+          </div>
+          <div style="flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;">
+            <div style="height:100%;width:@pct%;background:var(--navy);border-radius:7px;transition:width .3s;"></div>
+          </div>
+          <div style="font-size:.78rem;font-weight:600;width:72px;text-align:right;">@row.TotalAmount.ToString("C0")</div>
+          <div style="font-size:.7rem;color:var(--text-light);width:60px;text-align:right;">@row.TotalDonors donors</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- FULL TABLE -->
+  <div class="panel">
+    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>All Cities</span>
+      <span style="font-size:.78rem;color:var(--text-light);">@Filtered.Count() results</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div class="empty-state"><p>No cities match the current filter.</p></div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>City</th>
+              <th>State</th>
+              <th style="text-align:right;">Donors</th>
+              <th style="text-align:right;">Total Donated</th>
+              <th style="text-align:right;">Avg Gift</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var row in Filtered)
+            {
+              var avg = row.TotalDonors > 0 ? row.TotalAmount / row.TotalDonors : 0;
+              <tr>
+                <td style="font-weight:600;">@row.City</td>
+                <td style="color:var(--text-mid);">@row.State</td>
+                <td style="text-align:right;">@row.TotalDonors</td>
+                <td style="text-align:right;font-weight:700;color:var(--gold);">@row.TotalAmount.ToString("C0")</td>
+                <td style="text-align:right;color:var(--text-mid);">@avg.ToString("C0")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private List<DonationByCityDto> _rows = [];
+  private bool _loading = true;
+  private string _search = "";
+  private string _sortBy = "amount";
+
+  private IEnumerable<DonationByCityDto> _sorted => _sortBy switch
+  {
+    "donors" => _rows.OrderByDescending(r => r.TotalDonors),
+    "city"   => _rows.OrderBy(r => r.City),
+    _        => _rows.OrderByDescending(r => r.TotalAmount)
+  };
+
+  private IEnumerable<DonationByCityDto> Filtered => _sorted.Where(r =>
+    string.IsNullOrWhiteSpace(_search) ||
+    r.City.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+    r.State.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+  private decimal _maxAmount => _rows.Any() ? _rows.Max(r => r.TotalAmount) : 1m;
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _rows = await Api.GetDonationsByCityAsync();
+    _loading = false;
+  }
+}

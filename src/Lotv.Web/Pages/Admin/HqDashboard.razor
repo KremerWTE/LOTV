@@ -1,0 +1,194 @@
+@page "/admin/hq"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>HQ Dashboard — LOTV</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>HQ Dashboard</h2>
+    <p>National overview — all chapters</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading HQ summary…" Size="lg" />
+}
+else
+{
+  <!-- NATIONAL KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:24px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Active Chapters</div>
+      <div class="kpi-value" style="color:var(--navy)">@_rows.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-label">Open Requests (National)</div>
+      <div class="kpi-value" style="color:var(--amber)">@_rows.Sum(r => r.OpenRequests)</div>
+    </div>
+    <div class="kpi-card kpi-red" style="--kpi-accent:var(--blush);">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue (National)</div>
+      <div class="kpi-value" style="color:var(--blush)">@_rows.Sum(r => r.OverdueRequests)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Fulfilled This Month</div>
+      <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.FulfilledThisPeriod)</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--gold)">@_rows.Sum(r => r.TotalDonations).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Active Volunteers</div>
+      <div class="kpi-value" style="color:var(--navy)">@_rows.Sum(r => r.ActiveVolunteers)</div>
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  @if (_overdueChapters.Any())
+  {
+    <div style="background:#fff3cd;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:.84rem;color:#856404;">
+      <strong>&#9888; Overdue Cases:</strong>
+      @string.Join(", ", _overdueChapters.Select(c => $"{c.ChapterName} ({c.OverdueRequests})"))
+    </div>
+  }
+  @if (_emptyChapters.Any())
+  {
+    <div style="background:var(--blush-pale);border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:.84rem;color:var(--blush);">
+      <strong>&#128101; No Active Volunteers:</strong>
+      @string.Join(", ", _emptyChapters.Select(c => c.ChapterName))
+    </div>
+  }
+
+  <!-- CHAPTER COMPARISON TABLE -->
+  <div class="panel" style="margin-bottom:24px;">
+    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Chapter Summary</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm @(_sortBy == "open" ? "btn-primary" : "")" @onclick='() => Sort("open")'>Sort: Open</button>
+        <button class="btn btn-sm @(_sortBy == "overdue" ? "btn-primary" : "")" @onclick='() => Sort("overdue")'>Overdue</button>
+        <button class="btn btn-sm @(_sortBy == "donations" ? "btn-primary" : "")" @onclick='() => Sort("donations")'>Donations</button>
+      </div>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_sorted.Any())
+      {
+        <div class="empty-state"><p>No chapter data available.</p></div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Chapter</th>
+              <th style="text-align:right;">Open</th>
+              <th style="text-align:right;">Overdue</th>
+              <th style="text-align:right;">Fulfilled MTD</th>
+              <th style="text-align:right;">Donations</th>
+              <th style="text-align:right;">Volunteers</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var row in _sorted)
+            {
+              <tr style="cursor:pointer;" @onclick="() => DrillInto(row.ChapterId)">
+                <td>
+                  <strong>@row.ChapterName</strong>
+                  @if (row.OverdueRequests > 0)
+                  { <span class="badge badge-overdue" style="margin-left:6px;font-size:.66rem;">@row.OverdueRequests overdue</span> }
+                  @if (row.ActiveVolunteers == 0)
+                  { <span class="badge badge-onhold" style="margin-left:4px;font-size:.66rem;">No volunteers</span> }
+                </td>
+                <td style="text-align:right;font-weight:@(row.OpenRequests > 10 ? "700" : "400");color:@(row.OpenRequests > 10 ? "var(--amber)" : "inherit");">@row.OpenRequests</td>
+                <td style="text-align:right;font-weight:700;color:@(row.OverdueRequests > 0 ? "var(--blush)" : "var(--text-light)");">@row.OverdueRequests</td>
+                <td style="text-align:right;color:var(--green);font-weight:600;">@row.FulfilledThisPeriod</td>
+                <td style="text-align:right;">@row.TotalDonations.ToString("C0")</td>
+                <td style="text-align:right;">@row.ActiveVolunteers</td>
+                <td><a href="/admin/cases?chapterId=@row.ChapterId" class="btn btn-sm" style="white-space:nowrap;">View Cases</a></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <!-- MINI COMPARISON BARS -->
+        <div style="padding:20px 20px 0;">
+          <div class="form-label" style="margin-bottom:10px;">Open Requests by Chapter</div>
+          @foreach (var row in _sorted)
+          {
+            var barPct = _maxOpen > 0 ? (int)((double)row.OpenRequests / _maxOpen * 100) : 0;
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="width:140px;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@row.ChapterName</div>
+              <div style="flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;">
+                <div style="height:100%;width:@barPct%;background:var(--navy);border-radius:7px;transition:width .3s;"></div>
+              </div>
+              <div style="font-size:.78rem;font-weight:600;width:32px;text-align:right;">@row.OpenRequests</div>
+            </div>
+          }
+        </div>
+
+        <div style="padding:20px 20px 20px;">
+          <div class="form-label" style="margin-bottom:10px;">Donations by Chapter</div>
+          @foreach (var row in _rows.OrderByDescending(r => r.TotalDonations))
+          {
+            var barPct = _maxDonations > 0 ? (int)((double)row.TotalDonations / (double)_maxDonations * 100) : 0;
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="width:140px;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@row.ChapterName</div>
+              <div style="flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;">
+                <div style="height:100%;width:@barPct%;background:var(--green);border-radius:7px;transition:width .3s;"></div>
+              </div>
+              <div style="font-size:.78rem;font-weight:600;width:64px;text-align:right;">@row.TotalDonations.ToString("C0")</div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private List<ChapterSummaryRow> _rows = [];
+  private List<ChapterSummaryRow> _sorted = [];
+  private bool _loading = true;
+  private string _sortBy = "open";
+
+  private List<ChapterSummaryRow> _overdueChapters => _rows.Where(r => r.OverdueRequests > 0).OrderByDescending(r => r.OverdueRequests).ToList();
+  private List<ChapterSummaryRow> _emptyChapters   => _rows.Where(r => r.ActiveVolunteers == 0).ToList();
+  private int    _maxOpen      => _rows.Count > 0 ? Math.Max(1, _rows.Max(r => r.OpenRequests)) : 1;
+  private decimal _maxDonations => _rows.Count > 0 ? Math.Max(1, _rows.Max(r => r.TotalDonations)) : 1;
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _rows = await Api.GetHqSummaryAsync();
+    Sort(_sortBy);
+    _loading = false;
+  }
+
+  private void Sort(string by)
+  {
+    _sortBy = by;
+    _sorted = by switch
+    {
+      "overdue"   => _rows.OrderByDescending(r => r.OverdueRequests).ToList(),
+      "donations" => _rows.OrderByDescending(r => r.TotalDonations).ToList(),
+      _           => _rows.OrderByDescending(r => r.OpenRequests).ToList()
+    };
+  }
+
+  private void DrillInto(int chapterId) =>
+    Nav.NavigateTo($"/admin/cases?chapterId={chapterId}");
+}

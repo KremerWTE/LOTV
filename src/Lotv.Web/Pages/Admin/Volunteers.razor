@@ -1,6 +1,6 @@
 @page "/admin/volunteers"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 @inject AuthService Auth
 
 <PageTitle>Volunteers — LOTV Staff Portal</PageTitle>
@@ -186,9 +186,9 @@
     return matchFilter && matchSearch;
   });
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _vols = Data.GetVolunteers();
+    _vols = await Api.GetVolunteersAsync();
     if (!string.IsNullOrEmpty(SearchQ)) _search = SearchQ;
   }
 
@@ -241,9 +241,7 @@
         ParishName = _formParish,
         JoinedDate = DateTime.UtcNow
       };
-      Data.AddVolunteer(vol);
-      _vols = Data.GetVolunteers();
-      Data.LogAction(Auth.UserName, "Created", "Volunteer", vol.Id.ToString(), $"Added volunteer {vol.FullName}");
+      await Api.CreateVolunteerAsync(vol);
     }
     else
     {
@@ -254,9 +252,10 @@
       _editing.Role       = _formRole;
       _editing.Status     = _formStatus;
       _editing.ParishName = _formParish;
-      Data.UpdateVolunteer(_editing);
-      Data.LogAction(Auth.UserName, "Updated", "Volunteer", _editing.Id.ToString(), $"Updated {_editing.FullName}");
+      await Api.UpdateVolunteerAsync(_editing.Id, _editing);
     }
+
+    _vols = await Api.GetVolunteersAsync();
     _drawerOpen = false;
     _savedMsg = true;
     StateHasChanged();
@@ -277,14 +276,5 @@
     _                              => "badge-new"
   };
 
-  private static string FormatRole(VolunteerRole r) => r switch
-  {
-    VolunteerRole.PackageAssembler => "Package Assembler",
-    VolunteerRole.PrayerAmbassador => "Prayer Ambassador",
-    VolunteerRole.ParishLiaison    => "Parish Liaison",
-    VolunteerRole.EventHelper      => "Event Helper",
-    VolunteerRole.Driver           => "Driver",
-    VolunteerRole.Admin            => "Admin Support",
-    _                              => r.ToString()
-  };
+  private static string FormatRole(VolunteerRole r) => r.ToDisplayName();
 }

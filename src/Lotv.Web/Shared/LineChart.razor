@@ -1,0 +1,188 @@
+@*
+  Reusable line/sparkline chart — SVG-based, no external library.
+
+  Usage (single series):
+    <LineChart Points="_monthly" LabelFunc="m => m.MonthLabel" ValueFunc="m => (double)m.Total"
+               Color="var(--navy)" Height="120" ShowArea />
+
+  Usage (multiple series):
+    <LineChart Points="_monthly" LabelFunc="m => m.MonthLabel" ValueFunc="m => (double)m.Donations"
+               Series2Func="m => (double)m.Expenses" Color="var(--green)" Color2="#c07000"
+               Legend1="Donations" Legend2="Expenses" Height="140" />
+
+  Parameters:
+    Points      — IEnumerable<T> of data points (ordered, left→right)
+    LabelFunc   — X-axis label per point
+    ValueFunc   — primary series value
+    Series2Func — optional second series value
+    FormatFunc  — tooltip/label format for values (default: value.ToString("N0"))
+    Color       — line/fill color for primary series (default: var(--navy))
+    Color2      — line/fill color for second series (default: #c07000)
+    Legend1     — label for primary series (shown if Series2Func is set)
+    Legend2     — label for second series
+    Width       — SVG width in px (default 100% via viewBox; use 0 for fluid)
+    Height      — SVG height in px (default 120)
+    ShowArea    — fill area under the primary line (default true)
+    ShowDots    — render circle dots at each data point (default false)
+    ShowLabels  — show X-axis labels (default true)
+    ShowGridLines — horizontal grid lines (default true)
+*@
+
+@typeparam TItem
+
+@if (Items is null || !Items.Any())
+{
+  <div style="color:var(--text-light);font-size:.82rem;padding:16px 0;">No data available.</div>
+}
+else
+{
+  double vbW     = 600;  // viewBox coordinate space
+  double vbH     = Height;
+  double padL    = 0;
+  double padR    = 8;
+  double padT    = 12;
+  double padB    = ShowLabels ? 26 : 8;
+  double plotW   = vbW - padL - padR;
+  double plotH   = vbH - padT - padB;
+
+  var pts    = Items.ToList();
+  int n      = pts.Count;
+  double max1 = pts.Max(ValueFunc);
+  double min1 = 0; // anchor to zero for area fill
+  if (max1 == min1) max1 = min1 + 1;
+
+  double max2 = Series2Func is not null ? pts.Max(Series2Func) : 0;
+  double globalMax = Series2Func is not null ? Math.Max(max1, max2) : max1;
+  if (globalMax == 0) globalMax = 1;
+
+  Func<int, double> xPos  = i => padL + (n > 1 ? i / (double)(n - 1) : 0.5) * plotW;
+  Func<double, double> yPos = v => padT + plotH - (v / globalMax) * plotH;
+
+  string MakePath(Func<TItem, double> valFn)
+  {
+    var sb = new System.Text.StringBuilder();
+    for (int i = 0; i < n; i++)
+    {
+      double x = xPos(i);
+      double y = yPos(valFn(pts[i]));
+      sb.Append(i == 0 ? $"M {F(x)} {F(y)}" : $" L {F(x)} {F(y)}");
+    }
+    return sb.ToString();
+  }
+
+  string MakeAreaPath(Func<TItem, double> valFn)
+  {
+    var line = MakePath(valFn);
+    double lastX = xPos(n - 1);
+    double firstX = xPos(0);
+    double baseY = padT + plotH;
+    return $"{line} L {F(lastX)} {F(baseY)} L {F(firstX)} {F(baseY)} Z";
+  }
+
+  string linePath1 = MakePath(ValueFunc);
+  string areaPath1 = MakeAreaPath(ValueFunc);
+  string? linePath2 = Series2Func is not null ? MakePath(Series2Func) : null;
+
+  // Inline area fill with low opacity using a transparent version of Color
+  string areaFill = Color.StartsWith("var(") ? Color : Color;
+
+  <div>
+    @if (Series2Func is not null && (!string.IsNullOrEmpty(Legend1) || !string.IsNullOrEmpty(Legend2)))
+    {
+      <div style="display:flex;gap:16px;margin-bottom:8px;font-size:.78rem;">
+        @if (!string.IsNullOrEmpty(Legend1))
+        {
+          <span style="display:flex;align-items:center;gap:5px;">
+            <span style="width:16px;height:3px;background:@Color;border-radius:2px;display:inline-block;"></span>
+            <span style="color:var(--text-mid);">@Legend1</span>
+          </span>
+        }
+        @if (!string.IsNullOrEmpty(Legend2))
+        {
+          <span style="display:flex;align-items:center;gap:5px;">
+            <span style="width:16px;height:3px;background:@Color2;border-radius:2px;display:inline-block;"></span>
+            <span style="color:var(--text-mid);">@Legend2</span>
+          </span>
+        }
+      </div>
+    }
+
+    <svg viewBox="0 0 @F(vbW) @F(vbH)" style="width:100%;height:@(Height)px;overflow:visible;" preserveAspectRatio="none">
+
+      @* Grid lines *@
+      @if (ShowGridLines)
+      {
+        @for (int g = 0; g <= 4; g++)
+        {
+          double gy = padT + plotH * g / 4.0;
+          <line x1="@F(padL)" y1="@F(gy)" x2="@F(padL + plotW)" y2="@F(gy)"
+                stroke="#e0e8f0" stroke-width="1" />
+        }
+      }
+
+      @* Area fill (primary) *@
+      @if (ShowArea)
+      {
+        <path d="@areaPath1" fill="@Color" fill-opacity="0.12" stroke="none" />
+      }
+
+      @* Second series line *@
+      @if (linePath2 is not null)
+      {
+        <path d="@linePath2" fill="none" stroke="@Color2" stroke-width="2"
+              stroke-linejoin="round" stroke-linecap="round" />
+      }
+
+      @* Primary series line *@
+      <path d="@linePath1" fill="none" stroke="@Color" stroke-width="2.5"
+            stroke-linejoin="round" stroke-linecap="round" />
+
+      @* Dots *@
+      @if (ShowDots)
+      {
+        @for (int i = 0; i < n; i++)
+        {
+          double dx = xPos(i);
+          double dy = yPos(ValueFunc(pts[i]));
+          <circle cx="@F(dx)" cy="@F(dy)" r="3.5" fill="@Color" stroke="white" stroke-width="1.5" />
+        }
+      }
+
+      @* X-axis labels *@
+      @if (ShowLabels)
+      {
+        @for (int i = 0; i < n; i++)
+        {
+          // only show first, last, and midpoint when many items
+          bool show = n <= 7 || i == 0 || i == n - 1 || i == n / 2;
+          @if (show)
+          {
+            double lx = xPos(i);
+            @((MarkupString)$"<text x=\"{F(lx)}\" y=\"{F(vbH - 4)}\" text-anchor=\"middle\" style=\"font-size:11px;fill:#999;font-family:Georgia,serif;\">{LabelFunc(pts[i])}</text>")
+          }
+        }
+      }
+
+    </svg>
+  </div>
+}
+
+@code {
+  [Parameter, EditorRequired] public IEnumerable<TItem> Items { get; set; } = Enumerable.Empty<TItem>();
+  [Parameter, EditorRequired] public Func<TItem, string> LabelFunc { get; set; } = _ => "";
+  [Parameter, EditorRequired] public Func<TItem, double> ValueFunc { get; set; } = _ => 0;
+  [Parameter] public Func<TItem, double>? Series2Func { get; set; }
+  [Parameter] public Func<TItem, string>? FormatFunc { get; set; }
+  [Parameter] public string Color { get; set; } = "var(--navy)";
+  [Parameter] public string Color2 { get; set; } = "#c07000";
+  [Parameter] public string Legend1 { get; set; } = "";
+  [Parameter] public string Legend2 { get; set; } = "";
+  [Parameter] public int Height { get; set; } = 120;
+  [Parameter] public bool ShowArea { get; set; } = true;
+  [Parameter] public bool ShowDots { get; set; } = false;
+  [Parameter] public bool ShowLabels { get; set; } = true;
+  [Parameter] public bool ShowGridLines { get; set; } = true;
+
+  private static string F(double v) =>
+    v.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+}

@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
 @inject AuthService Auth
+@inject ApiService Api
+@inject SignalRService Hub
 @implements IDisposable
 
 <div class="lotv-app">
@@ -20,6 +22,15 @@
       <NavLink class="sidebar-link" href="/admin/dashboard" Match="NavLinkMatch.All">
         <span class="icon">&#9776;</span> Dashboard
       </NavLink>
+      @if (Auth.IsHqAdmin)
+      {
+        <NavLink class="sidebar-link" href="/admin/hq">
+          <span class="icon">&#127968;</span> HQ Dashboard
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/hq-board">
+          <span class="icon">&#9783;</span> HQ Operations Board
+        </NavLink>
+      }
       @if (_canSeeCases)
       {
         <NavLink class="sidebar-link" href="/admin/families">
@@ -31,6 +42,12 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/kanban">
           <span class="icon">&#9783;</span> Kanban Board
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/queue">
+          <span class="icon">&#128282;</span> Unassigned Queue
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/my-queue">
+          <span class="icon">&#128203;</span> My Work Queue
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/workload">
           <span class="icon">&#128101;</span> Workload View
@@ -54,9 +71,21 @@
         <NavLink class="sidebar-link" href="/admin/by-channel">
           <span class="icon">&#128243;</span> By Channel
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/by-city">
+          <span class="icon">&#127970;</span> By City
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/by-amount">
+          <span class="icon">&#128202;</span> By Amount
+        </NavLink>
         <NavLink class="sidebar-link" href="/admin/allocations">
           <span class="icon">&#128203;</span> Fund Allocations
           <span class="sidebar-badge">@_pendingAlloc</span>
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/allocate/money">
+          <span class="icon">&#128184;</span> Allocate Funds
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/allocate/resources">
+          <span class="icon">&#128230;</span> Allocate Resources
         </NavLink>
       </div>
     }
@@ -68,8 +97,14 @@
         <NavLink class="sidebar-link" href="/admin/volunteers">
           <span class="icon">&#129309;</span> Volunteers
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/volunteer-schedule">
+          <span class="icon">&#128197;</span> Schedule
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/sponsorships">
+          <span class="icon">&#127970;</span> Sponsorships
+        </NavLink>
         <NavLink class="sidebar-link" href="/admin/events">
-          <span class="icon">&#128197;</span> Events
+          <span class="icon">&#127880;</span> Events
         </NavLink>
       }
       @if (_canSeeDonations)
@@ -82,13 +117,28 @@
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Admin</div>
+      <NavLink class="sidebar-link" href="/admin/notify">
+        <span class="icon">&#128140;</span> Send Notification
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/marketing">
+        <span class="icon">&#128233;</span> Marketing Email
+      </NavLink>
       <NavLink class="sidebar-link" href="/admin/impact">
-        <span class="icon">&#128200;</span> Impact Report
+        <span class="icon">&#128200;</span> Impact Dashboard
       </NavLink>
       @if (_canSeeDonations)
       {
+        <NavLink class="sidebar-link" href="/admin/reconciliation">
+          <span class="icon">&#128290;</span> Reconciliation
+        </NavLink>
         <NavLink class="sidebar-link" href="/admin/export">
           <span class="icon">&#128190;</span> Export Data
+        </NavLink>
+      }
+      @if (Auth.IsHqAdmin)
+      {
+        <NavLink class="sidebar-link" href="/admin/reports/schedule">
+          <span class="icon">&#128336;</span> Scheduled Reports
         </NavLink>
       }
       @if (_isAdmin)
@@ -98,6 +148,9 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/diocese-data">
           <span class="icon">&#127760;</span> Diocese &amp; Parish Data
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/health">
+          <span class="icon">&#128268;</span> Platform Health
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/settings">
           <span class="icon">&#9881;</span> Settings
@@ -128,7 +181,7 @@
         <div style="position:relative;">
           <input class="topbar-search" type="text" placeholder="&#128269; Search families, donors..."
                  value="@_searchText"
-                 @oninput='e => OnSearchChanged(e.Value?.ToString() ?? string.Empty)'
+                 @oninput='async e => await OnSearchChanged(e.Value?.ToString() ?? string.Empty)'
                  @onfocus="() => _searchOpen = true"
                  @onblur="HideSearch" />
           @if (_searchOpen && !string.IsNullOrWhiteSpace(_searchText) && _searchText.Length >= 2)
@@ -262,18 +315,20 @@
   </div>
 </div>
 
+<ToastNotification />
+
 @code {
   private int _openCount;
   private int _pendingAlloc;
   private string _pageTitle = "Dashboard Overview";
 
-  private bool _showDemoBanner = true;
+  private bool _showDemoBanner = false;
 
-  // Role-based visibility
-  private bool _isAdmin        => Auth.UserRole is "Administrator";
-  private bool _canSeeCases    => Auth.UserRole is "Administrator" or "Case Manager" or "Volunteer Coordinator";
-  private bool _canSeeDonations => Auth.UserRole is "Administrator" or "Finance";
-  private bool _canSeeVolunteers => Auth.UserRole is "Administrator" or "Volunteer Coordinator" or "Case Manager";
+  // Role-based visibility (matches UserRole enum in Lotv.Core)
+  private bool _isAdmin          => Auth.UserRole is "HQAdmin" or "ChapterAdmin";
+  private bool _canSeeCases      => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Volunteer";
+  private bool _canSeeDonations  => Auth.UserRole is "HQAdmin" or "ChapterAdmin";
+  private bool _canSeeVolunteers => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff";
 
   // Search
   private string _searchText = "";
@@ -288,9 +343,7 @@
   private List<PackageRequest> _overdueItems     = [];
   private List<FundAllocation> _pendingAllocItems = [];
 
-  [Inject] private IMockDataService Data { get; set; } = default!;
-
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
     if (!Auth.IsAuthenticated)
     {
@@ -298,51 +351,56 @@
       return;
     }
 
-    var stats = Data.GetDashboardStats();
-    _openCount    = stats.OpenCases;
-    _pendingAlloc = stats.PendingAllocations;
+    await LoadNotificationsAsync();
+    await Hub.ConnectAsync();
 
-    _overdueItems = Data.GetRequests()
-      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
-      .Where(r => r.IsOverdue)
-      .OrderBy(r => r.CreatedAt)
-      .ToList();
-    _pendingAllocItems = Data.GetAllocations()
-      .Where(a => a.Status == AllocationStatus.PendingReview)
-      .ToList();
-    _notifCount = _overdueItems.Count + _pendingAllocItems.Count;
+    Hub.OnReconnected += async () =>
+    {
+      await LoadNotificationsAsync();
+      await InvokeAsync(StateHasChanged);
+    };
+    Hub.OnCaseCreated += async (_, _, _) => { await LoadNotificationsAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnCaseEscalated += async (_, _) => { await LoadNotificationsAsync(); await InvokeAsync(StateHasChanged); };
 
     Auth.OnChange += StateHasChanged;
     Nav.LocationChanged += (_, _) => UpdateTitle();
     UpdateTitle();
   }
 
-  private void Logout()
+  private async Task LoadNotificationsAsync()
   {
-    Auth.Logout();
+    var stats = await Api.GetDashboardStatsAsync();
+    _openCount    = stats?.OpenCases ?? 0;
+    _pendingAlloc = stats?.Overdue ?? 0;
+
+    _overdueItems      = await Api.GetOverdueRequestsAsync();
+    _pendingAllocItems = await Api.GetAllocationsAsync("PendingReview");
+    _notifCount        = _overdueItems.Count + _pendingAllocItems.Count;
+  }
+
+  private async Task Logout()
+  {
+    await Auth.LogoutAsync();
     Nav.NavigateTo("/login", replace: true);
   }
 
   public void Dispose()
   {
     Auth.OnChange -= StateHasChanged;
+    _ = Hub.DisconnectAsync();
   }
 
-  private void OnSearchChanged(string text)
+  private async Task OnSearchChanged(string text)
   {
     _searchText = text;
     if (text.Length < 2) { _searchFamilies = []; _searchDonors = []; _searchVolunteers = []; return; }
-    _searchFamilies = Data.GetFamilies()
-      .Where(f => f.FullName.Contains(text, StringComparison.OrdinalIgnoreCase) ||
-                  f.Email.Contains(text, StringComparison.OrdinalIgnoreCase))
-      .Take(4).ToList();
-    _searchDonors = Data.GetDonors()
-      .Where(d => d.FullName.Contains(text, StringComparison.OrdinalIgnoreCase) ||
-                  d.Email.Contains(text, StringComparison.OrdinalIgnoreCase))
-      .Take(4).ToList();
-    _searchVolunteers = Data.GetVolunteers()
-      .Where(v => v.FullName.Contains(text, StringComparison.OrdinalIgnoreCase) ||
-                  v.Email.Contains(text, StringComparison.OrdinalIgnoreCase))
+    var families   = await Api.GetFamiliesAsync(text);
+    var donors     = await Api.GetDonorsAsync(text);
+    var volunteers = await Api.GetVolunteersAsync();
+    _searchFamilies   = families.Take(4).ToList();
+    _searchDonors     = donors.Take(4).ToList();
+    _searchVolunteers = volunteers
+      .Where(v => v.FullName.Contains(text, StringComparison.OrdinalIgnoreCase))
       .Take(3).ToList();
   }
 
@@ -370,22 +428,37 @@
     _pageTitle = Nav.Uri switch
     {
       var u when u.EndsWith("/admin/dashboard")  => "Dashboard Overview",
+      var u when u.EndsWith("/admin/hq")              => "HQ Dashboard",
+      var u when u.EndsWith("/admin/hq-board")        => "HQ Operations Board",
       var u when u.EndsWith("/admin/families")    => "Family Directory",
+      var u when u.Contains("/admin/cases/")       => "Case Detail",
       var u when u.Contains("/admin/cases")       => "Family Cases",
       var u when u.EndsWith("/admin/kanban")      => "Kanban Board",
+      var u when u.EndsWith("/admin/queue")       => "Unassigned Queue",
+      var u when u.EndsWith("/admin/my-queue")    => "My Work Queue",
       var u when u.EndsWith("/admin/workload")    => "Workload View",
       var u when u.EndsWith("/admin/donations")   => "All Donations",
       var u when u.EndsWith("/admin/by-donor")    => "Donations by Donor",
       var u when u.EndsWith("/admin/by-diocese")  => "Donations by Diocese",
       var u when u.EndsWith("/admin/by-channel")  => "Donations by Channel",
+      var u when u.EndsWith("/admin/by-city")     => "Donations by City",
+      var u when u.EndsWith("/admin/by-amount")   => "Donations by Amount",
       var u when u.EndsWith("/admin/allocations") => "Fund Allocations",
       var u when u.EndsWith("/admin/volunteers")  => "Volunteers",
+      var u when u.Contains("/admin/events/")      => "Event Detail",
       var u when u.EndsWith("/admin/events")      => "Events",
+      var u when u.Contains("/admin/donors/")      => "Donor Detail",
       var u when u.EndsWith("/admin/donors")      => "Donors Database",
-      var u when u.EndsWith("/admin/impact")      => "Impact Report",
+      var u when u.EndsWith("/admin/notify")      => "Send Notification",
+      var u when u.EndsWith("/admin/marketing")   => "Marketing Email",
+      var u when u.EndsWith("/admin/impact")      => "Impact & Distribution Dashboard",
       var u when u.EndsWith("/admin/export")      => "Export Data",
       var u when u.EndsWith("/admin/audit")       => "Audit Log",
       var u when u.EndsWith("/admin/diocese-data")=> "Diocese & Parish Data",
+      var u when u.EndsWith("/admin/health")         => "Platform Health",
+      var u when u.EndsWith("/admin/reports/schedule") => "Scheduled Reports",
+      var u when u.EndsWith("/admin/allocate/money")   => "Allocate Funds",
+      var u when u.EndsWith("/admin/allocate/resources") => "Allocate Resources",
       var u when u.EndsWith("/admin/settings")    => "Settings",
       var u when u.EndsWith("/admin/users")       => "User Management",
       _ => "LOTV Staff Portal"

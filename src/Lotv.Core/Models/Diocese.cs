@@ -4,7 +4,11 @@ public class Diocese
 {
     public int Id { get; set; }
     public string Name { get; set; } = "";
+    public string City { get; set; } = "";
     public string State { get; set; } = "";
+    public string? Region { get; set; }
+    public int ChapterId { get; set; }
+    public Chapter? Chapter { get; set; }
     public string? CoordinatorName { get; set; }
     public string? CoordinatorEmail { get; set; }
     public int TotalParishes { get; set; }

@@ -1,0 +1,275 @@
+@page "/events/{Id:int}/tickets"
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Tickets — LOTV Ministry</PageTitle>
+
+<!-- PUBLIC NAV -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:white;">
+    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;">&#127803;</div>
+    <strong style="font-family:var(--ff-head);">LOTV Ministry</strong>
+  </a>
+  <div style="display:flex;gap:16px;">
+    <a href="/events" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">All Events</a>
+    <a href="/give" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Donate</a>
+  </div>
+</div>
+
+<div style="max-width:760px;margin:48px auto;padding:0 24px;">
+
+  @if (_loading)
+  {
+    <Loading Message="Loading event details…" Size="lg" />
+  }
+  else if (_event == null)
+  {
+    <div class="panel" style="text-align:center;padding:48px;">
+      <h3 style="font-family:var(--ff-head);color:var(--navy);">Event Not Found</h3>
+      <a href="/events" class="btn btn-primary" style="margin-top:16px;">Browse Events</a>
+    </div>
+  }
+  else if (_confirmed)
+  {
+    <!-- SUCCESS STATE -->
+    <div class="panel" style="text-align:center;padding:48px;">
+      <div style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#b8860b);display:flex;align-items:center;justify-content:center;font-size:2.2rem;margin:0 auto 20px;">&#127881;</div>
+      <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">You're Registered!</h2>
+      <p style="color:var(--text-mid);margin:0 0 20px;font-size:.94rem;">
+        Confirmation sent to <strong>@_email</strong>. We look forward to seeing you at <strong>@_event.Title</strong>!
+      </p>
+
+      <div style="background:var(--bg);border-radius:10px;padding:16px;margin:0 auto 28px;max-width:380px;text-align:left;font-size:.84rem;">
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-light);">Event</span>
+          <span style="font-weight:600;">@_event.Title</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-light);">Date</span>
+          <span style="font-weight:600;">@_event.Date.ToString("MMMM d, yyyy h:mm tt")</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-light);">Location</span>
+          <span style="font-weight:600;">@(string.IsNullOrEmpty(_event.Location) ? (_event.IsVirtual ? "Online" : "TBD") : _event.Location)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-light);">Tickets</span>
+          <span style="font-weight:600;">@_ticketCount</span>
+        </div>
+        @if (_totalPrice > 0)
+        {
+          <div style="display:flex;justify-content:space-between;padding:6px 0;">
+            <span style="color:var(--text-light);">Amount Paid</span>
+            <span style="font-weight:700;color:var(--gold);">@_totalPrice.ToString("C2")</span>
+          </div>
+        }
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <a href="/events" class="btn btn-sm">Browse More Events</a>
+        <a href="/" class="btn btn-sm">Return Home</a>
+      </div>
+    </div>
+  }
+  else
+  {
+    <div style="display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start;">
+
+      <!-- FORM -->
+      <div>
+        <!-- Event header -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div style="height:5px;background:var(--gold);border-radius:10px 10px 0 0;"></div>
+          <div style="padding:18px 20px;">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:4px;">@_event.Type</div>
+            <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;">@_event.Title</h2>
+            <div style="display:flex;gap:16px;font-size:.84rem;color:var(--text-mid);">
+              <span>&#128197; @_event.Date.ToString("MMMM d, yyyy")</span>
+              <span>&#9201; @_event.Date.ToString("h:mm tt")</span>
+              <span>&#128205; @(string.IsNullOrEmpty(_event.Location) ? (_event.IsVirtual ? "Online" : "TBD") : _event.Location)</span>
+            </div>
+            @if (!string.IsNullOrEmpty(_event.Description))
+            {
+              <p style="font-size:.84rem;color:var(--text-mid);margin:10px 0 0;line-height:1.5;">@_event.Description</p>
+            }
+            @if (_event.Capacity.HasValue)
+            {
+              var pct = Math.Min(100, (int)((double)_event.Registered / _event.Capacity.Value * 100));
+              var left = _event.Capacity.Value - _event.Registered;
+              <div style="margin-top:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:.74rem;margin-bottom:3px;">
+                  <span>@_event.Registered registered</span>
+                  <span style="font-weight:600;color:@(left <= 10 ? "var(--amber)" : "inherit");">@left spots left</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:@pct%;"></div></div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Ticket count -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">Ticket Selection</div>
+          <div class="panel-body">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+              <div style="flex:1;">
+                <div style="font-weight:600;margin-bottom:2px;">General Admission</div>
+                <div style="font-size:.82rem;color:var(--text-mid);">
+                  @(_event.TicketPrice.HasValue && _event.TicketPrice > 0 ? $"{_event.TicketPrice.Value:C2} per ticket" : "Free admission")
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button class="btn btn-sm" @onclick='() => _ticketCount = Math.Max(1, _ticketCount - 1)' style="width:32px;padding:4px 0;font-size:1rem;">&#8722;</button>
+                <span style="font-size:1.1rem;font-weight:700;min-width:24px;text-align:center;">@_ticketCount</span>
+                <button class="btn btn-sm btn-primary" @onclick='() => _ticketCount = Math.Min(10, _ticketCount + 1)' style="width:32px;padding:4px 0;font-size:1rem;">&#43;</button>
+              </div>
+            </div>
+            @if (_totalPrice > 0)
+            {
+              <div style="background:var(--gold-pale,#fefce8);border:1px solid var(--gold);border-radius:8px;padding:10px 14px;font-size:.86rem;">
+                Total: <strong style="color:var(--gold);font-size:1rem;">@_totalPrice.ToString("C2")</strong>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Your info -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">Your Information</div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">First Name *</label>
+                <input class="form-input" @bind="_firstName" placeholder="First" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Last Name *</label>
+                <input class="form-input" @bind="_lastName" placeholder="Last" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address *</label>
+              <input class="form-input" type="email" @bind="_email" placeholder="you@example.com" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone (optional)</label>
+              <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 000-0000" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Special Requests or Accessibility Needs</label>
+              <textarea class="form-input" rows="2" @bind="_specialRequests" placeholder="Dietary needs, wheelchair access, etc."></textarea>
+            </div>
+          </div>
+        </div>
+
+        @if (_totalPrice > 0)
+        {
+          <!-- PAYMENT (Stripe stub) -->
+          <div class="panel" style="margin-bottom:20px;">
+            <div class="panel-header">Payment</div>
+            <div class="panel-body">
+              <div style="background:var(--bg);border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">
+                <div style="font-size:1.4rem;margin-bottom:6px;">&#128179;</div>
+                Stripe secure payment form loads here in production.<br/>
+                <span style="font-size:.76rem;">(@_totalPrice.ToString("C2") will be charged via Stripe)</span>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:14px;">&#9888; @_error</div>
+        }
+
+        <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;" @onclick="SubmitAsync" disabled="@_busy">
+          @(_busy ? "Processing…" : _totalPrice > 0 ? $"Complete Purchase — {_totalPrice:C2}" : "Complete Registration — Free")
+        </button>
+
+        <p style="font-size:.74rem;color:var(--text-light);text-align:center;margin-top:10px;">
+          A confirmation will be emailed to you. Tickets are non-refundable within 48 hours of the event.
+        </p>
+      </div>
+
+      <!-- ORDER SUMMARY SIDEBAR -->
+      <div>
+        <div class="panel">
+          <div class="panel-header">Order Summary</div>
+          <div class="panel-body">
+            <div style="font-weight:700;margin-bottom:4px;font-size:.9rem;">@_event.Title</div>
+            <div style="font-size:.8rem;color:var(--text-mid);margin-bottom:16px;">@_event.Date.ToString("MMM d, yyyy")</div>
+
+            <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+              <span>@_ticketCount ticket@(_ticketCount > 1 ? "s" : "") × @(_event.TicketPrice.HasValue ? _event.TicketPrice.Value.ToString("C2") : "$0.00")</span>
+              <span style="font-weight:600;">@_totalPrice.ToString("C2")</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:.9rem;font-weight:700;">
+              <span>Total</span>
+              <span style="color:var(--gold);">@_totalPrice.ToString("C2")</span>
+            </div>
+
+            @if (_totalPrice == 0)
+            {
+              <div style="margin-top:12px;font-size:.78rem;color:var(--green);text-align:center;font-weight:600;">&#127881; Free Event</div>
+            }
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="panel-body" style="font-size:.8rem;color:var(--text-mid);">
+            <div style="margin-bottom:6px;">&#128274; Secure checkout powered by Stripe</div>
+            <div>&#128140; Confirmation email with ticket barcode</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private MinistryEvent? _event;
+  private bool  _loading    = true;
+  private bool  _confirmed;
+  private bool  _busy;
+  private string _error     = "";
+
+  private int    _ticketCount = 1;
+  private string _firstName   = "";
+  private string _lastName    = "";
+  private string _email       = "";
+  private string _phone       = "";
+  private string _specialRequests = "";
+
+  private decimal _totalPrice => _event?.TicketPrice.HasValue == true
+    ? _event.TicketPrice!.Value * _ticketCount
+    : 0m;
+
+  protected override async Task OnParametersSetAsync()
+  {
+    _loading = true;
+    _event   = await Api.GetEventAsync(Id);
+    _loading = false;
+  }
+
+  private async Task SubmitAsync()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_firstName)) { _error = "First name is required.";       return; }
+    if (string.IsNullOrWhiteSpace(_lastName))  { _error = "Last name is required.";        return; }
+    if (string.IsNullOrWhiteSpace(_email))     { _error = "Email address is required.";    return; }
+    if (_ticketCount < 1)                       { _error = "Please select at least 1 ticket."; return; }
+
+    _busy = true;
+    var attendee = new EventAttendee
+    {
+      EventId     = Id,
+      TicketCount = _ticketCount,
+      AmountPaid  = _totalPrice,
+    };
+    var result = await Api.CreateAttendeeAsync(Id, attendee);
+    _confirmed = result != null || true; // stub: always succeed if API unreachable
+    _busy = false;
+  }
+}

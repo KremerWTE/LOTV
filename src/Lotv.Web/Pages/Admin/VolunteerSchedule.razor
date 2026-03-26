@@ -1,0 +1,276 @@
+@page "/admin/volunteer-schedule"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Volunteer Schedule — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Volunteer Schedule</h2>
+    <p>Calendar view of volunteer availability and upcoming assignments</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <button class="btn" @onclick="PrevWeek">&#8592; Prev</button>
+    <span style="font-weight:700;color:var(--navy);min-width:200px;text-align:center;font-size:.9rem;">
+      @WeekLabel
+    </span>
+    <button class="btn" @onclick="NextWeek">Next &#8594;</button>
+    <button class="btn" @onclick="GoToday" style="margin-left:4px;">Today</button>
+  </div>
+</div>
+
+<!-- View toggle -->
+<div class="filter-bar" style="margin-bottom:20px;">
+  @foreach (var v in new[]{"Week","Month","List"})
+  {
+    <button class="filter-chip @(_view == v ? "active" : "")" @onclick="() => _view = v">@v</button>
+  }
+</div>
+
+@if (_view == "Week")
+{
+  <!-- Week calendar -->
+  <div class="panel" style="margin-bottom:24px;overflow-x:auto;">
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;min-width:700px;">
+        <thead>
+          <tr style="background:#f0f7ff;">
+            <th style="width:100px;padding:10px 12px;font-size:.78rem;color:var(--navy);text-align:left;border-bottom:2px solid var(--border);">
+              Volunteer
+            </th>
+            @foreach (var day in WeekDays)
+            {
+              bool isToday = day.Date == DateTime.Today;
+              <th style="padding:8px 4px;font-size:.75rem;text-align:center;border-bottom:2px solid var(--border);
+                         @(isToday ? "background:#fff8e6;" : "")">
+                <div style="font-weight:700;color:@(isToday ? "var(--amber)" : "var(--navy)");">@day.DayOfWeek.ToString()[..3]</div>
+                <div style="font-size:.8rem;color:var(--text-light);font-weight:400;">@day.Day</div>
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var vol in _volunteers)
+          {
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:10px 12px;">
+                <div style="font-weight:600;color:var(--navy);font-size:.82rem;white-space:nowrap;">@vol.Name</div>
+                <div style="font-size:.7rem;color:var(--text-light);">@vol.Load open</div>
+              </td>
+              @foreach (var day in WeekDays)
+              {
+                bool avail    = vol.AvailableDays.Contains(day.DayOfWeek);
+                var  daySlots = GetAssignments(vol.Id, day);
+                <td style="padding:4px;vertical-align:top;min-width:90px;
+                           background:@(avail ? "white" : "#fafafa");">
+                  @if (!avail)
+                  {
+                    <div style="height:32px;background:#f4f7fb;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                      <span style="font-size:.68rem;color:#bbb;">Unavail.</span>
+                    </div>
+                  }
+                  else if (!daySlots.Any())
+                  {
+                    <div style="height:32px;background:#f0faf0;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                      <span style="font-size:.68rem;color:#aaa;">Open</span>
+                    </div>
+                  }
+                  else
+                  {
+                    @foreach (var slot in daySlots)
+                    {
+                      <div style="background:@(slot.IsOverdue ? "#fef2f2" : "#f0f7ff");
+                                  border:1px solid @(slot.IsOverdue ? "#fecaca" : "#c8dff5");
+                                  border-radius:6px;padding:4px 6px;margin-bottom:3px;">
+                        <div style="font-size:.7rem;font-weight:700;color:@(slot.IsOverdue ? "#b91c1c" : "var(--navy)");
+                                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">#@slot.CaseId</div>
+                        <div style="font-size:.65rem;color:var(--text-light);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@slot.FamilyName</div>
+                      </div>
+                    }
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div style="display:flex;gap:20px;font-size:.78rem;color:var(--text-mid);flex-wrap:wrap;">
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:#f0faf0;border-radius:3px;border:1px solid #ccc;display:inline-block;"></span>Available / No assignment</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:#f0f7ff;border-radius:3px;border:1px solid #c8dff5;display:inline-block;"></span>Active assignment</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:#fef2f2;border-radius:3px;border:1px solid #fecaca;display:inline-block;"></span>Overdue assignment</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:#fafafa;border-radius:3px;border:1px solid #eee;display:inline-block;"></span>Unavailable</span>
+  </div>
+}
+else if (_view == "Month")
+{
+  <!-- Month grid -->
+  <div class="panel" style="margin-bottom:24px;">
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            @foreach (var dow in new[]{"Sun","Mon","Tue","Wed","Thu","Fri","Sat"})
+            {
+              <th style="padding:10px;font-size:.78rem;color:var(--navy);text-align:center;background:#f0f7ff;border-bottom:2px solid var(--border);">@dow</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var week in MonthWeeks)
+          {
+            <tr>
+              @foreach (var day in week)
+              {
+                bool thisMonth = day.Month == _cursor.Month;
+                bool isToday   = day.Date == DateTime.Today;
+                var  dayAssignments = _assignments.Where(a => a.DueDate.Date == day.Date).ToList();
+                <td style="padding:8px;vertical-align:top;min-height:80px;border:1px solid var(--border);
+                           background:@(isToday ? "#fff8e6" : thisMonth ? "white" : "#fafafa");">
+                  <div style="font-size:.78rem;font-weight:@(isToday ? "700" : "400");
+                               color:@(isToday ? "var(--amber)" : thisMonth ? "var(--text-body)" : "#ccc");
+                               margin-bottom:4px;">
+                    @day.Day
+                  </div>
+                  @foreach (var a in dayAssignments.Take(3))
+                  {
+                    <div style="background:#f0f7ff;border-radius:4px;padding:2px 5px;font-size:.65rem;
+                                color:var(--navy);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      @a.VolunteerName — #@a.CaseId
+                    </div>
+                  }
+                  @if (dayAssignments.Count > 3)
+                  {
+                    <div style="font-size:.65rem;color:var(--text-light);">+@(dayAssignments.Count - 3) more</div>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+else
+{
+  <!-- List view -->
+  <div class="panel">
+    <div class="panel-head"><h3>Upcoming Assignments — Next 14 Days</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Due Date</th>
+            <th>Case #</th>
+            <th>Family</th>
+            <th>Volunteer</th>
+            <th>Status</th>
+            <th>Overdue</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var a in _assignments.Where(a => a.DueDate >= DateTime.Today && a.DueDate <= DateTime.Today.AddDays(14))
+                                         .OrderBy(a => a.DueDate))
+          {
+            <tr>
+              <td style="white-space:nowrap;">@a.DueDate.ToString("ddd MM/dd")</td>
+              <td><a href="/admin/cases/@a.CaseId" style="color:var(--navy);">#@a.CaseId</a></td>
+              <td>@a.FamilyName</td>
+              <td>@a.VolunteerName</td>
+              <td>
+                <span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700;
+                             background:#f0f7ff;color:var(--navy);">@a.Status</span>
+              </td>
+              <td>
+                @if (a.IsOverdue)
+                {
+                  <span style="color:#b91c1c;font-weight:700;font-size:.8rem;">&#9888; Yes</span>
+                }
+                else
+                {
+                  <span style="color:#aaa;font-size:.8rem;">—</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private string _view   = "Week";
+  private DateTime _cursor = DateTime.Today;
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+
+  private DateTime WeekStart => _cursor.AddDays(-(int)_cursor.DayOfWeek);
+  private IEnumerable<DateTime> WeekDays => Enumerable.Range(0, 7).Select(i => WeekStart.AddDays(i));
+  private string WeekLabel => $"{WeekStart:MMM d} – {WeekStart.AddDays(6):MMM d, yyyy}";
+
+  private IEnumerable<IEnumerable<DateTime>> MonthWeeks
+  {
+    get
+    {
+      var first  = new DateTime(_cursor.Year, _cursor.Month, 1);
+      var start  = first.AddDays(-(int)first.DayOfWeek);
+      var last   = new DateTime(_cursor.Year, _cursor.Month, DateTime.DaysInMonth(_cursor.Year, _cursor.Month));
+      var end    = last.AddDays(6 - (int)last.DayOfWeek);
+      var weeks  = new List<List<DateTime>>();
+      var day    = start;
+      while (day <= end)
+      {
+        var week = Enumerable.Range(0, 7).Select(i => day.AddDays(i)).ToList();
+        weeks.Add(week);
+        day = day.AddDays(7);
+      }
+      return weeks;
+    }
+  }
+
+  private void PrevWeek() => _cursor = _view == "Month"
+    ? _cursor.AddMonths(-1) : _cursor.AddDays(-7);
+  private void NextWeek() => _cursor = _view == "Month"
+    ? _cursor.AddMonths(1) : _cursor.AddDays(7);
+  private void GoToday()  => _cursor = DateTime.Today;
+
+  private IEnumerable<AssignmentSlot> GetAssignments(int volId, DateTime day)
+    => _assignments.Where(a => a.VolunteerId == volId && a.DueDate.Date == day.Date);
+
+  // ── Stub data ─────────────────────────────────────────────────────────────
+
+  private readonly List<VolunteerRow> _volunteers = new()
+  {
+    new(1, "Maria G.",    new[]{ DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Saturday }, 2),
+    new(2, "Thomas K.",   new[]{ DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday },   1),
+    new(3, "Sandra L.",   new[]{ DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Friday },     3),
+    new(4, "James N.",    new[]{ DayOfWeek.Wednesday, DayOfWeek.Saturday, DayOfWeek.Sunday }, 0),
+    new(5, "Patricia W.", new[]{ DayOfWeek.Monday, DayOfWeek.Thursday },                      1),
+  };
+
+  private readonly List<AssignmentSlot> _assignments;
+
+  public VolunteerSchedule()
+  {
+    var today = DateTime.Today;
+    _assignments = new()
+    {
+      new(1042, 1, "Maria G.",    "Johnson Family", today.AddDays(1),  "InProgress",   false),
+      new(1047, 1, "Maria G.",    "Rivera Family",  today.AddDays(4),  "New",           false),
+      new(1043, 2, "Thomas K.",   "Smith Family",   today.AddDays(-2), "AwaitingShip.", true),
+      new(1049, 3, "Sandra L.",   "Lee Family",     today.AddDays(2),  "InProgress",   false),
+      new(1051, 3, "Sandra L.",   "Brown Family",   today.AddDays(6),  "New",           false),
+      new(1052, 3, "Sandra L.",   "Davis Family",   today.AddDays(8),  "New",           false),
+      new(1050, 5, "Patricia W.", "Adams Family",   today.AddDays(3),  "InProgress",   false),
+    };
+  }
+
+  private record VolunteerRow(int Id, string Name, DayOfWeek[] AvailableDays, int Load);
+  private record AssignmentSlot(int CaseId, int VolunteerId, string VolunteerName, string FamilyName,
+                                 DateTime DueDate, string Status, bool IsOverdue);
+}

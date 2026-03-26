@@ -1,0 +1,110 @@
+@page "/donate/confirm"
+@inject NavigationManager Nav
+
+<PageTitle>Donation Confirmed — LOTV Ministry</PageTitle>
+
+<!-- PUBLIC NAV -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:white;">
+    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;">&#127803;</div>
+    <strong style="font-family:var(--ff-head);">LOTV Ministry</strong>
+  </a>
+  <div style="display:flex;gap:16px;">
+    <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
+    <a href="/give" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Donate Again</a>
+  </div>
+</div>
+
+<div style="max-width:620px;margin:64px auto;padding:0 24px;text-align:center;">
+
+  <!-- SUCCESS ICON -->
+  <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:2.5rem;margin:0 auto 24px;">&#10003;</div>
+
+  <h1 style="font-family:var(--ff-head);color:var(--navy);font-size:2rem;margin:0 0 12px;">Thank You for Your Gift!</h1>
+  <p style="font-size:1rem;color:var(--text-mid);margin:0 0 32px;line-height:1.6;">
+    Your generous donation to Lily of the Valley Ministry has been received.
+    Through your gift, families experiencing pregnancy and infant loss will find hope, healing, and practical support.
+  </p>
+
+  <!-- SUMMARY CARD -->
+  <div class="panel" style="margin-bottom:32px;text-align:left;">
+    <div class="panel-header">Donation Summary</div>
+    <div class="panel-body">
+      <table style="width:100%;border-collapse:collapse;font-size:.88rem;">
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:9px 0;color:var(--text-light);">Donor</td>
+          <td style="padding:9px 0;font-weight:600;text-align:right;">@_name</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:9px 0;color:var(--text-light);">Amount</td>
+          <td style="padding:9px 0;font-weight:700;color:var(--gold);text-align:right;">@_amountDisplay</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:9px 0;color:var(--text-light);">Date</td>
+          <td style="padding:9px 0;font-weight:600;text-align:right;">@DateTime.UtcNow.ToString("MMMM d, yyyy")</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:9px 0;color:var(--text-light);">Confirmation</td>
+          <td style="padding:9px 0;font-family:monospace;font-size:.82rem;text-align:right;color:var(--text-mid);">@_confirmationId</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 0;color:var(--text-light);">Receipt</td>
+          <td style="padding:9px 0;font-size:.82rem;text-align:right;color:var(--text-mid);">Emailed to @_email</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAX RECEIPT DOWNLOAD -->
+  <div style="background:var(--green-pale);border:1px solid var(--green);border-radius:10px;padding:16px 20px;margin-bottom:28px;display:flex;align-items:center;gap:14px;text-align:left;">
+    <span style="font-size:1.8rem;">&#128196;</span>
+    <div style="flex:1;">
+      <div style="font-weight:700;color:var(--navy);margin-bottom:3px;">Tax Receipt Available</div>
+      <div style="font-size:.82rem;color:var(--text-mid);">LOTV Ministry is a registered 501(c)(3) nonprofit. Your donation is tax-deductible to the extent permitted by law.</div>
+    </div>
+    <button class="btn btn-primary btn-sm" @onclick="DownloadReceipt" style="flex-shrink:0;">&#11123; Download PDF</button>
+  </div>
+
+  <!-- CTAs -->
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:40px;">
+    <a href="/give" class="btn btn-primary">Give Another Gift</a>
+    <a href="/volunteer" class="btn btn-sm">Volunteer With Us</a>
+    <a href="/" class="btn btn-sm">Return Home</a>
+  </div>
+
+  <!-- IMPACT MESSAGE -->
+  <div style="background:var(--bg);border-radius:12px;padding:20px;font-size:.84rem;color:var(--text-mid);line-height:1.6;">
+    <div style="font-size:1.2rem;margin-bottom:8px;">&#127803;</div>
+    <em>&ldquo;Your gift today walks alongside a family in their darkest hour &mdash; reminding them they are not alone.&rdquo;</em>
+  </div>
+
+</div>
+
+@code {
+  [SupplyParameterFromQuery] public string? Name    { get; set; }
+  [SupplyParameterFromQuery] public string? Email   { get; set; }
+  [SupplyParameterFromQuery] public string? Amount  { get; set; }
+  [SupplyParameterFromQuery] public string? Confirm { get; set; }
+
+  private string _name            = "";
+  private string _email           = "";
+  private string _amountDisplay   = "";
+  private string _confirmationId  = "";
+
+  protected override void OnInitialized()
+  {
+    _name           = string.IsNullOrEmpty(Name)   ? "Valued Donor"                : Name;
+    _email          = string.IsNullOrEmpty(Email)  ? "your email address"          : Email;
+    _amountDisplay  = string.IsNullOrEmpty(Amount) ? "Your Gift"
+                        : decimal.TryParse(Amount, out var amt) ? amt.ToString("C2") : Amount;
+    _confirmationId = string.IsNullOrEmpty(Confirm)
+                        ? $"LOTV-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(10000,99999)}"
+                        : Confirm;
+  }
+
+  private void DownloadReceipt()
+  {
+    // In production: call Api.GetReceiptPdfAsync(_confirmationId) and trigger browser download
+    // For now, stub — receipt is emailed automatically on successful donation
+  }
+}

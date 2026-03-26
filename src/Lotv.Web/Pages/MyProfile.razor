@@ -1,0 +1,140 @@
+@page "/my-profile"
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>My Profile — LOTV Ministry</PageTitle>
+
+<!-- PUBLIC NAV HEADER -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div>
+      <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
+      <div style="font-size:.7rem;opacity:.7;">My Profile</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <a href="/my-requests" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Requests</a>
+    <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
+  </div>
+</div>
+
+<div style="max-width:720px;margin:0 auto;padding:32px 24px;">
+  <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 20px;">My Profile</h2>
+
+  @if (_saved)
+  {
+    <div style="background:var(--green-pale);border-radius:10px;padding:12px 18px;margin-bottom:20px;font-size:.84rem;color:var(--green-dark);">
+      &#10003; Profile updated successfully.
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div style="background:#fff3cd;border-radius:10px;padding:12px 18px;margin-bottom:20px;font-size:.84rem;color:#856404;">
+      &#9888; @_error
+    </div>
+  }
+
+  <!-- PERSONAL INFO -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">Personal Information</div>
+    <div class="panel-body">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">First Name *</label>
+          <input class="form-input" @bind="_firstName" placeholder="Jane" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name *</label>
+          <input class="form-input" @bind="_lastName" placeholder="Smith" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input class="form-input" type="email" @bind="_email" placeholder="jane@example.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone Number</label>
+        <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 000-0000" />
+      </div>
+    </div>
+  </div>
+
+  <!-- MAILING ADDRESS -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">Mailing Address</div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label">Street Address</label>
+        <input class="form-input" @bind="_street" placeholder="123 Main Street" />
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">City</label>
+          <input class="form-input" @bind="_city" placeholder="Springfield" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">State</label>
+          <input class="form-input" @bind="_state" placeholder="IL" maxlength="2" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ZIP Code</label>
+        <input class="form-input" @bind="_zip" placeholder="62701" maxlength="10" style="max-width:160px;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMUNICATION PREFERENCES -->
+  <div class="panel" style="margin-bottom:24px;">
+    <div class="panel-header">Communication Preferences</div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label">How would you like us to contact you?</label>
+        <select class="form-input" @bind="_preferredContact">
+          <option value="Email">Email</option>
+          <option value="Phone">Phone Call</option>
+          <option value="Text">Text Message</option>
+          <option value="Mail">Physical Mail</option>
+        </select>
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;font-size:.88rem;cursor:pointer;">
+        <input type="checkbox" @bind="_requestUpdates" style="width:16px;height:16px;" />
+        Send me updates about my assistance requests by email
+      </label>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-primary" @onclick="SaveAsync">Save Changes</button>
+    <a href="/my-requests" class="btn">Cancel</a>
+  </div>
+</div>
+
+@code {
+  private string _firstName = "";
+  private string _lastName = "";
+  private string _email = "";
+  private string _phone = "";
+  private string _street = "";
+  private string _city = "";
+  private string _state = "";
+  private string _zip = "";
+  private string _preferredContact = "Email";
+  private bool _requestUpdates = true;
+  private bool _saved;
+  private string _error = "";
+
+  private async Task SaveAsync()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
+    {
+      _error = "First and last name are required.";
+      return;
+    }
+    // In production: call Api.UpdateProfileAsync(...)
+    _saved = true;
+    await Task.CompletedTask;
+  }
+}

@@ -1,0 +1,85 @@
+name: Deploy — Production
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'   # triggers on v1.0.0, v1.2.3, etc.
+
+jobs:
+  deploy-production:
+    name: Deploy release tag to Production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Run tests (gate)
+        run: dotnet test Lotv.slnx --configuration Release --no-restore
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef --version 9.*
+
+      - name: Run database migrations (production)
+        run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__Default: ${{ secrets.DB_CONNECTION_STRING }}
+
+      - name: Extract release version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY_HOST }}
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build & push API image (production tag)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: src/Lotv.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_HOST }}/lotv-api:production
+            ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ steps.version.outputs.VERSION }}
+
+      - name: Build & push Web image (production tag)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: src/Lotv.Web/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_HOST }}/lotv-web:production
+            ${{ secrets.REGISTRY_HOST }}/lotv-web:${{ steps.version.outputs.VERSION }}
+
+      # ── Deploy step: swap for your actual hosting ──────────────────────────
+      # Example: Azure Container Apps
+      # - name: Deploy API to production
+      #   uses: azure/container-apps-deploy-action@v1
+      #   with:
+      #     acrName: ${{ secrets.ACR_NAME }}
+      #     containerAppName: lotv-api-prod
+      #     resourceGroup: ${{ secrets.AZURE_RG }}
+      #     imageToDeploy: ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ steps.version.outputs.VERSION }}
+
+      - name: Create GitHub Release notes
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Production deploy FAILED for ${{ steps.version.outputs.VERSION }}"
+          # wire to on-call / PagerDuty here

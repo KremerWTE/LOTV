@@ -1,0 +1,247 @@
+@page "/admin/allocate/money"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Allocate Funds — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Allocate Monetary Contribution</h2>
+    <p>Assign an unallocated donation to a specific request or expense</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/allocations" class="btn btn-sm">&#8592; Back to Allocations</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;">
+
+  <!-- FORM -->
+  <div class="panel">
+    <div class="panel-header">Allocation Details</div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Step 1: Pick donation -->
+      <div class="form-group">
+        <label class="form-label">1. Select Unallocated Donation *</label>
+        @if (_donations.Any())
+        {
+          <select class="form-input" @onchange="OnDonationSelected">
+            <option value="">— Choose a donation —</option>
+            @foreach (var d in _donations)
+            {
+              <option value="@d.Id">@d.Date.ToString("MMM d, yyyy") — @d.Amount.ToString("C0") via @d.Channel.ToDisplayName()</option>
+            }
+          </select>
+        }
+        else
+        {
+          <div style="font-size:.84rem;color:var(--text-light);padding:10px 0;">No unallocated donations found. <a href="/admin/donations" style="color:var(--green);">View all donations</a></div>
+        }
+      </div>
+
+      @if (_selectedDonation != null)
+      {
+        <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.84rem;">
+          <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">Selected: @_selectedDonation.Amount.ToString("C2") donation</div>
+          <div style="color:var(--text-mid);">
+            Date: @_selectedDonation.Date.ToString("MMM d, yyyy") &bull;
+            Channel: @_selectedDonation.Channel.ToDisplayName() &bull;
+            Available: <strong style="color:var(--green);">@_availableAmount.ToString("C2")</strong>
+          </div>
+        </div>
+      }
+
+      <!-- Step 2: Allocation target -->
+      <div class="form-group">
+        <label class="form-label">2. Allocate To *</label>
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+          <button class="btn btn-sm @(_targetType == "request" ? "btn-primary" : "")" @onclick='() => { _targetType = "request"; _targetId = 0; }'>Case / Request</button>
+          <button class="btn btn-sm @(_targetType == "expense" ? "btn-primary" : "")" @onclick='() => { _targetType = "expense"; _targetId = 0; }'>Operational Expense</button>
+          <button class="btn btn-sm @(_targetType == "program" ? "btn-primary" : "")" @onclick='() => { _targetType = "program"; _targetId = 0; }'>Program / General</button>
+        </div>
+
+        @if (_targetType == "request")
+        {
+          <select class="form-input" @onchange='e => int.TryParse(e.Value?.ToString(), out _targetId)'>
+            <option value="0">— Select a case —</option>
+            @foreach (var r in _requests)
+            {
+              <option value="@r.Id">Case #@r.Id — @(r.Family?.FullName ?? $"Family #{r.FamilyId}") (@r.Status)</option>
+            }
+          </select>
+        }
+        else if (_targetType == "expense")
+        {
+          <input class="form-input" placeholder="Expense description (e.g. 'Office supplies — March')" @bind="_expenseDescription" />
+        }
+        else
+        {
+          <input class="form-input" placeholder="Program name (e.g. 'General Operations', 'Memorial Package Fund')" @bind="_expenseDescription" />
+        }
+      </div>
+
+      <!-- Step 3: Amount -->
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">3. Amount to Allocate *</label>
+          <input class="form-input" type="number" min="0.01" step="0.01" @bind="_amount" placeholder="0.00" />
+          @if (_selectedDonation != null && _amount > _availableAmount)
+          {
+            <div style="font-size:.76rem;color:var(--blush);margin-top:3px;">&#9888; Exceeds available balance of @_availableAmount.ToString("C2")</div>
+          }
+        </div>
+        <div class="form-group">
+          <label class="form-label">Approved By</label>
+          <input class="form-input" @bind="_approvedBy" placeholder="Staff name" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" rows="3" @bind="_notes" placeholder="Optional — reason for this allocation, special circumstances, etc."></textarea>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_error))
+      {
+        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+      }
+      @if (_success)
+      {
+        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Allocation recorded successfully. <a href="/admin/allocations" style="color:var(--green);">View allocation ledger &rarr;</a></div>
+      }
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@(_busy || _success)">
+          @(_busy ? "Saving…" : "Record Allocation")
+        </button>
+        <button class="btn" @onclick="ResetForm">Clear</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SIDEBAR: RECENT ALLOCATIONS -->
+  <div>
+    <div class="panel">
+      <div class="panel-header">Recent Allocations</div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_recent.Any())
+        {
+          <div style="padding:16px;text-align:center;color:var(--text-light);font-size:.82rem;">No allocations yet</div>
+        }
+        else
+        {
+          @foreach (var a in _recent.Take(8))
+          {
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:.8rem;">
+              <div style="font-weight:600;margin-bottom:2px;">@a.Amount.ToString("C0") &rarr; @a.AllocatedTo</div>
+              <div style="color:var(--text-light);">@a.CreatedAt.ToString("MMM d") &bull; <span class="badge @(a.Status == AllocationStatus.Allocated ? "badge-delivered" : "badge-onhold")" style="font-size:.6rem;">@a.Status</span></div>
+            </div>
+          }
+          <div style="padding:10px 14px;text-align:center;">
+            <a href="/admin/allocations" style="font-size:.78rem;color:var(--green);font-weight:600;text-decoration:none;">View Full Ledger &rarr;</a>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+</div>
+
+@code {
+  private List<Donation>      _donations = [];
+  private List<PackageRequest> _requests = [];
+  private List<FundAllocation> _recent   = [];
+
+  private Donation? _selectedDonation;
+  private decimal   _availableAmount;
+  private string    _targetType         = "request";
+  private int       _targetId;
+  private string    _expenseDescription = "";
+  private decimal   _amount;
+  private string    _approvedBy         = "";
+  private string    _notes              = "";
+
+  private bool   _busy;
+  private bool   _success;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var t1 = Api.GetDonationsAsync();
+    var t2 = Api.GetRequestsAsync(status: "New");
+    var t3 = Api.GetAllocationsAsync();
+    await Task.WhenAll(t1, t2, t3);
+
+    _donations = t1.Result
+      .Where(d => d.AllocationStatus == AllocationStatus.Unallocated || d.AllocationStatus == AllocationStatus.PendingReview)
+      .OrderByDescending(d => d.Date).ToList();
+    _requests = t2.Result.OrderByDescending(r => r.CreatedAt).ToList();
+    _recent   = t3.Result.OrderByDescending(a => a.CreatedAt).ToList();
+  }
+
+  private void OnDonationSelected(ChangeEventArgs e)
+  {
+    if (int.TryParse(e.Value?.ToString(), out var id))
+    {
+      _selectedDonation = _donations.FirstOrDefault(d => d.Id == id);
+      _availableAmount  = _selectedDonation?.Amount ?? 0;
+      _amount           = _availableAmount;
+    }
+    else
+    {
+      _selectedDonation = null;
+      _availableAmount  = 0;
+    }
+  }
+
+  private async Task SubmitAsync()
+  {
+    _error = "";
+    if (_selectedDonation == null)  { _error = "Please select a donation.";              return; }
+    if (_amount <= 0)                { _error = "Amount must be greater than zero.";      return; }
+    if (_amount > _availableAmount)  { _error = "Amount exceeds the available balance.";  return; }
+    if (_targetType == "request" && _targetId == 0)
+                                     { _error = "Please select a case to allocate to.";   return; }
+    if (_targetType != "request" && string.IsNullOrWhiteSpace(_expenseDescription))
+                                     { _error = "Please enter an expense description.";    return; }
+
+    _busy = true;
+    var target = _targetType == "request" ? $"Case #{_targetId}" : _expenseDescription;
+    var alloc  = new FundAllocation
+    {
+      DonationId   = _selectedDonation.Id,
+      AllocatedTo  = target,
+      Amount       = _amount,
+      ApprovedBy   = _approvedBy,
+      Notes        = _notes,
+      Status       = AllocationStatus.Allocated,
+    };
+
+    var result = await Api.UpdateAllocationAsync(0, alloc);   // POST stub — uses update endpoint
+    _success = result != null;
+    if (!_success) _error = "Failed to save. Please try again.";
+
+    _busy = false;
+    if (_success)
+    {
+      _recent.Insert(0, alloc);
+      if (_recent.Count > 20) _recent.RemoveAt(20);
+    }
+  }
+
+  private void ResetForm()
+  {
+    _selectedDonation   = null;
+    _targetId           = 0;
+    _expenseDescription = "";
+    _amount             = 0;
+    _approvedBy         = "";
+    _notes              = "";
+    _error              = "";
+    _success            = false;
+    _targetType         = "request";
+  }
+}

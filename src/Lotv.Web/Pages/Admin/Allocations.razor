@@ -1,6 +1,6 @@
 @page "/admin/allocations"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 @inject AuthService Auth
 
 <PageTitle>Fund Allocations — LOTV Staff Portal</PageTitle>
@@ -139,17 +139,8 @@
     _             => true
   });
 
-  protected override void OnInitialized()
-  {
-    var donors = Data.GetDonors().ToDictionary(d => d.Id);
-    var donations = Data.GetDonations()
-      .Select(d => { if (donors.TryGetValue(d.DonorId, out var donor)) d.Donor = donor; return d; })
-      .ToDictionary(d => d.Id);
-
-    _allocs = Data.GetAllocations()
-      .Select(a => { if (donations.TryGetValue(a.DonationId, out var don)) a.Donation = don; return a; })
-      .ToList();
-  }
+  protected override async Task OnInitializedAsync()
+    => _allocs = await Api.GetAllocationsAsync();
 
   private void OpenReview(FundAllocation a)
   {
@@ -171,10 +162,9 @@
     _reviewing.Status       = AllocationStatus.Allocated;
     _reviewing.ApprovedBy   = Auth.UserName;
     _reviewing.ApprovedAt   = DateTime.UtcNow;
-    Data.UpdateAllocation(_reviewing);
-    Data.LogAction(Auth.UserName, "Approved", "FundAllocation", _reviewing.Id.ToString(),
-      $"Allocated {_reviewing.Amount:C0} to {_reviewing.AllocatedTo}");
+    await Api.UpdateAllocationAsync(_reviewing.Id, _reviewing);
 
+    _allocs      = await Api.GetAllocationsAsync();
     _reviewing   = null;
     _approvedMsg = true;
     StateHasChanged();

@@ -1,6 +1,6 @@
 @page "/admin/by-donor"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Donations by Donor — LOTV Staff Portal</PageTitle>
 
@@ -83,7 +83,7 @@
                         @if (!string.IsNullOrEmpty(g.Campaign))
                         { <span style="color:var(--text-mid);margin-left:6px;">&bull; @g.Campaign</span> }
                       </div>
-                      <span style="font-size:.72rem;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:2px 8px;color:var(--text-mid);">@g.Channel</span>
+                      <span style="font-size:.72rem;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:2px 8px;color:var(--text-mid);">@g.Channel.ToDisplayName()</span>
                     </div>
                   }
                   @if (!gifts.Any())
@@ -114,10 +114,10 @@
     : _rows.Where(r => r.Donor.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
                         r.Donor.Email.Contains(_search, StringComparison.OrdinalIgnoreCase));
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    var donors = Data.GetDonors().ToDictionary(d => d.Id);
-    var donations = Data.GetDonations();
+    var donors    = (await Api.GetDonorsAsync()).ToDictionary(d => d.Id);
+    var donations = await Api.GetDonationsAsync();
 
     _giftsByDonor = donations
       .GroupBy(d => d.DonorId)

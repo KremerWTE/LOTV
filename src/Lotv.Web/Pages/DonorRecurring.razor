@@ -1,0 +1,410 @@
+@page "/donor/recurring"
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>My Recurring Gifts — LOTV Ministry</PageTitle>
+
+<!-- Nav header -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div>
+      <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
+      <div style="font-size:.7rem;opacity:.7;">My Giving</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:16px;align-items:center;">
+    <a href="/donor/impact" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Impact</a>
+    <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
+  </div>
+</div>
+
+<div style="max-width:800px;margin:0 auto;padding:32px 24px;">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 4px;">My Recurring Gifts</h2>
+      <p style="color:var(--text-light);font-size:.85rem;margin:0;">Manage your automatic giving schedules</p>
+    </div>
+    <button class="btn btn-primary" @onclick="() => _showNew = true">+ Set Up Recurring Gift</button>
+  </div>
+
+  @if (_schedules.Any(s => s.Status == "PastDue"))
+  {
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:.85rem;color:#b91c1c;line-height:1.6;">
+      <strong>&#9888; Payment issue:</strong> One or more of your recurring gifts could not be processed.
+      Please <a href="mailto:support@lotvministry.org" style="color:#b91c1c;">contact support</a> or update your payment method to resume giving.
+    </div>
+  }
+
+  <!-- Active schedules -->
+  @if (!_schedules.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="text-align:center;padding:48px 24px;">
+        <div style="font-size:2rem;margin-bottom:12px;">&#128184;</div>
+        <div style="font-weight:700;color:var(--navy);font-size:1rem;margin-bottom:8px;">No recurring gifts set up yet</div>
+        <p style="color:var(--text-light);font-size:.85rem;max-width:380px;margin:0 auto 20px;line-height:1.7;">
+          A recurring gift ensures families receive consistent support throughout the year without you needing to remember each month.
+        </p>
+        <button class="btn btn-primary" @onclick="() => _showNew = true">Set Up My First Recurring Gift</button>
+      </div>
+    </div>
+  }
+  else
+  {
+    <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:32px;">
+      @foreach (var s in _schedules)
+      {
+        bool expanded = _expanded == s.Id;
+        <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;
+                    @(s.Status == "PastDue" ? "border-color:#fecaca;" : s.Status == "Active" ? "" : "opacity:.75;")">
+          <div style="padding:18px 20px;background:white;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <!-- Amount + frequency -->
+            <div style="flex:1;min-width:180px;">
+              <div style="font-family:var(--ff-head);font-size:1.6rem;font-weight:700;color:var(--navy);">
+                @s.Amount.ToString("C0")
+              </div>
+              <div style="font-size:.82rem;color:var(--text-light);">@s.FrequencyLabel</div>
+            </div>
+
+            <!-- Status + next charge -->
+            <div style="min-width:140px;">
+              <span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:.72rem;font-weight:700;
+                           background:@StatusBg(s.Status);color:@StatusColor(s.Status);margin-bottom:4px;">
+                @s.Status
+              </span>
+              @if (s.Status == "Active")
+              {
+                <div style="font-size:.78rem;color:var(--text-light);">
+                  Next: <strong>@s.NextChargeDate.ToString("MMM d, yyyy")</strong>
+                </div>
+              }
+              else if (s.Status == "Paused")
+              {
+                <div style="font-size:.78rem;color:var(--text-light);">Paused — no charges until resumed</div>
+              }
+            </div>
+
+            <!-- Campaign tag -->
+            @if (!string.IsNullOrEmpty(s.Campaign))
+            {
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:4px 12px;font-size:.78rem;color:var(--text-mid);">
+                @s.Campaign
+              </div>
+            }
+
+            <!-- Actions -->
+            <div style="display:flex;gap:8px;margin-left:auto;">
+              <button class="btn" style="padding:6px 14px;font-size:.78rem;"
+                      @onclick="() => _expanded = (expanded ? 0 : s.Id)">
+                @(expanded ? "Hide" : "Manage")
+              </button>
+            </div>
+          </div>
+
+          @if (expanded)
+          {
+            <div style="background:#f4f7fb;border-top:1px solid var(--border);padding:20px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;font-size:.84rem;">
+                <div><span style="color:var(--text-light);">Started:</span> <strong>@s.CreatedAt.ToString("MMM d, yyyy")</strong></div>
+                <div><span style="color:var(--text-light);">Method:</span> <strong>@s.Channel</strong></div>
+                @if (s.EndsOn.HasValue)
+                {
+                  <div><span style="color:var(--text-light);">Ends:</span> <strong>@s.EndsOn.Value.ToString("MMM d, yyyy")</strong></div>
+                }
+                @if (s.LastChargedAt.HasValue)
+                {
+                  <div><span style="color:var(--text-light);">Last charged:</span> <strong>@s.LastChargedAt.Value.ToString("MMM d, yyyy")</strong></div>
+                }
+              </div>
+
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                @if (s.Status == "Active")
+                {
+                  <button class="btn" style="font-size:.82rem;" @onclick="() => PauseAsync(s.Id)">
+                    &#9646;&#9646; Pause
+                  </button>
+                }
+                @if (s.Status == "Paused")
+                {
+                  <button class="btn btn-primary" style="font-size:.82rem;" @onclick="() => ResumeAsync(s.Id)">
+                    &#9654; Resume
+                  </button>
+                }
+                @if (s.Status != "Cancelled" && s.Status != "Completed")
+                {
+                  <button style="background:none;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:6px 14px;font-size:.82rem;cursor:pointer;"
+                          @onclick="() => _cancelId = s.Id">
+                    Cancel
+                  </button>
+                }
+                <button class="btn" style="font-size:.82rem;" @onclick="() => { _editId = s.Id; _editAmount = s.Amount; _editFreq = s.FrequencyLabel; }">
+                  Edit Amount / Frequency
+                </button>
+              </div>
+
+              @if (_editId == s.Id)
+              {
+                <div style="margin-top:16px;background:white;border-radius:8px;padding:16px;border:1px solid var(--border);">
+                  <div style="font-weight:600;color:var(--navy);margin-bottom:12px;font-size:.88rem;">Edit Schedule</div>
+                  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+                    <div class="form-group" style="margin:0;">
+                      <label class="form-label">Monthly Amount</label>
+                      <input class="form-input" type="number" @bind="_editAmount" style="max-width:120px;" />
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label class="form-label">Frequency</label>
+                      <select class="form-input" @bind="_editFreq" style="max-width:160px;">
+                        <option>Weekly</option>
+                        <option>Every 2 weeks</option>
+                        <option>Monthly</option>
+                        <option>Quarterly</option>
+                        <option>Annually</option>
+                      </select>
+                    </div>
+                    <button class="btn btn-primary" style="font-size:.82rem;" @onclick="() => SaveEditAsync(s.Id)">Save</button>
+                    <button class="btn" style="font-size:.82rem;" @onclick="() => _editId = 0">Cancel</button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Summary strip -->
+    <div style="background:#f0f7ff;border-radius:12px;padding:20px 24px;display:flex;gap:32px;flex-wrap:wrap;font-size:.84rem;margin-bottom:28px;">
+      <div>
+        <div style="color:var(--text-light);margin-bottom:2px;">Active schedules</div>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@_schedules.Count(s => s.Status == "Active")</div>
+      </div>
+      <div>
+        <div style="color:var(--text-light);margin-bottom:2px;">Monthly giving</div>
+        <div style="font-size:1.4rem;font-weight:700;color:#2d6a2d;">@MonthlyTotal.ToString("C0")</div>
+      </div>
+      <div>
+        <div style="color:var(--text-light);margin-bottom:2px;">Projected annual impact</div>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@(MonthlyTotal * 12).ToString("C0")</div>
+      </div>
+    </div>
+  }
+
+  <!-- Tax notice -->
+  <div style="background:#fff8e6;border:1px solid #ffe08a;border-radius:10px;padding:16px 20px;font-size:.82rem;color:#7a5c00;line-height:1.7;">
+    <strong>Tax information:</strong> You will receive a tax receipt for each recurring gift by email.
+    A full year-end giving statement is available each January from your
+    <a href="/donor/impact" style="color:#7a5c00;font-weight:600;">giving history page</a>.
+    Lily of the Valley Ministry is a 501(c)(3) organization (EIN: XX-XXXXXXX).
+  </div>
+
+</div>
+
+<!-- New recurring gift modal -->
+@if (_showNew)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:white;border-radius:16px;width:100%;max-width:480px;padding:32px;max-height:90vh;overflow-y:auto;">
+      <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;">Set Up Recurring Gift</h3>
+      <p style="color:var(--text-light);font-size:.84rem;margin:0 0 24px;line-height:1.6;">
+        Your gift will be automatically processed on the schedule you choose. Cancel any time.
+      </p>
+
+      <!-- Amount presets -->
+      <div class="form-group">
+        <label class="form-label">Gift Amount</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          @foreach (var preset in new[]{ 10m, 25m, 50m, 100m, 250m })
+          {
+            <button style="padding:8px 16px;border-radius:8px;border:1px solid @(_newAmount == preset ? "var(--navy)" : "var(--border)");
+                           background:@(_newAmount == preset ? "var(--navy)" : "white");
+                           color:@(_newAmount == preset ? "white" : "var(--text-body)");
+                           cursor:pointer;font-size:.85rem;font-weight:@(_newAmount == preset ? "700" : "400");"
+                    @onclick="() => _newAmount = preset">
+              @preset.ToString("C0")
+            </button>
+          }
+        </div>
+        <input class="form-input" type="number" @bind="_newAmount" placeholder="Other amount" style="max-width:160px;" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Frequency</label>
+        <select class="form-input" @bind="_newFreq">
+          <option value="Weekly">Weekly</option>
+          <option value="BiWeekly">Every 2 weeks</option>
+          <option value="Monthly" selected>Monthly</option>
+          <option value="Quarterly">Quarterly</option>
+          <option value="Annually">Annually</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Start Date</label>
+        <input class="form-input" type="date" @bind="_newStart" style="max-width:200px;" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Campaign / Fund (optional)</label>
+        <select class="form-input" @bind="_newCampaign">
+          <option value="">General Fund</option>
+          <option value="Care Packages">Care Packages</option>
+          <option value="Grief Books">Grief Books &amp; Resources</option>
+          <option value="Volunteer Support">Volunteer Support</option>
+          <option value="Operations">Chapter Operations</option>
+        </select>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_newError))
+      {
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:16px;">
+          &#9888; @_newError
+        </div>
+      }
+
+      <div style="background:#f0f7ff;border-radius:8px;padding:12px 16px;font-size:.82rem;color:var(--text-mid);line-height:1.7;margin-bottom:20px;">
+        <strong>Your commitment:</strong> @(_newAmount.ToString("C0")) @FreqDisplay — starting @_newStart.ToString("MMM d, yyyy").
+        You can pause or cancel at any time from this page.
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn" @onclick="() => { _showNew = false; _newError = ""; }">Cancel</button>
+        <button class="btn btn-primary" @onclick="CreateAsync" disabled="@_saving">
+          @(_saving ? "Setting up…" : "Start Recurring Gift")
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Cancel confirmation -->
+@if (_cancelId > 0)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:white;border-radius:16px;max-width:400px;width:100%;padding:32px;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:12px;">&#9888;</div>
+      <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 10px;">Cancel this recurring gift?</h3>
+      <p style="color:var(--text-mid);font-size:.85rem;margin:0 0 24px;line-height:1.7;">
+        No further charges will be made. You can always set up a new recurring gift in the future.
+      </p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button class="btn" @onclick="() => _cancelId = 0">Keep My Gift</button>
+        <button style="background:#b91c1c;color:white;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:700;font-size:.88rem;"
+                @onclick="ConfirmCancelAsync">Yes, Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private int    _expanded  = 0;
+  private int    _editId    = 0;
+  private int    _cancelId  = 0;
+  private bool   _showNew;
+  private bool   _saving;
+  private string _newError  = "";
+  private decimal _editAmount = 0;
+  private string  _editFreq   = "Monthly";
+
+  // New gift form
+  private decimal  _newAmount   = 25m;
+  private string   _newFreq     = "Monthly";
+  private DateTime _newStart    = DateTime.Today.AddDays(1);
+  private string   _newCampaign = "";
+
+  private string FreqDisplay => _newFreq switch
+  {
+    "Weekly"    => "every week",
+    "BiWeekly"  => "every 2 weeks",
+    "Quarterly" => "every quarter",
+    "Annually"  => "each year",
+    _           => "per month"
+  };
+
+  private decimal MonthlyTotal => _schedules
+    .Where(s => s.Status == "Active")
+    .Sum(s => s.FrequencyLabel switch
+    {
+      "Weekly"        => s.Amount * 4.33m,
+      "Every 2 weeks" => s.Amount * 2.17m,
+      "Quarterly"     => s.Amount / 3m,
+      "Annually"      => s.Amount / 12m,
+      _               => s.Amount
+    });
+
+  private async Task CreateAsync()
+  {
+    _newError = "";
+    if (_newAmount <= 0) { _newError = "Please enter a gift amount greater than $0."; return; }
+    _saving = true;
+    StateHasChanged();
+    await Task.Delay(600); // In production: call Api.CreateRecurringDonationAsync(...)
+    _schedules.Add(new ScheduleRow(
+      _schedules.Count + 10, _newAmount, _newFreq, _newStart,
+      null, "Active", _newCampaign, DateTime.UtcNow, null, "Online"));
+    _showNew = false;
+    _saving  = false;
+  }
+
+  private async Task PauseAsync(int id)
+  {
+    await Task.Delay(200); // In production: Api.PauseRecurringAsync(id)
+    var s = _schedules.First(s => s.Id == id);
+    _schedules[_schedules.IndexOf(s)] = s with { Status = "Paused" };
+  }
+
+  private async Task ResumeAsync(int id)
+  {
+    await Task.Delay(200);
+    var s = _schedules.First(s => s.Id == id);
+    _schedules[_schedules.IndexOf(s)] = s with { Status = "Active" };
+  }
+
+  private async Task SaveEditAsync(int id)
+  {
+    await Task.Delay(200);
+    var s = _schedules.First(s => s.Id == id);
+    _schedules[_schedules.IndexOf(s)] = s with { Amount = _editAmount, FrequencyLabel = _editFreq };
+    _editId = 0;
+  }
+
+  private async Task ConfirmCancelAsync()
+  {
+    await Task.Delay(200);
+    var s = _schedules.First(s => s.Id == _cancelId);
+    _schedules[_schedules.IndexOf(s)] = s with { Status = "Cancelled" };
+    _cancelId = 0;
+    _expanded = 0;
+  }
+
+  private static string StatusBg(string st) => st switch
+  {
+    "Active"    => "#f0faf0",
+    "Paused"    => "#fff8e6",
+    "PastDue"   => "#fef2f2",
+    "Cancelled" => "#fafafa",
+    _           => "var(--bg)"
+  };
+
+  private static string StatusColor(string st) => st switch
+  {
+    "Active"    => "#2d6a2d",
+    "Paused"    => "#c07000",
+    "PastDue"   => "#b91c1c",
+    "Cancelled" => "#888",
+    _           => "var(--text-body)"
+  };
+
+  private record ScheduleRow(int Id, decimal Amount, string FrequencyLabel, DateTime NextChargeDate,
+      DateTime? EndsOn, string Status, string? Campaign, DateTime CreatedAt,
+      DateTime? LastChargedAt, string Channel);
+
+  private readonly List<ScheduleRow> _schedules = new()
+  {
+    new(1, 50m,  "Monthly",   DateTime.Today.AddDays(14), null,
+        "Active",  "Care Packages",    new DateTime(2026,1,1),  new DateTime(2026,3,1), "Online"),
+    new(2, 100m, "Quarterly", DateTime.Today.AddDays(47), null,
+        "Active",  "Grief Books",      new DateTime(2025,10,1), new DateTime(2026,1,1), "Online"),
+  };
+}

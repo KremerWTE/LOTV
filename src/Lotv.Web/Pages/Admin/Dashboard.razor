@@ -1,7 +1,9 @@
 @page "/admin/dashboard"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
+@inject SignalRService Hub
 @inject NavigationManager Nav
+@implements IDisposable
 
 <PageTitle>Dashboard — LOTV Staff Portal</PageTitle>
 
@@ -134,7 +136,7 @@
                 @if (r.IsOverdue)
                 { <span class="badge badge-overdue" style="margin-left:4px;font-size:.6rem;">Overdue</span> }
               </td>
-              <td style="font-size:.78rem;color:var(--text-mid);">@r.Reason</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@r.Reason.ToDisplayName()</td>
               <td><span class="badge @GetStatusBadge(r.Status)">@r.Status</span></td>
               <td style="font-size:.76rem;color:var(--text-light);">@GetAge(r.CreatedAt)</td>
             </tr>
@@ -229,6 +231,64 @@
 
 </div>
 
+<!-- EVENT REVENUE WIDGET -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-head">
+    <h3>Event Revenue</h3>
+    <a href="/admin/events" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Manage Events &rarr;</a>
+  </div>
+  <div class="panel-body">
+    @if (!_upcomingEvents.Any() && _eventRevenue == 0)
+    {
+      <div style="text-align:center;color:var(--text-light);font-size:.84rem;">No event revenue data yet.</div>
+    }
+    else
+    {
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:20px;">
+        <div style="background:var(--gold-pale,#fefce8);border:1px solid var(--gold);border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--gold);margin-bottom:4px;">Total Revenue YTD</div>
+          <div style="font-size:1.4rem;font-weight:700;color:var(--gold);">@_eventRevenue.ToString("C0")</div>
+        </div>
+        <div style="background:var(--green-pale);border:1px solid var(--green);border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:4px;">Ticket Revenue</div>
+          <div style="font-size:1.4rem;font-weight:700;color:var(--green);">@_ticketRevenue.ToString("C0")</div>
+        </div>
+        <div style="background:#f0f0ff;border:1px solid var(--navy);border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--navy);margin-bottom:4px;">Auction Revenue</div>
+          <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@_auctionRevenue.ToString("C0")</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:4px;">Upcoming Events</div>
+          <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@_upcomingEvents.Count</div>
+        </div>
+      </div>
+
+      @if (_eventRevenueBreakdown.Any())
+      {
+        <div>
+          <div style="font-size:.76rem;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:8px;">Revenue by Event</div>
+          @foreach (var (title, revenue, goal) in _eventRevenueBreakdown)
+          {
+            var pct = goal > 0 ? Math.Min(100, (int)(revenue / goal * 100)) : 0;
+            <div style="margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:3px;">
+                <span style="font-weight:600;">@title</span>
+                <span style="color:var(--gold);font-weight:700;">@revenue.ToString("C0") @(goal > 0 ? $"/ {goal:C0} goal" : "")</span>
+              </div>
+              @if (goal > 0)
+              {
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width:@pct%;background:var(--gold);"></div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+</div>
+
 <!-- DONATION CHANNELS + MONTHLY TREND -->
 <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;margin-bottom:24px;">
 
@@ -290,8 +350,12 @@
 @code {
   private record WorkloadRow(string Name, int Open, int Overdue);
   private record AllocRow(string Label, int Count, string Color);
+  private record DashSummary(
+    int OpenCases, int OverdueCases, decimal DonationsThisMonth, decimal DonationsLastMonth,
+    int FamiliesServedYtd, int UpcomingEvents, int ActiveVolunteers,
+    int CasesFulfilledLast30Days, decimal UnallocatedFunds, int PendingAllocations);
 
-  private DashboardStats _stats = default!;
+  private DashSummary _stats = new(0,0,0,0,0,0,0,0,0,0);
   private string _nextEvent = "";
   private int _onboarding;
   private int _donationGrowth;
@@ -303,81 +367,98 @@
   private List<WorkloadRow> _workloadRows = [];
   private List<AuditEntry> _recentActivity = [];
   private List<AllocRow> _allocStatus = [];
+  private decimal _eventRevenue;
+  private decimal _ticketRevenue;
+  private decimal _auctionRevenue;
+  private List<(string Title, decimal Revenue, decimal Goal)> _eventRevenueBreakdown = [];
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _stats = Data.GetDashboardStats();
+    await LoadAsync();
+    await Hub.ConnectAsync();
+    Hub.OnReconnected      += async ()          => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnCaseStatusChanged += async (_, _, _)  => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnCaseCreated       += async (_, _, _)  => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+    Hub.OnDonationReceived  += async (_, _, _)  => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+  }
 
-    var now = DateTime.UtcNow;
+  private async Task LoadAsync()
+  {
+    var now       = DateTime.UtcNow;
+    var apiStats  = await Api.GetDashboardStatsAsync();
+    var requests  = await Api.GetRequestsAsync();
+    var channels  = await Api.GetDonationsByChannelAsync();
+    var workload  = await Api.GetWorkloadAsync();
+    var volunteers = await Api.GetVolunteersAsync();
+    var allocs    = await Api.GetAllocationsAsync();
 
-    // Next event
-    var next = Data.GetEvents().Where(e => e.Date >= now).OrderBy(e => e.Date).FirstOrDefault();
-    _nextEvent = next is null ? "None scheduled" : $"{next.Date:MMM d} — {next.Title}";
+    _overdueCases   = await Api.GetOverdueRequestsAsync();
+    _upcomingEvents = (await Api.GetEventsAsync())
+                        .Where(e => e.Date >= now).OrderBy(e => e.Date).Take(4).ToList();
+    _recentActivity = (await Api.GetAuditLogAsync())
+                        .OrderByDescending(e => e.Timestamp).Take(6).ToList();
 
-    _onboarding = Data.GetVolunteers().Count(v => v.Status == VolunteerStatus.Onboarding);
-    _newThisWeek = Data.GetRequests().Count(r => r.CreatedAt >= now.AddDays(-7));
-
-    _donationGrowth = _stats.DonationsLastMonth > 0
-      ? (int)((_stats.DonationsThisMonth - _stats.DonationsLastMonth) / _stats.DonationsLastMonth * 100)
-      : 0;
-
-    // Recent + overdue cases
-    var allRequests = Data.GetRequests()
-      .Select(r => { r.Family = Data.GetFamily(r.FamilyId); return r; })
-      .ToList();
-
-    _recentCases  = allRequests.OrderByDescending(r => r.CreatedAt).Take(5).ToList();
-    _overdueCases = allRequests.Where(r => r.IsOverdue).ToList();
-
-    // Upcoming events
-    _upcomingEvents = Data.GetEvents()
-      .Where(e => e.Date >= now)
-      .OrderBy(e => e.Date)
-      .Take(4)
-      .ToList();
-
-    // Channel breakdown (all time if nothing this month)
-    var thisMonthDonations = Data.GetDonations()
-      .Where(d => d.Date.Year == now.Year && d.Date.Month == now.Month)
-      .ToList();
-
-    var source = thisMonthDonations.Any() ? thisMonthDonations : Data.GetDonations();
-    _channelBreakdown = source
-      .GroupBy(d => d.Channel.ToString())
-      .Select(g => (g.Key, g.Sum(d => d.Amount)))
-      .OrderByDescending(x => x.Item2)
-      .Take(4)
-      .ToList();
-
-    // Volunteer workload (top 5 by open cases)
-    var requests = Data.GetRequests();
-    _workloadRows = Data.GetVolunteers()
-      .Where(v => v.Status == VolunteerStatus.Active)
-      .Select(v =>
+    // Event revenue: fetch per-event revenue for past/active events
+    var pastEvents = (await Api.GetEventsAsync())
+                       .Where(e => e.Status == EventStatus.Completed || e.Date < now)
+                       .OrderByDescending(e => e.Date).Take(5).ToList();
+    _eventRevenueBreakdown = [];
+    _ticketRevenue = 0; _auctionRevenue = 0;
+    foreach (var ev in pastEvents)
+    {
+      var rev = await Api.GetEventRevenueAsync(ev.Id);
+      if (rev != null)
       {
-        var assigned = requests.Where(r => r.AssignedTo == v.FullName).ToList();
-        var open     = assigned.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment);
-        var overdue  = assigned.Count(r => r.IsOverdue);
-        return new WorkloadRow(v.FullName, open, overdue);
-      })
-      .OrderByDescending(r => r.Open)
-      .Take(5)
-      .ToList();
+        _eventRevenueBreakdown.Add((ev.Title, rev.Total, ev.GoalAmount ?? 0));
+        _ticketRevenue  += rev.Tickets;
+        _auctionRevenue += rev.Auction;
+      }
+    }
+    _eventRevenue = _ticketRevenue + _auctionRevenue;
 
-    // Recent audit activity
-    _recentActivity = Data.GetAuditLog()
-      .OrderByDescending(e => e.Timestamp)
-      .Take(6)
-      .ToList();
+    _recentCases = requests.OrderByDescending(r => r.CreatedAt).Take(5).ToList();
+    _newThisWeek = requests.Count(r => r.CreatedAt >= now.AddDays(-7));
 
-    // Allocation status breakdown
-    var allocs = Data.GetAllocations();
-    _allocStatus =
+    var donThisMonth = apiStats?.DonationsThisMonth ?? 0m;
+    var donLastMonth = apiStats?.DonationsLastMonth ?? 0m;
+    _donationGrowth  = donLastMonth > 0
+      ? (int)((donThisMonth - donLastMonth) / donLastMonth * 100) : 0;
+    _onboarding = volunteers.Count(v => v.Status == VolunteerStatus.Onboarding);
+
+    var nextEv = _upcomingEvents.FirstOrDefault();
+    _nextEvent = nextEv is null ? "None scheduled" : $"{nextEv.Date:MMM d} — {nextEv.Title}";
+
+    _channelBreakdown = channels.Select(c => (c.Channel, c.TotalAmount)).Take(4).ToList();
+    _workloadRows     = workload.Select(w => new WorkloadRow(w.FullName, w.ActiveCases, 0))
+                                .OrderByDescending(w => w.Open).Take(5).ToList();
+
+    var pending   = allocs.Count(a => a.Status == AllocationStatus.PendingReview);
+    var allocated = allocs.Count(a => a.Status == AllocationStatus.Allocated);
+    var unalloc   = allocs.Count(a => a.Status == AllocationStatus.Unallocated);
+    _allocStatus  =
     [
-      new("Allocated",       allocs.Count(a => a.Status == AllocationStatus.Allocated),     "var(--green)"),
-      new("Pending Review",  allocs.Count(a => a.Status == AllocationStatus.PendingReview), "var(--amber)"),
-      new("Unallocated",     allocs.Count(a => a.Status == AllocationStatus.Unallocated),   "var(--text-light)"),
+      new("Allocated",      allocated, "var(--green)"),
+      new("Pending Review", pending,   "var(--amber)"),
+      new("Unallocated",    unalloc,   "var(--text-light)"),
     ];
+
+    _stats = new DashSummary(
+      OpenCases:              apiStats?.OpenCases ?? requests.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress),
+      OverdueCases:           _overdueCases.Count,
+      DonationsThisMonth:     donThisMonth,
+      DonationsLastMonth:     donLastMonth,
+      FamiliesServedYtd:      requests.Count,
+      UpcomingEvents:         _upcomingEvents.Count,
+      ActiveVolunteers:       apiStats?.ActiveVolunteers ?? volunteers.Count(v => v.Status == VolunteerStatus.Active),
+      CasesFulfilledLast30Days: requests.Count(r => r.Status == CaseStatus.Fulfilled && r.UpdatedAt >= now.AddDays(-30)),
+      UnallocatedFunds:       0m,
+      PendingAllocations:     pending
+    );
+  }
+
+  public void Dispose()
+  {
+    _ = Hub.DisconnectAsync();
   }
 
   private static string GetStatusBadge(CaseStatus s) => s switch

@@ -75,9 +75,7 @@
     _loading = true;
     StateHasChanged();
 
-    await Task.Delay(400); // simulate network
-
-    if (Auth.Login(_email, _password))
+    if (await Auth.LoginAsync(_email, _password))
       Nav.NavigateTo("/admin/dashboard", replace: true);
     else
     {

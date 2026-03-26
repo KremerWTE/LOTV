@@ -1,13 +1,13 @@
 @page "/admin/audit"
 @layout AdminLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Audit Log — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
   <div><h2>Audit Log</h2><p>Append-only activity trail — all staff actions recorded</p></div>
   <div class="page-hd-actions">
-    <button class="btn btn-sm" @onclick="Refresh">&#8635; Refresh</button>
+    <button class="btn btn-sm" @onclick="() => Refresh()">&#8635; Refresh</button>
   </div>
 </div>
 
@@ -99,8 +99,8 @@
     return matchAction && matchDate && matchSearch;
   }).OrderByDescending(e => e.Timestamp);
 
-  protected override void OnInitialized() => _log = Data.GetAuditLog();
-  private void Refresh() => _log = Data.GetAuditLog();
+  protected override async Task OnInitializedAsync() => _log = await Api.GetAuditLogAsync();
+  private async Task Refresh() => _log = await Api.GetAuditLogAsync();
 
   private static string ActionBadge(string action) => action.ToLower() switch
   {

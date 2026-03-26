@@ -1,6 +1,6 @@
 ﻿@page "/"
 @layout PublicLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Lily of the Valley Ministry — Home</PageTitle>
 
@@ -130,11 +130,16 @@
   private int _volunteers;
   private int _dioceses;
 
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    _families   = Data.GetFamilies().Count;
-    _fulfilled  = Data.GetRequests().Count(r => r.Status == CaseStatus.Fulfilled);
-    _volunteers = Data.GetVolunteers().Count(v => v.Status == VolunteerStatus.Active);
-    _dioceses   = Data.GetDioceses().Count;
+    var t1 = Api.GetFamiliesAsync();
+    var t2 = Api.GetRequestsAsync();
+    var t3 = Api.GetVolunteersAsync();
+    var t4 = Api.GetDiocesesAsync();
+    await Task.WhenAll(t1, t2, t3, t4);
+    _families   = t1.Result.Count;
+    _fulfilled  = t2.Result.Count(r => r.Status == CaseStatus.Fulfilled);
+    _volunteers = t3.Result.Count(v => v.Status == VolunteerStatus.Active);
+    _dioceses   = t4.Result.Count;
   }
 }

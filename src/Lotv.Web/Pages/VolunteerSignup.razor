@@ -1,6 +1,6 @@
 @page "/volunteer"
 @layout PublicLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Volunteer — Lily of the Valley Ministry</PageTitle>
 
@@ -111,7 +111,7 @@ else
         <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
       }
 
-      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="Submit">
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync">
         Submit Volunteer Application
       </button>
     </div>
@@ -143,7 +143,7 @@ else
     ("Admin Support",     "&#9997;",   "Help with case coordination, data entry, and communications."),
   ];
 
-  private void Submit()
+  private async Task SubmitAsync()
   {
     if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
     { _error = "Please enter your first and last name."; return; }
@@ -162,23 +162,13 @@ else
       JoinedDate = DateTime.UtcNow,
       Notes      = string.IsNullOrEmpty(_bio) ? null : _bio
     };
-    Data.AddVolunteer(vol);
-    Data.LogAction("Public Portal", "Created", "Volunteer", vol.Id.ToString(),
-      $"Volunteer signup: {vol.FullName} — {_role}");
+    var ok = await Api.PublicVolunteerSignupAsync(vol);
+    if (!ok) { _error = "Unable to submit your application. Please try again."; return; }
 
     _confirmedName = vol.FullName;
     _confirmedRole = FormatRole(_role);
     _submitted = true;
   }
 
-  private static string FormatRole(VolunteerRole r) => r switch
-  {
-    VolunteerRole.PackageAssembler => "Package Assembler",
-    VolunteerRole.PrayerAmbassador => "Prayer Ambassador",
-    VolunteerRole.ParishLiaison    => "Parish Liaison",
-    VolunteerRole.EventHelper      => "Event Helper",
-    VolunteerRole.Driver           => "Driver",
-    VolunteerRole.Admin            => "Admin Support",
-    _                              => r.ToString()
-  };
+  private static string FormatRole(VolunteerRole r) => r.ToDisplayName();
 }

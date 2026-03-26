@@ -1,7 +1,6 @@
 @page "/admin/donations"
 @layout AdminLayout
-@inject IMockDataService Data
-@inject AuthService Auth
+@inject ApiService Api
 
 <PageTitle>All Donations — LOTV Staff Portal</PageTitle>
 
@@ -144,7 +143,7 @@
         <label class="form-label">Channel</label>
         <select class="form-input" @bind="_dChannel">
           @foreach (var c in Enum.GetValues<DonationChannel>())
-          { <option value="@c">@c</option> }
+          { <option value="@c">@c.ToDisplayName()</option> }
         </select>
       </div>
 
@@ -238,14 +237,14 @@
     }
   }
 
-  protected override void OnInitialized() => Load();
+  protected override async Task OnInitializedAsync() => await LoadAsync();
 
-  private void Load()
+  private async Task LoadAsync()
   {
     var now = DateTime.UtcNow;
-    _allDonors = Data.GetDonors();
+    _allDonors   = await Api.GetDonorsAsync();
     var donorMap = _allDonors.ToDictionary(d => d.Id);
-    _all = Data.GetDonations()
+    _all = (await Api.GetDonationsAsync())
       .Select(d => { if (donorMap.TryGetValue(d.DonorId, out var donor)) d.Donor = donor; return d; })
       .ToList();
     _thisMonth   = _all.Where(d => d.Date.Year == now.Year && d.Date.Month == now.Month).Sum(d => d.Amount);
@@ -276,59 +275,32 @@
 
     int donorId = _dDonorId;
 
-    // Create new donor record if name entered manually
     if (donorId == 0)
     {
       var parts = _dDonorName.Trim().Split(' ', 2);
       var newDonor = new Donor
       {
-        FirstName     = parts[0],
-        LastName      = parts.Length > 1 ? parts[1] : "",
-        FirstGiftDate = _dDate,
-        LastGiftDate  = _dDate,
-        TotalGiven    = _dAmount,
-        GiftCount     = 1
+        FirstName = parts[0], LastName = parts.Length > 1 ? parts[1] : "",
+        FirstGiftDate = _dDate, LastGiftDate = _dDate
       };
-      Data.AddDonor(newDonor);
-      donorId = newDonor.Id;
-    }
-    else
-    {
-      // Update existing donor totals
-      var donor = Data.GetDonor(donorId);
-      if (donor != null)
-      {
-        donor.TotalGiven += _dAmount;
-        donor.GiftCount++;
-        if (_dDate > donor.LastGiftDate) donor.LastGiftDate = _dDate;
-        donor.Tier = donor.TotalGiven switch
-        {
-          >= 5000 => DonorTier.Benefactor,
-          >= 1000 => DonorTier.Champion,
-          >= 250  => DonorTier.Supporter,
-          _       => DonorTier.Friend
-        };
-        Data.UpdateDonor(donor);
-      }
+      var created = await Api.CreateDonorAsync(newDonor);
+      if (created is null) { _addError = "Failed to create donor record."; return; }
+      donorId = created.Id;
     }
 
     var donation = new Donation
     {
-      DonorId    = donorId,
-      Amount     = _dAmount,
-      Date       = _dDate,
-      Channel    = _dChannel,
-      Campaign   = string.IsNullOrWhiteSpace(_dCampaign) ? null : _dCampaign,
+      DonorId = donorId, Amount = _dAmount, Date = _dDate,
+      Channel = _dChannel,
+      Campaign = string.IsNullOrWhiteSpace(_dCampaign) ? null : _dCampaign,
       IsRecurring = _dIsRecurring,
-      Notes      = string.IsNullOrWhiteSpace(_dNotes) ? null : _dNotes,
+      Notes = string.IsNullOrWhiteSpace(_dNotes) ? null : _dNotes,
       AllocationStatus = AllocationStatus.Unallocated
     };
-    Data.AddDonation(donation);
-    Data.LogAction(Auth.UserName, "Created", "Donation", donation.Id.ToString(),
-      $"{_dAmount:C0} via {_dChannel}{(string.IsNullOrEmpty(_dCampaign) ? "" : $" — {_dCampaign}")}");
+    await Api.CreateDonationAsync(donation);
 
     _showAdd = false;
-    Load();
+    await LoadAsync();
     _savedToast = true;
     StateHasChanged();
     await Task.Delay(2500);
@@ -338,9 +310,8 @@
   private async Task Allocate(Donation d)
   {
     d.AllocationStatus = AllocationStatus.PendingReview;
-    Data.UpdateDonation(d);
-    Data.LogAction(Auth.UserName, "Flagged", "Donation", d.Id.ToString(), "Moved to pending allocation review");
-    Load();
+    await Api.UpdateDonationAsync(d.Id, d);
+    await LoadAsync();
     _savedToast = true;
     StateHasChanged();
     await Task.Delay(2500);

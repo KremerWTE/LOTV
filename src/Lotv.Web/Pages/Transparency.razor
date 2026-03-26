@@ -1,0 +1,187 @@
+@page "/transparency"
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Our Impact — LOTV Ministry</PageTitle>
+
+<!-- PUBLIC NAV HEADER -->
+<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div>
+      <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
+      <div style="font-size:.7rem;opacity:.7;">Lily of the Valley Catholic Apostolate</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;">
+    <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
+    <a href="/apply" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Apply for Help</a>
+    <a href="/give" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Donate</a>
+    <a href="/volunteer" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Volunteer</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy-dark,#0a1628) 100%);color:white;padding:56px 32px;text-align:center;">
+  <h1 style="font-family:var(--ff-head);font-size:2.2rem;margin:0 0 10px;font-weight:700;">Our Impact &amp; Transparency Report</h1>
+  <p style="font-size:1rem;opacity:.8;max-width:560px;margin:0 auto;">
+    We believe in full transparency. Here is a real-time view of where donations go and how we are serving families in need — no PII, aggregate data only.
+  </p>
+</div>
+
+@if (_loading)
+{
+  <div style="text-align:center;padding:60px;color:var(--text-mid);">
+    <div style="font-size:2rem;margin-bottom:10px;">&#127803;</div>
+    <p>Loading impact data…</p>
+  </div>
+}
+else
+{
+  <div style="max-width:1100px;margin:0 auto;padding:40px 24px;">
+
+    <!-- NATIONAL KPI STRIP -->
+    <div class="kpi-grid" style="margin-bottom:36px;">
+      <div class="kpi-card kpi-gold">
+        <div class="kpi-icon">&#128184;</div>
+        <div class="kpi-label">Total Donated</div>
+        <div class="kpi-value" style="color:var(--gold)">@_stats?.DonationsThisMonth.ToString("C0")</div>
+      </div>
+      <div class="kpi-card kpi-navy">
+        <div class="kpi-icon">&#128101;</div>
+        <div class="kpi-label">People Helped</div>
+        <div class="kpi-value" style="color:var(--navy)">@_stats?.OpenCases</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">&#9989;</div>
+        <div class="kpi-label">Requests Fulfilled</div>
+        <div class="kpi-value" style="color:var(--green)">@_moneyFlow.Sum(m => m.RequestCount)</div>
+      </div>
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-icon">&#129309;</div>
+        <div class="kpi-label">Active Volunteers</div>
+        <div class="kpi-value" style="color:var(--amber)">@_stats?.ActiveVolunteers</div>
+      </div>
+    </div>
+
+    <!-- WHERE YOUR MONEY GOES -->
+    <h2 style="font-family:var(--ff-head);font-size:1.3rem;color:var(--navy);margin:0 0 16px;">Where Donations Go</h2>
+    <div class="panel" style="margin-bottom:32px;">
+      <div class="panel-body">
+        @if (!_moneyFlow.Any())
+        {
+          <p style="color:var(--text-mid);text-align:center;padding:20px;">No allocation data available yet.</p>
+        }
+        else
+        {
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:16px;">
+            @foreach (var row in _moneyFlow.OrderByDescending(m => m.Amount).Take(6))
+            {
+              <div style="text-align:center;padding:16px;background:var(--bg);border-radius:10px;">
+                <div style="font-size:1.4rem;font-weight:800;color:var(--gold);">@row.Amount.ToString("C0")</div>
+                <div style="font-size:.78rem;font-weight:700;color:var(--navy);margin-top:4px;">@row.Category</div>
+                <div style="font-size:.7rem;color:var(--text-light);margin-top:2px;">@row.RequestCount cases</div>
+              </div>
+            }
+          </div>
+          @foreach (var row in _moneyFlow.OrderByDescending(m => m.Amount))
+          {
+            var pct = _maxMoney > 0 ? (int)((double)row.Amount / (double)_maxMoney * 100) : 0;
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="width:130px;font-size:.8rem;font-weight:600;">@row.Category</div>
+              <div style="flex:1;height:12px;background:white;border-radius:6px;overflow:hidden;border:1px solid var(--border);">
+                <div style="height:100%;width:@pct%;background:var(--gold);border-radius:6px;"></div>
+              </div>
+              <div style="font-size:.76rem;font-weight:700;width:72px;text-align:right;">@row.Percentage.ToString("F0")%</div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- MONTHLY TREND -->
+    @if (_timeline.Any())
+    {
+      <h2 style="font-family:var(--ff-head);font-size:1.3rem;color:var(--navy);margin:0 0 16px;">Monthly Activity (Last 6 Months)</h2>
+      <div class="panel" style="margin-bottom:32px;">
+        <div class="panel-body" style="padding:0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th style="text-align:right;">Donations Received</th>
+                <th style="text-align:right;">Families Served</th>
+                <th style="text-align:right;">New Requests</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var pt in _timeline.AsEnumerable().Reverse().Take(6))
+              {
+                <tr>
+                  <td style="font-weight:600;">@pt.Period</td>
+                  <td style="text-align:right;color:var(--gold);font-weight:600;">@pt.Donations.ToString("C0")</td>
+                  <td style="text-align:right;color:var(--green);font-weight:600;">@pt.RequestsFulfilled</td>
+                  <td style="text-align:right;">@pt.NewRequests</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- MISSION STATEMENT -->
+    <div style="background:var(--green-pale,#f0f9f0);border-radius:14px;padding:28px 32px;text-align:center;margin-bottom:32px;">
+      <div style="font-size:1.8rem;margin-bottom:10px;">&#127803;</div>
+      <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">Our Mission</h3>
+      <p style="color:var(--text-mid);max-width:620px;margin:0 auto;line-height:1.6;">
+        LOTV Ministry is a Catholic apostolate dedicated to serving families in need through coordinated distribution of food, clothing, shelter assistance, and other essential resources. Every dollar donated goes directly to serving our neighbors.
+      </p>
+    </div>
+
+    <!-- CTA -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:20px;">
+      <a href="/give" style="background:var(--navy);color:white;border-radius:12px;padding:20px 24px;text-decoration:none;display:block;">
+        <div style="font-size:1.4rem;margin-bottom:6px;">&#128184;</div>
+        <div style="font-family:var(--ff-head);font-weight:700;margin-bottom:4px;">Make a Donation</div>
+        <div style="font-size:.82rem;opacity:.8;">Support families in your community</div>
+      </a>
+      <a href="/volunteer" style="background:var(--green);color:white;border-radius:12px;padding:20px 24px;text-decoration:none;display:block;">
+        <div style="font-size:1.4rem;margin-bottom:6px;">&#129309;</div>
+        <div style="font-family:var(--ff-head);font-weight:700;margin-bottom:4px;">Become a Volunteer</div>
+        <div style="font-size:.82rem;opacity:.8;">Give your time and talents</div>
+      </a>
+      <a href="/apply" style="background:var(--amber);color:white;border-radius:12px;padding:20px 24px;text-decoration:none;display:block;">
+        <div style="font-size:1.4rem;margin-bottom:6px;">&#128149;</div>
+        <div style="font-family:var(--ff-head);font-weight:700;margin-bottom:4px;">Apply for Assistance</div>
+        <div style="font-size:.82rem;opacity:.8;">We are here to help</div>
+      </a>
+    </div>
+
+    <p style="text-align:center;font-size:.74rem;color:var(--text-light);margin-top:24px;">
+      Data updated in real time. All figures are aggregate totals — no personally identifiable information is displayed. &bull;
+      <a href="/admin/login" style="color:var(--navy);">Staff login</a>
+    </p>
+  </div>
+}
+
+@code {
+  private bool _loading = true;
+  private DashboardStatsDto? _stats;
+  private List<MoneyFlowCategoryDto> _moneyFlow = [];
+  private List<TimelinePointDto> _timeline = [];
+
+  private decimal _maxMoney => _moneyFlow.Any() ? _moneyFlow.Max(m => m.Amount) : 1m;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var t1 = Api.GetDashboardStatsAsync();
+    var t2 = Api.GetMoneyFlowAsync();
+    var t3 = Api.GetTimelineAsync();
+    await Task.WhenAll(t1, t2, t3);
+    _stats     = t1.Result;
+    _moneyFlow = t2.Result;
+    _timeline  = t3.Result;
+    _loading   = false;
+  }
+}

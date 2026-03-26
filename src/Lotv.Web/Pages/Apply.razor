@@ -1,6 +1,6 @@
 @page "/apply"
 @layout PublicLayout
-@inject IMockDataService Data
+@inject ApiService Api
 
 <PageTitle>Request a Comfort Package — Lily of the Valley Ministry</PageTitle>
 
@@ -122,7 +122,7 @@ else
         <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
       }
 
-      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="Submit">
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync">
         Submit Request
       </button>
 
@@ -139,7 +139,7 @@ else
   private bool _submitted;
   private string _error = "";
 
-  private void Submit()
+  private async Task SubmitAsync()
   {
     if (string.IsNullOrWhiteSpace(_f.Parent1FirstName) || string.IsNullOrWhiteSpace(_f.Parent1LastName))
     {
@@ -154,31 +154,11 @@ else
 
     _f.Status    = FamilyStatus.Active;
     _f.CreatedAt = DateTime.UtcNow;
-    Data.AddFamily(_f);
-
-    var req = new PackageRequest
-    {
-      FamilyId  = _f.Id,
-      Reason    = _f.Reason,
-      Status    = CaseStatus.New,
-      CreatedAt = DateTime.UtcNow
-    };
-
-    var vol = Data.GetNextAvailableVolunteer();
-    if (vol != null) req.AssignedTo = vol.FullName;
-
-    Data.AddRequest(req);
-    Data.LogAction("Public Intake", "Created", "Family", _f.Id.ToString(), $"Public intake: {_f.FullName}");
+    var ok = await Api.PublicApplyAsync(_f);
+    if (!ok) { _error = "Unable to submit your request. Please try again."; return; }
 
     _submitted = true;
   }
 
-  private static string FormatReason(PackageReason r) => r switch
-  {
-    PackageReason.PrenatalDiagnosis           => "Prenatal Diagnosis",
-    PackageReason.PrenatalLifeLimitingDiagnosis => "Prenatal Life-Limiting Diagnosis",
-    PackageReason.InfantLoss                  => "Infant Loss",
-    PackageReason.PastLoss                    => "Past Loss",
-    _ => r.ToString()
-  };
+  private static string FormatReason(PackageReason r) => r.ToDisplayName();
 }
