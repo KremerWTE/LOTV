@@ -1,5 +1,6 @@
 @page "/my-impact"
 @inject ApiService Api
+@inject NavigationManager Nav
 
 <PageTitle>My Impact — LOTV Ministry</PageTitle>
 
@@ -71,13 +72,13 @@
         }
         else
         {
-          @foreach (var (cat, amt, pct) in _categoryBreakdown)
+          @foreach (var item in _categoryBreakdown)
           {
-            var barPct = (int)pct;
+            var barPct = (int)item.Percentage;
             <div style="margin-bottom:14px;">
               <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:4px;">
-                <span style="font-weight:600;">@cat</span>
-                <span>@amt.ToString("C0") &mdash; @pct.ToString("F0")%</span>
+                <span style="font-weight:600;">@item.Category</span>
+                <span>@item.Amount.ToString("C0") &mdash; @item.Percentage.ToString("F0")%</span>
               </div>
               <div style="height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
                 <div style="height:100%;width:@barPct%;background:var(--gold);border-radius:6px;transition:width .3s;"></div>
@@ -108,7 +109,7 @@
               </tr>
             </thead>
             <tbody>
-              @foreach (var d in _donations.OrderByDescending(d => d.Date))
+              @foreach (var d in _donations)
               {
                 <tr>
                   <td>@d.Date.ToString("MMM d, yyyy")</td>
@@ -134,41 +135,34 @@
 </div>
 
 @code {
+  [Parameter, SupplyParameterFromQuery] public int? DonorId { get; set; }
+
   private bool _loading = true;
   private decimal _totalGiven;
   private int _giftCount;
   private int _familiesHelped;
   private int _chaptersServed;
-  private List<(string Cat, decimal Amt, double Pct)> _categoryBreakdown = [];
-  private List<DonationHistoryItem> _donations = [];
+  private List<DonorImpactCategoryDto> _categoryBreakdown = [];
+  private List<DonorDonationDto> _donations = [];
 
   protected override async Task OnInitializedAsync()
   {
     _loading = true;
 
-    // Load donor's contribution history (in production, scoped to current donor)
-    var contribs = await Api.GetDonationsAsync();
-    _donations = contribs.Select(d => new DonationHistoryItem(
-      d.Date, d.Amount, d.Channel.ToDisplayName(), d.ContributionStatus.ToString()
-    )).ToList();
-
-    _totalGiven    = _donations.Sum(d => d.Amount);
-    _giftCount     = _donations.Count;
-    _familiesHelped = Math.Max(0, _giftCount * 2);   // approximation until real linkage exists
-    _chaptersServed = 1;
-
-    // Placeholder breakdown
-    _categoryBreakdown =
-    [
-      ("Package Delivery", _totalGiven * 0.45m, 45),
-      ("Prayer Support", _totalGiven * 0.20m, 20),
-      ("Counseling Referrals", _totalGiven * 0.15m, 15),
-      ("Hospital Visits", _totalGiven * 0.12m, 12),
-      ("Memorial Services", _totalGiven * 0.08m, 8)
-    ];
+    if (DonorId.HasValue && DonorId.Value > 0)
+    {
+      var impact = await Api.GetPublicDonorImpactAsync(DonorId.Value);
+      if (impact is not null)
+      {
+        _totalGiven        = impact.TotalGiven;
+        _giftCount         = impact.GiftCount;
+        _familiesHelped    = impact.FamiliesHelped;
+        _chaptersServed    = impact.ChaptersServed;
+        _categoryBreakdown = impact.CategoryBreakdown;
+        _donations         = impact.DonationHistory;
+      }
+    }
 
     _loading = false;
   }
-
-  private record DonationHistoryItem(DateTime Date, decimal Amount, string Channel, string Status);
 }

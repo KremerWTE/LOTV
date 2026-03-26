@@ -211,6 +211,12 @@ public class ApiService
     public Task<List<PublicEventDto>> GetPublicEventsAsync() =>
         GetListAsync<PublicEventDto>("/api/public/v1/events");
 
+    public Task<PublicDonorImpactDto?> GetPublicDonorImpactAsync(int donorId) =>
+        GetAsync<PublicDonorImpactDto>($"/api/public/v1/donors/{donorId}/impact");
+
+    public Task<List<PublicFamilyRequestDto>> GetPublicFamilyRequestsAsync(int familyId) =>
+        GetListAsync<PublicFamilyRequestDto>($"/api/public/v1/families/{familyId}/requests");
+
     public Task<List<ChannelBreakdownDto>> GetDonationsByChannelAsync() =>
         GetListAsync<ChannelBreakdownDto>("/api/v1/dashboard/donations/by-channel");
 
@@ -459,6 +465,19 @@ public record PublicEventDto(
     string Location, bool IsVirtual,
     int? Capacity, int Registered,
     string Type, string Status, decimal? TicketPrice);
+
+public record PublicDonorImpactDto(
+    decimal TotalGiven, int GiftCount, int FamiliesHelped, int ChaptersServed,
+    List<DonorImpactCategoryDto> CategoryBreakdown,
+    List<DonorDonationDto> DonationHistory);
+
+public record DonorImpactCategoryDto(string Category, decimal Amount, double Percentage);
+
+public record DonorDonationDto(DateTime Date, decimal Amount, string Channel, string Status);
+
+public record PublicFamilyRequestDto(
+    int Id, string Category, string Status, string Priority,
+    DateTime CreatedAt, DateTime? DueDate, string Reason, string? AssignedTo);
 
 public record DashboardStatsDto(
     int OpenCases, int Overdue,

@@ -53,14 +53,14 @@
     <!-- REQUEST CARDS -->
     @foreach (var req in Filtered)
     {
-      var isPast = req.Status is CaseStatus.Fulfilled or CaseStatus.Shipped or CaseStatus.Cancelled;
+      var isPast = req.Status is "Fulfilled" or "Shipped" or "Cancelled";
       <div class="panel" style="margin-bottom:16px;@(isPast ? "opacity:.8;" : "")">
         <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border);">
           <div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-              <span style="font-weight:700;font-size:.95rem;color:var(--navy);">@req.Category.ToString() Assistance</span>
+              <span style="font-weight:700;font-size:.95rem;color:var(--navy);">@req.Category Assistance</span>
               <span class="badge @GetStatusBadge(req.Status)" style="font-size:.66rem;">@req.Status</span>
-              @if (req.Priority == RequestPriority.Urgent)
+              @if (req.Priority == "Urgent")
               { <span class="badge badge-overdue" style="font-size:.66rem;">Urgent</span> }
             </div>
             <div style="font-size:.82rem;color:var(--text-mid);">
@@ -72,7 +72,7 @@
           <a href="/my-requests/@req.Id" class="btn btn-sm">View Details</a>
         </div>
         <div style="padding:14px 20px;">
-          <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 12px;line-height:1.5;">@req.Reason.ToString().Replace("PrenatalLifeLimiting", "Prenatal Life-Limiting ")</p>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 12px;line-height:1.5;">@req.Reason.Replace("PrenatalLifeLimiting", "Prenatal Life-Limiting ")</p>
           <!-- PROGRESS TRACK -->
           <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
             @foreach (var (label, active, done) in GetSteps(req.Status))
@@ -101,51 +101,54 @@
 </div>
 
 @code {
-  private List<PackageRequest> _requests = [];
+  [Parameter, SupplyParameterFromQuery] public int? FamilyId { get; set; }
+
+  private List<PublicFamilyRequestDto> _requests = [];
   private bool _loading = true;
   private string _filter = "All";
 
-  private IEnumerable<PackageRequest> Filtered => _requests.Where(r => _filter switch
+  private IEnumerable<PublicFamilyRequestDto> Filtered => _requests.Where(r => _filter switch
   {
-    "Active"    => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment or CaseStatus.OnHold,
-    "Fulfilled" => r.Status is CaseStatus.Fulfilled or CaseStatus.Shipped,
-    "Closed"    => r.Status == CaseStatus.Cancelled,
+    "Active"    => r.Status is "New" or "InProgress" or "AwaitingShipment" or "OnHold",
+    "Fulfilled" => r.Status is "Fulfilled" or "Shipped",
+    "Closed"    => r.Status == "Cancelled",
     _           => true
   }).OrderByDescending(r => r.CreatedAt);
 
   protected override async Task OnInitializedAsync()
   {
     _loading = true;
-    _requests = await Api.GetRequestsAsync();
+    if (FamilyId.HasValue && FamilyId.Value > 0)
+      _requests = await Api.GetPublicFamilyRequestsAsync(FamilyId.Value);
     _loading = false;
   }
 
-  private static string GetStatusBadge(CaseStatus s) => s switch
+  private static string GetStatusBadge(string s) => s switch
   {
-    CaseStatus.New             => "badge-new",
-    CaseStatus.InProgress      => "badge-shipped",
-    CaseStatus.AwaitingShipment=> "badge-onhold",
-    CaseStatus.Shipped         => "badge-onhold",
-    CaseStatus.Fulfilled       => "badge-delivered",
-    CaseStatus.OnHold          => "badge-onhold",
-    CaseStatus.Cancelled       => "badge-overdue",
-    _                          => ""
+    "New"              => "badge-new",
+    "InProgress"       => "badge-shipped",
+    "AwaitingShipment" => "badge-onhold",
+    "Shipped"          => "badge-onhold",
+    "Fulfilled"        => "badge-delivered",
+    "OnHold"           => "badge-onhold",
+    "Cancelled"        => "badge-overdue",
+    _                  => ""
   };
 
-  private static List<(string Label, bool Active, bool Done)> GetSteps(CaseStatus s)
+  private static List<(string Label, bool Active, bool Done)> GetSteps(string s)
   {
-    var order = new[] { CaseStatus.New, CaseStatus.InProgress, CaseStatus.AwaitingShipment, CaseStatus.Shipped, CaseStatus.Fulfilled };
+    var order = new[] { "New", "InProgress", "AwaitingShipment", "Shipped", "Fulfilled" };
     var idx = Array.IndexOf(order, s);
     if (idx < 0) idx = 0;
     return order.Select((step, i) => (
       Label: step switch
       {
-        CaseStatus.New              => "Received",
-        CaseStatus.InProgress       => "In Progress",
-        CaseStatus.AwaitingShipment => "Packing",
-        CaseStatus.Shipped          => "On Its Way",
-        CaseStatus.Fulfilled        => "Complete",
-        _                           => step.ToString()
+        "New"              => "Received",
+        "InProgress"       => "In Progress",
+        "AwaitingShipment" => "Packing",
+        "Shipped"          => "On Its Way",
+        "Fulfilled"        => "Complete",
+        _                  => step
       },
       Active: i == idx,
       Done: i < idx
