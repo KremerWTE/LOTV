@@ -76,7 +76,7 @@
               </div>
               <div>
                 <div style="font-size:.66rem;text-transform:uppercase;color:var(--text-light);margin-bottom:2px;">Location</div>
-                <div style="font-size:.82rem;color:var(--text-mid);">@(string.IsNullOrEmpty(ev.Location) ? (ev.IsVirtual ? "Online" : "TBD") : ev.Location)</div>
+                <div style="font-size:.82rem;color:var(--text-mid);">@(ev.IsVirtual ? "Online" : string.IsNullOrEmpty(ev.Location) ? "TBD" : ev.Location)</div>
               </div>
             </div>
 
@@ -142,7 +142,7 @@
   <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;" @onclick="() => _rsvpEvent = null">
     <div style="background:white;border-radius:14px;padding:28px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2);" @onclick:stopPropagation>
       <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;">RSVP: @_rsvpEvent.Title</h3>
-      <p style="color:var(--text-mid);font-size:.84rem;margin:0 0 18px;">@_rsvpEvent.Date.ToString("MMMM d, yyyy") &bull; @(string.IsNullOrEmpty(_rsvpEvent.Location) ? "Online" : _rsvpEvent.Location)</p>
+      <p style="color:var(--text-mid);font-size:.84rem;margin:0 0 18px;">@_rsvpEvent.Date.ToString("MMMM d, yyyy") &bull; @(_rsvpEvent.IsVirtual || string.IsNullOrEmpty(_rsvpEvent.Location) ? "Online" : _rsvpEvent.Location)</p>
 
       <div class="form-group" style="margin-bottom:12px;">
         <label class="form-label">Your Name *</label>
@@ -178,10 +178,10 @@
 }
 
 @code {
-  private List<MinistryEvent> _upcoming = [];
-  private List<MinistryEvent> _past = [];
+  private List<PublicEventDto> _upcoming = [];
+  private List<PublicEventDto> _past = [];
   private bool _loading = true;
-  private MinistryEvent? _rsvpEvent;
+  private PublicEventDto? _rsvpEvent;
   private string _rsvpName = "";
   private string _rsvpEmail = "";
   private int _rsvpCount = 1;
@@ -191,13 +191,13 @@
   protected override async Task OnInitializedAsync()
   {
     _loading = true;
-    var all = await Api.GetEventsAsync();
+    var all = await Api.GetPublicEventsAsync();
     _upcoming = all.Where(e => e.Date >= DateTime.UtcNow).OrderBy(e => e.Date).ToList();
     _past     = all.Where(e => e.Date < DateTime.UtcNow).OrderByDescending(e => e.Date).Take(6).ToList();
     _loading  = false;
   }
 
-  private void OpenRSVP(MinistryEvent ev)
+  private void OpenRSVP(PublicEventDto ev)
   {
     _rsvpEvent = ev; _rsvpName = ""; _rsvpEmail = ""; _rsvpCount = 1;
     _rsvpError = ""; _rsvpConfirmed = false;
@@ -214,14 +214,14 @@
     _rsvpConfirmed = true;
   }
 
-  private static string GetTypeColor(EventType t) => t switch
+  private static string GetTypeColor(string t) => t switch
   {
-    EventType.Gala             => "var(--gold)",
-    EventType.SilentAuction    => "var(--amber)",
-    EventType.Dinner           => "var(--navy)",
-    EventType.Concert          => "var(--green)",
-    EventType.PrayerNight      => "var(--green)",
-    EventType.InPersonGathering=> "var(--navy)",
-    _                          => "var(--text-light)"
+    "Gala"              => "var(--gold)",
+    "SilentAuction"     => "var(--amber)",
+    "Dinner"            => "var(--navy)",
+    "Concert"           => "var(--green)",
+    "PrayerNight"       => "var(--green)",
+    "InPersonGathering" => "var(--navy)",
+    _                   => "var(--text-light)"
   };
 }

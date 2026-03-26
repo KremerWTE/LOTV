@@ -195,7 +195,7 @@ public class ApiService
     public Task<List<TimelinePointDto>> GetTimelineAsync() =>
         GetListAsync<TimelinePointDto>("/api/v1/dashboard/timeline");
 
-    // Public transparency endpoints (no auth required)
+    // Public endpoints (no auth required)
     public Task<PublicImpactDto?> GetPublicImpactAsync() =>
         GetAsync<PublicImpactDto>("/api/public/v1/impact");
 
@@ -204,6 +204,12 @@ public class ApiService
 
     public Task<List<TimelinePointDto>> GetPublicTimelineAsync() =>
         GetListAsync<TimelinePointDto>("/api/public/v1/transparency/timeline");
+
+    public Task<List<PublicWishListItemDto>> GetPublicWishListAsync(string? category = null) =>
+        GetListAsync<PublicWishListItemDto>($"/api/public/v1/wishlist{(category != null ? $"?category={Uri.EscapeDataString(category)}" : "")}");
+
+    public Task<List<PublicEventDto>> GetPublicEventsAsync() =>
+        GetListAsync<PublicEventDto>("/api/public/v1/events");
 
     public Task<List<ChannelBreakdownDto>> GetDonationsByChannelAsync() =>
         GetListAsync<ChannelBreakdownDto>("/api/v1/dashboard/donations/by-channel");
@@ -443,6 +449,16 @@ public class ApiService
 public record PublicImpactDto(
     decimal TotalDonations, int PeopleHelped, int ActiveVolunteers, int OpenRequests,
     int FamiliesServed, int DiocesesReached);
+
+public record PublicWishListItemDto(
+    int Id, string Title, string? Description, string Category,
+    int QuantityRequested, int QuantityFulfilled, int QuantityRemaining);
+
+public record PublicEventDto(
+    int Id, string Title, string? Description, DateTime Date,
+    string Location, bool IsVirtual,
+    int? Capacity, int Registered,
+    string Type, string Status, decimal? TicketPrice);
 
 public record DashboardStatsDto(
     int OpenCases, int Overdue,

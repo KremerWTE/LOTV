@@ -38,8 +38,8 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;margin-bottom:40px;">
       @foreach (var item in visible)
       {
-        int pct = item.Requested > 0 ? (int)(item.Fulfilled * 100.0 / item.Requested) : 0;
-        bool full = item.Fulfilled >= item.Requested;
+        int pct = item.QuantityRequested > 0 ? (int)(item.QuantityFulfilled * 100.0 / item.QuantityRequested) : 0;
+        bool full = item.QuantityFulfilled >= item.QuantityRequested;
         <div style="border:1px solid var(--border);border-radius:14px;background:white;overflow:hidden;
                     box-shadow:0 2px 8px rgba(0,0,0,.05);@(full ? "opacity:.6;" : "")">
           <!-- Category color strip -->
@@ -64,7 +64,7 @@
                 @if (full)
                 { <span style="color:#2d6a2d;font-weight:700;">&#10003; Fully fulfilled — thank you!</span> }
                 else
-                { <span>@item.Fulfilled of @item.Requested fulfilled</span> }
+                { <span>@item.QuantityFulfilled of @item.QuantityRequested fulfilled</span> }
                 <span>@pct%</span>
               </div>
               <div class="progress-bar">
@@ -110,9 +110,9 @@
       <div class="form-group">
         <label class="form-label">Quantity you'll donate</label>
         <input class="form-input" type="number" @bind="_donateQty" min="1"
-               max="@(_donateItem.Requested - _donateItem.Fulfilled)" style="max-width:100px;" />
+               max="@_donateItem.QuantityRemaining" style="max-width:100px;" />
         <span style="font-size:.78rem;color:var(--text-light);margin-left:8px;">
-          (up to @(_donateItem.Requested - _donateItem.Fulfilled) needed)
+          (up to @_donateItem.QuantityRemaining needed)
         </span>
       </div>
 
@@ -149,18 +149,23 @@
 
 @code {
   private string _cat = "All";
-  private WishItem? _donateItem;
+  private PublicWishListItemDto? _donateItem;
   private int    _donateQty  = 1;
   private string _donorName  = "";
   private bool   _donateSent;
+  private List<PublicWishListItemDto> _items = [];
 
   private static readonly string[] Categories =
     { "All", "Knitted Blanket", "Memory Box", "Grief Book", "Baby Clothing", "Care Package", "Photo Album", "Journal / Keepsake", "Other" };
 
+  protected override async Task OnInitializedAsync()
+  {
+    _items = await Api.GetPublicWishListAsync();
+  }
+
   private async Task SubmitDonateAsync()
   {
-    // In production: call Api.FulfillWishListItemAsync(_donateItem.Id, _donateQty, _donorName)
-    await Task.Delay(400);
+    await Task.CompletedTask; // Pledge acknowledgement — coordinator follows up
     _donateSent = true;
   }
 
@@ -174,22 +179,5 @@
     "Photo Album"        => "#b91c1c",
     "Journal / Keepsake" => "#7c3aed",
     _                    => "#888"
-  };
-
-  private record WishItem(int Id, string Title, string Category, string? Description, int Requested, int Fulfilled);
-
-  // MOCK DATA — replace with Api.GetOpenWishListAsync() when backend is live
-  private readonly List<WishItem> _items = new()
-  {
-    new(1, "Knitted blanket — newborn size",            "Knitted Blanket",  "Soft, neutral colors preferred.",                                1, 1),
-    new(2, "Memory box with engraving",                 "Memory Box",       "Any color; photo frame slot preferred.",                         1, 0),
-    new(4, "Newborn onesie set (preemie / 000 size)",   "Baby Clothing",    "Neutral tones. Size 000 — premature.",                          3, 0),
-    new(5, "Pregnancy journal / keepsake book",         "Journal / Keepsake", "To preserve memories of baby.",                               1, 0),
-    new(7, "Small photo album",                         "Photo Album",      "For tiny handprints and footprints.",                            1, 0),
-    new(8, "Empty Arms by Sherokee Ilse",               "Grief Book",       "Widely recommended grief resource for bereaved parents.",        2, 0),
-    new(9, "Knitted blanket — full term newborn",       "Knitted Blanket",  "Slightly larger size. Soft yarn only.",                          2, 0),
-    new(10, "Hospital care package",                    "Care Package",     "Tissues, lotion, warm socks, non-perishable snacks for family.", 1, 0),
-    new(11, "A Grace Disguised by Jerry Sittser",       "Grief Book",       null,                                                             1, 0),
-    new(12, "Baby clothing set — 0–3 months",           "Baby Clothing",    "Neutral or soft pastels.",                                       2, 0),
   };
 }

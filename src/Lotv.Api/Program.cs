@@ -1673,6 +1673,26 @@ publicApi.MapGet("/transparency/timeline", async (LotvDbContext db, int months =
     }).ToList();
 }).AllowAnonymous();
 
+// GET /api/public/v1/events — upcoming public events (no key required)
+publicApi.MapGet("/events", async (LotvDbContext db) =>
+{
+    var now = DateTime.UtcNow;
+    var events = await db.Events
+        .Where(e => e.Date >= now.AddDays(-7) // include recently ended
+                 && e.Status != EventStatus.Cancelled
+                 && e.Status != EventStatus.Draft)
+        .OrderBy(e => e.Date)
+        .Select(e => new
+        {
+            e.Id, e.Title, e.Description, e.Date,
+            Location = e.Location, e.IsVirtual,
+            e.Capacity, e.Registered,
+            Type = e.Type.ToString(), Status = e.Status.ToString(), e.TicketPrice
+        })
+        .ToListAsync();
+    return Results.Ok(events);
+}).AllowAnonymous();
+
 // GET /api/public/v1/chapters — list active chapters (no key required)
 publicApi.MapGet("/chapters", async (LotvDbContext db) =>
     Results.Ok(await db.Chapters
