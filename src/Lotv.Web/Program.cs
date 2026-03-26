@@ -25,6 +25,7 @@ builder.Services.AddScoped<AuthService>();
 // ── API + real-time ───────────────────────────────────────────────────────────
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<SignalRService>();
+builder.Services.AddScoped<AuctionSignalRService>();
 
 
 var host = builder.Build();

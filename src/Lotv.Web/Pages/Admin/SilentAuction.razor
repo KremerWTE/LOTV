@@ -1,0 +1,330 @@
+@page "/admin/events/{EventId:int}/auction"
+@layout AdminLayout
+@inject ApiService Api
+@inject AuctionSignalRService AuctionHub
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<PageTitle>Silent Auction — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Silent Auction</h2>
+    @if (_event is not null)
+    {
+      <p>@_event.Title — @_event.Date.ToString("MMMM d, yyyy")</p>
+    }
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <span style="font-size:.75rem;padding:4px 10px;border-radius:20px;font-weight:700;
+                 background:@(_connected ? "#f0faf0" : "#fafafa");
+                 color:@(_connected ? "var(--green)" : "var(--text-light)");">
+      @(_connected ? "● Live" : "○ Connecting…")
+    </span>
+    <button class="btn btn-primary" @onclick="() => _addingItem = true">+ Add Item</button>
+    <button class="btn" style="border-color:#fecaca;color:#b91c1c;" @onclick="CloseAuctionAsync">
+      Close Auction
+    </button>
+  </div>
+</div>
+
+<!-- KPI strip -->
+<div class="kpi-grid" style="margin-bottom:24px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#127881;</div>
+    <div class="kpi-label">Total Items</div>
+    <div class="kpi-value" style="color:var(--navy);">@_items.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Sold</div>
+    <div class="kpi-value" style="color:var(--green);">@_items.Count(i => i.Status == AuctionItemStatus.Sold)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Revenue</div>
+    <div class="kpi-value" style="color:var(--amber);">@_items.Sum(i => i.WinningBid ?? 0).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128200;</div>
+    <div class="kpi-label">Active Bids</div>
+    <div class="kpi-value" style="color:var(--gold);">@_items.Sum(i => i.Bids.Count)</div>
+  </div>
+</div>
+
+<!-- Live bid feed + item grid -->
+<div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;">
+
+  <!-- Item cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+    @foreach (var item in _items.OrderBy(i => i.Status == AuctionItemStatus.Available ? 0 : 1).ThenByDescending(i => CurrentHigh(i)))
+    {
+      var high = CurrentHigh(item);
+      var pct  = item.FairMarketValue > 0 ? (int)Math.Min(100, high * 100m / item.FairMarketValue) : 0;
+      <div style="border:1px solid var(--border);border-radius:12px;background:white;overflow:hidden;
+                  @(item.Status != AuctionItemStatus.Available ? "opacity:.7;" : "")">
+        <div style="padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <div style="font-weight:700;color:var(--navy);font-size:.88rem;">@item.Name</div>
+            <span style="font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:10px;
+                         background:@StatusBg(item.Status);color:@StatusColor(item.Status);">
+              @item.Status
+            </span>
+          </div>
+          @if (!string.IsNullOrEmpty(item.Description))
+          {
+            <div style="font-size:.78rem;color:var(--text-mid);margin-bottom:8px;line-height:1.4;">@item.Description</div>
+          }
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.78rem;margin-bottom:10px;">
+            <div>
+              <div style="color:var(--text-light);font-size:.7rem;">Starting Bid</div>
+              <div style="font-weight:700;color:var(--text-mid);">@item.StartingBid.ToString("C0")</div>
+            </div>
+            <div>
+              <div style="color:var(--text-light);font-size:.7rem;">Current High</div>
+              <div style="font-weight:700;font-size:1rem;color:@(high > item.StartingBid ? "var(--green)" : "var(--navy)");">
+                @(high > 0 ? high.ToString("C0") : "—")
+              </div>
+            </div>
+          </div>
+          <div style="font-size:.72rem;color:var(--text-light);margin-bottom:6px;">
+            @item.Bids.Count bid@(item.Bids.Count == 1 ? "" : "s") &bull; FMV: @item.FairMarketValue.ToString("C0")
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:@pct%;background:@(pct >= 100 ? "#2d6a2d" : "var(--navy)");"></div>
+          </div>
+          <div style="font-size:.68rem;color:var(--text-light);margin-top:3px;">@pct% of FMV</div>
+        </div>
+        @if (item.Status == AuctionItemStatus.Available)
+        {
+          <div style="padding:8px 14px;background:#f4f7fb;border-top:1px solid var(--border);display:flex;gap:8px;">
+            <input class="form-input" type="number" step="5" min="@(item.StartingBid)"
+                   style="flex:1;font-size:.8rem;padding:6px 10px;"
+                   placeholder="Bid amount…"
+                   @bind="_bidAmounts[item.Id]" @bind:event="oninput" />
+            <button class="btn btn-primary" style="font-size:.78rem;padding:6px 14px;"
+                    @onclick="() => PlaceBidAsync(item)">
+              Bid
+            </button>
+          </div>
+        }
+        @if (item.Status == AuctionItemStatus.Sold)
+        {
+          <div style="padding:8px 14px;background:#f0faf0;border-top:1px solid var(--border);font-size:.78rem;color:#2d6a2d;">
+            &#10003; Won at @(item.WinningBid?.ToString("C0") ?? "—")
+          </div>
+        }
+      </div>
+    }
+    @if (!_items.Any())
+    {
+      <div class="panel" style="grid-column:1/-1;">
+        <div class="panel-body" style="text-align:center;padding:40px;color:var(--text-light);">
+          No auction items added yet.
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Live bid feed panel -->
+  <div style="border:1px solid var(--border);border-radius:12px;background:white;overflow:hidden;position:sticky;top:80px;">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:.86rem;color:var(--navy);
+                display:flex;justify-content:space-between;align-items:center;">
+      <span>Live Bid Feed</span>
+      <span style="font-size:.7rem;font-weight:400;color:var(--text-light);">Real-time</span>
+    </div>
+    <div style="max-height:440px;overflow-y:auto;">
+      @if (_feed.Any())
+      {
+        @foreach (var entry in _feed)
+        {
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:.8rem;">
+            <div style="font-weight:600;color:var(--navy);">@entry.ItemName</div>
+            <div style="color:var(--green);font-weight:700;">@entry.Amount.ToString("C0")</div>
+            <div style="color:var(--text-light);font-size:.7rem;">@entry.Time.ToString("h:mm:ss tt")</div>
+          </div>
+        }
+      }
+      else
+      {
+        <div style="padding:24px;text-align:center;color:var(--text-light);font-size:.8rem;">
+          No bids yet. Waiting for activity…
+        </div>
+      }
+    </div>
+  </div>
+
+</div>
+
+<!-- Close confirmation toast -->
+@if (_closedMsg is not null)
+{
+  <div style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+              background:var(--navy);color:white;border-radius:10px;padding:14px 24px;
+              font-size:.86rem;font-weight:600;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.25);"
+       role="status">
+    &#10003; @_closedMsg
+  </div>
+}
+
+<!-- Add item modal -->
+@if (_addingItem)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:white;border-radius:16px;max-width:480px;width:100%;padding:32px;">
+      <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 20px;">Add Auction Item</h3>
+      <div class="form-group">
+        <label class="form-label" for="auc-name">Item Name *</label>
+        <input id="auc-name" class="form-input" @bind="_newName" placeholder="Hand-knitted prayer blanket" aria-required="true" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="auc-desc">Description</label>
+        <textarea id="auc-desc" class="form-input" @bind="_newDesc" rows="2" style="resize:vertical;"></textarea>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="auc-fmv">Fair Market Value</label>
+          <input id="auc-fmv" class="form-input" type="number" step="5" min="1" @bind="_newFmv" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="auc-start">Starting Bid</label>
+          <input id="auc-start" class="form-input" type="number" step="5" min="1" @bind="_newStart" />
+        </div>
+      </div>
+      @if (!string.IsNullOrEmpty(_addError))
+      {
+        <div role="alert" aria-live="assertive" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:14px;">
+          &#9888; @_addError
+        </div>
+      }
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button class="btn" @onclick="() => { _addingItem = false; _addError = string.Empty; }">Cancel</button>
+        <button class="btn btn-primary" @onclick="SaveItemAsync">Add Item</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int EventId { get; set; }
+
+  private MinistryEvent?            _event;
+  private List<SilentAuctionItem>   _items   = [];
+  private List<FeedEntry>           _feed    = [];
+  private Dictionary<int, decimal?> _bidAmounts = new();
+  private bool    _connected;
+  private bool    _addingItem;
+  private string? _closedMsg;
+  private string  _addError = "";
+
+  private string _newName  = "";
+  private string _newDesc  = "";
+  private decimal _newFmv  = 50m;
+  private decimal _newStart = 25m;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _event = await Api.GetEventAsync(EventId);
+    _items = await Api.GetAuctionItemsAsync(EventId);
+
+    foreach (var item in _items)
+      _bidAmounts[item.Id] = null;
+
+    // Subscribe to real-time auction updates
+    AuctionHub.OnBidPlaced    += HandleBidPlaced;
+    AuctionHub.OnAuctionClosed += HandleAuctionClosed;
+
+    try
+    {
+      await AuctionHub.ConnectAsync();
+      await AuctionHub.JoinEventAsync(EventId);
+      _connected = true;
+    }
+    catch
+    {
+      _connected = false;
+    }
+  }
+
+  private async Task HandleBidPlaced(int itemId, decimal newHigh, string? bidder, int totalBids)
+  {
+    var item = _items.FirstOrDefault(i => i.Id == itemId);
+    if (item is not null)
+    {
+      // Add a synthetic bid entry to reflect the real-time update
+      item.Bids.Add(new AuctionBid { AuctionItemId = itemId, BidAmount = newHigh, BidTime = DateTime.Now });
+      _feed.Insert(0, new FeedEntry(item.Name, newHigh, DateTime.Now));
+      if (_feed.Count > 50) _feed.RemoveAt(_feed.Count - 1);
+    }
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private async Task HandleAuctionClosed(int eventId, int count)
+  {
+    _items = await Api.GetAuctionItemsAsync(EventId);
+    _closedMsg = $"Auction closed — {count} item{(count == 1 ? "" : "s")} finalized.";
+    await InvokeAsync(StateHasChanged);
+    await Task.Delay(4000);
+    _closedMsg = null;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private async Task PlaceBidAsync(SilentAuctionItem item)
+  {
+    if (!_bidAmounts.TryGetValue(item.Id, out var amt) || amt is null || amt <= 0) return;
+    var high = CurrentHigh(item);
+    if (amt <= high) return;   // server will also validate
+    await Api.PlaceBidAsync(EventId, item.Id, 0, amt.Value);
+    _bidAmounts[item.Id] = null;
+  }
+
+  private async Task CloseAuctionAsync()
+  {
+    await Api.CloseAuctionAsync(EventId);
+  }
+
+  private async Task SaveItemAsync()
+  {
+    if (string.IsNullOrWhiteSpace(_newName)) { _addError = "Item name is required."; return; }
+    var item = new SilentAuctionItem
+    {
+      EventId         = EventId,
+      Name            = _newName,
+      Description     = _newDesc,
+      FairMarketValue = _newFmv,
+      StartingBid     = _newStart,
+      Status          = AuctionItemStatus.Available
+    };
+    await Api.CreateAuctionItemAsync(EventId, item);
+    _items = await Api.GetAuctionItemsAsync(EventId);
+    foreach (var i in _items.Where(i => !_bidAmounts.ContainsKey(i.Id)))
+      _bidAmounts[i.Id] = null;
+    _addingItem = false; _newName = _newDesc = _addError = ""; _newFmv = 50m; _newStart = 25m;
+  }
+
+  private static decimal CurrentHigh(SilentAuctionItem item) =>
+    item.Bids.Any() ? item.Bids.Max(b => b.BidAmount) : 0m;
+
+  private static string StatusBg(AuctionItemStatus s) => s switch
+  {
+    AuctionItemStatus.Available => "#f0f7ff",
+    AuctionItemStatus.Sold      => "#f0faf0",
+    _                           => "#fafafa"
+  };
+
+  private static string StatusColor(AuctionItemStatus s) => s switch
+  {
+    AuctionItemStatus.Available => "var(--navy)",
+    AuctionItemStatus.Sold      => "#2d6a2d",
+    _                           => "#888"
+  };
+
+  public async ValueTask DisposeAsync()
+  {
+    AuctionHub.OnBidPlaced    -= HandleBidPlaced;
+    AuctionHub.OnAuctionClosed -= HandleAuctionClosed;
+    await AuctionHub.LeaveEventAsync(EventId);
+  }
+
+  private record FeedEntry(string ItemName, decimal Amount, DateTime Time);
+}

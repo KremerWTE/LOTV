@@ -230,8 +230,9 @@ app.MapHealthChecks("/health").AllowAnonymous();
         db.Database.Migrate();          // runs pending EF Core migrations in production
 }
 
-// ── SignalR Hub ───────────────────────────────────────────────────────────────
+// ── SignalR Hubs ──────────────────────────────────────────────────────────────
 app.MapHub<RequestsHub>("/hubs/requests");
+app.MapHub<AuctionHub>("/hubs/auction");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API v1 Endpoints
@@ -992,28 +993,52 @@ events.MapPost("/{id:int}/auction", async (int id, SilentAuctionItem item, LotvD
     return Results.Created($"/api/v1/events/{id}/auction/{item.Id}", item);
 });
 
-events.MapPost("/{id:int}/auction/{itemId:int}/bid", async (int id, int itemId, BidRequest body, LotvDbContext db) =>
+events.MapPost("/{id:int}/auction/{itemId:int}/bid", async (int id, int itemId, BidRequest body,
+    LotvDbContext db, IHubContext<AuctionHub> auctionHub) =>
 {
-    var item = await db.AuctionItems.FindAsync(itemId);
-    if (item is null || item.Status != AuctionItemStatus.Available) return Results.BadRequest(new { message = "Item not available" });
-    var bid = new AuctionBid { AuctionItemId = itemId, BidderId = body.BidderId, BidAmount = body.BidAmount, BidTime = DateTime.UtcNow };
+    var item = await db.AuctionItems.Include(i => i.Bids).FirstOrDefaultAsync(i => i.Id == itemId);
+    if (item is null || item.Status != AuctionItemStatus.Available)
+        return Results.BadRequest(new { message = "Item not available" });
+    if (body.BidAmount <= (item.Bids.Any() ? item.Bids.Max(b => b.BidAmount) : item.StartingBid - 0.01m))
+        return Results.BadRequest(new { message = "Bid must exceed the current high bid." });
+
+    var bid = new AuctionBid
+    {
+        AuctionItemId = itemId,
+        BidderId      = body.BidderId,
+        BidAmount     = body.BidAmount,
+        BidTime       = DateTime.UtcNow
+    };
     db.AuctionBids.Add(bid);
     await db.SaveChangesAsync();
-    return Results.Ok(bid);
-});
 
-events.MapPost("/{id:int}/auction/close", async (int id, LotvDbContext db, IChapterContextService ctx) =>
+    // Broadcast to all clients watching this event's auction
+    var newHigh    = item.Bids.Max(b => b.BidAmount);
+    var totalBids  = item.Bids.Count;
+    await auctionHub.Clients.Group($"auction-{id}")
+        .SendAsync("BidPlaced", itemId, newHigh, (string?)null, totalBids);
+
+    return Results.Ok(bid);
+}).AllowAnonymous();   // public event attendees may bid
+
+events.MapPost("/{id:int}/auction/close", async (int id, LotvDbContext db,
+    IChapterContextService ctx, IHubContext<AuctionHub> auctionHub) =>
 {
     var items = await db.AuctionItems.Include(i => i.Bids).Where(i => i.EventId == id).ToListAsync();
     foreach (var item in items)
     {
         if (!item.Bids.Any()) { item.Status = AuctionItemStatus.Unsold; continue; }
-        var winning = item.Bids.OrderByDescending(b => b.BidAmount).First();
+        var winning  = item.Bids.OrderByDescending(b => b.BidAmount).First();
         item.WinningBid = winning.BidAmount;
-        item.WinnerId = winning.BidderId;
-        item.Status = AuctionItemStatus.Sold;
+        item.WinnerId   = winning.BidderId;
+        item.Status     = AuctionItemStatus.Sold;
     }
     await db.SaveChangesAsync();
+
+    // Notify all connected viewers
+    await auctionHub.Clients.Group($"auction-{id}")
+        .SendAsync("AuctionClosed", id, items.Count);
+
     return Results.Ok(new { closed = items.Count });
 }).RequireAuthorization("ChapterAdmin");
 
