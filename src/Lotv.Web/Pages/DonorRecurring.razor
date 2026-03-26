@@ -269,7 +269,7 @@
       </div>
 
       <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button class="btn" @onclick="() => { _showNew = false; _newError = ""; }">Cancel</button>
+        <button class="btn" @onclick="() => { _showNew = false; _newError = string.Empty; }">Cancel</button>
         <button class="btn btn-primary" @onclick="CreateAsync" disabled="@_saving">
           @(_saving ? "Setting up…" : "Start Recurring Gift")
         </button>

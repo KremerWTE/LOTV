@@ -239,7 +239,154 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 .loading-msg { font-size: .82rem; color: var(--text-light); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── MOBILE HAMBURGER BUTTON (hidden on desktop) ── */
+.sidebar-toggle {
+  display: none; background: none; border: none; cursor: pointer;
+  padding: 6px 8px; border-radius: 8px; color: var(--text-dark); font-size: 1.2rem;
+  line-height: 1;
+}
+.sidebar-toggle:hover { background: var(--bg); }
+
+/* ── TABLE SCROLL WRAPPER ── */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ────────────────────────────────────────────────────────────────
+   BREAKPOINT: ≤ 1100px  (small laptop / tablet landscape)
+──────────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .kanban   { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .topbar-search { width: 150px; }
 }
+
+/* ────────────────────────────────────────────────────────────────
+   BREAKPOINT: ≤ 768px  (tablet portrait / large phone landscape)
+──────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Sidebar becomes an off-canvas overlay */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 600;
+    transform: translateX(-100%); transition: transform .25s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,.2);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* Backdrop for open sidebar */
+  .sidebar-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 599;
+  }
+  .sidebar-backdrop.open { display: block; }
+
+  /* Show hamburger toggle in topbar */
+  .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
+
+  /* Main content takes full width */
+  .lotv-app  { flex-direction: column; }
+  .lotv-main { width: 100%; }
+
+  /* Topbar: hide search on narrow screens, shrink padding */
+  .topbar { padding: 0 14px; }
+  .topbar-search { display: none; }
+  .topbar-breadcrumb { display: none; }
+
+  /* KPI grid: 2 columns on tablet */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+  /* Page header stacks vertically */
+  .page-hd { flex-direction: column; align-items: flex-start; }
+
+  /* Form grids collapse to single column */
+  .form-grid-2,
+  .form-grid-3 { grid-template-columns: 1fr; gap: 12px; }
+
+  /* Drawer fills more of the screen */
+  .drawer { width: 100%; max-width: 100%; }
+
+  /* Tables: allow horizontal scroll */
+  .data-table { font-size: .8rem; }
+  .data-table th,
+  .data-table td { padding: 9px 10px; }
+
+  /* Content padding */
+  .lotv-content { padding: 16px; }
+  .panel-body   { padding: 14px; }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   BREAKPOINT: ≤ 480px  (phone portrait)
+──────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* KPI grid: single column */
+  .kpi-grid { grid-template-columns: 1fr; gap: 10px; }
+
+  /* Kanban: 1 column, horizontal scroll */
+  .kanban { grid-template-columns: 1fr; }
+
+  /* Page content: tighter padding */
+  .lotv-content { padding: 12px; }
+
+  /* Filter bar wraps more tightly */
+  .filter-bar { gap: 7px; }
+  .filter-chip { font-size: .73rem; padding: 4px 11px; }
+
+  /* Buttons fill available width in stacked contexts */
+  .drawer-footer { flex-direction: column; }
+  .drawer-footer .btn { width: 100%; justify-content: center; }
+
+  /* KPI value: slightly smaller on tiny screens */
+  .kpi-value { font-size: 1.55rem; }
+
+  /* Topbar: condense */
+  .topbar { padding: 0 10px; gap: 8px; }
+  .user-pill span { display: none; } /* hide name, show avatar only */
+
+  /* Touch-target minimum for interactive elements */
+  .btn         { min-height: 40px; }
+  .form-input,
+  .form-select { min-height: 44px; font-size: 1rem; } /* prevent iOS zoom */
+  .filter-chip { min-height: 36px; }
+
+  /* Gianna banner: stack vertically */
+  .gianna-banner { flex-direction: column; text-align: center; }
+}
+
+/* ── PUBLIC LAYOUT RESPONSIVE ────────────────────────────────── */
+.public-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; background: white; border-bottom: 1px solid var(--border);
+  flex-wrap: wrap; gap: 10px;
+}
+.public-nav-links {
+  display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+}
+.public-hero { padding: 56px 24px 48px; text-align: center; max-width: 780px; margin: 0 auto; }
+
+@media (max-width: 768px) {
+  .public-nav    { padding: 12px 16px; }
+  .public-nav-links { gap: 12px; }
+  .public-hero   { padding: 36px 16px 32px; }
+}
+
+@media (max-width: 480px) {
+  .public-nav-links { flex-wrap: wrap; justify-content: center; }
+  .public-hero  { padding: 28px 12px 24px; }
+}
+
+/* ── CHART RESPONSIVE ────────────────────────────────────────── */
+/* Ensure SVG charts shrink gracefully */
+.chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.chart-wrap svg { min-width: 280px; }
+
+@media (max-width: 480px) {
+  .chart-wrap svg { min-width: 240px; }
+}
+
+/* ── ACCESSIBILITY: focus-visible ────────────────────────────── */
+:focus-visible {
+  outline: 2.5px solid var(--green);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Remove focus ring when navigating by mouse */
+:focus:not(:focus-visible) { outline: none; }

@@ -41,6 +41,11 @@ else
       {
         <button class="btn btn-sm" @onclick="OpenEdit">&#9998; Edit</button>
       }
+      <a href="/admin/events/@_event.Id/checkin" class="btn btn-sm">&#10003; Check-In</a>
+      @if (_event.Type == EventType.SilentAuction || _event.Type == EventType.Gala)
+      {
+        <a href="/admin/events/@_event.Id/auction" class="btn btn-sm">&#127881; Auction</a>
+      }
       @if (Auth.IsHqAdmin && _event.Status is not (EventStatus.Cancelled or EventStatus.Completed))
       {
         <button class="btn btn-sm" style="color:#dc3545;border-color:#dc3545;" @onclick="CancelEventAsync">&#10006; Cancel Event</button>
@@ -176,6 +181,7 @@ else
                 <th>Amount Paid</th>
                 <th>Channel</th>
                 <th>Registered</th>
+                <th>Ticket</th>
                 <th>Check-In</th>
               </tr>
             </thead>
@@ -188,6 +194,13 @@ else
                   <td style="font-size:.82rem;">@a.AmountPaid.ToString("C")</td>
                   <td style="font-size:.78rem;color:var(--text-mid);">@a.PaymentChannel</td>
                   <td style="font-size:.76rem;color:var(--text-light);">@a.RegisteredAt.ToString("MMM d")</td>
+                  <td>
+                    <a href="@($"/api/v1/events/{_event.Id}/attendees/{a.Id}/qr")" target="_blank"
+                       style="font-size:.74rem;color:var(--navy);text-decoration:none;"
+                       aria-label="View QR ticket for @(a.Donor?.FullName ?? "attendee")">
+                      &#9974; QR
+                    </a>
+                  </td>
                   <td>
                     @if (a.CheckedIn)
                     {
