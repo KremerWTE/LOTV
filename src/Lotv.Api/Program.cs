@@ -1624,6 +1624,53 @@ publicApi.MapGet("/impact", async (LotvDbContext db) =>
         generatedAt = DateTime.UtcNow });
 }).AllowAnonymous();
 
+// GET /api/public/v1/transparency/money — aggregate money-flow by category (no key required)
+publicApi.MapGet("/transparency/money", async (LotvDbContext db) =>
+{
+    var all = await db.FundAllocations.ToListAsync();
+    var total = all.Sum(a => (double)a.Amount);
+    if (total == 0) total = 1d;
+    return all.GroupBy(a =>
+    {
+        var t = a.AllocatedTo ?? "General";
+        foreach (var sep in new[] { " — ", " - ", " (", ":" })
+            if (t.Contains(sep)) return t[..t.IndexOf(sep, StringComparison.Ordinal)].Trim();
+        return t.Trim();
+    })
+    .Select(g => new { Category = g.Key, Amount = g.Sum(a => a.Amount), RequestCount = g.Count(), Percentage = Math.Round(g.Sum(a => (double)a.Amount) / total * 100, 1) })
+    .OrderByDescending(x => x.Amount).ToList();
+}).AllowAnonymous();
+
+// GET /api/public/v1/transparency/timeline — monthly aggregate timeline (no key required)
+publicApi.MapGet("/transparency/timeline", async (LotvDbContext db, int months = 12) =>
+{
+    var cutoff = DateTime.UtcNow.AddMonths(-months);
+    var donations = await db.Donations.Where(d => d.Date >= cutoff)
+        .GroupBy(d => new { d.Date.Year, d.Date.Month })
+        .Select(g => new { g.Key.Year, g.Key.Month, Amount = g.Sum(d => d.Amount) })
+        .ToListAsync();
+    var fulfilled = await db.Requests
+        .Where(r => (r.Status == CaseStatus.Fulfilled || r.Status == CaseStatus.Shipped) && r.UpdatedAt >= cutoff)
+        .GroupBy(r => new { r.UpdatedAt.Year, r.UpdatedAt.Month })
+        .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+        .ToListAsync();
+    var newReqs = await db.Requests.Where(r => r.CreatedAt >= cutoff)
+        .GroupBy(r => new { r.CreatedAt.Year, r.CreatedAt.Month })
+        .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+        .ToListAsync();
+    return Enumerable.Range(0, months).Select(i =>
+    {
+        var dt = DateTime.UtcNow.AddMonths(-months + 1 + i);
+        return new
+        {
+            Period             = dt.ToString("MMM yyyy"),
+            Donations          = donations.FirstOrDefault(d => d.Year == dt.Year && d.Month == dt.Month)?.Amount ?? 0m,
+            RequestsFulfilled  = fulfilled.FirstOrDefault(f => f.Year == dt.Year && f.Month == dt.Month)?.Count ?? 0,
+            NewRequests        = newReqs.FirstOrDefault(n => n.Year == dt.Year && n.Month == dt.Month)?.Count ?? 0
+        };
+    }).ToList();
+}).AllowAnonymous();
+
 // GET /api/public/v1/chapters — list active chapters (no key required)
 publicApi.MapGet("/chapters", async (LotvDbContext db) =>
     Results.Ok(await db.Chapters

@@ -45,22 +45,22 @@ else
       <div class="kpi-card kpi-gold">
         <div class="kpi-icon">&#128184;</div>
         <div class="kpi-label">Total Donated</div>
-        <div class="kpi-value" style="color:var(--gold)">@_stats?.DonationsThisMonth.ToString("C0")</div>
+        <div class="kpi-value" style="color:var(--gold)">@(_impact?.TotalDonations.ToString("C0") ?? "—")</div>
       </div>
       <div class="kpi-card kpi-navy">
         <div class="kpi-icon">&#128101;</div>
         <div class="kpi-label">People Helped</div>
-        <div class="kpi-value" style="color:var(--navy)">@_stats?.OpenCases</div>
+        <div class="kpi-value" style="color:var(--navy)">@(_impact?.PeopleHelped ?? 0)</div>
       </div>
       <div class="kpi-card kpi-green">
         <div class="kpi-icon">&#9989;</div>
         <div class="kpi-label">Requests Fulfilled</div>
-        <div class="kpi-value" style="color:var(--green)">@_moneyFlow.Sum(m => m.RequestCount)</div>
+        <div class="kpi-value" style="color:var(--green)">@(_impact?.OpenRequests ?? 0)</div>
       </div>
       <div class="kpi-card kpi-amber">
         <div class="kpi-icon">&#129309;</div>
         <div class="kpi-label">Active Volunteers</div>
-        <div class="kpi-value" style="color:var(--amber)">@_stats?.ActiveVolunteers</div>
+        <div class="kpi-value" style="color:var(--amber)">@(_impact?.ActiveVolunteers ?? 0)</div>
       </div>
     </div>
 
@@ -167,7 +167,7 @@ else
 
 @code {
   private bool _loading = true;
-  private DashboardStatsDto? _stats;
+  private PublicImpactDto? _impact;
   private List<MoneyFlowCategoryDto> _moneyFlow = [];
   private List<TimelinePointDto> _timeline = [];
 
@@ -175,11 +175,11 @@ else
 
   protected override async Task OnInitializedAsync()
   {
-    var t1 = Api.GetDashboardStatsAsync();
-    var t2 = Api.GetMoneyFlowAsync();
-    var t3 = Api.GetTimelineAsync();
+    var t1 = Api.GetPublicImpactAsync();
+    var t2 = Api.GetPublicMoneyFlowAsync();
+    var t3 = Api.GetPublicTimelineAsync();
     await Task.WhenAll(t1, t2, t3);
-    _stats     = t1.Result;
+    _impact    = t1.Result;
     _moneyFlow = t2.Result;
     _timeline  = t3.Result;
     _loading   = false;

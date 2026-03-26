@@ -195,6 +195,16 @@ public class ApiService
     public Task<List<TimelinePointDto>> GetTimelineAsync() =>
         GetListAsync<TimelinePointDto>("/api/v1/dashboard/timeline");
 
+    // Public transparency endpoints (no auth required)
+    public Task<PublicImpactDto?> GetPublicImpactAsync() =>
+        GetAsync<PublicImpactDto>("/api/public/v1/impact");
+
+    public Task<List<MoneyFlowCategoryDto>> GetPublicMoneyFlowAsync() =>
+        GetListAsync<MoneyFlowCategoryDto>("/api/public/v1/transparency/money");
+
+    public Task<List<TimelinePointDto>> GetPublicTimelineAsync() =>
+        GetListAsync<TimelinePointDto>("/api/public/v1/transparency/timeline");
+
     public Task<List<ChannelBreakdownDto>> GetDonationsByChannelAsync() =>
         GetListAsync<ChannelBreakdownDto>("/api/v1/dashboard/donations/by-channel");
 
@@ -430,6 +440,9 @@ public class ApiService
 }
 
 // ── Response DTOs (API-specific shapes) ──────────────────────────────────────
+public record PublicImpactDto(
+    decimal TotalDonations, int PeopleHelped, int ActiveVolunteers, int OpenRequests);
+
 public record DashboardStatsDto(
     int OpenCases, int Overdue,
     decimal DonationsThisMonth, decimal DonationsLastMonth, int ActiveVolunteers);
