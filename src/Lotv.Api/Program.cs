@@ -1620,8 +1620,10 @@ publicApi.MapGet("/impact", async (LotvDbContext db) =>
     var activeVolunteers = await db.Volunteers.CountAsync(v => v.Status == VolunteerStatus.Active);
     var openRequests     = await db.Requests.CountAsync(r =>
         r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled);
+    var familiesServed   = await db.Families.CountAsync();
+    var diocesesReached  = await db.Dioceses.CountAsync();
     return Results.Ok(new { totalDonations, peopleHelped, activeVolunteers, openRequests,
-        generatedAt = DateTime.UtcNow });
+        familiesServed, diocesesReached, generatedAt = DateTime.UtcNow });
 }).AllowAnonymous();
 
 // GET /api/public/v1/transparency/money — aggregate money-flow by category (no key required)

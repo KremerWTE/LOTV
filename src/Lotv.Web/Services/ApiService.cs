@@ -441,7 +441,8 @@ public class ApiService
 
 // ── Response DTOs (API-specific shapes) ──────────────────────────────────────
 public record PublicImpactDto(
-    decimal TotalDonations, int PeopleHelped, int ActiveVolunteers, int OpenRequests);
+    decimal TotalDonations, int PeopleHelped, int ActiveVolunteers, int OpenRequests,
+    int FamiliesServed, int DiocesesReached);
 
 public record DashboardStatsDto(
     int OpenCases, int Overdue,
