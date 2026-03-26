@@ -1123,20 +1123,25 @@ dashboard.MapGet("/donations/by-person", async (LotvDbContext db, IChapterContex
 
 dashboard.MapGet("/donations/by-city", async (LotvDbContext db, IChapterContextService ctx) =>
 {
-    var q = db.Donations.Include(d => d.Donor).AsQueryable();
+    var q = db.Donations.AsQueryable();
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(d => d.ChapterId == ctx.ChapterId.Value);
-    return await q
-        .Where(d => d.Donor != null && d.Donor.City != null && d.Donor.State != null)
-        .GroupBy(d => new { d.Donor!.City, d.Donor.State })
+    // Load flat projection first; group in memory to avoid EF Core translation limits
+    var raw = await q
+        .Join(db.Donors, d => d.DonorId, donor => donor.Id,
+              (d, donor) => new { d.DonorId, d.Amount, donor.City, donor.State })
+        .Where(x => x.City != null && x.State != null)
+        .ToListAsync();
+    return raw
+        .GroupBy(x => new { x.City, x.State })
         .Select(g => new
         {
-            City         = g.Key.City!,
-            State        = g.Key.State!,
-            TotalDonors  = g.Select(d => d.DonorId).Distinct().Count(),
-            TotalAmount  = g.Sum(d => d.Amount)
+            City        = g.Key.City!,
+            State       = g.Key.State!,
+            TotalDonors = g.Select(x => x.DonorId).Distinct().Count(),
+            TotalAmount = g.Sum(x => x.Amount)
         })
         .OrderByDescending(r => r.TotalAmount)
-        .ToListAsync();
+        .ToList();
 });
 
 dashboard.MapGet("/donations/by-amount", async (LotvDbContext db, IChapterContextService ctx) =>
@@ -1165,21 +1170,26 @@ dashboard.MapGet("/donations/by-amount", async (LotvDbContext db, IChapterContex
 
 dashboard.MapGet("/donations/by-diocese", async (LotvDbContext db, IChapterContextService ctx) =>
 {
-    var q = db.Donations.Include(d => d.Donor).AsQueryable();
+    var q = db.Donations.AsQueryable();
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(d => d.ChapterId == ctx.ChapterId.Value);
-    var rows = await q
-        .Where(d => d.Donor != null && d.Donor.DioceseId != null)
-        .GroupBy(d => new { d.Donor!.DioceseId, d.Donor.DioceseName })
+    // Load flat projection first; group in memory to avoid EF Core translation limits
+    var raw = await q
+        .Join(db.Donors, d => d.DonorId, donor => donor.Id,
+              (d, donor) => new { d.DonorId, d.Amount, donor.DioceseId, donor.DioceseName })
+        .Where(x => x.DioceseId != null)
+        .ToListAsync();
+    var rows = raw
+        .GroupBy(x => new { x.DioceseId, x.DioceseName })
         .Select(g => new
         {
             DioceseId   = g.Key.DioceseId!.Value,
             DioceseName = g.Key.DioceseName ?? "Unknown",
-            TotalDonors = g.Select(d => d.DonorId).Distinct().Count(),
-            TotalAmount = g.Sum(d => d.Amount),
-            AverageGift = Math.Round((double)g.Average(d => d.Amount), 2)
+            TotalDonors = g.Select(x => x.DonorId).Distinct().Count(),
+            TotalAmount = g.Sum(x => x.Amount),
+            AverageGift = g.Count() > 0 ? Math.Round((double)g.Average(x => x.Amount), 2) : 0d
         })
         .OrderByDescending(r => r.TotalAmount)
-        .ToListAsync();
+        .ToList();
     // Enrich with city/state from the Diocese table
     var dioceseIds = rows.Select(r => r.DioceseId).ToList();
     var dioceses = await db.Dioceses.Where(d => dioceseIds.Contains(d.Id))
