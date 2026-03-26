@@ -55,30 +55,30 @@ else
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Information</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
           <div class="form-group">
-            <label class="form-label">First Name *</label>
-            <input class="form-input" @bind="_firstName" placeholder="First" />
+            <label class="form-label" for="vol-first-name">First Name *</label>
+            <input id="vol-first-name" class="form-input" @bind="_firstName" placeholder="First" aria-required="true" autocomplete="given-name" />
           </div>
           <div class="form-group">
-            <label class="form-label">Last Name *</label>
-            <input class="form-input" @bind="_lastName" placeholder="Last" />
+            <label class="form-label" for="vol-last-name">Last Name *</label>
+            <input id="vol-last-name" class="form-input" @bind="_lastName" placeholder="Last" aria-required="true" autocomplete="family-name" />
           </div>
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Email *</label>
-          <input class="form-input" type="email" @bind="_email" placeholder="you@example.com" />
+          <label class="form-label" for="vol-email">Email *</label>
+          <input id="vol-email" class="form-input" type="email" @bind="_email" placeholder="you@example.com" aria-required="true" autocomplete="email" />
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Phone (optional)</label>
-          <input class="form-input" @bind="_phone" placeholder="(555) 000-0000" />
+          <label class="form-label" for="vol-phone">Phone (optional)</label>
+          <input id="vol-phone" class="form-input" @bind="_phone" placeholder="(555) 000-0000" autocomplete="tel" />
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;">
           <div class="form-group">
-            <label class="form-label">City</label>
-            <input class="form-input" @bind="_city" placeholder="City" />
+            <label class="form-label" for="vol-city">City</label>
+            <input id="vol-city" class="form-input" @bind="_city" placeholder="City" autocomplete="address-level2" />
           </div>
           <div class="form-group">
-            <label class="form-label">State</label>
-            <input class="form-input" @bind="_state" placeholder="IL" />
+            <label class="form-label" for="vol-state">State</label>
+            <input id="vol-state" class="form-input" @bind="_state" placeholder="IL" autocomplete="address-level1" />
           </div>
         </div>
       </div>
@@ -86,12 +86,12 @@ else
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Parish &amp; Role</div>
         <div class="form-group">
-          <label class="form-label">Parish Name (optional)</label>
-          <input class="form-input" @bind="_parish" placeholder="St. Mary's, Chicago" />
+          <label class="form-label" for="vol-parish">Parish Name (optional)</label>
+          <input id="vol-parish" class="form-input" @bind="_parish" placeholder="St. Mary's, Chicago" />
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Area of Interest *</label>
-          <select class="form-input" @bind="_role">
+          <label class="form-label" for="vol-role">Area of Interest *</label>
+          <select id="vol-role" class="form-input" @bind="_role" aria-required="true">
             @foreach (var r in Enum.GetValues<VolunteerRole>())
             { <option value="@r">@FormatRole(r)</option> }
           </select>
@@ -101,14 +101,14 @@ else
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">About You</div>
         <div class="form-group">
-          <label class="form-label">Why do you want to volunteer? (optional)</label>
-          <textarea class="form-textarea" @bind="_bio" placeholder="Share your motivation or connection to this mission..." rows="4"></textarea>
+          <label class="form-label" for="vol-bio">Why do you want to volunteer? (optional)</label>
+          <textarea id="vol-bio" class="form-textarea" @bind="_bio" placeholder="Share your motivation or connection to this mission..." rows="4"></textarea>
         </div>
       </div>
 
       @if (!string.IsNullOrEmpty(_error))
       {
-        <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
+        <div role="alert" aria-live="assertive" style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
       }
 
       <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync">

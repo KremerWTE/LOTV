@@ -2,7 +2,7 @@
 
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-03-25 — Phase 4 COMPLETE; Phase 5 COMPLETE — 388 tests passing (0 failures); Phase 6 IN PROGRESS — CI/CD workflows complete, environment config + OWASP review done; remaining items require cloud infrastructure
+**Last Updated**: 2026-03-26 — Phase 4 COMPLETE; Phase 5 COMPLETE — 388 tests passing (0 failures); Phase 6 IN PROGRESS — CI/CD workflows complete, environment config + OWASP review done; E2E Playwright test suite complete; mobile responsiveness + WCAG 2.1 AA accessibility audit complete
 **Org Model**: Centralized nonprofit — National HQ → Local Chapters (2-tier)
 
 ---
@@ -551,7 +551,7 @@
 - [x] Coverage target: ≥ 80% on Lotv.Core — **achieved 86.4% line / 94.3% branch / 80.5% method** (ModelCoverageTests.cs: 77 tests across all untested model types)
 
 ### Optional
-- [ ] E2E browser tests (Playwright) for critical user flows
+- [x] E2E browser tests (Playwright) for critical user flows — `tests/Lotv.E2E`; BrowserFixture (shared Chromium), E2ETestBase (per-test context/page + helpers); suites: PublicPagesTests, AuthFlowTests, ApplyFlowTests, DonationFlowTests, VolunteerFlowTests, AdminPagesTests (login-gated), MobileResponsivenessTests (390×844 viewport), AccessibilityTests (WCAG 2.1 AA checks); configurable via `E2E_BASE_URL`/`E2E_HEADLESS`/`E2E_SLOW_MO` env vars; README with setup + CI guide
 
 ---
 
@@ -630,8 +630,8 @@
 - [x] In-app help / FAQ — `Help.razor` at `/help` (PublicLayout); 25 FAQ items across 5 categories (Requesting Help, Volunteering, Donations, Account & Privacy, Technical); live search + category filter chips; accordion expand/collapse; contact block
 
 ### Quality & Accessibility
-- [ ] Accessibility audit (WCAG 2.1 AA)
-- [ ] Mobile responsiveness review (all views)
+- [x] Accessibility audit (WCAG 2.1 AA) — ARIA labels/roles on all public forms (Apply, Give, VolunteerSignup), Login; `role="alert"` + `aria-live="assertive"` on all error messages; `role="navigation"` + `aria-label` on sidebar; `role="search"` on global search; `aria-live="polite"` + `role="status"` on ToastNotification; `aria-label` on notification bell (keyboard-accessible); `aria-pressed` on preset donation buttons; `autocomplete` attributes on all name/email/phone/address inputs; `aria-describedby` for hint text; `focus-visible` keyboard ring in CSS
+- [x] Mobile responsiveness review (all views) — 768px sidebar off-canvas with hamburger; 480px single-column KPI/kanban; touch targets 44px; public layout responsive
 - [ ] Performance profiling of dashboard aggregate queries (index strategy for large datasets)
 - [ ] Localization / i18n (if serving non-English speakers)
 

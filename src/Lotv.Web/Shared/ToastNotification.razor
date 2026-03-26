@@ -3,19 +3,22 @@
 
 @if (_toasts.Any())
 {
-    <div style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:360px;">
+    <div aria-live="polite" aria-atomic="false" role="status"
+         style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:360px;">
         @foreach (var t in _toasts)
         {
-            <div style="background:var(--navy);color:white;padding:14px 18px;border-radius:12px;
+            <div role="alert" aria-label="@t.Title: @t.Message"
+                 style="background:var(--navy);color:white;padding:14px 18px;border-radius:12px;
                         box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:.85rem;line-height:1.5;
                         display:flex;align-items:flex-start;gap:12px;
                         animation:slideIn .25s ease;">
-                <span style="font-size:1.2rem;flex-shrink:0;">@t.Icon</span>
+                <span style="font-size:1.2rem;flex-shrink:0;" aria-hidden="true">@t.Icon</span>
                 <div style="flex:1;">
                     <div style="font-weight:700;margin-bottom:2px;">@t.Title</div>
                     <div style="opacity:.8;">@t.Message</div>
                 </div>
-                <button @onclick="() => Remove(t)" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:1rem;padding:0;line-height:1;">✕</button>
+                <button @onclick="() => Remove(t)" aria-label="Dismiss notification"
+                        style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:1rem;padding:0;line-height:1;">✕</button>
             </div>
         }
     </div>

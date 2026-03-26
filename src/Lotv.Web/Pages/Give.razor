@@ -45,22 +45,24 @@ else
       <!-- AMOUNT SELECTOR -->
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Gift Amount</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;" role="group" aria-label="Preset gift amounts">
           @foreach (var preset in new[]{25m, 50m, 100m, 250m})
           {
             <button style="padding:12px 8px;border:2px solid @(_amount == preset ? "var(--green)" : "var(--border)");background:@(_amount == preset ? "var(--green-pale)" : "white");border-radius:9px;font-weight:700;font-size:.94rem;color:@(_amount == preset ? "var(--green)" : "var(--text-mid)");cursor:pointer;"
+                    aria-label="Give @preset.ToString("C0")" aria-pressed="@(_amount == preset)"
                     @onclick='() => SelectAmount(preset)'>
               @preset.ToString("C0")
             </button>
           }
         </div>
         <div class="form-group">
-          <label class="form-label">Custom amount</label>
+          <label class="form-label" for="give-custom">Custom amount</label>
           <div style="position:relative;">
-            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-mid);font-weight:600;">$</span>
-            <input class="form-input" type="number" min="1" style="padding-left:26px;"
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-mid);font-weight:600;" aria-hidden="true">$</span>
+            <input id="give-custom" class="form-input" type="number" min="1" style="padding-left:26px;"
                    value="@(_customAmount?.ToString() ?? "")"
                    placeholder="Other amount"
+                   aria-label="Custom gift amount in dollars"
                    @onchange='e => SetCustomAmount(e.Value?.ToString())' />
           </div>
         </div>
@@ -77,21 +79,21 @@ else
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Information</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
           <div class="form-group">
-            <label class="form-label">First Name *</label>
-            <input class="form-input" @bind="_firstName" placeholder="First" />
+            <label class="form-label" for="give-first-name">First Name *</label>
+            <input id="give-first-name" class="form-input" @bind="_firstName" placeholder="First" aria-required="true" autocomplete="given-name" />
           </div>
           <div class="form-group">
-            <label class="form-label">Last Name *</label>
-            <input class="form-input" @bind="_lastName" placeholder="Last" />
+            <label class="form-label" for="give-last-name">Last Name *</label>
+            <input id="give-last-name" class="form-input" @bind="_lastName" placeholder="Last" aria-required="true" autocomplete="family-name" />
           </div>
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Email *</label>
-          <input class="form-input" type="email" @bind="_email" placeholder="you@example.com" />
+          <label class="form-label" for="give-email">Email *</label>
+          <input id="give-email" class="form-input" type="email" @bind="_email" placeholder="you@example.com" aria-required="true" autocomplete="email" />
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Parish / Diocese (optional)</label>
-          <input class="form-input" @bind="_parish" placeholder="e.g. St. Joseph's, Chicago" />
+          <label class="form-label" for="give-parish">Parish / Diocese (optional)</label>
+          <input id="give-parish" class="form-input" @bind="_parish" placeholder="e.g. St. Joseph's, Chicago" />
         </div>
       </div>
 
@@ -99,14 +101,14 @@ else
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Dedication (optional)</div>
         <div class="form-group">
-          <label class="form-label">In memory / honor of</label>
-          <input class="form-input" @bind="_dedicationMsg" placeholder="e.g. In memory of our little one, Baby Grace" />
+          <label class="form-label" for="give-dedication">In memory / honor of</label>
+          <input id="give-dedication" class="form-input" @bind="_dedicationMsg" placeholder="e.g. In memory of our little one, Baby Grace" />
         </div>
       </div>
 
       @if (!string.IsNullOrEmpty(_error))
       {
-        <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
+        <div role="alert" aria-live="assertive" style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
       }
 
       <div style="background:var(--bg);border-radius:10px;padding:16px 18px;margin-bottom:20px;font-size:.86rem;color:var(--text-mid);">

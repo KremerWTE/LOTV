@@ -7,8 +7,14 @@
 
 <div class="lotv-app">
 
+  <!-- MOBILE SIDEBAR BACKDROP -->
+  @if (_sidebarOpen)
+  {
+    <div class="sidebar-backdrop open" @onclick="CloseSidebar"></div>
+  }
+
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar @(_sidebarOpen ? "open" : "")" role="navigation" aria-label="Main navigation" @onclick:stopPropagation="true">
     <div class="sidebar-logo">
       <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">&#127803;</div>
       <div class="sidebar-logo-text">
@@ -172,14 +178,19 @@
     <!-- TOPBAR -->
     <div class="topbar">
       <div class="topbar-left">
+        <!-- Mobile hamburger toggle -->
+        <button class="sidebar-toggle" @onclick="ToggleSidebar" aria-label="Open navigation menu" aria-expanded="@_sidebarOpen">
+          &#9776;
+        </button>
         <div class="topbar-title">@_pageTitle</div>
         <div class="topbar-breadcrumb">LOTV Staff Portal</div>
       </div>
       <div class="topbar-right">
 
         <!-- GLOBAL SEARCH -->
-        <div style="position:relative;">
-          <input class="topbar-search" type="text" placeholder="&#128269; Search families, donors..."
+        <div style="position:relative;" role="search">
+          <input class="topbar-search" type="search" placeholder="&#128269; Search families, donors..."
+                 aria-label="Search families, donors, and volunteers"
                  value="@_searchText"
                  @oninput='async e => await OnSearchChanged(e.Value?.ToString() ?? string.Empty)'
                  @onfocus="() => _searchOpen = true"
@@ -233,10 +244,15 @@
 
         <!-- NOTIFICATIONS -->
         <div style="position:relative;">
-          <div class="notif-btn" @onclick="() => _notifOpen = !_notifOpen" style="cursor:pointer;">
+          <div class="notif-btn" role="button" tabindex="0"
+               aria-label="@(_notifCount > 0 ? $"Notifications, {_notifCount} unread" : "Notifications")"
+               aria-expanded="@_notifOpen"
+               @onclick="() => _notifOpen = !_notifOpen"
+               @onkeydown='e => { if (e.Key == "Enter" || e.Key == " ") _notifOpen = !_notifOpen; }'
+               style="cursor:pointer;">
             &#128276;
             @if (_notifCount > 0)
-            { <div class="notif-dot">@(_notifCount > 9 ? "9+" : _notifCount.ToString())</div> }
+            { <div class="notif-dot" aria-hidden="true">@(_notifCount > 9 ? "9+" : _notifCount.ToString())</div> }
           </div>
           @if (_notifOpen)
           {
@@ -324,6 +340,11 @@
 
   private bool _showDemoBanner = false;
 
+  // Mobile sidebar state
+  private bool _sidebarOpen;
+  private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+  private void CloseSidebar()  => _sidebarOpen = false;
+
   // Role-based visibility (matches UserRole enum in Lotv.Core)
   private bool _isAdmin          => Auth.UserRole is "HQAdmin" or "ChapterAdmin";
   private bool _canSeeCases      => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Volunteer";
@@ -363,7 +384,7 @@
     Hub.OnCaseEscalated += async (_, _) => { await LoadNotificationsAsync(); await InvokeAsync(StateHasChanged); };
 
     Auth.OnChange += StateHasChanged;
-    Nav.LocationChanged += (_, _) => UpdateTitle();
+    Nav.LocationChanged += (_, _) => { UpdateTitle(); CloseSidebar(); InvokeAsync(StateHasChanged); };
     UpdateTitle();
   }
 
