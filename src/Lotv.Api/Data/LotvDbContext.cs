@@ -91,9 +91,10 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(r => r.ChapterId);
             e.HasIndex(r => r.Status);
             e.HasIndex(r => r.AssignedToId);
-            e.HasIndex(r => r.CreatedAt);                          // overdue detection
-            e.HasIndex(r => new { r.ChapterId, r.Status });        // most common dashboard query
-            e.HasIndex(r => new { r.ChapterId, r.AssignedToId });  // workload view per chapter
+            e.HasIndex(r => r.CreatedAt);                                        // overdue detection (global)
+            e.HasIndex(r => new { r.ChapterId, r.Status });                      // most common dashboard query
+            e.HasIndex(r => new { r.ChapterId, r.AssignedToId });                // workload view per chapter
+            e.HasIndex(r => new { r.ChapterId, r.Status, r.CreatedAt });         // overdue-by-chapter (status filter + age sort)
             e.HasOne(r => r.Family).WithMany().HasForeignKey(r => r.FamilyId).OnDelete(DeleteBehavior.Restrict);
             e.Ignore(r => r.Chapter);
         });
@@ -131,7 +132,10 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
         builder.Entity<Donor>(e =>
         {
             e.HasIndex(d => d.ChapterId);
-            e.HasIndex(d => d.Email);
+            e.HasIndex(d => d.Email);                               // de-dupe on public signup
+            e.HasIndex(d => new { d.ChapterId, d.TotalGiven });     // top-donor leaderboard / tier sort
+            e.Property(d => d.TotalGiven).HasPrecision(12, 2);
+            e.Property(d => d.RecurringAmount).HasPrecision(12, 2);
             e.Ignore(d => d.Chapter);
         });
 
@@ -141,7 +145,10 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(d => d.ChapterId);
             e.HasIndex(d => d.DonorId);
             e.HasIndex(d => d.AllocationStatus);
-            e.HasIndex(d => new { d.ChapterId, d.Date });   // date-range dashboard aggregates
+            e.HasIndex(d => d.Channel);                             // by-channel report
+            e.HasIndex(d => new { d.ChapterId, d.Date });           // date-range dashboard aggregates
+            e.HasIndex(d => new { d.ChapterId, d.Channel, d.Date }); // channel breakdown over time
+            e.Property(d => d.Amount).HasPrecision(12, 2);
             e.HasOne(d => d.Donor).WithMany().HasForeignKey(d => d.DonorId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -150,6 +157,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
         {
             e.HasIndex(a => a.DonationId);
             e.HasIndex(a => a.Status);                      // PendingReview filter for approval queue
+            e.Property(a => a.Amount).HasPrecision(12, 2);
             e.HasOne(a => a.Donation).WithMany().HasForeignKey(a => a.DonationId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -157,6 +165,8 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
         builder.Entity<Expense>(e =>
         {
             e.HasIndex(ex => ex.ChapterId);
+            e.HasIndex(ex => new { ex.ChapterId, ex.PaidAt });   // monthly expense aggregates
+            e.Property(ex => ex.Amount).HasPrecision(12, 2);
             e.Ignore(ex => ex.Chapter);
         });
 

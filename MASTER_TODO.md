@@ -620,7 +620,7 @@
 - [x] Payment reconciliation report (compare Stripe records vs. internal contribution records) — `PaymentReconciliation.razor` at `/admin/reconciliation`; period selector, run-report action, KPI strip (matched/discrepancy/stripe-only/internal-only), filterable results table, resolution guide panel, CSV export stub
 - [x] Donor anonymity option — `IsAnonymous` on `Donor` model; `PATCH /api/v1/donors/{id}/privacy` (ChapterAdmin); names masked in donor list with `?maskAnonymous=true`; event attendee list masks anonymous donors via `Include(Donor)`
 - [x] Financial audit export — `GET /api/v1/audit/export` (ChapterAdmin); CSV of `FundAllocation` audit entries with date range filter; `Content-Disposition: attachment`
-- [ ] GDPR / CCPA compliance review and PII handling policy
+- [x] GDPR / CCPA compliance review and PII handling policy — `docs/privacy-compliance.md`
 
 ### Operations
 - [x] Audit logging — immutable append-only record of all financial allocations — `IFinancialAuditService` / `FinancialAuditService`; POST create, approve, reject allocation endpoints all emit audit entries
@@ -632,7 +632,7 @@
 ### Quality & Accessibility
 - [x] Accessibility audit (WCAG 2.1 AA) — ARIA labels/roles on all public forms (Apply, Give, VolunteerSignup), Login; `role="alert"` + `aria-live="assertive"` on all error messages; `role="navigation"` + `aria-label` on sidebar; `role="search"` on global search; `aria-live="polite"` + `role="status"` on ToastNotification; `aria-label` on notification bell (keyboard-accessible); `aria-pressed` on preset donation buttons; `autocomplete` attributes on all name/email/phone/address inputs; `aria-describedby` for hint text; `focus-visible` keyboard ring in CSS
 - [x] Mobile responsiveness review (all views) — 768px sidebar off-canvas with hamburger; 480px single-column KPI/kanban; touch targets 44px; public layout responsive
-- [ ] Performance profiling of dashboard aggregate queries (index strategy for large datasets)
+- [x] Performance profiling of dashboard aggregate queries — added composite indexes: `(ChapterId, Status, CreatedAt)` for overdue-by-chapter, `(ChapterId, TotalGiven)` for top-donor leaderboard, `(ChapterId, Channel, Date)` for channel-breakdown-over-time, `(ChapterId, PaidAt)` for monthly expense aggregates; added `HasPrecision(12,2)` on all money fields (Donation.Amount, FundAllocation.Amount, Expense.Amount, Donor.TotalGiven/RecurringAmount); migration `PerfIndexesAndPrecision` generated
 - [ ] Localization / i18n (if serving non-English speakers)
 
 ### Future Features
