@@ -975,6 +975,37 @@ events.MapPut("/{id:int}/attendees/{attendeeId:int}/checkin", async (int id, int
     return Results.Ok(a);
 });
 
+// QR code image for a specific attendee ticket (SVG, staff-facing)
+events.MapGet("/{id:int}/attendees/{attendeeId:int}/qr", async (int id, int attendeeId, LotvDbContext db) =>
+{
+    var a = await db.EventAttendees.FindAsync(attendeeId);
+    if (a is null) return Results.NotFound();
+
+    using var qrGenerator = new QRCoder.QRCodeGenerator();
+    var data = qrGenerator.CreateQrCode(a.TicketCode, QRCoder.QRCodeGenerator.ECCLevel.M);
+    var svgCode = new QRCoder.SvgQRCode(data);
+    var svg = svgCode.GetGraphic(new System.Drawing.Size(200, 200), "#1a2e5c", "#ffffff", true);
+
+    return Results.Content(svg, "image/svg+xml");
+}).RequireAuthorization("Staff");
+
+// QR scan endpoint: look up attendee by ticket code and mark checked in
+events.MapPost("/{id:int}/scan", async (int id, QrScanRequest body, LotvDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Code))
+        return Results.BadRequest(new { error = "Ticket code is required." });
+
+    var a = await db.EventAttendees.Include(a => a.Donor)
+        .FirstOrDefaultAsync(a => a.EventId == id && a.TicketCode == body.Code);
+    if (a is null) return Results.NotFound(new { error = "Ticket not found for this event." });
+    if (a.CheckedIn)
+        return Results.Conflict(new { error = "Ticket already checked in.", attendee = a, checkedInAt = a.CheckedInAt });
+
+    a.CheckedIn = true; a.CheckedInAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { message = "Check-in successful.", attendee = a });
+}).RequireAuthorization("Staff");
+
 events.MapGet("/{id:int}/revenue", async (int id, LotvDbContext db) =>
 {
     var tickets = await db.EventAttendees.Where(a => a.EventId == id).SumAsync(a => (decimal?)a.AmountPaid) ?? 0m;
@@ -1621,6 +1652,7 @@ record InventoryAdjustRequest(int QuantityDelta, string? Reason);
 record ApplyPledgePaymentRequest(decimal Amount);
 record FulfillWishListRequest(int Quantity, string? DonorId);
 record SmsCheckInRequest(string? VolunteerPhone, string? Note);
+record QrScanRequest(string Code);
 record PublicIntakeRequest(string FamilyLastName, int ChapterId, PackageReason Reason,
     string? City, string? State, string? Notes);
 record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,

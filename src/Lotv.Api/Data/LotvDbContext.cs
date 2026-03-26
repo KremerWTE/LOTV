@@ -184,6 +184,9 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
         {
             e.HasIndex(a => a.EventId);
             e.HasIndex(a => a.DonorId);                         // donor event history lookup
+            e.HasIndex(a => a.TicketCode).IsUnique();           // QR scan lookup
+            e.Property(a => a.TicketCode).HasMaxLength(32);
+            e.Property(a => a.AmountPaid).HasPrecision(12, 2);
             e.HasOne(a => a.Event).WithMany().HasForeignKey(a => a.EventId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(a => a.Donor).WithMany().HasForeignKey(a => a.DonorId).OnDelete(DeleteBehavior.Restrict);
         });

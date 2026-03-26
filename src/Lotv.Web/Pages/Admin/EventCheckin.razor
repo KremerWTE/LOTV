@@ -1,0 +1,205 @@
+@page "/admin/events/{EventId:int}/checkin"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Event Check-In — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Event Check-In</h2>
+    @if (_event is not null)
+    {
+      <p>@_event.Title — @_event.Date.ToString("MMMM d, yyyy")</p>
+    }
+  </div>
+  <a class="btn" href="/admin/events/@EventId">&#8592; Back to Event</a>
+</div>
+
+<!-- KPI strip -->
+<div class="kpi-grid" style="margin-bottom:24px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#127881;</div>
+    <div class="kpi-label">Registered</div>
+    <div class="kpi-value" style="color:var(--navy);">@_attendees.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Checked In</div>
+    <div class="kpi-value" style="color:var(--green);">@_attendees.Count(a => a.CheckedIn)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-label">Remaining</div>
+    <div class="kpi-value" style="color:var(--amber);">@_attendees.Count(a => !a.CheckedIn)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128200;</div>
+    <div class="kpi-label">Check-In Rate</div>
+    <div class="kpi-value" style="color:var(--gold);">
+      @(_attendees.Any() ? $"{(int)(_attendees.Count(a => a.CheckedIn) * 100.0 / _attendees.Count)}%" : "—")
+    </div>
+  </div>
+</div>
+
+<!-- Scan panel -->
+<div style="display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start;">
+
+  <!-- Code entry / scan result -->
+  <div style="border:1px solid var(--border);border-radius:12px;background:white;overflow:hidden;">
+    <div style="padding:16px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem;color:var(--navy);">
+      Scan Ticket
+    </div>
+    <div style="padding:20px 18px;">
+      <div class="form-group">
+        <label class="form-label" for="ticket-code">Ticket Code</label>
+        <input id="ticket-code" class="form-input" @bind="_scanCode" @bind:event="oninput"
+               @onkeydown="OnScanKeyDown"
+               placeholder="Scan QR or enter code…"
+               autofocus aria-describedby="scan-hint" />
+        <div id="scan-hint" style="font-size:.72rem;color:var(--text-light);margin-top:4px;">
+          Point a barcode scanner at a ticket, or type the code manually.
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;"
+              @onclick="ScanAsync" disabled="@(string.IsNullOrWhiteSpace(_scanCode) || _scanning)">
+        @(_scanning ? "Checking…" : "Check In")
+      </button>
+
+      @if (_scanResult is not null)
+      {
+        <div style="margin-top:16px;padding:14px;border-radius:10px;
+                    background:@(_scanResult.Success ? "#f0faf0" : "#fef2f2");
+                    border:1px solid @(_scanResult.Success ? "#86efac" : "#fecaca");">
+          <div style="font-weight:700;font-size:.88rem;color:@(_scanResult.Success ? "#2d6a2d" : "#b91c1c");margin-bottom:4px;">
+            @(_scanResult.Success ? "✓ Checked in!" : "⚠ " + _scanResult.Message)
+          </div>
+          @if (_scanResult.AttendeeName is not null)
+          {
+            <div style="font-size:.82rem;color:var(--text-mid);">@_scanResult.AttendeeName</div>
+            <div style="font-size:.76rem;color:var(--text-light);">@_scanResult.TicketCount ticket@(_scanResult.TicketCount == 1 ? "" : "s")</div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Attendee list with search -->
+  <div style="border:1px solid var(--border);border-radius:12px;background:white;overflow:hidden;">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+      <span style="font-weight:700;font-size:.88rem;color:var(--navy);">Attendees</span>
+      <div style="flex:1;"></div>
+      <input class="form-input" @bind="_search" @bind:event="oninput"
+             placeholder="Search by name…" style="max-width:220px;font-size:.82rem;padding:6px 10px;"
+             aria-label="Search attendees" />
+      <div style="display:flex;gap:6px;">
+        @foreach (var f in new[]{"All","Pending","Checked In"})
+        {
+          <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button>
+        }
+      </div>
+    </div>
+
+    <div style="max-height:520px;overflow-y:auto;">
+      @foreach (var a in Filtered)
+      {
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:@(a.CheckedIn ? "var(--green)" : "var(--bg)");
+                      display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;
+                      color:@(a.CheckedIn ? "white" : "var(--text-light)");">
+            @(a.CheckedIn ? "✓" : "○")
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:.84rem;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              @(a.Donor?.FullName ?? "Guest")
+            </div>
+            <div style="font-size:.72rem;color:var(--text-light);">
+              @a.TicketCount ticket@(a.TicketCount == 1 ? "" : "s")
+              @if (a.CheckedIn && a.CheckedInAt.HasValue)
+              { <span> &bull; checked in @a.CheckedInAt.Value.ToString("h:mm tt")</span> }
+            </div>
+          </div>
+          @if (!a.CheckedIn)
+          {
+            <button class="btn" style="font-size:.76rem;padding:5px 12px;" @onclick="() => ManualCheckinAsync(a)">
+              Check In
+            </button>
+          }
+        </div>
+      }
+      @if (!Filtered.Any())
+      {
+        <div style="padding:32px;text-align:center;color:var(--text-light);font-size:.84rem;">
+          No attendees match this filter.
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+@code {
+  [Parameter] public int EventId { get; set; }
+
+  private MinistryEvent?    _event;
+  private List<EventAttendee> _attendees = [];
+  private string _scanCode  = "";
+  private string _search    = "";
+  private string _filter    = "All";
+  private bool   _scanning;
+
+  private CheckinScanResult? _scanResult;
+
+  private IEnumerable<EventAttendee> Filtered => _attendees
+    .Where(a => _filter switch
+    {
+      "Pending"    => !a.CheckedIn,
+      "Checked In" => a.CheckedIn,
+      _            => true
+    })
+    .Where(a => string.IsNullOrWhiteSpace(_search) ||
+                (a.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) == true));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _event     = await Api.GetEventAsync(EventId);
+    _attendees = await Api.GetAttendeesAsync(EventId);
+  }
+
+  private async Task OnScanKeyDown(KeyboardEventArgs e)
+  {
+    if (e.Key == "Enter") await ScanAsync();
+  }
+
+  private async Task ScanAsync()
+  {
+    if (string.IsNullOrWhiteSpace(_scanCode) || _scanning) return;
+    _scanning = true;
+    _scanResult = null;
+
+    var result = await Api.ScanTicketAsync(EventId, _scanCode.Trim());
+    if (result is not null)
+    {
+      _scanResult = result;
+      if (result.Success)
+      {
+        // Refresh list to update checked-in status
+        _attendees = await Api.GetAttendeesAsync(EventId);
+      }
+    }
+    else
+    {
+      _scanResult = new CheckinScanResult(false, "Ticket not found.", null, 0);
+    }
+
+    _scanning = false;
+    _scanCode = "";
+  }
+
+  private async Task ManualCheckinAsync(EventAttendee a)
+  {
+    await Api.CheckInAttendeeAsync(EventId, a.Id);
+    _attendees = await Api.GetAttendeesAsync(EventId);
+  }
+
+}

@@ -114,6 +114,31 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    public async Task<CheckinScanResult?> ScanTicketAsync(int eventId, string code)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/events/{eventId}/scan", new { Code = code });
+        if (resp is null) return null;
+        if (resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadFromJsonAsync<ScanOkBody>();
+            var name = body?.Attendee?.Donor?.FullName;
+            var tickets = body?.Attendee?.TicketCount ?? 1;
+            return new CheckinScanResult(true, "Checked in!", name, tickets);
+        }
+        if ((int)resp.StatusCode == 409)
+        {
+            var body = await resp.Content.ReadFromJsonAsync<ScanErrorBody>();
+            var name = body?.Attendee?.Donor?.FullName;
+            var tickets = body?.Attendee?.TicketCount ?? 1;
+            return new CheckinScanResult(false, body?.Error ?? "Already checked in.", name, tickets);
+        }
+        var err = await resp.Content.ReadFromJsonAsync<ScanErrorBody>();
+        return new CheckinScanResult(false, err?.Error ?? "Ticket not found.", null, 0);
+    }
+
+    private record ScanOkBody(string? Message, EventAttendee? Attendee);
+    private record ScanErrorBody(string? Error, EventAttendee? Attendee, DateTime? CheckedInAt);
+
     public async Task<SilentAuctionItem?> CreateAuctionItemAsync(int eventId, SilentAuctionItem item)
     {
         var resp = await AuthedPostAsync($"/api/v1/events/{eventId}/auction", item);
@@ -423,6 +448,7 @@ public record StaffUserDto(
     string Id, string? Email, string? FullName, UserRole Role, int? ChapterId, bool IsActive);
 
 public record EventRevenueDto(decimal Tickets, decimal Auction, decimal Total);
+public record CheckinScanResult(bool Success, string Message, string? AttendeeName, int TicketCount);
 
 public record MoneyFlowCategoryDto(string Category, decimal Amount, int RequestCount, double Percentage);
 public record ResourceFlowTypeDto(string ResourceType, int Quantity, string Unit, int RequestCount, double Percentage);

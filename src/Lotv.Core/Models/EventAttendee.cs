@@ -12,6 +12,8 @@ public class EventAttendee
     public DonationChannel PaymentChannel { get; set; }
     public bool CheckedIn { get; set; }
     public DateTime? CheckedInAt { get; set; }
+    /// <summary>Unique token encoded in the attendee's QR ticket. Generated on registration.</summary>
+    public string TicketCode { get; set; } = Guid.NewGuid().ToString("N");
     public string? Notes { get; set; }
     public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
 }
