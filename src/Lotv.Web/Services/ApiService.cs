@@ -211,11 +211,28 @@ public class ApiService
     public Task<List<PublicEventDto>> GetPublicEventsAsync() =>
         GetListAsync<PublicEventDto>("/api/public/v1/events");
 
+    public Task<List<PublicChapterDto>> GetPublicChaptersAsync() =>
+        GetListAsync<PublicChapterDto>("/api/public/v1/chapters");
+
     public Task<PublicDonorImpactDto?> GetPublicDonorImpactAsync(int donorId) =>
         GetAsync<PublicDonorImpactDto>($"/api/public/v1/donors/{donorId}/impact");
 
     public Task<List<PublicFamilyRequestDto>> GetPublicFamilyRequestsAsync(int familyId) =>
         GetListAsync<PublicFamilyRequestDto>($"/api/public/v1/families/{familyId}/requests");
+
+    public async Task<bool> UpdateFamilyProfileAsync(int familyId,
+        string firstName, string lastName, string email, string phone,
+        string street, string city, string state, string zip)
+    {
+        try
+        {
+            var resp = await _http.PatchAsJsonAsync($"/api/public/v1/families/{familyId}/profile",
+                new { FirstName = firstName, LastName = lastName, Email = email, Phone = phone,
+                      Street = street, City = city, State = state, Zip = zip });
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
 
     public Task<List<ChannelBreakdownDto>> GetDonationsByChannelAsync() =>
         GetListAsync<ChannelBreakdownDto>("/api/v1/dashboard/donations/by-channel");
@@ -465,6 +482,8 @@ public record PublicEventDto(
     string Location, bool IsVirtual,
     int? Capacity, int Registered,
     string Type, string Status, decimal? TicketPrice);
+
+public record PublicChapterDto(int Id, string Name, string City, string State);
 
 public record PublicDonorImpactDto(
     decimal TotalGiven, int GiftCount, int FamiliesHelped, int ChaptersServed,

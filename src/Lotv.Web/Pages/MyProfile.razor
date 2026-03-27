@@ -112,6 +112,8 @@
 </div>
 
 @code {
+  [Parameter, SupplyParameterFromQuery] public int? FamilyId { get; set; }
+
   private string _firstName = "";
   private string _lastName = "";
   private string _email = "";
@@ -133,8 +135,16 @@
       _error = "First and last name are required.";
       return;
     }
-    // In production: call Api.UpdateProfileAsync(...)
+
+    if (FamilyId.HasValue && FamilyId.Value > 0)
+    {
+      var ok = await Api.UpdateFamilyProfileAsync(
+        FamilyId.Value,
+        _firstName, _lastName, _email, _phone,
+        _street, _city, _state, _zip);
+      if (!ok) { _error = "Unable to save profile. Please try again."; return; }
+    }
+
     _saved = true;
-    await Task.CompletedTask;
   }
 }

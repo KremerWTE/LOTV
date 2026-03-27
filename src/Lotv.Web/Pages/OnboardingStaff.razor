@@ -110,7 +110,7 @@
                        style="margin-top:2px;accent-color:var(--navy);" />
                 <div>
                   <div style="font-weight:600;color:var(--navy);font-size:.9rem;">@ch.Name</div>
-                  <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@ch.City, @ch.State · @ch.VolunteerCount volunteers</div>
+                  <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@ch.City, @ch.State</div>
                 </div>
               </label>
             }
@@ -180,7 +180,7 @@
               <div style="font-weight:700;color:var(--navy);font-size:.85rem;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Profile Summary</div>
               <div style="font-size:.84rem;color:#444;line-height:2;">
                 <div><strong>Name:</strong> @_firstName @_lastName @(string.IsNullOrWhiteSpace(_title) ? "" : $"· {_title}")</div>
-                <div><strong>Chapter:</strong> @(_chapters.FirstOrDefault(c => c.Id == _selectedChapterId).Name ?? "—")</div>
+                <div><strong>Chapter:</strong> @(_chapters.FirstOrDefault(c => c.Id == _selectedChapterId)?.Name ?? "—")</div>
                 <div><strong>Notifications:</strong> @_notifyPref</div>
                 <div><strong>First action:</strong> @(_firstActions.FirstOrDefault(a => a.Key == _selectedAction)?.Label ?? "Dashboard")</div>
               </div>
@@ -227,6 +227,11 @@
 @code {
   private const int TotalSteps = 5;
   private int _step = 1;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetPublicChaptersAsync();
+  }
   private bool _saving;
   private string _error = "";
 
@@ -239,14 +244,7 @@
 
   // Step 2
   private int _selectedChapterId = 0;
-  private readonly List<(int Id, string Name, string City, string State, int VolunteerCount)> _chapters = new()
-  {
-    (1, "Chicago North Shore Chapter",   "Evanston",     "IL", 18),
-    (2, "Naperville-DuPage Chapter",     "Naperville",   "IL", 24),
-    (3, "Indianapolis Central Chapter",  "Indianapolis", "IN", 11),
-    (4, "Milwaukee Chapter",             "Milwaukee",    "WI",  9),
-    (5, "Detroit Metro Chapter",         "Dearborn",     "MI", 15),
-  };
+  private List<PublicChapterDto> _chapters = [];
 
   // Step 3
   private readonly (string Icon, string Title, string Body)[] _rolePanels =

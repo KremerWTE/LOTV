@@ -97,10 +97,14 @@
 
   private async Task AcceptAsync(PackageRequest req)
   {
-    // In production: call accept assignment endpoint
-    _toast = $"Request #{req.Id} accepted! Check My Assignments.";
-    await Task.CompletedTask;
-    await Task.Delay(3000);
-    _toast = "";
+    var ok = await Api.UpdateRequestStatusAsync(req.Id, CaseStatus.InProgress);
+    if (ok)
+    {
+      _requests.Remove(req);
+      _toast = $"Request #{req.Id} accepted! Check My Assignments for next steps.";
+      StateHasChanged();
+      await Task.Delay(3000);
+      _toast = "";
+    }
   }
 }

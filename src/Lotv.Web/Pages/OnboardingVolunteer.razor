@@ -269,6 +269,11 @@
 @code {
   private const int TotalSteps = 5;
   private int _step = 1;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetPublicChaptersAsync();
+  }
   private bool _saving;
   private string _error = "";
 
@@ -290,14 +295,7 @@
 
   // Step 3
   private int _selectedChapterId = 0;
-  private readonly List<(int Id, string Name, string City, string State)> _chapters = new()
-  {
-    (1, "Chicago North Shore Chapter",   "Evanston",     "IL"),
-    (2, "Naperville-DuPage Chapter",     "Naperville",   "IL"),
-    (3, "Indianapolis Central Chapter",  "Indianapolis", "IN"),
-    (4, "Milwaukee Chapter",             "Milwaukee",    "WI"),
-    (5, "Detroit Metro Chapter",         "Dearborn",     "MI"),
-  };
+  private List<PublicChapterDto> _chapters = [];
 
   // Step 4
   private readonly (string Icon, string Title, string Body)[] _rolePanels =

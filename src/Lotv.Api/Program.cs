@@ -1885,6 +1885,25 @@ publicApi.MapGet("/families/{id:int}/requests", async (int id, LotvDbContext db)
     return Results.Ok(requests);
 }).AllowAnonymous();
 
+// PATCH /api/public/v1/families/{id}/profile — family self-service contact update
+publicApi.MapPatch("/families/{id:int}/profile", async (int id, FamilyProfileUpdateRequest body, LotvDbContext db) =>
+{
+    var family = await db.Families.FindAsync(id);
+    if (family is null) return Results.NotFound(new { error = "Family not found." });
+
+    if (!string.IsNullOrWhiteSpace(body.FirstName)) family.Parent1FirstName = body.FirstName;
+    if (!string.IsNullOrWhiteSpace(body.LastName))  family.Parent1LastName  = body.LastName;
+    if (!string.IsNullOrWhiteSpace(body.Email))     family.Email            = body.Email;
+    if (body.Phone  is not null) family.Phone         = body.Phone;
+    if (body.Street is not null) family.StreetAddress = body.Street;
+    if (body.City   is not null) family.City          = body.City;
+    if (body.State  is not null) family.State         = body.State;
+    if (body.Zip    is not null) family.Zip           = body.Zip;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(new { updated = true });
+}).AllowAnonymous();
+
 // ── API Key Management (HQAdmin) ──────────────────────────────────────────────
 var apiKeys = app.MapGroup("/api/v1/apikeys").WithTags("API Keys").RequireAuthorization("HQAdmin");
 
@@ -1983,6 +2002,8 @@ record RequestPatchRequest(string? TrackingNumber, DateTime? ShippedDate, string
 record ApproveAllocationRequest(string ApprovedBy);
 record RejectAllocationRequest(string Reason);
 record DonorPrivacyRequest(bool IsAnonymous);
+record FamilyProfileUpdateRequest(string? FirstName, string? LastName,
+    string? Email, string? Phone, string? Street, string? City, string? State, string? Zip);
 record InventoryAdjustRequest(int QuantityDelta, string? Reason);
 record ApplyPledgePaymentRequest(decimal Amount);
 record FulfillWishListRequest(int Quantity, string? DonorId);
