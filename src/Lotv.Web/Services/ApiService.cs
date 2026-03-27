@@ -220,6 +220,40 @@ public class ApiService
     public Task<List<PublicFamilyRequestDto>> GetPublicFamilyRequestsAsync(int familyId) =>
         GetListAsync<PublicFamilyRequestDto>($"/api/public/v1/families/{familyId}/requests");
 
+    public Task<List<WishListItem>> GetWishListAsync(string? status = null, string? category = null) =>
+        GetListAsync<WishListItem>($"/api/v1/wishlist{BuildQs(("status", status), ("category", category))}");
+
+    public async Task<bool> FulfillWishListItemAsync(int id, int quantity, string? donorId = null)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/wishlist/{id}/fulfill",
+            new { Quantity = quantity, DonorId = donorId });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<WishListItem?> CreateWishListItemAsync(WishListItem item)
+    {
+        var resp = await AuthedPostAsync("/api/v1/wishlist", item);
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<WishListItem>() : null;
+    }
+
+    public async Task<bool> CancelWishListItemAsync(int id)
+    {
+        SetAuthHeader();
+        try { return (await _http.DeleteAsync($"/api/v1/wishlist/{id}")).IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
+    public async Task<bool> PublicEventRsvpAsync(int eventId, string name, string email, int guestCount)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/api/public/v1/events/{eventId}/rsvp",
+                new { Name = name, Email = email, GuestCount = guestCount });
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     public async Task<bool> CreateResourceDonationAsync(string donorName, string? email, string? phone,
         string resourceType, int quantity, string? unit, string? description, string? preference)
     {

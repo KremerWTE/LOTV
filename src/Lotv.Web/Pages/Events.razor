@@ -209,8 +209,9 @@
     if (string.IsNullOrWhiteSpace(_rsvpName)) { _rsvpError = "Name is required."; return; }
     if (string.IsNullOrWhiteSpace(_rsvpEmail)) { _rsvpError = "Email is required."; return; }
 
-    // In production: call Api.CreateAttendeeAsync(_rsvpEvent.Id, ...)
-    await Task.CompletedTask;
+    if (_rsvpEvent is null) return;
+    var ok = await Api.PublicEventRsvpAsync(_rsvpEvent.Id, _rsvpName, _rsvpEmail, _rsvpCount);
+    if (!ok) { _rsvpError = "Unable to complete registration. Please try again."; return; }
     _rsvpConfirmed = true;
   }
 

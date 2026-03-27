@@ -1712,6 +1712,46 @@ publicApi.MapGet("/events", async (LotvDbContext db) =>
     return Results.Ok(events);
 }).AllowAnonymous();
 
+// POST /api/public/v1/events/{id}/rsvp — anonymous event registration
+publicApi.MapPost("/events/{id:int}/rsvp", async (int id, PublicEventRsvpRequest body, LotvDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Name))  return Results.BadRequest(new { error = "Name is required." });
+    if (string.IsNullOrWhiteSpace(body.Email)) return Results.BadRequest(new { error = "Email is required." });
+
+    var ev = await db.Events.FindAsync(id);
+    if (ev is null) return Results.NotFound();
+
+    // Find or create a minimal Donor record keyed by email
+    var donor = await db.Donors.FirstOrDefaultAsync(d => d.Email == body.Email);
+    if (donor is null)
+    {
+        var parts = body.Name.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var defaultChapterId = await db.Chapters.Select(c => c.Id).FirstOrDefaultAsync();
+        donor = new Donor
+        {
+            FirstName = parts[0],
+            LastName  = parts.Length > 1 ? parts[1] : "",
+            Email     = body.Email,
+            ChapterId = defaultChapterId,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Donors.Add(donor);
+        await db.SaveChangesAsync();
+    }
+
+    var attendee = new EventAttendee
+    {
+        EventId      = id,
+        DonorId      = donor.Id,
+        TicketCount  = Math.Max(1, body.GuestCount),
+        RegisteredAt = DateTime.UtcNow
+    };
+    db.EventAttendees.Add(attendee);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/public/v1/events/{id}/rsvp/{attendee.Id}",
+        new { attendee.Id, attendee.TicketCode });
+}).AllowAnonymous();
+
 // GET /api/public/v1/chapters — list active chapters (no key required)
 publicApi.MapGet("/chapters", async (LotvDbContext db) =>
     Results.Ok(await db.Chapters
@@ -2135,6 +2175,7 @@ record ApplyPledgePaymentRequest(decimal Amount);
 record FulfillWishListRequest(int Quantity, string? DonorId);
 record SmsCheckInRequest(string? VolunteerPhone, string? Note);
 record QrScanRequest(string Code);
+record PublicEventRsvpRequest(string Name, string Email, int GuestCount = 1);
 record PublicResourceDonationRequest(string DonorName, string? Email, string? Phone,
     string ResourceType, int Quantity, string? Unit, string? Description, string? Preference);
 record PublicCreateRecurringRequest(decimal Amount, RecurringFrequency Frequency, DateTime? StartDate, string? Campaign);

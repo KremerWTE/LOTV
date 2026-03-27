@@ -212,35 +212,65 @@
     }
   }
 
+  protected override async Task OnInitializedAsync()
+  {
+    var items   = await Api.GetWishListAsync();
+    var families = await Api.GetFamiliesAsync();
+    _families = families.Select(f => new FamilyOption(f.Id, $"{f.Parent1LastName} Family")).ToList();
+    _newFamilyId = _families.FirstOrDefault()?.Id ?? 0;
+    _items = items.Select(w => new WishRow(
+      w.Id, w.Title, w.Category.ToDisplayName(), w.Description,
+      w.Family?.Parent1LastName is string ln ? $"{ln} Family" : "Family",
+      w.QuantityRequested, w.QuantityFulfilled,
+      w.Status == WishListStatus.PartiallyFulfilled ? "Partial" : w.Status.ToString()
+    )).ToList();
+  }
+
   private void OpenFulfill(WishRow item) { _fulfillItem = item; _fulfillQty = 1; _fulfillDonor = ""; }
 
   private async Task SaveFulfillAsync()
   {
     if (_fulfillItem is null) return;
-    await Task.Delay(200);
-    var idx = _items.IndexOf(_fulfillItem);
-    int newFulfilled = Math.Min(_fulfillItem.Requested, _fulfillItem.Fulfilled + _fulfillQty);
-    string newStatus = newFulfilled >= _fulfillItem.Requested ? "Fulfilled"
-                     : newFulfilled > 0 ? "Partial" : _fulfillItem.Status;
-    _items[idx] = _fulfillItem with { Fulfilled = newFulfilled, Status = newStatus };
-    _fulfillItem = null;
+    var ok = await Api.FulfillWishListItemAsync(_fulfillItem.Id, _fulfillQty,
+        string.IsNullOrWhiteSpace(_fulfillDonor) ? null : _fulfillDonor);
+    if (ok)
+    {
+      var idx = _items.IndexOf(_fulfillItem);
+      int newFulfilled = Math.Min(_fulfillItem.Requested, _fulfillItem.Fulfilled + _fulfillQty);
+      string newStatus = newFulfilled >= _fulfillItem.Requested ? "Fulfilled"
+                       : newFulfilled > 0 ? "Partial" : _fulfillItem.Status;
+      _items[idx] = _fulfillItem with { Fulfilled = newFulfilled, Status = newStatus };
+      _fulfillItem = null;
+    }
   }
 
   private async Task SaveAddAsync()
   {
     if (string.IsNullOrWhiteSpace(_newTitle)) { _addError = "Title is required."; return; }
-    await Task.Delay(200);
-    var family = _families.First(f => f.Id == _newFamilyId);
-    _items.Insert(0, new WishRow(
-      _items.Count + 10, _newTitle, _newCategory.Replace("OrKeepsake", " / Keepsake").Replace("GriefBook", "Grief Book"),
-      _newDesc, family.Name, _newQty, 0, "Open"));
-    _adding = false; _newTitle = _newDesc = ""; _newQty = 1; _addError = "";
+    if (!Enum.TryParse<WishListCategory>(_newCategory, out var cat)) cat = WishListCategory.Other;
+    var created = await Api.CreateWishListItemAsync(new WishListItem
+    {
+      Title = _newTitle, Description = _newDesc, Category = cat,
+      QuantityRequested = _newQty, FamilyId = _newFamilyId > 0 ? _newFamilyId : null
+    });
+    if (created is not null)
+    {
+      var family = _families.FirstOrDefault(f => f.Id == _newFamilyId);
+      _items.Insert(0, new WishRow(created.Id, _newTitle, cat.ToDisplayName(),
+        _newDesc, family?.Name ?? "Family", _newQty, 0, "Open"));
+      _adding = false; _newTitle = _newDesc = ""; _newQty = 1; _addError = "";
+    }
+    else { _addError = "Unable to add item. Please try again."; }
   }
 
-  private void CancelItem(int id)
+  private async void CancelItem(int id)
   {
-    var idx = _items.FindIndex(i => i.Id == id);
-    if (idx >= 0) _items[idx] = _items[idx] with { Status = "Cancelled" };
+    var ok = await Api.CancelWishListItemAsync(id);
+    if (ok)
+    {
+      var idx = _items.FindIndex(i => i.Id == id);
+      if (idx >= 0) _items[idx] = _items[idx] with { Status = "Cancelled" };
+    }
   }
 
   private static string StatusBg(string s) => s switch
@@ -263,21 +293,6 @@
                          string FamilyName, int Requested, int Fulfilled, string Status);
   private record FamilyOption(int Id, string Name);
 
-  private readonly List<FamilyOption> _families = new()
-  {
-    new(1, "Johnson Family"), new(2, "Rivera Family"), new(3, "Smith Family"),
-    new(4, "Lee Family"),     new(5, "Brown Family"),
-  };
-
-  // MOCK DATA — replace with Api.GetWishListAsync() when backend is live
-  private readonly List<WishRow> _items = new()
-  {
-    new(1, "Knitted blanket — newborn size",       "Knitted Blanket",  "Soft, neutral colors preferred.",                         "Johnson Family", 2, 1, "Partial"),
-    new(2, "Memory box with engraving",             "Memory Box",       "Any color; photo frame slot preferred.",                   "Rivera Family",  1, 0, "Open"),
-    new(3, "Empty Arms by Sherokee Ilse (grief book)", "Grief Book",  null,                                                      "Smith Family",   1, 1, "Fulfilled"),
-    new(4, "Newborn onesie set (preemie size)",     "Baby Clothing",    "Premature size 000 in neutral tones.",                    "Lee Family",     3, 0, "Open"),
-    new(5, "Pregnancy journal / keepsake book",     "Journal / Keepsake", "To preserve memories of baby.",                        "Brown Family",   1, 0, "Open"),
-    new(6, "Hospital comfort care package",         "Care Package",     "Tissues, lotion, warm socks, snacks for family waiting.", "Johnson Family", 1, 1, "Fulfilled"),
-    new(7, "Photo album — small format",            "Photo Album",      "For tiny handprints and footprints.",                     "Rivera Family",  1, 0, "Open"),
-  };
+  private List<FamilyOption> _families = [];
+  private List<WishRow> _items = [];
 }
