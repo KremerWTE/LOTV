@@ -330,6 +330,16 @@
     }
   }
 
+  protected override async Task OnInitializedAsync()
+  {
+    var dtos = await Api.GetSponsorsAsync();
+    _sponsors = dtos.Select(s => new SponsorRow(
+      s.Id, s.CompanyName, s.Tier, s.ContactName, s.Email,
+      s.Phone, s.Website, null, null,
+      s.CommittedAmount, s.PaidToDate, s.RenewalDate,
+      s.Status, s.Notes)).ToList();
+  }
+
   private void OpenAdd() { _adding = true; _addError = ""; }
 
   private async Task SaveAddAsync()
@@ -337,14 +347,18 @@
     if (string.IsNullOrWhiteSpace(_newCompany)) { _addError = "Company name is required."; return; }
     if (string.IsNullOrWhiteSpace(_newContact)) { _addError = "Contact name is required."; return; }
     if (string.IsNullOrWhiteSpace(_newEmail))   { _addError = "Contact email is required."; return; }
-    // In production: call Api.CreateSponsorAsync(...)
-    await Task.CompletedTask;
-    _sponsors.Add(new SponsorRow(
-      _sponsors.Max(s => s.Id) + 1, _newCompany, _newTier, _newContact, _newEmail, null,
-      null, null, null, _newAmount, 0, _newRenewal, "Active", _newNotes));
-    _adding = false;
-    _newCompany = _newContact = _newEmail = _newNotes = "";
-    _newAmount = 0; _newRenewal = null;
+    var created = await Api.CreateSponsorAsync(_newCompany, _newContact, _newEmail,
+        null, null, null, _newTier, _newAmount, _newRenewal, _newNotes);
+    if (created is not null)
+    {
+      _sponsors.Add(new SponsorRow(
+        created.Id, _newCompany, _newTier, _newContact, _newEmail, null,
+        null, null, null, _newAmount, 0, _newRenewal, "Active", _newNotes));
+      _adding = false;
+      _newCompany = _newContact = _newEmail = _newNotes = "";
+      _newAmount = 0; _newRenewal = null;
+    }
+    else { _addError = "Unable to save sponsor. Please try again."; }
   }
 
   private static string TierBg(string tier) => tier switch
@@ -390,25 +404,5 @@
       ? (int)(RenewalDate.Value.Date - DateTime.Today).TotalDays : null;
   }
 
-  private readonly List<SponsorRow> _sponsors = new()
-  {
-    new(1, "Mercy Health Systems",  "Platinum", "Dr. Anne Carter",  "a.carter@mercyhealth.org",
-        "(312) 555-0100", "mercyhealth.org",    1041, "Thomas Grant",   25000m, 25000m,
-        new DateTime(2026, 12, 31), "Active",   "Annual gala title sponsor. Invoice net-30.", "Spring Gala 2026"),
-    new(2, "Lakeside Community Bank", "Gold",   "James Novak",      "j.novak@lakesidebank.com",
-        "(630) 555-0200", "lakesidebank.com",   null, null,            10000m,  5000m,
-        new DateTime(2026, 9, 30),  "Active",   "Second installment due July. Very responsive.", null),
-    new(3, "Horizon Law Group",     "Gold",     "Patricia Ward",    "p.ward@horizonlaw.com",
-        null,             "horizonlaw.com",     1049, "Carol Adams",    10000m, 10000m,
-        new DateTime(2026, 6, 15),  "Active",   "Renewal discussion scheduled for May.", "Golf Tournament 2026"),
-    new(4, "Summit Realty Corp",    "Silver",   "Robert Kim",       "r.kim@summitrealty.com",
-        "(847) 555-0300", null,                 null, null,             5000m,   5000m,
-        new DateTime(2026, 3, 31),  "Expired",  "Agreed verbally to renew at Gold tier. Follow up needed.", null),
-    new(5, "Prairie Financial",     "Bronze",   "Helen Torres",     "h.torres@prairiefin.com",
-        null,             null,                 null, null,             2500m,   2500m,
-        new DateTime(2027, 1, 31),  "Active",   null, null),
-    new(6, "Midwest Print Co.",     "Silver",   "David Chen",       "d.chen@mwprint.com",
-        "(773) 555-0400", "mwprint.com",        null, null,             5000m,      0m,
-        new DateTime(2026, 5, 1),   "Pending",  "Waiting on board approval. In-kind printing also discussed.", null),
-  };
+  private List<SponsorRow> _sponsors = [];
 }

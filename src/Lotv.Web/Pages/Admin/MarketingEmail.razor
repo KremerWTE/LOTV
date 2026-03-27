@@ -212,8 +212,7 @@
     if (string.IsNullOrWhiteSpace(_subject)) { _error = "Subject line is required."; return; }
     if (string.IsNullOrWhiteSpace(_body)) { _error = "Email body is required."; return; }
 
-    _recipientCount = AudienceSize;
-    await Task.CompletedTask; // In production: call Api.SendMarketingEmailAsync(...)
+    _recipientCount = await Api.SendMarketingEmailAsync(_campaignName, _audience, _subject, _body);
     _campaigns.Insert(0, new(_campaignName.Length > 0 ? _campaignName : _subject, DateTime.Now, _recipientCount));
     _sent = true;
   }

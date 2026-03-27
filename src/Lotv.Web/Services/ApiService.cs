@@ -220,6 +220,56 @@ public class ApiService
     public Task<List<PublicFamilyRequestDto>> GetPublicFamilyRequestsAsync(int familyId) =>
         GetListAsync<PublicFamilyRequestDto>($"/api/public/v1/families/{familyId}/requests");
 
+    // ── Sponsors ──────────────────────────────────────────────────────────────
+    public Task<List<SponsorDto>> GetSponsorsAsync(string? status = null) =>
+        GetListAsync<SponsorDto>($"/api/v1/sponsors{BuildQs(("status", status))}");
+
+    public async Task<SponsorDto?> CreateSponsorAsync(string company, string contact, string email,
+        string? phone, string? website, string? taxId, string tier, decimal committed, DateTime? renewal, string? notes)
+    {
+        var resp = await AuthedPostAsync("/api/v1/sponsors", new
+        {
+            CompanyName = company, ContactName = contact, Email = email, Phone = phone,
+            Website = website, TaxId = taxId, Tier = tier, CommittedAmount = committed,
+            RenewalDate = renewal, Notes = notes, Status = "Active"
+        });
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<SponsorDto>() : null;
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    public async Task<bool> SaveReportConfigAsync(object configs, string? hqWeeklyEmail, string? hqDailyEmail)
+    {
+        var resp = await AuthedPostAsync("/api/v1/notifications/report-config",
+            new { HqWeeklyEmail = hqWeeklyEmail, HqDailyEmail = hqDailyEmail, Configs = configs });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<int> BroadcastNotificationAsync(string audience, string channel, string? subject, string body)
+    {
+        try
+        {
+            var resp = await AuthedPostAsync("/api/v1/notifications/broadcast",
+                new { Audience = audience, Channel = channel, Subject = subject, Body = body });
+            if (resp?.IsSuccessStatusCode != true) return 0;
+            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.GetProperty("estimatedRecipients").GetInt32();
+        }
+        catch { return 0; }
+    }
+
+    public async Task<int> SendMarketingEmailAsync(string? campaignName, string audience, string subject, string body)
+    {
+        try
+        {
+            var resp = await AuthedPostAsync("/api/v1/notifications/marketing-email",
+                new { CampaignName = campaignName, Audience = audience, Subject = subject, Body = body });
+            if (resp?.IsSuccessStatusCode != true) return 0;
+            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.GetProperty("estimatedRecipients").GetInt32();
+        }
+        catch { return 0; }
+    }
+
     public Task<List<WishListItem>> GetWishListAsync(string? status = null, string? category = null) =>
         GetListAsync<WishListItem>($"/api/v1/wishlist{BuildQs(("status", status), ("category", category))}");
 
@@ -590,6 +640,12 @@ public record DonorDonationDto(DateTime Date, decimal Amount, string Channel, st
 public record PublicFamilyRequestDto(
     int Id, string Category, string Status, string Priority,
     DateTime CreatedAt, DateTime? DueDate, string Reason, string? AssignedTo);
+
+public record SponsorDto(
+    int Id, string CompanyName, string Tier, string ContactName, string Email,
+    string? Phone, string? Website, string? TaxId,
+    decimal CommittedAmount, decimal PaidToDate,
+    DateTime? RenewalDate, string Status, string? Notes);
 
 public record RecurringScheduleDto(
     int Id, decimal Amount, string Frequency, DateTime NextChargeDate,

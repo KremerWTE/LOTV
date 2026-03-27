@@ -206,8 +206,7 @@ else
   {
     _saving = true;
     _saved  = false;
-    // In production: call Api.SaveScheduledReportConfigAsync(_configs, _hqWeeklyEmail, _hqDailyEmail)
-    await Task.Delay(400);
+    await Api.SaveReportConfigAsync(_configs, _hqWeeklyEmail, _hqDailyEmail);
     _saving = false;
     _saved  = true;
   }

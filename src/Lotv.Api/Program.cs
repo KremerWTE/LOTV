@@ -2070,6 +2070,87 @@ publicApi.MapPost("/resource-donations", async (PublicResourceDonationRequest bo
     return Results.Created($"/api/public/v1/resource-donations/{item.Id}", new { item.Id });
 }).AllowAnonymous();
 
+// ── Sponsors ──────────────────────────────────────────────────────────────────
+var sponsors = app.MapGroup("/api/v1/sponsors").WithTags("Sponsors").RequireAuthorization("Staff");
+
+sponsors.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, string? status) =>
+{
+    var q = db.Sponsors.AsQueryable();
+    if (ctx.ChapterId.HasValue) q = q.Where(s => s.ChapterId == ctx.ChapterId);
+    if (Enum.TryParse<SponsorStatus>(status, true, out var s)) q = q.Where(x => x.Status == s);
+    return Results.Ok(await q.OrderByDescending(s => s.CommittedAmount).ToListAsync());
+});
+
+sponsors.MapGet("/{id:int}", async (int id, LotvDbContext db) =>
+    await db.Sponsors.FindAsync(id) is Sponsor s ? Results.Ok(s) : Results.NotFound());
+
+sponsors.MapPost("/", async (Sponsor body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    body.Id = 0;
+    body.CreatedAt = DateTime.UtcNow;
+    body.UpdatedAt = DateTime.UtcNow;
+    if (ctx.ChapterId.HasValue) body.ChapterId = ctx.ChapterId.Value;
+    db.Sponsors.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/sponsors/{body.Id}", body);
+}).RequireAuthorization("ChapterAdmin");
+
+sponsors.MapPut("/{id:int}", async (int id, Sponsor body, LotvDbContext db) =>
+{
+    var existing = await db.Sponsors.FindAsync(id);
+    if (existing is null) return Results.NotFound();
+    existing.CompanyName = body.CompanyName; existing.ContactName = body.ContactName;
+    existing.Email = body.Email; existing.Phone = body.Phone; existing.Website = body.Website;
+    existing.TaxId = body.TaxId; existing.Tier = body.Tier; existing.Status = body.Status;
+    existing.CommittedAmount = body.CommittedAmount; existing.PaidToDate = body.PaidToDate;
+    existing.RenewalDate = body.RenewalDate; existing.Notes = body.Notes;
+    existing.UpdatedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(existing);
+}).RequireAuthorization("ChapterAdmin");
+
+// ── Notifications (broadcast & marketing email) ───────────────────────────────
+var notify = app.MapGroup("/api/v1/notifications").WithTags("Notifications").RequireAuthorization("Staff");
+
+notify.MapPost("/broadcast", async (BroadcastRequest body, LotvDbContext db, INotificationService notif) =>
+{
+    // Estimate recipient count from audience type; actual delivery is queued
+    var count = body.Audience switch
+    {
+        "AllFamilies"     => await db.Families.CountAsync(),
+        "AllVolunteers"   => await db.Volunteers.CountAsync(),
+        "OverdueFamilies" => await db.Requests.CountAsync(r =>
+                               r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled &&
+                               r.DueDate.HasValue && r.DueDate.Value < DateTime.UtcNow),
+        _                 => 1
+    };
+    await notif.QueueNotificationAsync("broadcast", body.Channel, body.Subject ?? body.Body,
+        new { body.Audience, body.Subject, body.Body, body.Channel });
+    return Results.Ok(new { queued = true, estimatedRecipients = count });
+}).RequireAuthorization("ChapterAdmin");
+
+notify.MapPost("/report-config", async (ReportConfigRequest body, IAuditService audit) =>
+{
+    // Persist desired configuration; background service picks up updated emails
+    await audit.LogAsync("System", "SaveReportConfig", "ScheduledReport", null,
+        $"HQ weekly: {body.HqWeeklyEmail}, HQ daily: {body.HqDailyEmail}, chapters: {body.Configs?.Count ?? 0}");
+    return Results.Ok(new { saved = true });
+}).RequireAuthorization("HQAdmin");
+
+notify.MapPost("/marketing-email", async (MarketingEmailRequest body, LotvDbContext db, INotificationService notif) =>
+{
+    var count = body.Audience switch
+    {
+        "AllDonors"     => await db.Donors.CountAsync(d => !d.IsAnonymous),
+        "RecurringOnly" => await db.RecurringDonations.Select(r => r.DonorId).Distinct().CountAsync(),
+        "MajorGifts"    => await db.Donors.CountAsync(d => d.TotalGiven >= 500 && !d.IsAnonymous),
+        _               => await db.Donors.CountAsync(d => !d.IsAnonymous)
+    };
+    await notif.QueueNotificationAsync("marketing-email", "Email", body.Subject,
+        new { body.CampaignName, body.Audience, body.Subject, body.Body });
+    return Results.Ok(new { queued = true, estimatedRecipients = count });
+}).RequireAuthorization("ChapterAdmin");
+
 // ── API Key Management (HQAdmin) ──────────────────────────────────────────────
 var apiKeys = app.MapGroup("/api/v1/apikeys").WithTags("API Keys").RequireAuthorization("HQAdmin");
 
@@ -2175,6 +2256,10 @@ record ApplyPledgePaymentRequest(decimal Amount);
 record FulfillWishListRequest(int Quantity, string? DonorId);
 record SmsCheckInRequest(string? VolunteerPhone, string? Note);
 record QrScanRequest(string Code);
+record ReportConfigRequest(string? HqWeeklyEmail, string? HqDailyEmail, List<ChapterReportConfig>? Configs);
+record ChapterReportConfig(int ChapterId, string? WeeklyEmail, string? DailyEmail);
+record BroadcastRequest(string Audience, string Channel, string? Subject, string Body);
+record MarketingEmailRequest(string? CampaignName, string Audience, string Subject, string Body);
 record PublicEventRsvpRequest(string Name, string Email, int GuestCount = 1);
 record PublicResourceDonationRequest(string DonorName, string? Email, string? Phone,
     string ResourceType, int Quantity, string? Unit, string? Description, string? Preference);

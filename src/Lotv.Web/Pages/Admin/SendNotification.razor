@@ -168,18 +168,7 @@
     _error = "";
     if (string.IsNullOrWhiteSpace(_body)) { _error = "Message body is required."; return; }
 
-    // Estimate recipient count
-    _recipientCount = _audience switch
-    {
-      "AllFamilies"      => 42,
-      "AllVolunteers"    => 18,
-      "OverdueFamilies"  => 7,
-      "UnassignedQueue"  => 5,
-      _                  => 1
-    };
-
-    // In production: call Api.SendNotificationAsync(...)
-    await Task.CompletedTask;
+    _recipientCount = await Api.BroadcastNotificationAsync(_audience, _channel, _subject, _body);
 
     _recent.Insert(0, new(DateTime.Now, _audience, _channel, _subject, _recipientCount));
     _sent = true;

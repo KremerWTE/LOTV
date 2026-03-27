@@ -48,6 +48,9 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     // ─── SMS log ──────────────────────────────────────────────────────────────
     public DbSet<SmsLog> SmsLogs => Set<SmsLog>();
 
+    // ─── Sponsors ────────────────────────────────────────────────────────────
+    public DbSet<Sponsor> Sponsors => Set<Sponsor>();
+
     // ─── Partner API keys ────────────────────────────────────────────────────
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
@@ -285,6 +288,20 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(a => a.Timestamp);
             e.HasIndex(a => a.Entity);                          // filter by entity type (FundAllocation export)
             e.HasIndex(a => new { a.Entity, a.Timestamp });     // entity-scoped time-ordered audit trail
+        });
+
+        // ── Sponsor ──────────────────────────────────────────────────────────
+        builder.Entity<Sponsor>(e =>
+        {
+            e.HasIndex(s => s.ChapterId);
+            e.HasIndex(s => s.Status);
+            e.HasIndex(s => s.Email);
+            e.Property(s => s.CompanyName).HasMaxLength(150);
+            e.Property(s => s.ContactName).HasMaxLength(100);
+            e.Property(s => s.Email).HasMaxLength(200);
+            e.Property(s => s.CommittedAmount).HasPrecision(12, 2);
+            e.Property(s => s.PaidToDate).HasPrecision(12, 2);
+            e.HasOne(s => s.Chapter).WithMany().HasForeignKey(s => s.ChapterId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
