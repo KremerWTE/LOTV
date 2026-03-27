@@ -451,7 +451,7 @@
 - [x] **KPI Summary Cards** — `ImpactDashboard.razor`: total donated, resources, people helped, fulfilled
 - [x] **Money Flow panel** — bar chart by category with percentages and request counts
 - [x] **Resource Distribution panel** — bar chart by resource type with quantities
-- [ ] **Geographic Map**: Interactive map showing service delivery points — deferred (requires mapping library)
+- [x] **Geographic Map**: Interactive map showing service delivery points — Leaflet.js + OSM, US state centroids, circle markers scaled by donation value
 - [x] **Timeline Chart** — monthly bar chart + data table (last 12 months)
 - [x] **Category Breakdown Chart** — inline CSS bar charts for category and channel breakdowns
 - [x] **Top Regions** — ByCity.razor: sortable city/state table with bar chart
@@ -465,7 +465,7 @@
 
 - [x] **By Person panel** — `ByDonor.razor`: searchable, sortable donor table with gift history expand
 - [x] **By Diocese panel** — `ByDiocese.razor`: KPI strip, diocese cards, comparison table
-- [ ] **Diocese Map** — geographic map with pins — deferred (requires mapping library)
+- [x] **Diocese Map** — geographic map with pins — Leaflet.js + OSM, circle markers per diocese with parish/case tooltips
 - [x] **By City panel** — `ByCity.razor`: sortable city/state table with top-10 bar chart
 - [x] **By Channel panel** — `ByChannel.razor`: KPI strip, channel cards, table, date filter
 - [x] **By Amount panel** — `ByAmount.razor`: gift-size distribution with dual bar charts + summary table
