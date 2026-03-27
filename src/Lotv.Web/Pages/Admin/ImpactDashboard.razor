@@ -63,21 +63,12 @@ else
         }
         else
         {
-          @foreach (var row in _moneyFlow.OrderByDescending(r => r.Amount))
-          {
-            var pct = _maxMoney > 0 ? (int)((double)row.Amount / (double)_maxMoney * 100) : 0;
-            <div style="margin-bottom:14px;">
-              <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
-                <span style="font-weight:600;">@row.Category</span>
-                <span>@row.Amount.ToString("C0") &mdash; @row.RequestCount cases</span>
-              </div>
-              <div style="height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
-                <div style="height:100%;width:@pct%;background:var(--gold);border-radius:6px;transition:width .3s;"></div>
-              </div>
-              <div style="font-size:.7rem;color:var(--text-light);margin-top:2px;">@row.Percentage.ToString("F1")% of total</div>
-            </div>
-          }
-          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;">
+          <BarChart Items="_moneyFlow.OrderByDescending(r => r.Amount)"
+                    LabelFunc="r => r.Category"
+                    ValueFunc="r => (double)r.Amount"
+                    FormatFunc='r => $"{r.Amount:C0} — {r.RequestCount} cases"'
+                    Orientation="horizontal" Color="var(--gold)" ShowPercent="true" />
+          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px;display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;">
             <span>Total Allocated</span>
             <span>@_moneyFlow.Sum(m => m.Amount).ToString("C0")</span>
           </div>
@@ -95,21 +86,12 @@ else
         }
         else
         {
-          @foreach (var row in _resourceFlow.OrderByDescending(r => r.Quantity))
-          {
-            var pct = _maxResource > 0 ? (int)((double)row.Quantity / _maxResource * 100) : 0;
-            <div style="margin-bottom:14px;">
-              <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
-                <span style="font-weight:600;">@row.ResourceType</span>
-                <span>@row.Quantity @row.Unit &mdash; @row.RequestCount requests</span>
-              </div>
-              <div style="height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
-                <div style="height:100%;width:@pct%;background:var(--green);border-radius:6px;transition:width .3s;"></div>
-              </div>
-              <div style="font-size:.7rem;color:var(--text-light);margin-top:2px;">@row.Percentage.ToString("F1")% of total items</div>
-            </div>
-          }
-          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;">
+          <BarChart Items="_resourceFlow.OrderByDescending(r => r.Quantity)"
+                    LabelFunc="r => r.ResourceType"
+                    ValueFunc="r => r.Quantity"
+                    FormatFunc='r => $"{r.Quantity} {r.Unit} — {r.RequestCount} req."'
+                    Orientation="horizontal" Color="var(--green)" ShowPercent="true" />
+          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px;display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;">
             <span>Total Items Distributed</span>
             <span>@_totalResources</span>
           </div>
@@ -128,19 +110,14 @@ else
       }
       else
       {
-        <!-- Mini bar chart -->
-        <div style="padding:16px 20px 8px;display:flex;align-items:flex-end;gap:6px;height:100px;overflow-x:auto;">
-          @{
-            var maxDonation = _timeline.Any() ? _timeline.Max(t => t.Donations) : 1m;
-          }
-          @foreach (var pt in _timeline.TakeLast(12))
-          {
-            var barH = maxDonation > 0 ? (int)((double)pt.Donations / (double)maxDonation * 72) : 0;
-            <div style="flex:1;min-width:32px;display:flex;flex-direction:column;align-items:center;gap:2px;">
-              <div style="font-size:.6rem;color:var(--text-light);white-space:nowrap;">@pt.Donations.ToString("C0")</div>
-              <div style="width:100%;height:@(barH)px;background:var(--navy);border-radius:3px 3px 0 0;min-height:2px;"></div>
-            </div>
-          }
+        <div style="padding:16px 20px 8px;">
+          <LineChart Items="_timeline.TakeLast(12)"
+                     LabelFunc="p => p.Period.Split(' ')[0]"
+                     ValueFunc="p => (double)p.Donations"
+                     Series2Func="p => (double)p.RequestsFulfilled"
+                     Color="var(--gold)" Color2="var(--navy)"
+                     Legend1="Donations" Legend2="Fulfilled"
+                     Height="130" ShowArea="true" ShowDots="true" />
         </div>
         <!-- Data table -->
         <table class="data-table">
@@ -181,19 +158,11 @@ else
         }
         else
         {
-          @foreach (var ch in _channels.OrderByDescending(c => c.TotalAmount))
-          {
-            var pct = _channels.Sum(c => c.TotalAmount) > 0
-              ? (int)((double)ch.TotalAmount / (double)_channels.Sum(c => c.TotalAmount) * 100) : 0;
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-              <div style="width:90px;font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@ch.Channel</div>
-              <div style="flex:1;height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
-                <div style="height:100%;width:@pct%;background:var(--navy-light,#4a6fa5);border-radius:6px;"></div>
-              </div>
-              <div style="font-size:.76rem;font-weight:600;width:60px;text-align:right;">@ch.TotalAmount.ToString("C0")</div>
-              <div style="font-size:.7rem;color:var(--text-light);width:36px;text-align:right;">@ch.GiftCount gifts</div>
-            </div>
-          }
+          <BarChart Items="_channels.OrderByDescending(c => c.TotalAmount)"
+                    LabelFunc="c => c.Channel"
+                    ValueFunc="c => (double)c.TotalAmount"
+                    FormatFunc='c => $"{c.TotalAmount:C0} ({c.GiftCount} gifts)"'
+                    Orientation="horizontal" Color="#4a6fa5" ShowPercent="true" />
         }
       </div>
     </div>
@@ -244,8 +213,6 @@ else
   private List<ChannelBreakdownDto> _channels = [];
 
   private int _totalResources => _resourceFlow.Sum(r => r.Quantity);
-  private decimal _maxMoney   => _moneyFlow.Any() ? _moneyFlow.Max(m => m.Amount) : 1m;
-  private int _maxResource    => _resourceFlow.Any() ? Math.Max(1, _resourceFlow.Max(r => r.Quantity)) : 1;
 
   protected override async Task OnInitializedAsync() => await LoadAsync();
 
