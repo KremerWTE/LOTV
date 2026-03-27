@@ -1,5 +1,6 @@
 @page "/donate/confirm"
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Donation Confirmed — LOTV Ministry</PageTitle>
 
@@ -81,10 +82,11 @@
 </div>
 
 @code {
-  [SupplyParameterFromQuery] public string? Name    { get; set; }
-  [SupplyParameterFromQuery] public string? Email   { get; set; }
-  [SupplyParameterFromQuery] public string? Amount  { get; set; }
-  [SupplyParameterFromQuery] public string? Confirm { get; set; }
+  [SupplyParameterFromQuery] public string? Name       { get; set; }
+  [SupplyParameterFromQuery] public string? Email      { get; set; }
+  [SupplyParameterFromQuery] public string? Amount     { get; set; }
+  [SupplyParameterFromQuery] public string? Confirm    { get; set; }
+  [SupplyParameterFromQuery] public int?    DonationId { get; set; }
 
   private string _name            = "";
   private string _email           = "";
@@ -102,9 +104,13 @@
                         : Confirm;
   }
 
-  private void DownloadReceipt()
+  private async Task DownloadReceipt()
   {
-    // In production: call Api.GetReceiptPdfAsync(_confirmationId) and trigger browser download
-    // For now, stub — receipt is emailed automatically on successful donation
+    if (DonationId.HasValue && DonationId.Value > 0)
+    {
+      var url = $"/api/public/v1/donations/{DonationId.Value}/receipt";
+      await JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+    // Receipt is also emailed automatically on successful donation
   }
 }

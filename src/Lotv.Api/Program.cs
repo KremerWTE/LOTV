@@ -2032,6 +2032,13 @@ publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRe
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
+// GET /api/public/v1/donations/{id}/receipt — donor self-service receipt (HTML)
+publicApi.MapGet("/donations/{id:int}/receipt", async (int id, IReceiptService receipts) =>
+{
+    var (found, html) = await receipts.GetReceiptHtmlAsync(id);
+    return found ? Results.Content(html!, "text/html") : Results.NotFound();
+}).AllowAnonymous();
+
 publicApi.MapPost("/resource-donations", async (PublicResourceDonationRequest body, LotvDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(body.DonorName)) return Results.BadRequest(new { error = "Name is required." });
