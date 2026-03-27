@@ -298,6 +298,8 @@
 }
 
 @code {
+  [Parameter, SupplyParameterFromQuery] public int? DonorId { get; set; }
+
   private int    _expanded  = 0;
   private int    _editId    = 0;
   private int    _cancelId  = 0;
@@ -306,6 +308,18 @@
   private string _newError  = "";
   private decimal _editAmount = 0;
   private string  _editFreq   = "Monthly";
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (DonorId.HasValue && DonorId.Value > 0)
+    {
+      var items = await Api.GetDonorRecurringAsync(DonorId.Value);
+      _schedules = items.Select(r => new ScheduleRow(
+        r.Id, r.Amount, FreqToDisplay(r.Frequency), r.NextChargeDate,
+        r.EndsOn, r.Status, r.Campaign, r.CreatedAt,
+        r.LastChargedAt, r.Channel)).ToList();
+    }
+  }
 
   // New gift form
   private decimal  _newAmount   = 25m;
@@ -337,43 +351,64 @@
   {
     _newError = "";
     if (_newAmount <= 0) { _newError = "Please enter a gift amount greater than $0."; return; }
+    if (!DonorId.HasValue || DonorId.Value <= 0) { _newError = "Donor account not found. Please sign in."; return; }
     _saving = true;
     StateHasChanged();
-    await Task.Delay(600); // In production: call Api.CreateRecurringDonationAsync(...)
-    _schedules.Add(new ScheduleRow(
-      _schedules.Count + 10, _newAmount, _newFreq, _newStart,
-      null, "Active", _newCampaign, DateTime.UtcNow, null, "Online"));
-    _showNew = false;
-    _saving  = false;
+    var newId = await Api.CreateDonorRecurringAsync(DonorId.Value, _newAmount, _newFreq, _newStart,
+        string.IsNullOrWhiteSpace(_newCampaign) ? null : _newCampaign);
+    if (newId.HasValue)
+    {
+      _schedules.Add(new ScheduleRow(
+        newId.Value, _newAmount, FreqToDisplay(_newFreq), _newStart,
+        null, "Active", _newCampaign, DateTime.UtcNow, null, "Online"));
+      _showNew = false;
+    }
+    else
+    {
+      _newError = "Unable to set up recurring gift. Please try again.";
+    }
+    _saving = false;
   }
 
   private async Task PauseAsync(int id)
   {
-    await Task.Delay(200); // In production: Api.PauseRecurringAsync(id)
-    var s = _schedules.First(s => s.Id == id);
-    _schedules[_schedules.IndexOf(s)] = s with { Status = "Paused" };
+    var ok = await Api.PauseDonorRecurringAsync(id);
+    if (ok)
+    {
+      var s = _schedules.First(s => s.Id == id);
+      _schedules[_schedules.IndexOf(s)] = s with { Status = "Paused" };
+    }
   }
 
   private async Task ResumeAsync(int id)
   {
-    await Task.Delay(200);
-    var s = _schedules.First(s => s.Id == id);
-    _schedules[_schedules.IndexOf(s)] = s with { Status = "Active" };
+    var ok = await Api.ResumeDonorRecurringAsync(id);
+    if (ok)
+    {
+      var s = _schedules.First(s => s.Id == id);
+      _schedules[_schedules.IndexOf(s)] = s with { Status = "Active" };
+    }
   }
 
   private async Task SaveEditAsync(int id)
   {
-    await Task.Delay(200);
-    var s = _schedules.First(s => s.Id == id);
-    _schedules[_schedules.IndexOf(s)] = s with { Amount = _editAmount, FrequencyLabel = _editFreq };
-    _editId = 0;
+    var ok = await Api.UpdateDonorRecurringAsync(id, _editAmount, _editFreq);
+    if (ok)
+    {
+      var s = _schedules.First(s => s.Id == id);
+      _schedules[_schedules.IndexOf(s)] = s with { Amount = _editAmount, FrequencyLabel = FreqToDisplay(_editFreq) };
+      _editId = 0;
+    }
   }
 
   private async Task ConfirmCancelAsync()
   {
-    await Task.Delay(200);
-    var s = _schedules.First(s => s.Id == _cancelId);
-    _schedules[_schedules.IndexOf(s)] = s with { Status = "Cancelled" };
+    var ok = await Api.CancelDonorRecurringAsync(_cancelId);
+    if (ok)
+    {
+      var s = _schedules.First(s => s.Id == _cancelId);
+      _schedules[_schedules.IndexOf(s)] = s with { Status = "Cancelled" };
+    }
     _cancelId = 0;
     _expanded = 0;
   }
@@ -396,15 +431,18 @@
     _           => "var(--text-body)"
   };
 
+  private static string FreqToDisplay(string freq) => freq switch
+  {
+    "BiWeekly"  => "Every 2 weeks",
+    "Quarterly" => "Quarterly",
+    "Annually"  => "Annually",
+    "Weekly"    => "Weekly",
+    _           => "Monthly"
+  };
+
   private record ScheduleRow(int Id, decimal Amount, string FrequencyLabel, DateTime NextChargeDate,
       DateTime? EndsOn, string Status, string? Campaign, DateTime CreatedAt,
       DateTime? LastChargedAt, string Channel);
 
-  private readonly List<ScheduleRow> _schedules = new()
-  {
-    new(1, 50m,  "Monthly",   DateTime.Today.AddDays(14), null,
-        "Active",  "Care Packages",    new DateTime(2026,1,1),  new DateTime(2026,3,1), "Online"),
-    new(2, 100m, "Quarterly", DateTime.Today.AddDays(47), null,
-        "Active",  "Grief Books",      new DateTime(2025,10,1), new DateTime(2026,1,1), "Online"),
-  };
+  private List<ScheduleRow> _schedules = [];
 }

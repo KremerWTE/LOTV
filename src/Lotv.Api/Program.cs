@@ -1530,6 +1530,15 @@ recurring.MapPost("/{id:int}/cancel", async (int id, LotvDbContext db) =>
     return Results.Ok(r);
 }).RequireAuthorization("ChapterAdmin");
 
+recurring.MapPost("/{id:int}/resume", async (int id, LotvDbContext db) =>
+{
+    var r = await db.RecurringDonations.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    r.Status = RecurringStatus.Active;
+    await db.SaveChangesAsync();
+    return Results.Ok(r);
+}).RequireAuthorization("ChapterAdmin");
+
 // ── Pledges ───────────────────────────────────────────────────────────────────
 var pledges = app.MapGroup("/api/v1/pledges").WithTags("Pledges").RequireAuthorization("Staff");
 
@@ -1904,6 +1913,85 @@ publicApi.MapPatch("/families/{id:int}/profile", async (int id, FamilyProfileUpd
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
+// ── Public Recurring Donations (donor self-service) ───────────────────────────
+publicApi.MapGet("/donors/{donorId:int}/recurring", async (int donorId, LotvDbContext db) =>
+{
+    var items = await db.RecurringDonations
+        .Where(r => r.DonorId == donorId)
+        .OrderByDescending(r => r.CreatedAt)
+        .Select(r => new
+        {
+            r.Id, r.Amount,
+            Frequency      = r.Frequency.ToString(),
+            r.NextChargeDate, r.EndsOn,
+            Status         = r.Status.ToString(),
+            r.Campaign, r.CreatedAt, r.LastChargedAt,
+            Channel        = r.Channel.ToString()
+        })
+        .ToListAsync();
+    return Results.Ok(items);
+}).AllowAnonymous();
+
+publicApi.MapPost("/donors/{donorId:int}/recurring", async (int donorId, PublicCreateRecurringRequest body, LotvDbContext db) =>
+{
+    if (body.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than zero." });
+    var donor = await db.Donors.FindAsync(donorId);
+    if (donor is null) return Results.NotFound(new { error = "Donor not found." });
+    var r = new RecurringDonation
+    {
+        DonorId        = donorId,
+        ChapterId      = donor.ChapterId,
+        Amount         = body.Amount,
+        Frequency      = body.Frequency,
+        NextChargeDate = body.StartDate ?? DateTime.UtcNow.AddDays(1),
+        Campaign       = string.IsNullOrWhiteSpace(body.Campaign) ? null : body.Campaign,
+        Status         = RecurringStatus.Active,
+        CreatedAt      = DateTime.UtcNow,
+        Channel        = DonationChannel.Online
+    };
+    db.RecurringDonations.Add(r);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/public/v1/donors/{donorId}/recurring/{r.Id}",
+        new { r.Id });
+}).AllowAnonymous();
+
+publicApi.MapPost("/recurring/{id:int}/pause", async (int id, LotvDbContext db) =>
+{
+    var r = await db.RecurringDonations.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    r.Status = RecurringStatus.Paused;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { updated = true });
+}).AllowAnonymous();
+
+publicApi.MapPost("/recurring/{id:int}/resume", async (int id, LotvDbContext db) =>
+{
+    var r = await db.RecurringDonations.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    r.Status = RecurringStatus.Active;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { updated = true });
+}).AllowAnonymous();
+
+publicApi.MapPost("/recurring/{id:int}/cancel", async (int id, LotvDbContext db) =>
+{
+    var r = await db.RecurringDonations.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    r.Status = RecurringStatus.Cancelled;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { updated = true });
+}).AllowAnonymous();
+
+publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRequest body, LotvDbContext db) =>
+{
+    var r = await db.RecurringDonations.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    if (body.Amount.HasValue && body.Amount.Value > 0) r.Amount    = body.Amount.Value;
+    if (body.Frequency.HasValue)                       r.Frequency = body.Frequency.Value;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { updated = true });
+}).AllowAnonymous();
+
 // ── API Key Management (HQAdmin) ──────────────────────────────────────────────
 var apiKeys = app.MapGroup("/api/v1/apikeys").WithTags("API Keys").RequireAuthorization("HQAdmin");
 
@@ -2009,6 +2097,8 @@ record ApplyPledgePaymentRequest(decimal Amount);
 record FulfillWishListRequest(int Quantity, string? DonorId);
 record SmsCheckInRequest(string? VolunteerPhone, string? Note);
 record QrScanRequest(string Code);
+record PublicCreateRecurringRequest(decimal Amount, RecurringFrequency Frequency, DateTime? StartDate, string? Campaign);
+record PublicUpdateRecurringRequest(decimal? Amount, RecurringFrequency? Frequency);
 record PublicIntakeRequest(string FamilyLastName, int ChapterId, PackageReason Reason,
     string? City, string? State, string? Notes);
 record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,

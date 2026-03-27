@@ -220,6 +220,51 @@ public class ApiService
     public Task<List<PublicFamilyRequestDto>> GetPublicFamilyRequestsAsync(int familyId) =>
         GetListAsync<PublicFamilyRequestDto>($"/api/public/v1/families/{familyId}/requests");
 
+    public Task<List<RecurringScheduleDto>> GetDonorRecurringAsync(int donorId) =>
+        GetListAsync<RecurringScheduleDto>($"/api/public/v1/donors/{donorId}/recurring");
+
+    public async Task<int?> CreateDonorRecurringAsync(int donorId, decimal amount, string frequency, DateTime? startDate, string? campaign)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/api/public/v1/donors/{donorId}/recurring",
+                new { Amount = amount, Frequency = frequency, StartDate = startDate, Campaign = campaign });
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.GetProperty("id").GetInt32();
+        }
+        catch { return null; }
+    }
+
+    public async Task<bool> PauseDonorRecurringAsync(int id)
+    {
+        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/pause", null))?.IsSuccessStatusCode == true; }
+        catch { return false; }
+    }
+
+    public async Task<bool> ResumeDonorRecurringAsync(int id)
+    {
+        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/resume", null))?.IsSuccessStatusCode == true; }
+        catch { return false; }
+    }
+
+    public async Task<bool> CancelDonorRecurringAsync(int id)
+    {
+        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/cancel", null))?.IsSuccessStatusCode == true; }
+        catch { return false; }
+    }
+
+    public async Task<bool> UpdateDonorRecurringAsync(int id, decimal amount, string frequency)
+    {
+        try
+        {
+            var resp = await _http.PatchAsJsonAsync($"/api/public/v1/recurring/{id}",
+                new { Amount = amount, Frequency = frequency });
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     public async Task<bool> UpdateFamilyProfileAsync(int familyId,
         string firstName, string lastName, string email, string phone,
         string street, string city, string state, string zip)
@@ -497,6 +542,11 @@ public record DonorDonationDto(DateTime Date, decimal Amount, string Channel, st
 public record PublicFamilyRequestDto(
     int Id, string Category, string Status, string Priority,
     DateTime CreatedAt, DateTime? DueDate, string Reason, string? AssignedTo);
+
+public record RecurringScheduleDto(
+    int Id, decimal Amount, string Frequency, DateTime NextChargeDate,
+    DateTime? EndsOn, string Status, string? Campaign, DateTime CreatedAt,
+    DateTime? LastChargedAt, string Channel);
 
 public record DashboardStatsDto(
     int OpenCases, int Overdue,
