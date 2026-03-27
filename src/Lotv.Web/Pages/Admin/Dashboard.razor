@@ -26,6 +26,13 @@
   <a href="/admin/impact" class="btn btn-sm">Impact Report &rarr;</a>
 </div>
 
+@if (_loading)
+{
+  <Loading Message="Loading dashboard…" />
+}
+else
+{
+
 <!-- OVERDUE ALERT (conditional) -->
 @if (_stats.OverdueCases > 0)
 {
@@ -111,6 +118,55 @@
     <div class="kpi-value" style="color:var(--amber)">@_stats.UnallocatedFunds.ToString("C0")</div>
     <div class="kpi-change">@_stats.PendingAllocations allocations pending review</div>
   </div>
+</div>
+
+<!-- MONTHLY TREND CHARTS -->
+<div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;margin-bottom:20px;">
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Donation Trend — 12 Months</h3>
+      <a href="/admin/donations" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Donations &rarr;</a>
+    </div>
+    <div class="panel-body">
+      @if (_timeline.Any())
+      {
+        <div style="font-size:.75rem;color:var(--text-light);margin-bottom:6px;display:flex;justify-content:space-between;">
+          <span>Monthly giving — last 12 months</span>
+          <span style="font-weight:600;color:var(--green);">Peak: @_timeline.Max(p => p.Donations).ToString("C0")</span>
+        </div>
+      }
+      <LineChart Items="_timeline"
+                 LabelFunc="p => p.Period.Split(' ')[0]"
+                 ValueFunc="p => (double)p.Donations"
+                 Color="var(--green)"
+                 Height="150"
+                 ShowArea="true"
+                 ShowDots="true" />
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Cases Fulfilled — 12 Months</h3>
+      <a href="/admin/cases" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">View Cases &rarr;</a>
+    </div>
+    <div class="panel-body">
+      @if (_timeline.Any())
+      {
+        <div style="font-size:.75rem;color:var(--text-light);margin-bottom:6px;display:flex;justify-content:space-between;">
+          <span>Fulfilled per month</span>
+          <span style="font-weight:600;color:var(--navy);">Total: @_timeline.Sum(p => p.RequestsFulfilled)</span>
+        </div>
+      }
+      <BarChart Items="_timeline"
+                LabelFunc="p => p.Period.Split(' ')[0]"
+                ValueFunc="p => p.RequestsFulfilled"
+                Color="var(--navy)"
+                MaxBarHeight="120" />
+    </div>
+  </div>
+
 </div>
 
 <!-- MIDDLE ROW: Recent Cases + Volunteer Workload -->
@@ -347,6 +403,8 @@
 
 </div>
 
+} @* end @if (!_loading) *@
+
 @code {
   private record WorkloadRow(string Name, int Open, int Overdue);
   private record AllocRow(string Label, int Count, string Color);
@@ -356,10 +414,12 @@
     int CasesFulfilledLast30Days, decimal UnallocatedFunds, int PendingAllocations);
 
   private DashSummary _stats = new(0,0,0,0,0,0,0,0,0,0);
+  private bool _loading = true;
   private string _nextEvent = "";
   private int _onboarding;
   private int _donationGrowth;
   private int _newThisWeek;
+  private List<TimelinePointDto> _timeline = [];
   private List<PackageRequest> _recentCases = [];
   private List<PackageRequest> _overdueCases = [];
   private List<MinistryEvent> _upcomingEvents = [];
@@ -454,6 +514,9 @@
       UnallocatedFunds:       0m,
       PendingAllocations:     pending
     );
+
+    _timeline = await Api.GetTimelineAsync();
+    _loading  = false;
   }
 
   public void Dispose()
