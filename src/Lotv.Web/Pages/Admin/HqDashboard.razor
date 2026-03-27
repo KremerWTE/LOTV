@@ -122,35 +122,22 @@ else
           </tbody>
         </table>
 
-        <!-- MINI COMPARISON BARS -->
+        <!-- COMPARISON CHARTS -->
         <div style="padding:20px 20px 0;">
           <div class="form-label" style="margin-bottom:10px;">Open Requests by Chapter</div>
-          @foreach (var row in _sorted)
-          {
-            var barPct = _maxOpen > 0 ? (int)((double)row.OpenRequests / _maxOpen * 100) : 0;
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-              <div style="width:140px;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@row.ChapterName</div>
-              <div style="flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;">
-                <div style="height:100%;width:@barPct%;background:var(--navy);border-radius:7px;transition:width .3s;"></div>
-              </div>
-              <div style="font-size:.78rem;font-weight:600;width:32px;text-align:right;">@row.OpenRequests</div>
-            </div>
-          }
+          <BarChart Items="_sorted"
+                    LabelFunc="r => r.ChapterName"
+                    ValueFunc="r => r.OpenRequests"
+                    Orientation="horizontal" Color="var(--navy)" />
         </div>
 
         <div style="padding:20px 20px 20px;">
           <div class="form-label" style="margin-bottom:10px;">Donations by Chapter</div>
-          @foreach (var row in _rows.OrderByDescending(r => r.TotalDonations))
-          {
-            var barPct = _maxDonations > 0 ? (int)((double)row.TotalDonations / (double)_maxDonations * 100) : 0;
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-              <div style="width:140px;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@row.ChapterName</div>
-              <div style="flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;">
-                <div style="height:100%;width:@barPct%;background:var(--green);border-radius:7px;transition:width .3s;"></div>
-              </div>
-              <div style="font-size:.78rem;font-weight:600;width:64px;text-align:right;">@row.TotalDonations.ToString("C0")</div>
-            </div>
-          }
+          <BarChart Items="_rows.OrderByDescending(r => r.TotalDonations)"
+                    LabelFunc="r => r.ChapterName"
+                    ValueFunc="r => (double)r.TotalDonations"
+                    FormatFunc='r => r.TotalDonations.ToString("C0")'
+                    Orientation="horizontal" Color="var(--green)" />
         </div>
       }
     </div>
@@ -165,9 +152,6 @@ else
 
   private List<ChapterSummaryRow> _overdueChapters => _rows.Where(r => r.OverdueRequests > 0).OrderByDescending(r => r.OverdueRequests).ToList();
   private List<ChapterSummaryRow> _emptyChapters   => _rows.Where(r => r.ActiveVolunteers == 0).ToList();
-  private int    _maxOpen      => _rows.Count > 0 ? Math.Max(1, _rows.Max(r => r.OpenRequests)) : 1;
-  private decimal _maxDonations => _rows.Count > 0 ? Math.Max(1, _rows.Max(r => r.TotalDonations)) : 1;
-
   protected override async Task OnInitializedAsync() => await LoadAsync();
 
   private async Task LoadAsync()
