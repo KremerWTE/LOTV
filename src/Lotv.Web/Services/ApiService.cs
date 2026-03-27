@@ -220,6 +220,20 @@ public class ApiService
     public Task<List<PublicFamilyRequestDto>> GetPublicFamilyRequestsAsync(int familyId) =>
         GetListAsync<PublicFamilyRequestDto>($"/api/public/v1/families/{familyId}/requests");
 
+    public async Task<bool> CreateResourceDonationAsync(string donorName, string? email, string? phone,
+        string resourceType, int quantity, string? unit, string? description, string? preference)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/public/v1/resource-donations",
+                new { DonorName = donorName, Email = email, Phone = phone,
+                      ResourceType = resourceType, Quantity = quantity, Unit = unit,
+                      Description = description, Preference = preference });
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     public Task<List<RecurringScheduleDto>> GetDonorRecurringAsync(int donorId) =>
         GetListAsync<RecurringScheduleDto>($"/api/public/v1/donors/{donorId}/recurring");
 

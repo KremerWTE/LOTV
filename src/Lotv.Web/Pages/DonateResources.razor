@@ -128,8 +128,9 @@
     if (string.IsNullOrWhiteSpace(_resourceType)) { _error = "Please select a resource type."; return; }
     if (_quantity < 1) { _error = "Quantity must be at least 1."; return; }
 
-    // In production: call Api.CreateResourceDonationAsync(...)
-    await Task.CompletedTask;
+    var ok = await Api.CreateResourceDonationAsync(_name, _email, _phone,
+        _resourceType, _quantity, _unit, _description, _preference);
+    if (!ok) { _error = "Unable to submit your donation. Please try again."; return; }
     _submitted = true;
   }
 }

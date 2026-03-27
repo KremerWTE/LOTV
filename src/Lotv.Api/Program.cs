@@ -1992,6 +1992,44 @@ publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRe
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
+publicApi.MapPost("/resource-donations", async (PublicResourceDonationRequest body, LotvDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(body.DonorName)) return Results.BadRequest(new { error = "Name is required." });
+    if (string.IsNullOrWhiteSpace(body.ResourceType)) return Results.BadRequest(new { error = "Resource type is required." });
+    if (body.Quantity < 1) return Results.BadRequest(new { error = "Quantity must be at least 1." });
+
+    var category = body.ResourceType switch
+    {
+        "Baby Items"        => ResourceCategory.BabyClothing,
+        "Medical Supplies"  => ResourceCategory.HospitalSupply,
+        "Food"              => ResourceCategory.CarePackage,
+        _                   => ResourceCategory.OtherPhysicalGood
+    };
+
+    // Default to first available chapter; chapter assignment is handled by staff
+    var defaultChapterId = await db.Chapters.Select(c => c.Id).FirstOrDefaultAsync();
+    var notes = $"Donor: {body.DonorName}";
+    if (!string.IsNullOrWhiteSpace(body.Email))       notes += $" | Email: {body.Email}";
+    if (!string.IsNullOrWhiteSpace(body.Phone))       notes += $" | Phone: {body.Phone}";
+    if (!string.IsNullOrWhiteSpace(body.Preference))  notes += $" | Delivery: {body.Preference}";
+    if (!string.IsNullOrWhiteSpace(body.Description)) notes += $" | Notes: {body.Description}";
+
+    var item = new ResourceItem
+    {
+        Name            = body.ResourceType,
+        Category        = category,
+        Description     = notes,
+        QuantityOnHand  = body.Quantity,
+        Unit            = string.IsNullOrWhiteSpace(body.Unit) ? "item" : body.Unit,
+        ChapterId       = defaultChapterId,
+        CreatedAt       = DateTime.UtcNow,
+        UpdatedAt       = DateTime.UtcNow
+    };
+    db.ResourceItems.Add(item);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/public/v1/resource-donations/{item.Id}", new { item.Id });
+}).AllowAnonymous();
+
 // ── API Key Management (HQAdmin) ──────────────────────────────────────────────
 var apiKeys = app.MapGroup("/api/v1/apikeys").WithTags("API Keys").RequireAuthorization("HQAdmin");
 
@@ -2097,6 +2135,8 @@ record ApplyPledgePaymentRequest(decimal Amount);
 record FulfillWishListRequest(int Quantity, string? DonorId);
 record SmsCheckInRequest(string? VolunteerPhone, string? Note);
 record QrScanRequest(string Code);
+record PublicResourceDonationRequest(string DonorName, string? Email, string? Phone,
+    string ResourceType, int Quantity, string? Unit, string? Description, string? Preference);
 record PublicCreateRecurringRequest(decimal Amount, RecurringFrequency Frequency, DateTime? StartDate, string? Campaign);
 record PublicUpdateRecurringRequest(decimal? Amount, RecurringFrequency? Frequency);
 record PublicIntakeRequest(string FamilyLastName, int ChapterId, PackageReason Reason,
