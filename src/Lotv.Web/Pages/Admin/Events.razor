@@ -38,7 +38,7 @@
 <!-- FILTER -->
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Upcoming","Past","Virtual","In-Person"})
-  { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+  { <button class="filter-chip @(_filter == f ? "active" : "")" aria-pressed="@(_filter == f)" @onclick="() => _filter = f">@f</button> }
 </div>
 
 <!-- EVENT CARDS -->

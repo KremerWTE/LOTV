@@ -43,9 +43,9 @@
   <input class="form-input" style="width:240px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search donors..." @bind="_search" @bind:event="oninput" />
   @foreach (var t in Enum.GetValues<DonorTier>())
   {
-    <button class="filter-chip @(_tierFilter == t.ToString() ? "active" : "")" @onclick='() => _tierFilter = _tierFilter == t.ToString() ? string.Empty : t.ToString()'>@t</button>
+    <button class="filter-chip @(_tierFilter == t.ToString() ? "active" : "")" aria-pressed="@(_tierFilter == t.ToString())" @onclick='() => _tierFilter = _tierFilter == t.ToString() ? string.Empty : t.ToString()'>@t</button>
   }
-  <button class="filter-chip @(_recurringOnly ? "active" : "")" @onclick="() => _recurringOnly = !_recurringOnly">Recurring Only</button>
+  <button class="filter-chip @(_recurringOnly ? "active" : "")" aria-pressed="@_recurringOnly" @onclick="() => _recurringOnly = !_recurringOnly">Recurring Only</button>
 </div>
 
 <!-- TABLE -->

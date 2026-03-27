@@ -54,7 +54,7 @@
   <div class="drawer" style="width:400px;">
     <div class="drawer-head">
       <h3>Case #@_selected.Id &mdash; @_selected.Family?.Parent1LastName</h3>
-      <button class="drawer-close" @onclick="CloseDrawer">&#10005;</button>
+      <button class="drawer-close" aria-label="Close" @onclick="CloseDrawer">&#10005;</button>
     </div>
     <div class="drawer-body" style="gap:14px;">
       <div style="background:var(--bg);border-radius:8px;padding:12px 14px;font-size:.84rem;display:flex;flex-direction:column;gap:6px;">

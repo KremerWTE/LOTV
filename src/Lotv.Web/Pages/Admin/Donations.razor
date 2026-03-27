@@ -44,7 +44,7 @@
 <div class="filter-bar">
   @foreach (var f in _filters)
   {
-    <button class="filter-chip @(_activeFilter == f ? "active" : "")" @onclick="() => _activeFilter = f">@f</button>
+    <button class="filter-chip @(_activeFilter == f ? "active" : "")" aria-pressed="@(_activeFilter == f)" @onclick="() => _activeFilter = f">@f</button>
   }
   <input class="form-input" style="width:180px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Donor or campaign..." @bind="_search" @bind:event="oninput" />
 </div>

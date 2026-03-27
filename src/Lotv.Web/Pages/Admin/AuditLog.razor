@@ -38,10 +38,10 @@
 <!-- FILTER BAR -->
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged","Deleted"})
-  { <button class="filter-chip @(_actionFilter == f ? "active" : "")" @onclick="() => _actionFilter = f">@f</button> }
+  { <button class="filter-chip @(_actionFilter == f ? "active" : "")" aria-pressed="@(_actionFilter == f)" @onclick="() => _actionFilter = f">@f</button> }
   <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
   @foreach (var d in new[]{"All Time","Today","This Week","This Month"})
-  { <button class="filter-chip @(_dateFilter == d ? "active" : "")" @onclick="() => _dateFilter = d">@d</button> }
+  { <button class="filter-chip @(_dateFilter == d ? "active" : "")" aria-pressed="@(_dateFilter == d)" @onclick="() => _dateFilter = d">@d</button> }
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search entries..." @bind="_search" @bind:event="oninput" />
 </div>
 

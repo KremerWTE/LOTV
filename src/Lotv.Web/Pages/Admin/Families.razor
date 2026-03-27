@@ -41,9 +41,9 @@
 <!-- FILTER + SEARCH -->
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Active","Closed","Follow-Up"})
-  { <button class="filter-chip @(_statusFilter == f ? "active" : "")" @onclick="() => _statusFilter = f">@f</button> }
+  { <button class="filter-chip @(_statusFilter == f ? "active" : "")" aria-pressed="@(_statusFilter == f)" @onclick="() => _statusFilter = f">@f</button> }
   @foreach (var r in new[]{ PackageReason.Miscarriage, PackageReason.Stillbirth, PackageReason.PrenatalDiagnosis, PackageReason.InfantLoss, PackageReason.Infertility, PackageReason.PastLoss })
-  { <button class="filter-chip @(_reasonFilter == r.ToString() ? "active" : "")" @onclick='() => _reasonFilter = _reasonFilter == r.ToString() ? string.Empty : r.ToString()'>@r.ToDisplayName()</button> }
+  { <button class="filter-chip @(_reasonFilter == r.ToString() ? "active" : "")" aria-pressed="@(_reasonFilter == r.ToString())" @onclick='() => _reasonFilter = _reasonFilter == r.ToString() ? string.Empty : r.ToString()'>@r.ToDisplayName()</button> }
   <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
          placeholder="&#128269; Search name, email, parish..."
          @bind="_search" @bind:event="oninput" />

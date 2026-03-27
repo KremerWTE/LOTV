@@ -18,7 +18,7 @@
   <div class="filter-bar" style="justify-content:center;margin-bottom:28px;">
     @foreach (var cat in Categories)
     {
-      <button class="filter-chip @(_cat == cat ? "active" : "")" @onclick="() => _cat = cat">@cat</button>
+      <button class="filter-chip @(_cat == cat ? "active" : "")" aria-pressed="@(_cat == cat)" @onclick="() => _cat = cat">@cat</button>
     }
   </div>
 

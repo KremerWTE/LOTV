@@ -39,7 +39,7 @@
 <!-- FILTER BAR -->
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Active","Inactive","Package Assembler","Prayer Ambassador","Parish Liaison","Event Helper","Driver","Admin"})
-  { <button class="filter-chip @(_filter == f ? "active" : "")" @onclick="() => _filter = f">@f</button> }
+  { <button class="filter-chip @(_filter == f ? "active" : "")" aria-pressed="@(_filter == f)" @onclick="() => _filter = f">@f</button> }
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search name or email..." @bind="_search" @bind:event="oninput" />
 </div>
 

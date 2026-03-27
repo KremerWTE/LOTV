@@ -13,14 +13,14 @@
   <!-- Search -->
   <div style="margin-bottom:32px;">
     <input class="form-input" @bind="_search" @bind:event="oninput"
-           placeholder="Search questions…" style="font-size:.9rem;max-width:400px;" />
+           placeholder="Search questions…" aria-label="Search FAQ" style="font-size:.9rem;max-width:400px;" />
   </div>
 
   <!-- Category tabs -->
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;">
     @foreach (var cat in Categories)
     {
-      <button class="filter-chip @(_category == cat ? "active" : "")" @onclick="() => _category = cat">
+      <button class="filter-chip @(_category == cat ? "active" : "")" aria-pressed="@(_category == cat)" @onclick="() => _category = cat">
         @cat
       </button>
     }
@@ -45,6 +45,7 @@
         bool open = _open.Contains(item.Id);
         <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
           <button @onclick="() => Toggle(item.Id)"
+                  aria-expanded="@open" aria-controls="faq-@item.Id"
                   style="width:100%;text-align:left;padding:16px 20px;background:@(open ? "#f0f7ff" : "white");
                          border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <span style="font-weight:600;color:var(--navy);font-size:.9rem;">@item.Question</span>
@@ -52,7 +53,7 @@
           </button>
           @if (open)
           {
-            <div style="padding:0 20px 18px;background:#f0f7ff;border-top:1px solid var(--border);">
+            <div id="faq-@item.Id" style="padding:0 20px 18px;background:#f0f7ff;border-top:1px solid var(--border);">
               <div style="font-size:.85rem;color:var(--text-mid);line-height:1.8;padding-top:14px;">
                 @((MarkupString)item.Answer)
               </div>

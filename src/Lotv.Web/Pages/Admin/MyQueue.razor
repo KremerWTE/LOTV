@@ -46,7 +46,7 @@
 <div class="filter-bar">
   @foreach (var f in _filters)
   {
-    <button class="filter-chip @(_activeFilter == f ? "active" : "")" @onclick="() => SetFilter(f)">@f</button>
+    <button class="filter-chip @(_activeFilter == f ? "active" : "")" aria-pressed="@(_activeFilter == f)" @onclick="() => SetFilter(f)">@f</button>
   }
 </div>
 

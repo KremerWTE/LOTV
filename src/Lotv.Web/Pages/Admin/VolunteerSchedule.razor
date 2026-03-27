@@ -23,7 +23,7 @@
 <div class="filter-bar" style="margin-bottom:20px;">
   @foreach (var v in new[]{"Week","Month","List"})
   {
-    <button class="filter-chip @(_view == v ? "active" : "")" @onclick="() => _view = v">@v</button>
+    <button class="filter-chip @(_view == v ? "active" : "")" aria-pressed="@(_view == v)" @onclick="() => _view = v">@v</button>
   }
 </div>
 

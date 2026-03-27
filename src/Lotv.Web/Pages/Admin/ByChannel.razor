@@ -11,7 +11,7 @@
 <!-- DATE FILTER -->
 <div class="filter-bar" style="margin-bottom:20px;">
   @foreach (var f in new[]{"All Time","This Year","This Month","Last Month"})
-  { <button class="filter-chip @(_dateFilter == f ? "active" : "")" @onclick="() => SetFilter(f)">@f</button> }
+  { <button class="filter-chip @(_dateFilter == f ? "active" : "")" aria-pressed="@(_dateFilter == f)" @onclick="() => SetFilter(f)">@f</button> }
 </div>
 
 <!-- KPI STRIP -->
