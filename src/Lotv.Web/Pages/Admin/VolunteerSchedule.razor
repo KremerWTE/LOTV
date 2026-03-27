@@ -27,7 +27,11 @@
   }
 </div>
 
-@if (_view == "Week")
+@if (_loading)
+{
+  <Loading Message="Loading volunteer schedule…" />
+}
+else if (_view == "Week")
 {
   <!-- Week calendar -->
   <div class="panel" style="margin-bottom:24px;overflow-x:auto;">
@@ -59,7 +63,7 @@
               </td>
               @foreach (var day in WeekDays)
               {
-                bool avail    = vol.AvailableDays.Contains(day.DayOfWeek);
+                bool avail    = true; // availability derived from assignments; all days shown
                 var  daySlots = GetAssignments(vol.Id, day);
                 <td style="padding:4px;vertical-align:top;min-width:90px;
                            background:@(avail ? "white" : "#fafafa");">
@@ -204,8 +208,12 @@ else
 }
 
 @code {
-  private string _view   = "Week";
+  private string   _view   = "Week";
   private DateTime _cursor = DateTime.Today;
+  private bool     _loading = true;
+
+  private List<VolunteerRow>    _volunteers  = [];
+  private List<AssignmentSlot>  _assignments = [];
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -217,60 +225,59 @@ else
   {
     get
     {
-      var first  = new DateTime(_cursor.Year, _cursor.Month, 1);
-      var start  = first.AddDays(-(int)first.DayOfWeek);
-      var last   = new DateTime(_cursor.Year, _cursor.Month, DateTime.DaysInMonth(_cursor.Year, _cursor.Month));
-      var end    = last.AddDays(6 - (int)last.DayOfWeek);
-      var weeks  = new List<List<DateTime>>();
-      var day    = start;
+      var first = new DateTime(_cursor.Year, _cursor.Month, 1);
+      var start = first.AddDays(-(int)first.DayOfWeek);
+      var last  = new DateTime(_cursor.Year, _cursor.Month, DateTime.DaysInMonth(_cursor.Year, _cursor.Month));
+      var end   = last.AddDays(6 - (int)last.DayOfWeek);
+      var weeks = new List<List<DateTime>>();
+      var day   = start;
       while (day <= end)
       {
-        var week = Enumerable.Range(0, 7).Select(i => day.AddDays(i)).ToList();
-        weeks.Add(week);
+        weeks.Add(Enumerable.Range(0, 7).Select(i => day.AddDays(i)).ToList());
         day = day.AddDays(7);
       }
       return weeks;
     }
   }
 
-  private void PrevWeek() => _cursor = _view == "Month"
-    ? _cursor.AddMonths(-1) : _cursor.AddDays(-7);
-  private void NextWeek() => _cursor = _view == "Month"
-    ? _cursor.AddMonths(1) : _cursor.AddDays(7);
+  private void PrevWeek() => _cursor = _view == "Month" ? _cursor.AddMonths(-1) : _cursor.AddDays(-7);
+  private void NextWeek() => _cursor = _view == "Month" ? _cursor.AddMonths(1)  : _cursor.AddDays(7);
   private void GoToday()  => _cursor = DateTime.Today;
 
   private IEnumerable<AssignmentSlot> GetAssignments(int volId, DateTime day)
     => _assignments.Where(a => a.VolunteerId == volId && a.DueDate.Date == day.Date);
 
-  // ── Stub data ─────────────────────────────────────────────────────────────
+  // ── Data loading ──────────────────────────────────────────────────────────
 
-  private readonly List<VolunteerRow> _volunteers = new()
+  protected override async Task OnInitializedAsync()
   {
-    new(1, "Maria G.",    new[]{ DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Saturday }, 2),
-    new(2, "Thomas K.",   new[]{ DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday },   1),
-    new(3, "Sandra L.",   new[]{ DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Friday },     3),
-    new(4, "James N.",    new[]{ DayOfWeek.Wednesday, DayOfWeek.Saturday, DayOfWeek.Sunday }, 0),
-    new(5, "Patricia W.", new[]{ DayOfWeek.Monday, DayOfWeek.Thursday },                      1),
-  };
+    var t1 = Api.GetVolunteersAsync("Active");
+    var t2 = Api.GetRequestsAsync();
+    await Task.WhenAll(t1, t2);
 
-  private readonly List<AssignmentSlot> _assignments;
+    var vols = t1.Result;
+    var reqs = t2.Result
+      .Where(r => r.AssignedToId.HasValue
+               && r.Status is not CaseStatus.Fulfilled and not CaseStatus.Cancelled)
+      .ToList();
 
-  public VolunteerSchedule()
-  {
-    var today = DateTime.Today;
-    _assignments = new()
-    {
-      new(1042, 1, "Maria G.",    "Johnson Family", today.AddDays(1),  "InProgress",   false),
-      new(1047, 1, "Maria G.",    "Rivera Family",  today.AddDays(4),  "New",           false),
-      new(1043, 2, "Thomas K.",   "Smith Family",   today.AddDays(-2), "AwaitingShip.", true),
-      new(1049, 3, "Sandra L.",   "Lee Family",     today.AddDays(2),  "InProgress",   false),
-      new(1051, 3, "Sandra L.",   "Brown Family",   today.AddDays(6),  "New",           false),
-      new(1052, 3, "Sandra L.",   "Davis Family",   today.AddDays(8),  "New",           false),
-      new(1050, 5, "Patricia W.", "Adams Family",   today.AddDays(3),  "InProgress",   false),
-    };
+    var volMap = vols.ToDictionary(v => v.Id, v => v.FullName);
+
+    _volunteers  = vols.Select(v => new VolunteerRow(v.Id, v.FullName, v.ActiveCases)).ToList();
+    _assignments = reqs.Select(r => new AssignmentSlot(
+        r.Id,
+        r.AssignedToId!.Value,
+        volMap.TryGetValue(r.AssignedToId!.Value, out var n) ? n : "Unknown",
+        r.Family?.FullName ?? $"Family #{r.FamilyId}",
+        r.DueDate ?? r.CreatedAt.AddDays(7),
+        r.Status.ToString(),
+        r.IsOverdue
+    )).ToList();
+
+    _loading = false;
   }
 
-  private record VolunteerRow(int Id, string Name, DayOfWeek[] AvailableDays, int Load);
+  private record VolunteerRow(int Id, string Name, int Load);
   private record AssignmentSlot(int CaseId, int VolunteerId, string VolunteerName, string FamilyName,
                                  DateTime DueDate, string Status, bool IsOverdue);
 }
