@@ -487,10 +487,26 @@ public class ApiService
     }
 
     // ── Allocations mutations ──────────────────────────────────────────────────
+    public async Task<FundAllocation?> CreateAllocationAsync(FundAllocation alloc)
+    {
+        var resp = await AuthedPostAsync("/api/v1/allocations", alloc);
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<FundAllocation>() : null;
+    }
+
     public async Task<FundAllocation?> UpdateAllocationAsync(int id, FundAllocation alloc)
     {
         var resp = await AuthedPutAsync($"/api/v1/allocations/{id}", alloc);
         return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<FundAllocation>() : null;
+    }
+
+    public Task<List<ResourceItem>> GetInventoryAsync(string? category = null) =>
+        GetListAsync<ResourceItem>($"/api/v1/inventory{BuildQs(("category", category))}");
+
+    public async Task<bool> AllocateResourceAsync(int resourceId, int requestId, int quantity, string? notes)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/inventory/{resourceId}/allocate",
+            new { requestId, quantity, notes });
+        return resp?.IsSuccessStatusCode == true;
     }
 
     // ── Events mutations ───────────────────────────────────────────────────────

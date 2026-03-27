@@ -220,7 +220,7 @@
       Status       = AllocationStatus.Allocated,
     };
 
-    var result = await Api.UpdateAllocationAsync(0, alloc);   // POST stub — uses update endpoint
+    var result = await Api.CreateAllocationAsync(alloc);
     _success = result != null;
     if (!_success) _error = "Failed to save. Please try again.";
 

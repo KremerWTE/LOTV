@@ -1378,6 +1378,34 @@ inventory.MapPatch("/{id:int}/adjust", async (int id, InventoryAdjustRequest bod
     return Results.Ok(item);
 }).RequireAuthorization("ChapterAdmin");
 
+inventory.MapPost("/{id:int}/allocate", async (int id, ResourceAllocationRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var item = await db.ResourceItems.FindAsync(id);
+    if (item is null) return Results.NotFound();
+    if (body.Quantity <= 0) return Results.BadRequest("Quantity must be greater than zero.");
+    if (body.Quantity > item.QuantityOnHand) return Results.BadRequest("Quantity exceeds available stock.");
+
+    item.QuantityOnHand -= body.Quantity;
+    item.UpdatedAt = DateTime.UtcNow;
+
+    // Record a note on the target request so activity log captures the allocation
+    if (body.RequestId > 0)
+    {
+        var note = new RequestNote
+        {
+            RequestId = body.RequestId,
+            AuthorId  = ctx.UserId,
+            Content   = $"Resource allocated: {(item.Name.Length > 0 ? item.Name : item.Category.ToString())} × {body.Quantity}" +
+                        (string.IsNullOrWhiteSpace(body.Notes) ? "" : $" — {body.Notes}"),
+            CreatedAt = DateTime.UtcNow
+        };
+        db.RequestNotes.Add(note);
+    }
+
+    await db.SaveChangesAsync();
+    return Results.Ok(new { allocated = body.Quantity, remaining = item.QuantityOnHand });
+}).RequireAuthorization("Staff");
+
 // ── Audit ─────────────────────────────────────────────────────────────────────
 app.MapGet("/api/v1/audit", async (LotvDbContext db, IChapterContextService ctx, int page = 1, int pageSize = 50) =>
 {
@@ -2257,6 +2285,7 @@ record DonorPrivacyRequest(bool IsAnonymous);
 record FamilyProfileUpdateRequest(string? FirstName, string? LastName,
     string? Email, string? Phone, string? Street, string? City, string? State, string? Zip);
 record InventoryAdjustRequest(int QuantityDelta, string? Reason);
+record ResourceAllocationRequest(int RequestId, int Quantity, string? Notes);
 record ApplyPledgePaymentRequest(decimal Amount);
 record FulfillWishListRequest(int Quantity, string? DonorId);
 record SmsCheckInRequest(string? VolunteerPhone, string? Note);
