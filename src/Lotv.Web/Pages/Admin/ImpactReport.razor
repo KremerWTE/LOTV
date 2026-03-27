@@ -130,25 +130,11 @@
     <a href="/admin/by-channel" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Breakdown &rarr;</a>
   </div>
   <div class="panel-body">
-    @{
-      var maxAmt = _monthlyTrend.Select(m => m.Amount).DefaultIfEmpty(1).Max();
-    }
-    <div style="display:grid;grid-template-columns:repeat(@_monthlyTrend.Count,1fr);gap:12px;align-items:end;min-height:120px;">
-      @foreach (var month in _monthlyTrend)
-      {
-        var barPct = maxAmt > 0 ? (int)(month.Amount / maxAmt * 100) : 0;
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-          <div style="font-size:.72rem;font-weight:700;color:var(--navy);">@month.Amount.ToString("C0")</div>
-          <div style="width:100%;background:var(--green);border-radius:6px 6px 0 0;min-height:6px;height:@(Math.Max(barPct, 4))px;opacity:@(month.IsCurrent ? "1" : "0.55");transition:height .3s;"></div>
-          <div style="font-size:.7rem;color:var(--text-light);text-align:center;">
-            @month.Label
-            @if (month.IsCurrent)
-            { <div style="font-size:.62rem;color:var(--green);font-weight:700;">Current</div> }
-          </div>
-          <div style="font-size:.68rem;color:var(--text-mid);">@month.GiftCount gift@(month.GiftCount != 1 ? "s" : "")</div>
-        </div>
-      }
-    </div>
+    <BarChart Items="_monthlyTrend"
+              LabelFunc="m => m.Label"
+              ValueFunc="m => (double)m.Amount"
+              FormatFunc='m => $"{m.Amount:C0} ({m.GiftCount} gifts)"'
+              Color="var(--green)" MaxBarHeight="140" />
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:24px;">
       <div style="font-size:.82rem;"><strong>6-month total:</strong> @_monthlyTrend.Sum(m => m.Amount).ToString("C0")</div>
       <div style="font-size:.82rem;"><strong>Avg / month:</strong> @(_monthlyTrend.Count > 0 ? (_monthlyTrend.Sum(m => m.Amount) / _monthlyTrend.Count).ToString("C0") : "—")</div>

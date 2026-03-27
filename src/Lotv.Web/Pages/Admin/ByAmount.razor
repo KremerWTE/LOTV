@@ -46,25 +46,11 @@ else
   <div class="panel" style="margin-bottom:20px;">
     <div class="panel-header">Gift Count Distribution</div>
     <div class="panel-body">
-      @{
-        var maxCount = _bands.Any() ? _bands.Max(b => b.GiftCount) : 1;
-      }
-      @foreach (var band in _bands)
-      {
-        var pct = maxCount > 0 ? (int)((double)band.GiftCount / maxCount * 100) : 0;
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-          <div style="width:120px;font-size:.82rem;font-weight:600;white-space:nowrap;">@band.Band</div>
-          <div style="flex:1;height:22px;background:var(--bg);border-radius:11px;overflow:hidden;position:relative;">
-            <div style="height:100%;width:@pct%;background:linear-gradient(90deg,var(--navy),var(--navy-light,#4a6fa5));border-radius:11px;transition:width .3s;"></div>
-            @if (band.GiftCount > 0)
-            {
-              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.7rem;font-weight:700;color:white;mix-blend-mode:difference;">@band.GiftCount gifts</span>
-            }
-          </div>
-          <div style="font-size:.78rem;font-weight:700;color:var(--gold);width:72px;text-align:right;">@band.TotalAmount.ToString("C0")</div>
-          <div style="font-size:.72rem;color:var(--text-light);width:44px;text-align:right;">@band.Percentage.ToString("F1")%</div>
-        </div>
-      }
+      <BarChart Items="_bands"
+                LabelFunc="b => b.Band"
+                ValueFunc="b => b.GiftCount"
+                FormatFunc='b => $"{b.GiftCount} gifts — {b.Percentage:F1}%"'
+                Orientation="horizontal" Color="var(--navy)" ShowPercent="true" />
     </div>
   </div>
 
@@ -72,21 +58,11 @@ else
   <div class="panel" style="margin-bottom:20px;">
     <div class="panel-header">Revenue Distribution by Band</div>
     <div class="panel-body">
-      @{
-        var maxRev = _bands.Any() ? _bands.Max(b => b.TotalAmount) : 1m;
-      }
-      @foreach (var band in _bands)
-      {
-        var pct = maxRev > 0 ? (int)((double)band.TotalAmount / (double)maxRev * 100) : 0;
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-          <div style="width:120px;font-size:.82rem;font-weight:600;white-space:nowrap;">@band.Band</div>
-          <div style="flex:1;height:18px;background:var(--bg);border-radius:9px;overflow:hidden;">
-            <div style="height:100%;width:@pct%;background:var(--gold);border-radius:9px;transition:width .3s;"></div>
-          </div>
-          <div style="font-size:.78rem;font-weight:700;color:var(--gold);width:72px;text-align:right;">@band.TotalAmount.ToString("C0")</div>
-          <div style="font-size:.72rem;color:var(--text-light);width:44px;text-align:right;">@band.Percentage.ToString("F1")%</div>
-        </div>
-      }
+      <BarChart Items="_bands"
+                LabelFunc="b => b.Band"
+                ValueFunc="b => (double)b.TotalAmount"
+                FormatFunc='b => $"{b.TotalAmount:C0} — {b.Percentage:F1}%"'
+                Orientation="horizontal" Color="var(--gold)" ShowPercent="true" />
     </div>
   </div>
 

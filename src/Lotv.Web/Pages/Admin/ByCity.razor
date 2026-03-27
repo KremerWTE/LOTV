@@ -57,21 +57,11 @@ else
   <div class="panel" style="margin-bottom:20px;">
     <div class="panel-header">Top 10 Cities by Donations</div>
     <div class="panel-body">
-      @foreach (var row in _sorted.Take(10))
-      {
-        var pct = _maxAmount > 0 ? (int)((double)row.TotalAmount / (double)_maxAmount * 100) : 0;
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <div style="width:160px;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            <strong>@row.City</strong>
-            <span style="color:var(--text-light);font-size:.7rem;">, @row.State</span>
-          </div>
-          <div style="flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;">
-            <div style="height:100%;width:@pct%;background:var(--navy);border-radius:7px;transition:width .3s;"></div>
-          </div>
-          <div style="font-size:.78rem;font-weight:600;width:72px;text-align:right;">@row.TotalAmount.ToString("C0")</div>
-          <div style="font-size:.7rem;color:var(--text-light);width:60px;text-align:right;">@row.TotalDonors donors</div>
-        </div>
-      }
+      <BarChart Items="_sorted.Take(10)"
+                LabelFunc='r => $"{r.City}, {r.State}"'
+                ValueFunc="r => (double)r.TotalAmount"
+                FormatFunc='r => $"{r.TotalAmount:C0} ({r.TotalDonors} donors)"'
+                Orientation="horizontal" Color="var(--navy)" ShowPercent="true" />
     </div>
   </div>
 
@@ -134,8 +124,6 @@ else
     string.IsNullOrWhiteSpace(_search) ||
     r.City.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
     r.State.Contains(_search, StringComparison.OrdinalIgnoreCase));
-
-  private decimal _maxAmount => _rows.Any() ? _rows.Max(r => r.TotalAmount) : 1m;
 
   protected override async Task OnInitializedAsync() => await LoadAsync();
 
