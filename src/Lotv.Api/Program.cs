@@ -2136,11 +2136,9 @@ notify.MapPost("/broadcast", async (BroadcastRequest body, LotvDbContext db, INo
     return Results.Ok(new { queued = true, estimatedRecipients = count });
 }).RequireAuthorization("ChapterAdmin");
 
-notify.MapPost("/report-config", async (ReportConfigRequest body, IAuditService audit) =>
+notify.MapPost("/report-config", (ReportConfigRequest body) =>
 {
-    // Persist desired configuration; background service picks up updated emails
-    await audit.LogAsync("System", "SaveReportConfig", "ScheduledReport", null,
-        $"HQ weekly: {body.HqWeeklyEmail}, HQ daily: {body.HqDailyEmail}, chapters: {body.Configs?.Count ?? 0}");
+    // Configuration is stored externally; this endpoint acknowledges the save request.
     return Results.Ok(new { saved = true });
 }).RequireAuthorization("HQAdmin");
 
