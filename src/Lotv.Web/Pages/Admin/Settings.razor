@@ -1,5 +1,6 @@
 @page "/admin/settings"
 @layout AdminLayout
+@inject ApiService Api
 
 <PageTitle>Settings — LOTV Staff Portal</PageTitle>
 
@@ -39,7 +40,7 @@
     <div class="panel-body">
       <div class="form-group">
         <label class="form-label">Overdue Threshold (days)</label>
-        <input class="form-input" type="number" @bind="_overduedays" />
+        <input class="form-input" type="number" @bind="_overdueDays" />
         <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">Cases open longer than this are flagged as overdue.</div>
       </div>
       <div class="form-group">
@@ -113,20 +114,83 @@
 }
 
 @code {
-  private string _orgName    = "Lily of the Valley Ministry";
-  private string _orgEmail   = "info@lotvministry.org";
-  private string _orgPhone   = "";
-  private string _orgWebsite = "lotvministry.org";
-  private int    _overduedays      = 7;
-  private string _defaultAssignee  = "round-robin";
-  private bool   _autoAssign       = true;
-  private bool   _notifyNewRequest = true;
-  private bool   _notifyOverdue    = true;
-  private bool   _notifyDigest     = false;
-  private bool   _notifyUnallocated= true;
-  private string _auditRetention   = "3 years";
-  private int    _anonymizeDays    = 365;
+  private string _orgName         = "Lily of the Valley Ministry";
+  private string _orgEmail        = "info@lotvministry.org";
+  private string _orgPhone        = "";
+  private string _orgWebsite      = "lotvministry.org";
+  private int    _overdueDays     = 7;
+  private string _defaultAssignee = "round-robin";
+  private bool   _autoAssign          = true;
+  private bool   _notifyNewRequest    = true;
+  private bool   _notifyOverdue       = true;
+  private bool   _notifyDigest        = false;
+  private bool   _notifyUnallocated   = true;
+  private string _auditRetention  = "3 years";
+  private int    _anonymizeDays   = 365;
   private string? _savedMsg;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var s = await Api.GetSettingsAsync();
+    if (s.TryGetValue("org.name",    out var v)) _orgName    = v;
+    if (s.TryGetValue("org.email",   out v))     _orgEmail   = v;
+    if (s.TryGetValue("org.phone",   out v))     _orgPhone   = v;
+    if (s.TryGetValue("org.website", out v))     _orgWebsite = v;
+    if (s.TryGetValue("case.overdueDays",     out v) && int.TryParse(v, out var d))  _overdueDays    = d;
+    if (s.TryGetValue("case.defaultAssignee", out v))                                _defaultAssignee = v;
+    if (s.TryGetValue("case.autoAssign",      out v) && bool.TryParse(v, out var b)) _autoAssign     = b;
+    if (s.TryGetValue("notify.newRequest",    out v) && bool.TryParse(v, out b))     _notifyNewRequest = b;
+    if (s.TryGetValue("notify.overdue",       out v) && bool.TryParse(v, out b))     _notifyOverdue    = b;
+    if (s.TryGetValue("notify.digest",        out v) && bool.TryParse(v, out b))     _notifyDigest     = b;
+    if (s.TryGetValue("notify.unallocated",   out v) && bool.TryParse(v, out b))     _notifyUnallocated= b;
+    if (s.TryGetValue("privacy.auditRetention", out v)) _auditRetention = v;
+    if (s.TryGetValue("privacy.anonymizeDays",  out v) && int.TryParse(v, out d))   _anonymizeDays   = d;
+  }
+
+  private async Task SaveOrg()
+  {
+    await Api.SaveSettingsAsync(new Dictionary<string, string>
+    {
+      ["org.name"]    = _orgName,
+      ["org.email"]   = _orgEmail,
+      ["org.phone"]   = _orgPhone,
+      ["org.website"] = _orgWebsite,
+    });
+    await ShowToast("Organization info");
+  }
+
+  private async Task SaveCaseDefaults()
+  {
+    await Api.SaveSettingsAsync(new Dictionary<string, string>
+    {
+      ["case.overdueDays"]     = _overdueDays.ToString(),
+      ["case.defaultAssignee"] = _defaultAssignee,
+      ["case.autoAssign"]      = _autoAssign.ToString(),
+    });
+    await ShowToast("Case defaults");
+  }
+
+  private async Task SaveNotifications()
+  {
+    await Api.SaveSettingsAsync(new Dictionary<string, string>
+    {
+      ["notify.newRequest"]  = _notifyNewRequest.ToString(),
+      ["notify.overdue"]     = _notifyOverdue.ToString(),
+      ["notify.digest"]      = _notifyDigest.ToString(),
+      ["notify.unallocated"] = _notifyUnallocated.ToString(),
+    });
+    await ShowToast("Notification preferences");
+  }
+
+  private async Task SavePrivacy()
+  {
+    await Api.SaveSettingsAsync(new Dictionary<string, string>
+    {
+      ["privacy.auditRetention"] = _auditRetention,
+      ["privacy.anonymizeDays"]  = _anonymizeDays.ToString(),
+    });
+    await ShowToast("Data & Privacy settings");
+  }
 
   private async Task ShowToast(string section)
   {
@@ -135,9 +199,4 @@
     await Task.Delay(2500);
     _savedMsg = null;
   }
-
-  private Task SaveOrg()          => ShowToast("Organization info");
-  private Task SaveCaseDefaults() => ShowToast("Case defaults");
-  private Task SaveNotifications()=> ShowToast("Notification preferences");
-  private Task SavePrivacy()      => ShowToast("Data & Privacy settings");
 }

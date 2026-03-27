@@ -553,6 +553,19 @@ public class ApiService
         catch { return false; }
     }
 
+    // ── Settings ──────────────────────────────────────────────────────────────
+    public async Task<Dictionary<string, string>> GetSettingsAsync()
+    {
+        var result = await GetAsync<Dictionary<string, string>>("/api/v1/settings");
+        return result ?? new Dictionary<string, string>();
+    }
+
+    public async Task<bool> SaveSettingsAsync(Dictionary<string, string> settings)
+    {
+        var resp = await AuthedPutAsync("/api/v1/settings", settings);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     // ── Users ─────────────────────────────────────────────────────────────────
     public Task<List<StaffUserDto>> GetUsersAsync() =>
         GetListAsync<StaffUserDto>("/api/v1/users");

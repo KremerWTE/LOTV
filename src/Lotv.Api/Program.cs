@@ -2300,6 +2300,35 @@ apiKeys.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
     return Results.NoContent();
 });
 
+// ── Settings ──────────────────────────────────────────────────────────────────
+var settingsGroup = app.MapGroup("/api/v1/settings").WithTags("Settings").RequireAuthorization("Staff");
+
+settingsGroup.MapGet("", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var chapterId = ctx.ChapterId;
+    var rows = await db.AppSettings
+        .Where(s => s.ChapterId == null || s.ChapterId == chapterId)
+        .ToListAsync();
+    return Results.Ok(rows.ToDictionary(s => s.Key, s => s.Value));
+});
+
+settingsGroup.MapPut("", async (LotvDbContext db, IChapterContextService ctx,
+    Dictionary<string, string> updates) =>
+{
+    var chapterId = ctx.ChapterId;
+    foreach (var (key, value) in updates)
+    {
+        var existing = await db.AppSettings
+            .FirstOrDefaultAsync(s => s.Key == key && s.ChapterId == chapterId);
+        if (existing is null)
+            db.AppSettings.Add(new AppSetting { ChapterId = chapterId, Key = key, Value = value });
+        else
+            existing.Value = value;
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok();
+});
+
 // ── Payments (Stripe webhook) ─────────────────────────────────────────────────
 app.MapPost("/api/v1/payments/webhook", async (HttpRequest request) =>
 {

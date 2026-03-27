@@ -185,17 +185,7 @@ else
       DailyEmail    = $"lead.ch{r.ChapterId}@lotvministry.org",
       WeeklyEnabled = true,
       WeeklyEmail   = $"lead.ch{r.ChapterId}@lotvministry.org",
-      LastDailyAt   = DateTime.UtcNow.AddHours(-18),
-      LastWeeklyAt  = DateTime.UtcNow.AddDays(-7),
     }).ToList();
-
-    // Stub log entries
-    var now = DateTime.UtcNow;
-    _logs = _configs.Take(3).SelectMany(c => new[]
-    {
-      new ReportLog("Daily",  c.ChapterId, c.ChapterName, now.AddHours(-18),  c.DailyEmail,  true),
-      new ReportLog("Weekly", c.ChapterId, c.ChapterName, now.AddDays(-7),    c.WeeklyEmail, true),
-    }).Take(20).ToList();
 
     _hqWeeklyEmail = "hqadmin@lotvministry.org";
     _hqDailyEmail  = "hqadmin@lotvministry.org";

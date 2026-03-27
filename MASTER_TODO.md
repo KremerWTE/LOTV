@@ -420,7 +420,7 @@
 - [x] **Real-Time Operations Board** — live Kanban connected to SignalR `RequestsHub`; cards update via `OnCaseStatusChanged`, `OnCaseCreated`, `OnCaseAssigned` events; scoped to chapter
 - [x] **All Requests dashboard** — Dashboard.razor wired to ApiService (KPIs, recent cases, overdue alert, channel breakdown, workload, audit log)
 - [x] **Unassigned Queue** — `Queue.razor`: KPI strip, sortable table, assignment drawer with ranked volunteer candidates; one-click assign
-- [x] **Kanban Board View** — requests organized in columns by CaseStatus; cards from API; local optimistic update on status change (API write TODO Phase 5)
+- [x] **Kanban Board View** — requests organized in columns by CaseStatus; cards from API; status + assignment write-back via API with optimistic local update; real-time refresh via SignalR
 - [x] **Auto-Assignment Candidates panel** — built into `CaseDetail.razor`: ranked candidates list with one-click assign/override
 - [x] **Request detail / case management page** — `CaseDetail.razor` at `/admin/cases/{Id}`:
   - Assign or reassign volunteer/staff

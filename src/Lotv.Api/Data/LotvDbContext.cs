@@ -58,6 +58,9 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
+    // ─── Settings ────────────────────────────────────────────────────────────
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -288,6 +291,14 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(a => a.Timestamp);
             e.HasIndex(a => a.Entity);                          // filter by entity type (FundAllocation export)
             e.HasIndex(a => new { a.Entity, a.Timestamp });     // entity-scoped time-ordered audit trail
+        });
+
+        // ── AppSetting ───────────────────────────────────────────────────────
+        builder.Entity<AppSetting>(e =>
+        {
+            e.HasIndex(s => new { s.ChapterId, s.Key }).IsUnique();
+            e.Property(s => s.Key).HasMaxLength(100);
+            e.Property(s => s.Value).HasMaxLength(1000);
         });
 
         // ── Sponsor ──────────────────────────────────────────────────────────
