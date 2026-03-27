@@ -1,6 +1,7 @@
 @page "/admin/reconciliation"
 @layout AdminLayout
 @inject ApiService Api
+@inject IJSRuntime JS
 
 <PageTitle>Payment Reconciliation — LOTV Staff Portal</PageTitle>
 
@@ -181,14 +182,14 @@ else
   private string _periodKey = "this-month";
   private string _filter    = "All";
 
-  private List<ReconciliationRow> _rows = new();
+  private List<ReconciliationRowDto> _rows = new();
 
   private int _matched      => _rows.Count(r => r.RecordStatus == "Matched");
   private int _discrepancies => _rows.Count(r => r.RecordStatus == "Discrepancy");
   private int _stripeOnly   => _rows.Count(r => r.RecordStatus == "Stripe Only");
   private int _internalOnly => _rows.Count(r => r.RecordStatus == "Internal Only");
 
-  private IEnumerable<ReconciliationRow> FilteredRows => _filter switch
+  private IEnumerable<ReconciliationRowDto> FilteredRows => _filter switch
   {
     "Matched"       => _rows.Where(r => r.RecordStatus == "Matched"),
     "Discrepancy"   => _rows.Where(r => r.RecordStatus == "Discrepancy"),
@@ -210,33 +211,26 @@ else
     _loading = true;
     _ran     = false;
     StateHasChanged();
-
-    // In production: call Api.GetReconciliationAsync(_periodKey)
-    await Task.Delay(800);
-
-    // Seed realistic stub data
-    var rnd = new Random(42);
-    _rows = new()
-    {
-      new(new DateTime(2026,3,1),  "pi_3abc1234xyz",  "1041", "Thomas Grant",  250.00m,  250.00m),
-      new(new DateTime(2026,3,3),  "pi_3abc2345xyz",  "1042", "Mary Roberts",  100.00m,  100.00m),
-      new(new DateTime(2026,3,5),  "pi_3abc3456xyz",  "1043", "Sandra Lee",    500.00m,  495.00m),  // discrepancy
-      new(new DateTime(2026,3,8),  "pi_3abc4567xyz",  null,   "Unknown",       75.00m,   null),      // stripe only
-      new(new DateTime(2026,3,10), null,               "1044", "James Nowak",   null,     200.00m),   // internal only
-      new(new DateTime(2026,3,12), "pi_3abc5678xyz",  "1045", "Patricia Ward",  50.00m,   50.00m),
-      new(new DateTime(2026,3,15), "pi_3abc6789xyz",  "1046", "Robert Kim",   1000.00m, 1000.00m),
-      new(new DateTime(2026,3,18), "pi_3abc7890xyz",  "1047", "Helen Torres",   25.00m,   25.00m),
-      new(new DateTime(2026,3,20), "pi_3abc8901xyz",  "1048", "David Chen",    150.00m,  150.00m),
-      new(new DateTime(2026,3,22), "pi_3abc9012xyz",  "1049", "Carol Adams",   300.00m,  300.00m),
-    };
-
+    _rows    = await Api.GetReconciliationAsync(_periodKey);
     _ran     = true;
     _loading = false;
   }
 
-  private void ExportCsv()
+  private async Task ExportCsv()
   {
-    // In production: trigger file download via JS interop or API endpoint
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("Date,Stripe ID,Internal ID,Donor,Stripe Amount,Internal Amount,Delta,Status");
+    foreach (var row in _rows)
+    {
+      sb.AppendLine($"{row.Date:yyyy-MM-dd},{row.StripeId ?? ""}," +
+                    $"{(row.InternalId != null ? "#" + row.InternalId : "")}," +
+                    $"{row.DonorName ?? ""}," +
+                    $"{row.StripeAmount?.ToString("F2") ?? ""}," +
+                    $"{row.InternalAmount?.ToString("F2") ?? ""}," +
+                    $"{row.Delta:F2},{row.RecordStatus}");
+    }
+    await JS.InvokeVoidAsync("downloadCsv",
+        $"reconciliation-{_periodKey}-{DateTime.Today:yyyy-MM-dd}.csv", sb.ToString());
   }
 
   private static string DeltaColor(decimal delta) => delta switch
@@ -264,19 +258,4 @@ else
     _               => "var(--text-body)"
   };
 
-  private record ReconciliationRow(
-    DateTime Date,
-    string?  StripeId,
-    string?  InternalId,
-    string?  DonorName,
-    decimal? StripeAmount,
-    decimal? InternalAmount)
-  {
-    public decimal Delta => (StripeAmount ?? 0) - (InternalAmount ?? 0);
-    public string RecordStatus =>
-      StripeId is null   ? "Internal Only" :
-      InternalId is null ? "Stripe Only" :
-      Delta != 0         ? "Discrepancy" :
-                           "Matched";
-  }
 }

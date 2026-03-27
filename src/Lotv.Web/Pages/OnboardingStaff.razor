@@ -300,8 +300,7 @@
   {
     _saving = true;
     StateHasChanged();
-    // In production: call Api.CompleteStaffOnboardingAsync(...)
-    await Task.Delay(600);
+    await Api.CompleteStaffOnboardingAsync(_firstName, _lastName, _title, _phone, _notifyPref, _selectedChapterId);
     _step = 5;
     _saving = false;
   }

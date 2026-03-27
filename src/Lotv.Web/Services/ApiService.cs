@@ -618,6 +618,34 @@ public class ApiService
         catch { return null; }
     }
 
+    // ── Reconciliation ────────────────────────────────────────────────────────
+    public Task<List<ReconciliationRowDto>> GetReconciliationAsync(string period) =>
+        GetListAsync<ReconciliationRowDto>($"/api/v1/reconciliation?period={Uri.EscapeDataString(period)}");
+
+    // ── Onboarding ────────────────────────────────────────────────────────────
+    public async Task<bool> CompleteStaffOnboardingAsync(
+        string firstName, string lastName, string title, string phone, string notifyPref, int chapterId)
+    {
+        var resp = await AuthedPostAsync("/api/v1/users/onboarding/staff",
+            new { FirstName = firstName, LastName = lastName, Title = title,
+                  Phone = phone, NotifyPref = notifyPref, ChapterId = chapterId });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> CompleteVolunteerOnboardingAsync(
+        string firstName, string lastName, string phone,
+        string street, string city, string state, string zip,
+        IEnumerable<string> availableDays, IEnumerable<string> skills,
+        int maxRequestsPerMonth, int chapterId)
+    {
+        var resp = await AuthedPostAsync("/api/v1/users/onboarding/volunteer",
+            new { FirstName = firstName, LastName = lastName, Phone = phone,
+                  Street = street, City = city, State = state, Zip = zip,
+                  AvailableDays = availableDays, Skills = skills,
+                  MaxRequestsPerMonth = maxRequestsPerMonth, ChapterId = chapterId });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     private static string BuildQs(params (string Key, string? Value)[] pairs)
     {
         var parts = pairs.Where(p => !string.IsNullOrEmpty(p.Value))
@@ -694,3 +722,15 @@ public record TimelinePointDto(string Period, decimal Donations, int RequestsFul
 public record DonationByCityDto(string City, string State, int TotalDonors, decimal TotalAmount);
 public record DonationByAmountBandDto(string Band, int GiftCount, decimal TotalAmount, double Percentage);
 public record DonationByDioceseDto(int DioceseId, string DioceseName, string City, string State, int TotalDonors, decimal TotalAmount, double AverageGift);
+
+public record ReconciliationRowDto(
+    DateTime Date, string? StripeId, string? InternalId, string? DonorName,
+    decimal? StripeAmount, decimal? InternalAmount)
+{
+    public decimal Delta        => (StripeAmount ?? 0) - (InternalAmount ?? 0);
+    public string RecordStatus  =>
+        StripeId is null   ? "Internal Only" :
+        InternalId is null ? "Stripe Only"   :
+        Delta != 0         ? "Discrepancy"   :
+                             "Matched";
+}

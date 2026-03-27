@@ -354,8 +354,10 @@
   {
     _saving = true;
     StateHasChanged();
-    // In production: call Api.CompleteVolunteerOnboardingAsync(...)
-    await Task.Delay(600);
+    var max = int.TryParse(_maxRequestsPerMonth, out var m) ? m : 4;
+    await Api.CompleteVolunteerOnboardingAsync(
+        _firstName, _lastName, _phone, _street, _city, _state, _zip,
+        _selectedDays, _selectedSkills, max, _selectedChapterId);
     _step = 5;
     _saving = false;
   }

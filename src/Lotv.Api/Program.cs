@@ -1313,6 +1313,55 @@ users.MapPut("/{id}/role", async (string id, RoleChangeRequest body, UserManager
     return Results.Ok();
 }).RequireAuthorization("ChapterAdmin");
 
+users.MapPost("/onboarding/staff", async (StaffOnboardingRequest body,
+    IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(ctx.UserId);
+    if (user is null) return Results.Unauthorized();
+    user.FirstName   = body.FirstName.Trim();
+    user.LastName    = body.LastName.Trim();
+    user.PhoneNumber = body.Phone;
+    if (body.ChapterId > 0) user.ChapterId = body.ChapterId;
+    await userMgr.UpdateAsync(user);
+    return Results.Ok(new { updated = true });
+});
+
+users.MapPost("/onboarding/volunteer", async (VolunteerOnboardingRequest body,
+    LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(ctx.UserId);
+    if (user is null) return Results.Unauthorized();
+    user.FirstName   = body.FirstName.Trim();
+    user.LastName    = body.LastName.Trim();
+    user.PhoneNumber = body.Phone;
+    await userMgr.UpdateAsync(user);
+
+    var vol = await db.Volunteers.FirstOrDefaultAsync(v =>
+        v.Email == user.Email && v.ChapterId == body.ChapterId);
+    if (vol is null)
+    {
+        db.Volunteers.Add(new Volunteer
+        {
+            FirstName  = body.FirstName.Trim(),
+            LastName   = body.LastName.Trim(),
+            Email      = user.Email ?? "",
+            Phone      = body.Phone,
+            ChapterId  = body.ChapterId,
+            Status     = VolunteerStatus.Active,
+            JoinedDate = DateTime.UtcNow,
+        });
+    }
+    else
+    {
+        vol.FirstName = body.FirstName.Trim();
+        vol.LastName  = body.LastName.Trim();
+        vol.Phone     = body.Phone;
+        vol.Status    = VolunteerStatus.Active;
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok(new { updated = true });
+});
+
 // ── HQ Dashboard ──────────────────────────────────────────────────────────────
 app.MapGet("/api/v1/dashboard/hq", async (LotvDbContext db) =>
 {
@@ -2144,6 +2193,39 @@ sponsors.MapPut("/{id:int}", async (int id, Sponsor body, LotvDbContext db) =>
     return Results.Ok(existing);
 }).RequireAuthorization("ChapterAdmin");
 
+// ── Payment Reconciliation ────────────────────────────────────────────────────
+var reconciliation = app.MapGroup("/api/v1/reconciliation").WithTags("Reconciliation").RequireAuthorization("Staff");
+
+reconciliation.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, string? period) =>
+{
+    var now = DateTime.UtcNow;
+    (DateTime from, DateTime to) = (period ?? "this-month") switch
+    {
+        "last-month"   => (new DateTime(now.Year, now.Month, 1).AddMonths(-1), new DateTime(now.Year, now.Month, 1)),
+        "this-quarter" => (new DateTime(now.Year, (now.Month - 1) / 3 * 3 + 1, 1), now),
+        "this-year"    => (new DateTime(now.Year, 1, 1), now),
+        _              => (new DateTime(now.Year, now.Month, 1), now)
+    };
+
+    var donations = await db.Donations
+        .Include(d => d.Donor)
+        .Where(d => d.ChapterId == ctx.ChapterId && d.Date >= from && d.Date < to)
+        .OrderBy(d => d.Date)
+        .ToListAsync();
+
+    var rows = donations.Select(d => new
+    {
+        Date           = d.Date,
+        StripeId       = d.StripePaymentIntentId,
+        InternalId     = d.Id.ToString(),
+        DonorName      = d.Donor != null ? $"{d.Donor.FirstName} {d.Donor.LastName}" : "Unknown",
+        StripeAmount   = d.StripePaymentIntentId != null ? (decimal?)d.Amount : null,
+        InternalAmount = (decimal?)d.Amount
+    });
+
+    return Results.Ok(rows);
+});
+
 // ── Notifications (broadcast & marketing email) ───────────────────────────────
 var notify = app.MapGroup("/api/v1/notifications").WithTags("Notifications").RequireAuthorization("Staff");
 
@@ -2303,6 +2385,8 @@ record PublicIntakeRequest(string FamilyLastName, int ChapterId, PackageReason R
     string? City, string? State, string? Notes);
 record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,
     string? DonorFirstName, string? DonorLastName, string? StripePaymentIntentId);
+record StaffOnboardingRequest(string FirstName, string LastName, string Title, string Phone, string NotifyPref, int ChapterId);
+record VolunteerOnboardingRequest(string FirstName, string LastName, string Phone, string Street, string City, string State, string Zip, List<string> AvailableDays, List<string> Skills, int MaxRequestsPerMonth, int ChapterId);
 record CreateApiKeyRequest(string PartnerName, string? ContactEmail, int? ChapterId,
     ApiKeyScope Scope, DateTime? ExpiresAt);
 
