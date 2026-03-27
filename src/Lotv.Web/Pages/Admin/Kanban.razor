@@ -78,7 +78,7 @@
         <select class="form-input" @bind="_editAssignedTo">
           <option value="">— Unassigned —</option>
           @foreach (var v in _volunteers)
-          { <option value="@v.FullName">@v.FullName</option> }
+          { <option value="@v.Id">@v.FullName</option> }
         </select>
       </div>
 
@@ -94,7 +94,9 @@
       { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">&#10003; Status updated</div> }
     </div>
     <div class="drawer-footer">
-      <button class="btn btn-primary" @onclick="SaveFromDrawer">Save Changes</button>
+      <button class="btn btn-primary" @onclick="SaveFromDrawer" disabled="@_saving">
+        @(_saving ? "Saving…" : "Save Changes")
+      </button>
       @if (_selected.Family is not null)
       { <a href="/admin/families?family=@_selected.Family.Id" class="btn btn-sm">Family Profile &rarr;</a> }
       else
@@ -121,8 +123,9 @@
   private List<Volunteer> _volunteers = [];
   private PackageRequest? _selected;
   private CaseStatus _editStatus;
-  private string _editAssignedTo = "";
+  private int _editAssignedTo;   // volunteer Id; 0 = unassigned
   private bool _drawerSaved;
+  private bool _saving;
 
   protected override async Task OnInitializedAsync()
   {
@@ -150,24 +153,36 @@
   {
     _selected       = r;
     _editStatus     = r.Status;
-    _editAssignedTo = r.AssignedTo ?? "";
+    _editAssignedTo = r.AssignedToId ?? 0;
     _drawerSaved    = false;
+    _saving         = false;
   }
 
   private void CloseDrawer() { _selected = null; _drawerSaved = false; }
 
-  private void SaveFromDrawer()
+  private async Task SaveFromDrawer()
   {
-    // Optimistic local update — API write (POST /api/v1/requests/{id}/status) to be wired in Phase 5
-    if (_selected is null) return;
-    _selected.Status     = _editStatus;
-    _selected.AssignedTo = string.IsNullOrEmpty(_editAssignedTo) ? null : _editAssignedTo;
-    _selected.UpdatedAt  = DateTime.UtcNow;
-    _drawerSaved = true;
+    if (_selected is null || _saving) return;
+    _saving = true;
+
+    if (_editStatus != _selected.Status)
+      await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
+
+    if (_editAssignedTo > 0 && _editAssignedTo != (_selected.AssignedToId ?? 0))
+      await Api.AssignRequestAsync(_selected.Id, _editAssignedTo);
+
+    // Optimistic local update
+    var vol = _volunteers.FirstOrDefault(v => v.Id == _editAssignedTo);
+    _selected.Status      = _editStatus;
+    _selected.AssignedToId = _editAssignedTo > 0 ? _editAssignedTo : null;
+    _selected.AssignedTo  = vol?.FullName;
+    _selected.UpdatedAt   = DateTime.UtcNow;
     _byStatus = _columns.ToDictionary(
       c => c.Status,
       c => _byStatus.SelectMany(kv => kv.Value).Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
     );
+    _drawerSaved = true;
+    _saving = false;
   }
 
   public void Dispose()

@@ -32,6 +32,20 @@
   </div>
 </div>
 
+<!-- GEOGRAPHIC MAP -->
+@if (_dioceses.Any())
+{
+  <div class="panel" style="margin-bottom:28px;">
+    <div class="panel-head">
+      <h3>Diocese Locations</h3>
+      <span style="font-size:.8rem;color:var(--text-light);">Circle size reflects total donations; click a pin for details</span>
+    </div>
+    <div class="panel-body" style="padding:16px;">
+      <LeafletMap Markers="_dioceseMarkers" Height="300px" />
+    </div>
+  </div>
+}
+
 <!-- DIOCESE SUMMARY -->
 <h3 style="font-family:var(--ff-head);font-size:1rem;color:var(--navy);margin:0 0 12px;">Dioceses</h3>
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:32px;">
@@ -110,6 +124,15 @@
   private List<Diocese> _dioceses = [];
   private List<Parish> _parishes = [];
   private Diocese? _selectedDiocese;
+
+  private List<MapMarker> _dioceseMarkers => _dioceses
+    .Where(d => !string.IsNullOrEmpty(d.State))
+    .Select(d => new MapMarker(
+        d.Name, d.State,
+        (double)d.TotalDonations,
+        "#2d469d",
+        $"{d.ActiveParishes}/{d.TotalParishes} parishes active · {d.TotalCasesFulfilled} cases fulfilled"))
+    .ToList();
 
   private IEnumerable<Parish> ParishRows =>
     _selectedDiocese == null ? _parishes : _parishes.Where(p => p.DioceseId == _selectedDiocese.Id);

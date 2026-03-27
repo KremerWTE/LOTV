@@ -1,0 +1,33 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div id="@_mapId" style="height:@Height;border-radius:10px;border:1px solid var(--border);"></div>
+
+@code {
+    [Parameter] public List<MapMarker> Markers { get; set; } = [];
+    [Parameter] public string Height { get; set; } = "320px";
+
+    private string _mapId = $"lotv-map-{Guid.NewGuid():N}";
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Markers.Count > 0)
+        {
+            await JS.InvokeVoidAsync("initLotvMap", _mapId, Markers);
+            _initialized = true;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_initialized)
+            await JS.InvokeVoidAsync("initLotvMap", _mapId, Markers);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_initialized)
+            await JS.InvokeVoidAsync("destroyLotvMap", _mapId);
+    }
+}

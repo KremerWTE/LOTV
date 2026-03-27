@@ -192,6 +192,20 @@ else
     </div>
   </div>
 
+  <!-- GEOGRAPHIC IMPACT MAP -->
+  @if (_dioceses.Any())
+  {
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-head">
+        <h3>Geographic Impact — Service Delivery by Diocese</h3>
+        <span style="font-size:.8rem;color:var(--text-light);">Circle size reflects total donations; click a pin for details</span>
+      </div>
+      <div class="panel-body" style="padding:16px;">
+        <LeafletMap Markers="_dioceseMarkers" Height="340px" />
+      </div>
+    </div>
+  }
+
   <!-- PUBLIC TRANSPARENCY LINK -->
   <div style="background:var(--navy);color:white;border-radius:12px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;">
     <div>
@@ -211,8 +225,18 @@ else
   private List<ResourceFlowTypeDto> _resourceFlow = [];
   private List<TimelinePointDto> _timeline = [];
   private List<ChannelBreakdownDto> _channels = [];
+  private List<Diocese> _dioceses = [];
 
   private int _totalResources => _resourceFlow.Sum(r => r.Quantity);
+
+  private List<MapMarker> _dioceseMarkers => _dioceses
+    .Where(d => !string.IsNullOrEmpty(d.State))
+    .Select(d => new MapMarker(
+        d.Name, d.State,
+        (double)d.TotalDonations,
+        "var(--gold)",
+        $"{d.TotalDonations:C0} donations · {d.TotalCasesFulfilled} fulfilled"))
+    .ToList();
 
   protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -224,12 +248,14 @@ else
     var t3 = Api.GetResourceFlowAsync();
     var t4 = Api.GetTimelineAsync();
     var t5 = Api.GetDonationsByChannelAsync();
-    await Task.WhenAll(t1, t2, t3, t4, t5);
+    var t6 = Api.GetDiocesesAsync();
+    await Task.WhenAll(t1, t2, t3, t4, t5, t6);
     _stats        = t1.Result;
     _moneyFlow    = t2.Result;
     _resourceFlow = t3.Result;
     _timeline     = t4.Result;
     _channels     = t5.Result;
+    _dioceses     = t6.Result;
     _loading = false;
   }
 

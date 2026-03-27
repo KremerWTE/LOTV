@@ -11,7 +11,7 @@ namespace Lotv.Api.Services;
 /// Receipts are returned as structured HTML strings ready for email delivery or PDF conversion.
 /// PDF rendering requires a future integration with a library such as QuestPDF or a cloud renderer.
 /// </summary>
-public class ReceiptService(LotvDbContext db) : IReceiptService
+public class ReceiptService(LotvDbContext db, INotificationService notify) : IReceiptService
 {
     private const string OrgName   = "Lily of the Valley Ministry";
     private const string OrgEin    = "XX-XXXXXXX";  // replace with real EIN before launch
@@ -32,8 +32,10 @@ public class ReceiptService(LotvDbContext db) : IReceiptService
 
         var html = BuildReceiptHtml(donor, donation);
 
-        // TODO: deliver via INotificationService.SendEmailAsync once email is configured
-        // For now, log the receipt content so it can be retrieved via /api/v1/donations/{id}/receipt
+        if (!donor.IsAnonymous && !string.IsNullOrEmpty(donor.Email))
+            await notify.SendEmailAsync(donor.Email, donor.FullName,
+                "Your Donation Receipt — LOTV Ministry", html);
+
         return Result.Ok();
     }
 
@@ -52,7 +54,10 @@ public class ReceiptService(LotvDbContext db) : IReceiptService
 
         var html = BuildYearEndHtml(donor, donations, year);
 
-        // TODO: deliver via email
+        if (!donor.IsAnonymous && !string.IsNullOrEmpty(donor.Email))
+            await notify.SendEmailAsync(donor.Email, donor.FullName,
+                $"{year} Year-End Giving Statement — LOTV Ministry", html);
+
         return Result.Ok();
     }
 
