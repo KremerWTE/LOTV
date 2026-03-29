@@ -12,7 +12,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 // ── HTTP client → LOTV API ────────────────────────────────────────────────────
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri("https://localhost:7100")
+    BaseAddress = new Uri("http://localhost:5275")
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

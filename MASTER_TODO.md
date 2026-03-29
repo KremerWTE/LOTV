@@ -2,7 +2,7 @@
 
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-03-26 — Phase 4 COMPLETE; Phase 5 COMPLETE — 423 tests passing (0 failures); Phase 6 IN PROGRESS — CI/CD workflows complete, environment config + OWASP review done; E2E Playwright test suite complete; mobile responsiveness + WCAG 2.1 AA accessibility audit complete; QR event check-in, real-time silent auction, all dashboard API endpoints, all public-facing pages now use anonymous endpoints, 35-test PublicApiTests suite added
+**Last Updated**: 2026-03-29 — Phase 4 COMPLETE; Phase 5 COMPLETE — 423 tests passing (0 failures); Phase 6 IN PROGRESS — CI/CD workflows complete, environment config + OWASP review done; E2E Playwright test suite complete; mobile responsiveness + WCAG 2.1 AA accessibility audit complete; QR event check-in, real-time silent auction, all dashboard API endpoints, all public-facing pages now use anonymous endpoints, 35-test PublicApiTests suite added; WCAG 2.1 AA aria-pressed/aria-label/aria-expanded pass; Leaflet geographic maps live on ImpactDashboard + DioceseData; Kanban write-back wired; email delivery wired (ReceiptService + ScheduledReportService); Settings page wired to AppSetting API (key-value, chapter-scoped); remaining Task.Delay stubs confirmed as toast timers only — all mutation pages fully wired to API; HttpClient BaseAddress fixed (5275); CORS dev origins fixed
 **Org Model**: Centralized nonprofit — National HQ → Local Chapters (2-tier)
 
 ---
