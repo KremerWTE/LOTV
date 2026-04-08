@@ -27,6 +27,8 @@ public class PackageRequest
     public string? InternalNotes { get; set; }
     public string? ChildrenInitials { get; set; }
     public bool StaffOutreachRequested { get; set; } = true;
+    public double? Latitude { get; set; }   // for geo-based auto-assignment scoring
+    public double? Longitude { get; set; }
     public bool IsOverdue => Status is not (CaseStatus.Fulfilled or CaseStatus.Shipped or CaseStatus.Cancelled or CaseStatus.OnHold) && CreatedAt < DateTime.UtcNow.AddDays(-7);
 }
 

@@ -18,6 +18,7 @@ public class Donation
     public string? AllocatedTo { get; set; }
     public AllocationStatus AllocationStatus { get; set; } = AllocationStatus.Unallocated;
     public string? Notes { get; set; }
+    public string? GiveButterTransactionId { get; set; }  // dedup for GB sync
 }
 
 public enum DonationChannel
@@ -29,6 +30,7 @@ public enum DonationChannel
     SilentAuction,
     CorporateMatch,
     PlannedGiving,
+    GiveButter,
     Other
 }
 

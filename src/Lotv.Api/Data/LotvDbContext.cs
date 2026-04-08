@@ -66,6 +66,9 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     public DbSet<RetreatRegistration> RetreatRegistrations => Set<RetreatRegistration>();
     public DbSet<RetreatExpense> RetreatExpenses => Set<RetreatExpense>();
 
+    // ─── Report run log ───────────────────────────────────────────────────────
+    public DbSet<ReportRunLog> ReportRunLogs => Set<ReportRunLog>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -159,8 +162,16 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(d => d.Channel);                             // by-channel report
             e.HasIndex(d => new { d.ChapterId, d.Date });           // date-range dashboard aggregates
             e.HasIndex(d => new { d.ChapterId, d.Channel, d.Date }); // channel breakdown over time
+            e.HasIndex(d => d.GiveButterTransactionId).IsUnique().HasFilter("[GiveButterTransactionId] IS NOT NULL");
             e.Property(d => d.Amount).HasPrecision(12, 2);
             e.HasOne(d => d.Donor).WithMany().HasForeignKey(d => d.DonorId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── ReportRunLog ──────────────────────────────────────────────────────
+        builder.Entity<ReportRunLog>(e =>
+        {
+            e.HasIndex(r => r.GeneratedAt);
+            e.HasIndex(r => new { r.ReportType, r.ChapterId });
         });
 
         // ── FundAllocation ───────────────────────────────────────────────────

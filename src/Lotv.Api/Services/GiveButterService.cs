@@ -151,4 +151,50 @@ public class GiveButterService(HttpClient http, LotvDbContext db, ILogger<GiveBu
         await db.SaveChangesAsync();
         return true;
     }
+
+    /// <summary>
+    /// Records a GiveButter transaction as a general Donation (not retreat-specific).
+    /// Finds or creates the Donor by email. Idempotent — skips if GiveButterTransactionId already exists.
+    /// Returns true if created, false if skipped.
+    /// </summary>
+    public async Task<bool> SyncAsDonationAsync(GbTransaction tx, int chapterId)
+    {
+        // Idempotency check
+        if (await db.Donations.AnyAsync(d => d.GiveButterTransactionId == tx.Id))
+            return false;
+
+        // Find or create donor by email
+        var donor = await db.Donors.FirstOrDefaultAsync(d => d.Email == tx.Email);
+        if (donor is null)
+        {
+            donor = new Donor
+            {
+                FirstName = tx.FirstName,
+                LastName  = tx.LastName,
+                Email     = tx.Email,
+                Phone     = tx.Phone,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Donors.Add(donor);
+            await db.SaveChangesAsync(); // get donor.Id
+        }
+
+        var donation = new Donation
+        {
+            DonorId                = donor.Id,
+            ChapterId              = chapterId,
+            Amount                 = tx.Amount / 100m,
+            Date                   = tx.TransactedAt,
+            Channel                = DonationChannel.GiveButter,
+            GiveButterTransactionId = tx.Id,
+            ContributionStatus     = ContributionStatus.Processed,
+            AllocationStatus       = AllocationStatus.Unallocated
+        };
+
+        db.Donations.Add(donation);
+        await db.SaveChangesAsync();
+
+        log.LogInformation("Synced GiveButter transaction {TxId} as donation for {Email}", tx.Id, tx.Email);
+        return true;
+    }
 }

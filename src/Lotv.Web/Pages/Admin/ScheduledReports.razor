@@ -176,6 +176,7 @@ else
   protected override async Task OnInitializedAsync()
   {
     var hqRows = await Api.GetHqSummaryAsync();
+    var runLogs = await Api.GetReportRunLogsAsync();
 
     _configs = hqRows.Select(r => new ReportConfig
     {
@@ -185,7 +186,14 @@ else
       DailyEmail    = $"lead.ch{r.ChapterId}@lotvministry.org",
       WeeklyEnabled = true,
       WeeklyEmail   = $"lead.ch{r.ChapterId}@lotvministry.org",
+      LastDailyAt   = runLogs.Where(l => l.ChapterId == r.ChapterId && l.ReportType == "DailyDigest").Select(l => (DateTime?)l.SentAt).FirstOrDefault(),
+      LastWeeklyAt  = runLogs.Where(l => l.ChapterId == r.ChapterId && l.ReportType == "WeeklySummary").Select(l => (DateTime?)l.SentAt).FirstOrDefault(),
     }).ToList();
+
+    _logs = runLogs.Select(l => new ReportLog(
+      l.ReportType == "DailyDigest" ? "Daily" : l.ReportType == "WeeklySummary" ? "Weekly" : l.ReportType,
+      l.ChapterId ?? 0, l.ChapterName, l.SentAt, l.RecipientEmail, l.Success
+    )).ToList();
 
     _hqWeeklyEmail = "hqadmin@lotvministry.org";
     _hqDailyEmail  = "hqadmin@lotvministry.org";

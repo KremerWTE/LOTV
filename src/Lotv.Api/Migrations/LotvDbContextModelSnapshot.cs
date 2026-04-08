@@ -430,6 +430,9 @@ namespace Lotv.Api.Migrations
                     b.Property<int?>("EventId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("GiveButterTransactionId")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsRecurring")
                         .HasColumnType("INTEGER");
 
@@ -448,6 +451,10 @@ namespace Lotv.Api.Migrations
                     b.HasIndex("ChapterId");
 
                     b.HasIndex("DonorId");
+
+                    b.HasIndex("GiveButterTransactionId")
+                        .IsUnique()
+                        .HasFilter("[GiveButterTransactionId] IS NOT NULL");
 
                     b.HasIndex("ChapterId", "Date");
 
@@ -756,6 +763,9 @@ namespace Lotv.Api.Migrations
                     b.Property<string>("Phone")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("PrivacyPreference")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Reason")
                         .HasColumnType("INTEGER");
 
@@ -932,6 +942,12 @@ namespace Lotv.Api.Migrations
                     b.Property<bool>("IsForSelf")
                         .HasColumnType("INTEGER");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("REAL");
+
                     b.Property<int>("Priority")
                         .HasColumnType("INTEGER");
 
@@ -1090,6 +1106,42 @@ namespace Lotv.Api.Migrations
                     b.HasIndex("ChapterId", "Status");
 
                     b.ToTable("RecurringDonations");
+                });
+
+            modelBuilder.Entity("Lotv.Core.Models.ReportRunLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ChapterId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecipientEmails")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("RecordsIncluded")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ReportType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GeneratedAt");
+
+                    b.HasIndex("ReportType", "ChapterId");
+
+                    b.ToTable("ReportRunLogs");
                 });
 
             modelBuilder.Entity("Lotv.Core.Models.RequestActivity", b =>

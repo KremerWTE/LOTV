@@ -1,4 +1,5 @@
 using Lotv.Api.Data;
+using Lotv.Core.Models;
 using Lotv.Core.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -61,8 +62,42 @@ public class ScheduledReportService : IScheduledReportService
                     <p style="font-size:.85em;color:#888">This is an automated digest from LOTV Ministry.</p>
                     </body></html>
                     """;
-                await _notify.SendEmailAsync(chapter.ContactEmail, chapter.ContactName,
-                    $"LOTV Daily Digest — {chapter.Name} — {yesterday:MMM d}", html);
+
+                var logEntry = new ReportRunLog
+                {
+                    ReportType       = ReportRunType.DailyDigest,
+                    ChapterId        = chapter.Id,
+                    GeneratedAt      = DateTime.UtcNow,
+                    RecipientEmails  = chapter.ContactEmail,
+                    RecordsIncluded  = newRequests + fulfilled + overdue
+                };
+                try
+                {
+                    await _notify.SendEmailAsync(chapter.ContactEmail, chapter.ContactName,
+                        $"LOTV Daily Digest — {chapter.Name} — {yesterday:MMM d}", html);
+                    logEntry.Status = ReportRunStatus.Success;
+                }
+                catch (Exception ex)
+                {
+                    logEntry.Status       = ReportRunStatus.PartialFailure;
+                    logEntry.ErrorMessage = ex.Message;
+                    _logger.LogError(ex, "Failed to send daily digest for chapter {Name}", chapter.Name);
+                }
+                _db.ReportRunLogs.Add(logEntry);
+                await _db.SaveChangesAsync();
+            }
+            else
+            {
+                // No email configured — log generation only
+                _db.ReportRunLogs.Add(new ReportRunLog
+                {
+                    ReportType      = ReportRunType.DailyDigest,
+                    ChapterId       = chapter.Id,
+                    GeneratedAt     = DateTime.UtcNow,
+                    Status          = ReportRunStatus.Success,
+                    RecordsIncluded = newRequests + fulfilled + overdue
+                });
+                await _db.SaveChangesAsync();
             }
         }
     }
@@ -97,8 +132,41 @@ public class ScheduledReportService : IScheduledReportService
                     <p style="font-size:.85em;color:#888">This is an automated weekly summary from LOTV Ministry.</p>
                     </body></html>
                     """;
-                await _notify.SendEmailAsync(chapter.ContactEmail, chapter.ContactName,
-                    $"LOTV Weekly Summary — {chapter.Name}", html);
+
+                var logEntry = new ReportRunLog
+                {
+                    ReportType      = ReportRunType.WeeklySummary,
+                    ChapterId       = chapter.Id,
+                    GeneratedAt     = DateTime.UtcNow,
+                    RecipientEmails = chapter.ContactEmail,
+                    RecordsIncluded = thisWeek
+                };
+                try
+                {
+                    await _notify.SendEmailAsync(chapter.ContactEmail, chapter.ContactName,
+                        $"LOTV Weekly Summary — {chapter.Name}", html);
+                    logEntry.Status = ReportRunStatus.Success;
+                }
+                catch (Exception ex)
+                {
+                    logEntry.Status       = ReportRunStatus.PartialFailure;
+                    logEntry.ErrorMessage = ex.Message;
+                    _logger.LogError(ex, "Failed to send weekly summary for chapter {Name}", chapter.Name);
+                }
+                _db.ReportRunLogs.Add(logEntry);
+                await _db.SaveChangesAsync();
+            }
+            else
+            {
+                _db.ReportRunLogs.Add(new ReportRunLog
+                {
+                    ReportType      = ReportRunType.WeeklySummary,
+                    ChapterId       = chapter.Id,
+                    GeneratedAt     = DateTime.UtcNow,
+                    Status          = ReportRunStatus.Success,
+                    RecordsIncluded = thisWeek
+                });
+                await _db.SaveChangesAsync();
             }
         }
     }

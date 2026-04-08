@@ -130,13 +130,14 @@ public class AutoAssignmentService : IAutoAssignmentService
         double proximityScore = 100.0; // default when no geo data
         double distanceMiles = 0;
 
-        if (v.Latitude.HasValue && v.Longitude.HasValue)
+        if (v.Latitude.HasValue && v.Longitude.HasValue
+            && request.Latitude.HasValue && request.Longitude.HasValue)
         {
             var volunteerLoc = new GeoLocation(v.Latitude.Value, v.Longitude.Value);
-            // TODO: PackageRequest needs Latitude/Longitude fields for full geo scoring
-            // For now, proximity score defaults to 100 (same chapter = same area)
-            distanceMiles = 0;
-            proximityScore = 100.0;
+            var requestLoc   = new GeoLocation(request.Latitude.Value, request.Longitude.Value);
+            distanceMiles    = volunteerLoc.DistanceMilesTo(requestLoc);
+            // Score: 100 at 0 miles, 0 at 50+ miles (linear decay)
+            proximityScore   = Math.Max(0, 100.0 - (distanceMiles / 50.0) * 100.0);
         }
 
         // WorkloadScore: lower workload = higher score

@@ -237,6 +237,9 @@ public class ApiService
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────
+    public Task<List<ReportRunLogDto>> GetReportRunLogsAsync(int take = 50) =>
+        GetListAsync<ReportRunLogDto>($"/api/v1/notifications/run-logs?take={take}");
+
     public async Task<bool> SaveReportConfigAsync(object configs, string? hqWeeklyEmail, string? hqDailyEmail)
     {
         var resp = await AuthedPostAsync("/api/v1/notifications/report-config",
@@ -523,11 +526,25 @@ public class ApiService
     }
 
     // ── Public Intake (no auth required) ─────────────────────────────────────
-    public async Task<bool> PublicApplyAsync(Family family)
+    public async Task<bool> PublicApplyAsync(
+        Family family,
+        bool forSelf,
+        string? packageType,
+        string? referrerFirstName,
+        string? referrerLastName,
+        string? referrerEmail)
     {
         try
         {
-            var resp = await _http.PostAsJsonAsync("/api/v1/public/apply", new { family });
+            var resp = await _http.PostAsJsonAsync("/api/v1/public/apply", new
+            {
+                family,
+                forSelf,
+                packageType,
+                referrerFirstName,
+                referrerLastName,
+                referrerEmail
+            });
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }
@@ -745,6 +762,11 @@ public class ApiService
 }
 
 // ── Response DTOs (API-specific shapes) ──────────────────────────────────────
+public record ReportRunLogDto(
+    int Id, string ReportType, int? ChapterId, string ChapterName,
+    DateTime SentAt, string RecipientEmail, bool Success,
+    string Status, string? ErrorMessage, int? RecordsIncluded);
+
 public record PublicImpactDto(
     decimal TotalDonations, int PeopleHelped, int ActiveVolunteers, int OpenRequests,
     int FamiliesServed, int DiocesesReached);

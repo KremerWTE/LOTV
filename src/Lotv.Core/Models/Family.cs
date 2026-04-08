@@ -26,6 +26,7 @@ public class Family
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public FamilyStatus Status { get; set; } = FamilyStatus.Active;
     public string? ContactNotes { get; set; }
+    public PrivacyPreference PrivacyPreference { get; set; } = PrivacyPreference.Anonymous;
 
     public string FullName => string.IsNullOrEmpty(Parent2FirstName)
         ? $"{Parent1FirstName} {Parent1LastName}"
@@ -62,4 +63,11 @@ public enum FamilyStatus
     Closed,
     FollowUp,
     Referred
+}
+
+public enum PrivacyPreference
+{
+    Public,     // name visible on prayer wall
+    Anonymous,  // on prayer wall but name hidden
+    Private     // prayers only — not listed publicly
 }

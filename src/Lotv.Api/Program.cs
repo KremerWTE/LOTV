@@ -260,17 +260,38 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         return Results.BadRequest(new { error = "First name, last name, and email are required." });
 
     body.Family.CreatedAt = DateTime.UtcNow;
+    // PrivacyPreference is sent as part of the Family object from the form
     db.Families.Add(body.Family);
     await db.SaveChangesAsync();
 
+    // Map package type string → RequestCategory
+    var category = body.PackageType switch
+    {
+        "comfort"        => RequestCategory.ResourceProvision,
+        "memory"         => RequestCategory.Memorial,
+        "meals"          => RequestCategory.ResourceProvision,
+        "all"            => RequestCategory.ResourceProvision,
+        _                => RequestCategory.Other
+    };
+
+    // Carry referrer info into notes when submitting on behalf of someone
+    var referrerNote = !body.ForSelf && !string.IsNullOrWhiteSpace(body.ReferrerFirstName)
+        ? $"Referred by: {body.ReferrerFirstName} {body.ReferrerLastName} <{body.ReferrerEmail}>"
+        : null;
+
     var req = new PackageRequest
     {
-        FamilyId  = body.Family.Id,
-        ChapterId = body.Family.ChapterId,
-        Reason    = body.Family.Reason,
-        Status    = CaseStatus.New,
-        CreatedAt = DateTime.UtcNow,
-        UpdatedAt = DateTime.UtcNow
+        FamilyId       = body.Family.Id,
+        ChapterId      = body.Family.ChapterId,
+        Reason         = body.Family.Reason,
+        Category       = category,
+        IsForSelf      = body.ForSelf,
+        ReferrerName   = body.ForSelf ? null : $"{body.ReferrerFirstName} {body.ReferrerLastName}".Trim(),
+        ReferrerEmail  = body.ForSelf ? null : body.ReferrerEmail,
+        InternalNotes  = referrerNote,
+        Status         = CaseStatus.New,
+        CreatedAt      = DateTime.UtcNow,
+        UpdatedAt      = DateTime.UtcNow
     };
     db.Requests.Add(req);
     db.RequestActivities.Add(new RequestActivity
@@ -2262,6 +2283,41 @@ notify.MapPost("/report-config", (ReportConfigRequest body) =>
     return Results.Ok(new { saved = true });
 }).RequireAuthorization("HQAdmin");
 
+notify.MapGet("/run-logs", async (LotvDbContext db, IChapterContextService ctx, int take = 50) =>
+{
+    var chapterId = ctx.ChapterId;
+    var q = db.ReportRunLogs
+        .OrderByDescending(l => l.GeneratedAt)
+        .AsQueryable();
+
+    if (chapterId.HasValue)
+        q = q.Where(l => l.ChapterId == chapterId || l.ChapterId == null);
+
+    var rawLogs = await q.Take(take).ToListAsync();
+
+    // Resolve chapter names with a single lookup
+    var chapterIds = rawLogs.Where(l => l.ChapterId.HasValue).Select(l => l.ChapterId!.Value).Distinct().ToList();
+    var chapterNames = await db.Chapters
+        .Where(c => chapterIds.Contains(c.Id))
+        .ToDictionaryAsync(c => c.Id, c => c.Name);
+
+    var logs = rawLogs.Select(l => new
+    {
+        l.Id,
+        ReportType     = l.ReportType.ToString(),
+        l.ChapterId,
+        ChapterName    = l.ChapterId.HasValue && chapterNames.TryGetValue(l.ChapterId.Value, out var n) ? n : "HQ",
+        SentAt         = l.GeneratedAt,
+        RecipientEmail = l.RecipientEmails ?? "",
+        Success        = l.Status == ReportRunStatus.Success,
+        l.Status,
+        l.ErrorMessage,
+        l.RecordsIncluded
+    });
+
+    return Results.Ok(logs);
+}).RequireAuthorization("Staff");
+
 notify.MapPost("/marketing-email", async (MarketingEmailRequest body, LotvDbContext db, INotificationService notif) =>
 {
     var count = body.Audience switch
@@ -2389,16 +2445,27 @@ app.MapPost("/api/v1/payments/givebutter/webhook", async (
         return Results.Ok();
 
     // Find retreat by GiveButter campaign ID
-    var retreat = await db.Retreats.FirstOrDefaultAsync(r => r.GiveButterCampaignId == tx.CampaignId);
-    if (retreat is null)
-    {
-        log.LogWarning("GiveButter webhook: no retreat found for campaign {Id}", tx.CampaignId);
-        return Results.Ok(); // 200 so GiveButter doesn't retry
-    }
+    var retreat = tx.CampaignId is not null
+        ? await db.Retreats.FirstOrDefaultAsync(r => r.GiveButterCampaignId == tx.CampaignId)
+        : null;
 
     try
     {
-        await gbSvc.ProcessTransactionAsync(tx, retreat.Id, retreat.ChapterId);
+        if (retreat is not null)
+        {
+            // Retreat-specific transaction → RetreatRegistration
+            await gbSvc.ProcessTransactionAsync(tx, retreat.Id, retreat.ChapterId);
+        }
+        else
+        {
+            // General donation (no matching retreat campaign) → Donor + Donation
+            // Use the first active chapter as fallback (HQ integrations typically use chapter 1)
+            var defaultChapter = await db.Chapters.Where(c => c.IsActive).OrderBy(c => c.Id).FirstOrDefaultAsync();
+            if (defaultChapter is not null)
+                await gbSvc.SyncAsDonationAsync(tx, defaultChapter.Id);
+            else
+                log.LogWarning("GiveButter webhook: no active chapter found to assign donation {Id}", tx.Id);
+        }
     }
     catch (Exception ex)
     {
@@ -2810,7 +2877,14 @@ app.Run();
 // ─────────────────────────────────────────────────────────────────────────────
 // Request/response records
 // ─────────────────────────────────────────────────────────────────────────────
-record PublicApplyRequest(Family Family);
+record PublicApplyRequest(
+    Family Family,
+    bool ForSelf = true,
+    string? PackageType = null,
+    string? ReferrerFirstName = null,
+    string? ReferrerLastName = null,
+    string? ReferrerEmail = null
+);
 record PublicGiveRequest(Donor Donor, Donation Donation);
 record RegisterRequest(string Email, string Password, string FirstName, string LastName, UserRole Role, int? ChapterId);
 record LoginRequest(string Email, string Password);

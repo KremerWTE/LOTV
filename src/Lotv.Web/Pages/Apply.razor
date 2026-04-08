@@ -1,6 +1,7 @@
 @page "/apply"
 @layout PublicLayout
 @inject ApiService Api
+@using Lotv.Core.Models
 
 <PageTitle>Request a Comfort Package — Lily of the Valley Ministry</PageTitle>
 
@@ -44,8 +45,34 @@ else
   <div style="max-width:680px;margin:48px auto 80px;padding:0 24px;">
     <div style="background:white;border-radius:14px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(0,0,0,.06);padding:36px 40px;">
 
+      <!-- ── FOR ME / SOMEONE ELSE ───────────────────────────────────────── -->
       <div style="margin-bottom:28px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">About You</div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Who is this request for?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <button type="button"
+                  style="@RadioCardStyle(_forSelf)"
+                  aria-pressed="@_forSelf"
+                  @onclick='() => _forSelf = true'>
+            <div style="font-size:1.4rem;margin-bottom:6px;">&#128149;</div>
+            <div style="font-weight:700;color:var(--navy);font-size:.94rem;">This is for me</div>
+            <div style="font-size:.8rem;color:var(--text-mid);margin-top:3px;">I am requesting for myself or my family</div>
+          </button>
+          <button type="button"
+                  style="@RadioCardStyle(!_forSelf)"
+                  aria-pressed="@(!_forSelf)"
+                  @onclick='() => _forSelf = false'>
+            <div style="font-size:1.4rem;margin-bottom:6px;">&#128106;</div>
+            <div style="font-weight:700;color:var(--navy);font-size:.94rem;">This is for someone else</div>
+            <div style="font-size:.8rem;color:var(--text-mid);margin-top:3px;">I know a family who needs support</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── RECIPIENT INFO ──────────────────────────────────────────────── -->
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+          @(_forSelf ? "About You" : "About the Recipient")
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
           <div class="form-group">
             <label class="form-label" for="apply-first-name">First Name *</label>
@@ -76,13 +103,57 @@ else
         </div>
       </div>
 
+      <!-- ── REFERRER INFO (shown only when "someone else") ─────────────── -->
+      @if (!_forSelf)
+      {
+        <div style="margin-bottom:28px;background:#f8f9fb;border-radius:10px;padding:20px 24px;border:1px solid var(--border);">
+          <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;">About You (Referrer)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group">
+              <label class="form-label" for="ref-first">Your First Name</label>
+              <input id="ref-first" class="form-input" @bind="_referrerFirstName" placeholder="Your first name" autocomplete="given-name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ref-last">Your Last Name</label>
+              <input id="ref-last" class="form-input" @bind="_referrerLastName" placeholder="Your last name" autocomplete="family-name" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label" for="ref-email">Your Email</label>
+            <input id="ref-email" class="form-input" type="email" @bind="_referrerEmail" placeholder="your@email.com" autocomplete="email" />
+          </div>
+          <div style="font-size:.78rem;color:var(--text-light);margin-top:10px;">
+            We may reach out to you with updates on this family's package delivery.
+          </div>
+        </div>
+      }
+
+      <!-- ── PACKAGE TYPE ────────────────────────────────────────────────── -->
       <div style="margin-bottom:28px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Loss</div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Choose a Package Type</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          @foreach (var pkg in _packageOptions)
+          {
+            <button type="button"
+                    style="@PackageCardStyle(_selectedPackage == pkg.Key)"
+                    aria-pressed="@(_selectedPackage == pkg.Key)"
+                    @onclick="() => _selectedPackage = pkg.Key">
+              <div style="font-size:1.3rem;margin-bottom:5px;">@pkg.Icon</div>
+              <div style="font-weight:700;color:var(--navy);font-size:.9rem;">@pkg.Label</div>
+              <div style="font-size:.76rem;color:var(--text-mid);margin-top:3px;line-height:1.4;">@pkg.Description</div>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- ── LOSS INFO ───────────────────────────────────────────────────── -->
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">About the Loss</div>
         <div class="form-group">
           <label class="form-label" for="apply-reason">Type of Loss *</label>
           <select id="apply-reason" class="form-input" @bind="_f.Reason" aria-required="true">
             @foreach (var r in Enum.GetValues<PackageReason>())
-            { <option value="@r">@FormatReason(r)</option> }
+            { <option value="@r">@r.ToDisplayName()</option> }
           </select>
         </div>
         <div class="form-group" style="margin-top:12px;">
@@ -96,6 +167,38 @@ else
         </div>
       </div>
 
+      <!-- ── PRIVACY SETTINGS ───────────────────────────────────────────── -->
+      <div style="margin-bottom:28px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Prayer Wall Listing</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <button type="button"
+                  style="@PrivacyCardStyle(_f.PrivacyPreference == PrivacyPreference.Public)"
+                  aria-pressed="@(_f.PrivacyPreference == PrivacyPreference.Public)"
+                  @onclick='() => _f.PrivacyPreference = PrivacyPreference.Public'>
+            <div style="font-size:1.2rem;margin-bottom:4px;">&#127758;</div>
+            <div style="font-weight:700;color:var(--navy);font-size:.85rem;">Public</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:2px;line-height:1.4;">Name visible on our prayer wall</div>
+          </button>
+          <button type="button"
+                  style="@PrivacyCardStyle(_f.PrivacyPreference == PrivacyPreference.Anonymous)"
+                  aria-pressed="@(_f.PrivacyPreference == PrivacyPreference.Anonymous)"
+                  @onclick='() => _f.PrivacyPreference = PrivacyPreference.Anonymous'>
+            <div style="font-size:1.2rem;margin-bottom:4px;">&#129664;</div>
+            <div style="font-weight:700;color:var(--navy);font-size:.85rem;">Anonymous</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:2px;line-height:1.4;">On wall but name hidden</div>
+          </button>
+          <button type="button"
+                  style="@PrivacyCardStyle(_f.PrivacyPreference == PrivacyPreference.Private)"
+                  aria-pressed="@(_f.PrivacyPreference == PrivacyPreference.Private)"
+                  @onclick='() => _f.PrivacyPreference = PrivacyPreference.Private'>
+            <div style="font-size:1.2rem;margin-bottom:4px;">&#128274;</div>
+            <div style="font-weight:700;color:var(--navy);font-size:.85rem;">Private</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:2px;line-height:1.4;">Prayers only — not listed</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── FAITH & PARISH ──────────────────────────────────────────────── -->
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Faith &amp; Parish (optional)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -117,13 +220,22 @@ else
         </div>
       </div>
 
+      <!-- ── DONATION PROMPT ─────────────────────────────────────────────── -->
+      <div style="background:linear-gradient(135deg,#fef9ee,#fef3d0);border:1px solid #e8c87a;border-radius:10px;padding:18px 22px;margin-bottom:24px;display:flex;gap:14px;align-items:center;">
+        <div style="font-size:1.6rem;flex-shrink:0;">&#127873;</div>
+        <div>
+          <div style="font-weight:700;color:#7a5a00;font-size:.88rem;margin-bottom:3px;">Consider a $50 donation to cover this package</div>
+          <div style="font-size:.8rem;color:#9a7a20;line-height:1.5;">Each comfort package costs about $50 to assemble and ship. No payment required — but every gift helps us serve the next family. <a href="/give" style="color:var(--green);font-weight:700;text-decoration:none;">Give here &#8594;</a></div>
+        </div>
+      </div>
+
       @if (!string.IsNullOrEmpty(_error))
       {
         <div role="alert" aria-live="assertive" style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
       }
 
-      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync">
-        Submit Request
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync" disabled="@_busy">
+        @(_busy ? "Submitting…" : "Submit Request")
       </button>
 
       <p style="font-size:.76rem;color:var(--text-light);text-align:center;margin:14px 0 0;line-height:1.6;">
@@ -136,29 +248,61 @@ else
 
 @code {
   private Family _f = new();
+  private bool _forSelf = true;
+  private string _referrerFirstName = "";
+  private string _referrerLastName = "";
+  private string _referrerEmail = "";
+  private string _selectedPackage = "Comfort";
   private bool _submitted;
+  private bool _busy;
   private string _error = "";
+
+  private record PackageOption(string Key, string Icon, string Label, string Description);
+
+  private readonly List<PackageOption> _packageOptions =
+  [
+    new("Comfort",  "&#129944;", "Comfort Package",  "Prayer cards, essential oil & tea, sacramentals, personalized bracelet"),
+    new("Memory",   "&#128214;", "Memory-Keeping",   "Grief book, memory box, keepsake items for your family"),
+    new("Meals",    "&#127815;", "Meals Support",    "Gift cards or coordination with local parish meal train"),
+    new("AllThree", "&#129502;", "All Three",        "Everything above — full comfort, memory, and meal support"),
+  ];
 
   private async Task SubmitAsync()
   {
     if (string.IsNullOrWhiteSpace(_f.Parent1FirstName) || string.IsNullOrWhiteSpace(_f.Parent1LastName))
     {
-      _error = "Please provide your first and last name.";
+      _error = "Please provide the recipient's first and last name.";
       return;
     }
     if (string.IsNullOrWhiteSpace(_f.Email))
     {
-      _error = "Please provide your email address.";
+      _error = "Please provide a contact email address.";
       return;
     }
 
     _f.Status    = FamilyStatus.Active;
     _f.CreatedAt = DateTime.UtcNow;
-    var ok = await Api.PublicApplyAsync(_f);
-    if (!ok) { _error = "Unable to submit your request. Please try again."; return; }
 
+    // Compose referrer info into ContactNotes if submitting on behalf of someone
+    if (!_forSelf && !string.IsNullOrWhiteSpace(_referrerFirstName))
+      _f.ContactNotes = $"Referred by: {_referrerFirstName} {_referrerLastName} <{_referrerEmail}>";
+
+    _busy = true;
+    var ok = await Api.PublicApplyAsync(_f, _forSelf, _selectedPackage,
+        _referrerFirstName, _referrerLastName, _referrerEmail);
+    _busy = false;
+
+    if (!ok) { _error = "Unable to submit your request. Please try again."; return; }
     _submitted = true;
   }
 
-  private static string FormatReason(PackageReason r) => r.ToDisplayName();
+  // Card styles
+  private static string RadioCardStyle(bool selected) =>
+    $"border-radius:10px;padding:14px 16px;border:2px solid {(selected ? "var(--green)" : "var(--border)")};background:{(selected ? "var(--green-pale)" : "white")};cursor:pointer;text-align:center;width:100%;transition:all .15s;";
+
+  private static string PackageCardStyle(bool selected) =>
+    $"border-radius:10px;padding:14px 16px;border:2px solid {(selected ? "var(--green)" : "var(--border)")};background:{(selected ? "var(--green-pale)" : "white")};cursor:pointer;text-align:center;width:100%;transition:all .15s;";
+
+  private static string PrivacyCardStyle(bool selected) =>
+    $"border-radius:10px;padding:12px;border:2px solid {(selected ? "var(--navy)" : "var(--border)")};background:{(selected ? "#eef1fa" : "white")};cursor:pointer;text-align:center;width:100%;transition:all .15s;";
 }
