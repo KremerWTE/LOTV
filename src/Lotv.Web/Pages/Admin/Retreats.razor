@@ -1,0 +1,263 @@
+@page "/admin/retreats"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Web.Layout
+@using Lotv.Web.Services
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Retreat Manager</h1>
+        <p class="page-subtitle">Track registrations, payments, and costs across all retreats.</p>
+    </div>
+    <button class="btn btn-primary" @onclick="() => _showCreate = true">+ Create Retreat</button>
+</div>
+
+<!-- Filter chips -->
+<div class="filter-bar">
+    @foreach (var f in new[] { "All", "Open", "Draft", "Closed", "Completed" })
+    {
+        <button class="filter-chip @(_filter == f ? "active" : "")"
+                aria-pressed="@(_filter == f)"
+                @onclick="() => _filter = f">@f</button>
+    }
+</div>
+
+@if (_loading)
+{
+    <div class="loading-spinner">Loading retreats…</div>
+}
+else if (!Filtered.Any())
+{
+    <div class="empty-state">
+        <div class="empty-icon">&#9670;</div>
+        <div class="empty-title">No retreats found</div>
+        <p>Create your first retreat to start tracking registrations and planning costs.</p>
+        <button class="btn btn-primary" @onclick="() => _showCreate = true">+ Create Retreat</button>
+    </div>
+}
+else
+{
+    <div class="retreat-grid">
+        @foreach (var r in Filtered)
+        {
+            var regPct  = r.Capacity > 0 ? (double)0 / r.Capacity * 100 : 0; // will be loaded from dashboard
+            <div class="retreat-card" @onclick="() => GoToRetreat(r.Id)">
+                <div class="retreat-card-header">
+                    <span class="badge @StatusBadge(r.Status)">@r.Status</span>
+                    <span class="retreat-date">@r.Date.ToString("MMM d, yyyy")</span>
+                </div>
+                <div class="retreat-card-title">@r.Title</div>
+                <div class="retreat-card-location">&#128205; @r.Location@(r.City != null ? $", {r.City}" : "")@(r.State != null ? $", {r.State}" : "")</div>
+                @if (r.Description != null)
+                {
+                    <div class="retreat-card-desc">@r.Description</div>
+                }
+                <div class="retreat-card-stats">
+                    <div class="retreat-stat">
+                        <span class="retreat-stat-label">Capacity</span>
+                        <span class="retreat-stat-value">@r.Capacity</span>
+                    </div>
+                    @if (r.TicketPrice > 0)
+                    {
+                        <div class="retreat-stat">
+                            <span class="retreat-stat-label">Ticket Price</span>
+                            <span class="retreat-stat-value">@r.TicketPrice.ToString("C0")</span>
+                        </div>
+                    }
+                    @if (r.GoalAmount > 0)
+                    {
+                        <div class="retreat-stat">
+                            <span class="retreat-stat-label">Goal</span>
+                            <span class="retreat-stat-value">@r.GoalAmount.ToString("C0")</span>
+                        </div>
+                    }
+                </div>
+                <div class="retreat-card-footer">
+                    <span class="retreat-open-btn">View Dashboard &#8594;</span>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<!-- Create Retreat Drawer -->
+@if (_showCreate)
+{
+    <div class="drawer-overlay" @onclick="() => _showCreate = false"></div>
+    <div class="drawer">
+        <div class="drawer-header">
+            <h2>Create Retreat</h2>
+            <button class="btn-icon" aria-label="Close" @onclick="() => _showCreate = false">&#10005;</button>
+        </div>
+        <div class="drawer-body">
+            @if (!string.IsNullOrEmpty(_createError))
+            {
+                <div class="alert alert-danger">@_createError</div>
+            }
+            <div class="form-group">
+                <label>Title *</label>
+                <input class="form-control" @bind="_form.Title" placeholder="e.g. Spring Retreat 2026" />
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea class="form-control" rows="2" @bind="_form.Description"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Start Date *</label>
+                    <input type="datetime-local" class="form-control" @bind="_form.Date" />
+                </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="datetime-local" class="form-control" @bind="_form.EndDate" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Location / Venue *</label>
+                <input class="form-control" @bind="_form.Location" placeholder="e.g. St. Mary Retreat Center" />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>City</label>
+                    <input class="form-control" @bind="_form.City" />
+                </div>
+                <div class="form-group">
+                    <label>State</label>
+                    <input class="form-control" @bind="_form.State" maxlength="2" style="width:80px" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Capacity</label>
+                    <input type="number" class="form-control" @bind="_form.Capacity" min="1" />
+                </div>
+                <div class="form-group">
+                    <label>Ticket Price ($)</label>
+                    <input type="number" class="form-control" @bind="_form.TicketPrice" min="0" step="5" placeholder="0 = free" />
+                </div>
+                <div class="form-group">
+                    <label>Revenue Goal ($)</label>
+                    <input type="number" class="form-control" @bind="_form.GoalAmount" min="0" step="100" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label>GiveButter Campaign ID</label>
+                <input class="form-control" @bind="_form.GiveButterCampaignId"
+                       placeholder="From your GiveButter campaign URL" />
+                <small class="form-hint">Paste the campaign ID from GiveButter — registrations paid via that campaign will sync automatically.</small>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn btn-secondary" @onclick="() => _showCreate = false">Cancel</button>
+            <button class="btn btn-primary" disabled="@_saving" @onclick="CreateRetreat">
+                @(_saving ? "Creating…" : "Create Retreat")
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    bool _loading = true;
+    bool _showCreate = false;
+    bool _saving = false;
+    string _filter = "All";
+    string? _createError;
+    List<RetreatListDto> _retreats = [];
+
+    RetreatFormModel _form = new();
+
+    IEnumerable<RetreatListDto> Filtered => _filter == "All"
+        ? _retreats
+        : _retreats.Where(r => r.Status.Equals(_filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _retreats = await Api.GetRetreatsAsync();
+        _loading = false;
+    }
+
+    async Task CreateRetreat()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Title)) { _createError = "Title is required."; return; }
+        if (string.IsNullOrWhiteSpace(_form.Location)) { _createError = "Location is required."; return; }
+        _saving = true; _createError = null;
+        var result = await Api.CreateRetreatAsync(new {
+            _form.Title, _form.Description, _form.Date, _form.EndDate,
+            _form.Location, Address = (string?)null, _form.City, _form.State,
+            _form.Capacity, _form.TicketPrice, _form.GoalAmount,
+            _form.GiveButterCampaignId, Status = "Draft", ChapterId = 1
+        });
+        _saving = false;
+        if (result is not null)
+        {
+            _showCreate = false;
+            _form = new();
+            Nav.NavigateTo($"/admin/retreats/{result.Id}");
+        }
+        else
+        {
+            _createError = "Failed to create retreat. Check all required fields.";
+        }
+    }
+
+    void GoToRetreat(int id) => Nav.NavigateTo("/admin/retreats/" + id);
+
+    static string StatusBadge(string status) => status switch
+    {
+        "Open"      => "badge-green",
+        "Draft"     => "badge-gray",
+        "Closed"    => "badge-amber",
+        "Completed" => "badge-navy",
+        "Cancelled" => "badge-red",
+        _           => "badge-gray"
+    };
+
+    class RetreatFormModel
+    {
+        public string Title { get; set; } = "";
+        public string? Description { get; set; }
+        public DateTime Date { get; set; } = DateTime.Today.AddMonths(1);
+        public DateTime? EndDate { get; set; }
+        public string Location { get; set; } = "";
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public int Capacity { get; set; } = 50;
+        public decimal TicketPrice { get; set; } = 0;
+        public decimal GoalAmount { get; set; } = 0;
+        public string? GiveButterCampaignId { get; set; }
+    }
+}
+
+<style>
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .page-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; color: var(--navy); margin: 0; }
+    .page-subtitle { color: var(--gray); margin: 4px 0 0; }
+    .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+    .filter-chip { padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--border); background: white; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
+    .filter-chip.active, .filter-chip:hover { background: var(--navy); color: white; border-color: var(--navy); }
+    .retreat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    .retreat-card { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 20px; cursor: pointer; transition: box-shadow 0.15s, transform 0.15s; }
+    .retreat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); transform: translateY(-2px); }
+    .retreat-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .retreat-date { font-size: 0.82rem; color: var(--gray); }
+    .retreat-card-title { font-family: 'Playfair Display', serif; font-size: 1.15rem; color: var(--navy); font-weight: 700; margin-bottom: 4px; }
+    .retreat-card-location { font-size: 0.85rem; color: var(--gray); margin-bottom: 8px; }
+    .retreat-card-desc { font-size: 0.85rem; color: #555; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .retreat-card-stats { display: flex; gap: 16px; padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .retreat-stat { display: flex; flex-direction: column; }
+    .retreat-stat-label { font-size: 0.72rem; text-transform: uppercase; color: var(--gray); letter-spacing: 0.5px; }
+    .retreat-stat-value { font-size: 1rem; font-weight: 700; color: var(--navy); }
+    .retreat-card-footer { text-align: right; }
+    .retreat-open-btn { font-size: 0.85rem; color: var(--green); font-weight: 600; }
+    .empty-state { text-align: center; padding: 60px 24px; }
+    .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.3; }
+    .empty-title { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--navy); margin-bottom: 8px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-hint { font-size: 0.78rem; color: var(--gray); margin-top: 4px; display: block; }
+    .badge-green  { background: #e6f4ec; color: var(--green); border: 1px solid #b6dfc6; }
+    .badge-gray   { background: #f0f0f0; color: #666; border: 1px solid #ddd; }
+    .badge-amber  { background: #fff8e6; color: #b07d00; border: 1px solid #f0d080; }
+    .badge-navy   { background: #e8edf8; color: var(--navy); border: 1px solid #b0bde0; }
+    .badge-red    { background: #fdecea; color: var(--red); border: 1px solid #f5b8b0; }
+</style>

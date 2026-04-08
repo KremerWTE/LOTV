@@ -127,6 +127,16 @@ builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddSingleton<IMockDataService, MockDataService>();      // legacy mock service
 builder.Services.AddHostedService<ScheduledReportBackgroundService>();
 
+// ── GiveButter HTTP client ────────────────────────────────────────────────────
+builder.Services.AddHttpClient<GiveButterService>(c =>
+{
+    c.BaseAddress = new Uri("https://api.givebutter.com/v1/");
+    var apiKey = builder.Configuration["GiveButter:ApiKey"] ?? "";
+    if (!string.IsNullOrEmpty(apiKey))
+        c.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+});
+
 // ── SignalR ───────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR();
 
@@ -2337,6 +2347,433 @@ app.MapPost("/api/v1/payments/webhook", async (HttpRequest request) =>
     return Results.Ok();
 }).WithTags("Payments").AllowAnonymous().RequireRateLimiting("payment");
 
+// ── GiveButter webhook ────────────────────────────────────────────────────────
+app.MapPost("/api/v1/payments/givebutter/webhook", async (
+    HttpRequest request,
+    LotvDbContext db,
+    GiveButterService gbSvc,
+    IConfiguration config,
+    ILogger<Program> log) =>
+{
+    request.EnableBuffering();
+    using var sr = new System.IO.StreamReader(request.Body, leaveOpen: true);
+    var rawBody = await sr.ReadToEndAsync();
+    request.Body.Position = 0;
+
+    // Verify signature if secret is configured
+    var secret = config["GiveButter:WebhookSecret"] ?? "";
+    if (!string.IsNullOrEmpty(secret))
+    {
+        var sig = request.Headers["Givebutter-Signature"].FirstOrDefault() ?? "";
+        if (!GiveButterService.VerifySignature(rawBody, sig, secret))
+            return Results.Unauthorized();
+    }
+
+    GbWebhookEnvelope? envelope;
+    try
+    {
+        envelope = System.Text.Json.JsonSerializer.Deserialize<GbWebhookEnvelope>(rawBody,
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
+    catch (Exception ex)
+    {
+        log.LogWarning(ex, "GiveButter webhook: could not parse payload");
+        return Results.BadRequest();
+    }
+
+    if (envelope is null || envelope.Event != "transaction.succeeded")
+        return Results.Ok(); // ignore other event types
+
+    var tx = envelope.Data;
+    if (string.IsNullOrEmpty(tx.CampaignId))
+        return Results.Ok();
+
+    // Find retreat by GiveButter campaign ID
+    var retreat = await db.Retreats.FirstOrDefaultAsync(r => r.GiveButterCampaignId == tx.CampaignId);
+    if (retreat is null)
+    {
+        log.LogWarning("GiveButter webhook: no retreat found for campaign {Id}", tx.CampaignId);
+        return Results.Ok(); // 200 so GiveButter doesn't retry
+    }
+
+    try
+    {
+        await gbSvc.ProcessTransactionAsync(tx, retreat.Id, retreat.ChapterId);
+    }
+    catch (Exception ex)
+    {
+        log.LogError(ex, "GiveButter webhook: error processing transaction {Id}", tx.Id);
+        return Results.StatusCode(500); // trigger GiveButter retry
+    }
+
+    return Results.Ok();
+}).WithTags("Payments").AllowAnonymous().RequireRateLimiting("payment");
+
+// ── GiveButter manual sync ────────────────────────────────────────────────────
+app.MapPost("/api/v1/givebutter/sync", async (
+    int retreatId,
+    string? since,
+    LotvDbContext db,
+    GiveButterService gbSvc) =>
+{
+    var retreat = await db.Retreats.FindAsync(retreatId);
+    if (retreat is null) return Results.NotFound();
+    if (string.IsNullOrEmpty(retreat.GiveButterCampaignId))
+        return Results.BadRequest(new { error = "Retreat has no GiveButter campaign ID configured." });
+
+    DateOnly? sinceDate = since is not null ? DateOnly.Parse(since) : null;
+    var result = await gbSvc.SyncCampaignTransactionsAsync(
+        retreat.GiveButterCampaignId, retreat.Id, retreat.ChapterId, sinceDate);
+    return Results.Ok(result);
+}).WithTags("GiveButter").RequireAuthorization("ChapterAdmin");
+
+// ── Duda form webhook ─────────────────────────────────────────────────────────
+app.MapPost("/api/v1/webhooks/duda", async (
+    HttpRequest request,
+    LotvDbContext db,
+    IConfiguration config,
+    ILogger<Program> log) =>
+{
+    request.EnableBuffering();
+    using var sr = new System.IO.StreamReader(request.Body, leaveOpen: true);
+    var rawBody = await sr.ReadToEndAsync();
+    request.Body.Position = 0;
+
+    // Optional HMAC verification (requires Duda Custom plan)
+    if (config.GetValue<bool>("Duda:VerifySignature"))
+    {
+        var secret = config["Duda:WebhookSecret"] ?? "";
+        var sig    = request.Headers["x-duda-signature"].FirstOrDefault() ?? "";
+        var ts     = request.Headers["x-duda-signature-timestamp"].FirstOrDefault() ?? "";
+        var expected = Convert.ToBase64String(
+            System.Security.Cryptography.HMACSHA256.HashData(
+                Convert.FromBase64String(secret),
+                System.Text.Encoding.UTF8.GetBytes($"{ts}.{rawBody}")));
+        if (expected != sig) return Results.Unauthorized();
+    }
+
+    DudaWebhookPayload? payload;
+    try
+    {
+        payload = System.Text.Json.JsonSerializer.Deserialize<DudaWebhookPayload>(rawBody,
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
+    catch
+    {
+        return Results.Ok(); // never return non-200 to Duda
+    }
+
+    if (payload?.Data?.FieldsData is null) return Results.Ok();
+
+    // Helper: find field value case-insensitively
+    string? Field(params string[] labels) =>
+        payload.Data.FieldsData
+            .FirstOrDefault(f => labels.Any(l => f.Label.Equals(l, StringComparison.OrdinalIgnoreCase)))
+            ?.Value;
+
+    // Determine retreat — from hidden field "retreat_id" or additionalParams
+    var retreatIdStr = Field("retreat_id")
+        ?? (payload.Data.AdditionalParams?.TryGetValue("retreat_id", out var v) == true ? v : null);
+
+    Retreat? retreat = null;
+    if (int.TryParse(retreatIdStr, out var rid))
+        retreat = await db.Retreats.FindAsync(rid);
+    retreat ??= await db.Retreats
+        .Where(r => r.Status == RetreatStatus.Open)
+        .OrderBy(r => r.Date)
+        .FirstOrDefaultAsync();
+
+    if (retreat is null)
+    {
+        log.LogWarning("Duda webhook: no matching open retreat found");
+        return Results.Ok();
+    }
+
+    // Idempotency key
+    var submissionId = $"{payload.SiteName}-{payload.EventTimestamp}";
+    if (await db.RetreatRegistrations.AnyAsync(r => r.DudaSubmissionId == submissionId))
+        return Results.Ok(); // already processed
+
+    var reg = new RetreatRegistration
+    {
+        RetreatId          = retreat.Id,
+        ChapterId          = retreat.ChapterId,
+        FirstName          = Field("first name", "firstname", "first_name") ?? "",
+        LastName           = Field("last name", "lastname", "last_name") ?? "",
+        Email              = Field("email") ?? "",
+        Phone              = Field("phone", "telephone", "mobile"),
+        Address            = Field("address", "street", "street address"),
+        City               = Field("city"),
+        State              = Field("state"),
+        Zip                = Field("zip", "postal", "postal code", "zip code"),
+        DietaryNeeds       = Field("dietary", "diet", "dietary needs", "dietary restrictions"),
+        AccessibilityNeeds = Field("accessibility", "access", "accessibility needs", "accommodations"),
+        EmergencyContactName  = Field("emergency contact name", "emergency name"),
+        EmergencyContactPhone = Field("emergency contact phone", "emergency phone"),
+        Notes              = Field("notes", "message", "additional notes"),
+        RegistrationSource = RegistrationSource.Duda,
+        DudaSubmissionId   = submissionId,
+        PaymentStatus      = RegistrationPaymentStatus.Unpaid,
+        RegisteredAt       = DateTime.UtcNow
+    };
+
+    db.RetreatRegistrations.Add(reg);
+    await db.SaveChangesAsync();
+    log.LogInformation("Duda webhook: registered {Name} for retreat {Id}", reg.FullName, retreat.Id);
+    return Results.Ok();
+}).WithTags("Webhooks").AllowAnonymous();
+
+// ── Retreats ──────────────────────────────────────────────────────────────────
+var retreatsGroup = app.MapGroup("/api/v1/retreats").WithTags("Retreats").RequireAuthorization("Staff");
+
+retreatsGroup.MapGet("", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var chapterId = ctx.ChapterId;
+    var q = db.Retreats.AsQueryable();
+    if (chapterId.HasValue) q = q.Where(r => r.ChapterId == chapterId.Value);
+    var retreats = await q.OrderByDescending(r => r.Date).ToListAsync();
+    return Results.Ok(retreats.Select(r => new {
+        r.Id, r.Title, r.Description, r.Date, r.EndDate, r.Location, r.Address, r.City, r.State,
+        r.Capacity, r.TicketPrice, r.GoalAmount, r.GiveButterCampaignId,
+        Status = r.Status.ToString(), r.ChapterId, r.CreatedAt
+    }));
+});
+
+retreatsGroup.MapPost("", async (LotvDbContext db, IChapterContextService ctx,
+    CreateRetreatRequest body) =>
+{
+    var chapterId = ctx.ChapterId ?? body.ChapterId;
+    var retreat = new Retreat
+    {
+        ChapterId           = chapterId,
+        Title               = body.Title,
+        Description         = body.Description,
+        Date                = body.Date,
+        EndDate             = body.EndDate,
+        Location            = body.Location,
+        Address             = body.Address,
+        City                = body.City,
+        State               = body.State,
+        Capacity            = body.Capacity,
+        TicketPrice         = body.TicketPrice,
+        GoalAmount          = body.GoalAmount,
+        GiveButterCampaignId = body.GiveButterCampaignId,
+        Status              = RetreatStatus.Draft,
+        CreatedBy           = ctx.UserId ?? "",
+        CreatedAt           = DateTime.UtcNow
+    };
+    db.Retreats.Add(retreat);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/retreats/{retreat.Id}", retreat);
+}).RequireAuthorization("ChapterAdmin");
+
+retreatsGroup.MapGet("/{id:int}", async (int id, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var chapterId = ctx.ChapterId;
+    var r = await db.Retreats.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    if (chapterId.HasValue && r.ChapterId != chapterId.Value) return Results.Forbid();
+    return Results.Ok(r);
+});
+
+retreatsGroup.MapPut("/{id:int}", async (int id, LotvDbContext db, IChapterContextService ctx,
+    CreateRetreatRequest body) =>
+{
+    var r = await db.Retreats.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    var chapterId = ctx.ChapterId;
+    if (chapterId.HasValue && r.ChapterId != chapterId.Value) return Results.Forbid();
+    r.Title               = body.Title;
+    r.Description         = body.Description;
+    r.Date                = body.Date;
+    r.EndDate             = body.EndDate;
+    r.Location            = body.Location;
+    r.Address             = body.Address;
+    r.City                = body.City;
+    r.State               = body.State;
+    r.Capacity            = body.Capacity;
+    r.TicketPrice         = body.TicketPrice;
+    r.GoalAmount          = body.GoalAmount;
+    r.GiveButterCampaignId = body.GiveButterCampaignId;
+    if (Enum.TryParse<RetreatStatus>(body.Status, out var s)) r.Status = s;
+    await db.SaveChangesAsync();
+    return Results.Ok(r);
+}).RequireAuthorization("ChapterAdmin");
+
+retreatsGroup.MapGet("/{id:int}/dashboard", async (int id, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var retreat = await db.Retreats.FindAsync(id);
+    if (retreat is null) return Results.NotFound();
+    var chapterId = ctx.ChapterId;
+    if (chapterId.HasValue && retreat.ChapterId != chapterId.Value) return Results.Forbid();
+
+    var regs = await db.RetreatRegistrations.Where(r => r.RetreatId == id).ToListAsync();
+    var exps = await db.RetreatExpenses.Where(e => e.RetreatId == id).ToListAsync();
+
+    var totalRev  = regs.Sum(r => r.AmountPaid);
+    var totalCost = exps.Sum(e => e.Amount);
+
+    return Results.Ok(new {
+        retreat.Id, retreat.Title, retreat.Date, retreat.Location, retreat.Status,
+        retreat.Capacity, retreat.GoalAmount, retreat.GiveButterCampaignId,
+        TotalRegistered = regs.Count,
+        CapacityPct     = retreat.Capacity > 0 ? Math.Round((double)regs.Count / retreat.Capacity * 100, 1) : 0,
+        PaidCount        = regs.Count(r => r.PaymentStatus == RegistrationPaymentStatus.Paid),
+        UnpaidCount      = regs.Count(r => r.PaymentStatus == RegistrationPaymentStatus.Unpaid),
+        PartialCount     = regs.Count(r => r.PaymentStatus == RegistrationPaymentStatus.Partial),
+        ComplimentaryCount = regs.Count(r => r.PaymentStatus == RegistrationPaymentStatus.Complimentary),
+        TotalRevenue    = totalRev,
+        TotalCosts      = totalCost,
+        NetPosition     = totalRev - totalCost,
+        RevenuePct      = retreat.GoalAmount > 0 ? Math.Round((double)(totalRev / retreat.GoalAmount) * 100, 1) : 0,
+        FromGiveButter  = regs.Count(r => r.RegistrationSource == RegistrationSource.GiveButter),
+        FromDuda        = regs.Count(r => r.RegistrationSource == RegistrationSource.Duda),
+        FromManual      = regs.Count(r => r.RegistrationSource == RegistrationSource.Manual),
+        RecentExpenses  = exps.OrderByDescending(e => e.CreatedAt).Take(5)
+            .Select(e => new { e.Id, e.Description, Category = e.Category.ToString(), e.Amount, e.PaidAt })
+    });
+});
+
+retreatsGroup.MapGet("/{id:int}/registrations", async (int id, LotvDbContext db, IChapterContextService ctx,
+    string? source, string? status, string? search) =>
+{
+    var chapterId = ctx.ChapterId;
+    var q = db.RetreatRegistrations.Where(r => r.RetreatId == id);
+    if (chapterId.HasValue) q = q.Where(r => r.ChapterId == chapterId.Value);
+    if (!string.IsNullOrEmpty(source) && Enum.TryParse<RegistrationSource>(source, out var src))
+        q = q.Where(r => r.RegistrationSource == src);
+    if (!string.IsNullOrEmpty(status) && Enum.TryParse<RegistrationPaymentStatus>(status, out var ps))
+        q = q.Where(r => r.PaymentStatus == ps);
+    if (!string.IsNullOrEmpty(search))
+        q = q.Where(r => r.FirstName.Contains(search) || r.LastName.Contains(search) || r.Email.Contains(search));
+    var regs = await q.OrderBy(r => r.RegisteredAt).ToListAsync();
+    return Results.Ok(regs.Select(r => new {
+        r.Id, r.FirstName, r.LastName, r.Email, r.Phone,
+        r.Address, r.City, r.State, r.Zip,
+        r.DietaryNeeds, r.AccessibilityNeeds,
+        r.EmergencyContactName, r.EmergencyContactPhone,
+        r.AmountPaid,
+        PaymentStatus    = r.PaymentStatus.ToString(),
+        PaymentMethod    = r.PaymentMethod?.ToString(),
+        RegistrationSource = r.RegistrationSource.ToString(),
+        r.GiveButterTransactionId, r.Notes, r.RegisteredAt
+    }));
+});
+
+retreatsGroup.MapPost("/{id:int}/registrations", async (int id, LotvDbContext db, IChapterContextService ctx,
+    ManualRegistrationRequest body) =>
+{
+    var retreat = await db.Retreats.FindAsync(id);
+    if (retreat is null) return Results.NotFound();
+    var reg = new RetreatRegistration
+    {
+        RetreatId          = id,
+        ChapterId          = ctx.ChapterId ?? retreat.ChapterId,
+        FirstName          = body.FirstName,
+        LastName           = body.LastName,
+        Email              = body.Email,
+        Phone              = body.Phone,
+        Address            = body.Address,
+        City               = body.City,
+        State              = body.State,
+        Zip                = body.Zip,
+        DietaryNeeds       = body.DietaryNeeds,
+        AccessibilityNeeds = body.AccessibilityNeeds,
+        EmergencyContactName  = body.EmergencyContactName,
+        EmergencyContactPhone = body.EmergencyContactPhone,
+        AmountPaid         = body.AmountPaid,
+        PaymentStatus      = Enum.TryParse<RegistrationPaymentStatus>(body.PaymentStatus, out var ps)
+                             ? ps : RegistrationPaymentStatus.Unpaid,
+        PaymentMethod      = Enum.TryParse<RegistrationPaymentMethod>(body.PaymentMethod, out var pm)
+                             ? pm : null,
+        RegistrationSource = RegistrationSource.Manual,
+        Notes              = body.Notes,
+        RegisteredAt       = DateTime.UtcNow
+    };
+    db.RetreatRegistrations.Add(reg);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/retreats/{id}/registrations/{reg.Id}", reg);
+});
+
+retreatsGroup.MapPut("/{id:int}/registrations/{regId:int}", async (
+    int id, int regId, LotvDbContext db, UpdatePaymentRequest body) =>
+{
+    var reg = await db.RetreatRegistrations.FirstOrDefaultAsync(r => r.Id == regId && r.RetreatId == id);
+    if (reg is null) return Results.NotFound();
+    if (Enum.TryParse<RegistrationPaymentStatus>(body.PaymentStatus, out var ps)) reg.PaymentStatus = ps;
+    if (Enum.TryParse<RegistrationPaymentMethod>(body.PaymentMethod, out var pm)) reg.PaymentMethod = pm;
+    if (body.AmountPaid.HasValue) reg.AmountPaid = body.AmountPaid.Value;
+    if (body.Notes is not null) reg.Notes = body.Notes;
+    await db.SaveChangesAsync();
+    return Results.Ok(reg);
+});
+
+retreatsGroup.MapDelete("/{id:int}/registrations/{regId:int}", async (
+    int id, int regId, LotvDbContext db) =>
+{
+    var reg = await db.RetreatRegistrations.FirstOrDefaultAsync(r => r.Id == regId && r.RetreatId == id);
+    if (reg is null) return Results.NotFound();
+    db.RetreatRegistrations.Remove(reg);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+}).RequireAuthorization("ChapterAdmin");
+
+retreatsGroup.MapGet("/{id:int}/registrations/export", async (int id, LotvDbContext db) =>
+{
+    var regs = await db.RetreatRegistrations.Where(r => r.RetreatId == id)
+        .OrderBy(r => r.RegisteredAt).ToListAsync();
+    var csv = new System.Text.StringBuilder();
+    csv.AppendLine("First Name,Last Name,Email,Phone,City,State,Amount Paid,Payment Status,Source,Dietary Needs,Accessibility,Emergency Contact,Emergency Phone,Registered At");
+    foreach (var r in regs)
+        csv.AppendLine($"{r.FirstName},{r.LastName},{r.Email},{r.Phone},{r.City},{r.State}," +
+                       $"{r.AmountPaid},{r.PaymentStatus},{r.RegistrationSource}," +
+                       $"\"{r.DietaryNeeds}\",\"{r.AccessibilityNeeds}\"," +
+                       $"\"{r.EmergencyContactName}\",{r.EmergencyContactPhone},{r.RegisteredAt:yyyy-MM-dd}");
+    var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+    return Results.File(bytes, "text/csv", "retreat-registrations.csv");
+});
+
+retreatsGroup.MapGet("/{id:int}/expenses", async (int id, LotvDbContext db) =>
+{
+    var exps = await db.RetreatExpenses.Where(e => e.RetreatId == id)
+        .OrderByDescending(e => e.CreatedAt).ToListAsync();
+    return Results.Ok(exps.Select(e => new {
+        e.Id, e.Description, Category = e.Category.ToString(),
+        e.Amount, e.PaidAt, e.PaidBy, e.Notes, e.CreatedAt
+    }));
+});
+
+retreatsGroup.MapPost("/{id:int}/expenses", async (int id, LotvDbContext db, IChapterContextService ctx,
+    AddExpenseRequest body) =>
+{
+    var retreat = await db.Retreats.FindAsync(id);
+    if (retreat is null) return Results.NotFound();
+    var exp = new RetreatExpense
+    {
+        RetreatId   = id,
+        ChapterId   = ctx.ChapterId ?? retreat.ChapterId,
+        Description = body.Description,
+        Category    = Enum.TryParse<RetreatExpenseCategory>(body.Category, out var cat) ? cat : RetreatExpenseCategory.Other,
+        Amount      = body.Amount,
+        PaidAt      = body.PaidAt,
+        PaidBy      = body.PaidBy,
+        Notes       = body.Notes,
+        CreatedAt   = DateTime.UtcNow
+    };
+    db.RetreatExpenses.Add(exp);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/retreats/{id}/expenses/{exp.Id}", exp);
+});
+
+retreatsGroup.MapDelete("/{id:int}/expenses/{expId:int}", async (int id, int expId, LotvDbContext db) =>
+{
+    var exp = await db.RetreatExpenses.FirstOrDefaultAsync(e => e.Id == expId && e.RetreatId == id);
+    if (exp is null) return Results.NotFound();
+    db.RetreatExpenses.Remove(exp);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+}).RequireAuthorization("ChapterAdmin");
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Legacy routes — Development only (OWASP A05: remove in staging/production)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2402,6 +2839,44 @@ record FulfillWishListRequest(int Quantity, string? DonorId);
 record SmsCheckInRequest(string? VolunteerPhone, string? Note);
 record QrScanRequest(string Code);
 record ReportConfigRequest(string? HqWeeklyEmail, string? HqDailyEmail, List<ChapterReportConfig>? Configs);
+
+// ── Retreat request/response records ─────────────────────────────────────────
+record CreateRetreatRequest(
+    string Title, string? Description, DateTime Date, DateTime? EndDate,
+    string Location, string? Address, string? City, string? State,
+    int Capacity, decimal TicketPrice, decimal GoalAmount,
+    string? GiveButterCampaignId, string? Status, int ChapterId
+);
+record ManualRegistrationRequest(
+    string FirstName, string LastName, string Email, string? Phone,
+    string? Address, string? City, string? State, string? Zip,
+    string? DietaryNeeds, string? AccessibilityNeeds,
+    string? EmergencyContactName, string? EmergencyContactPhone,
+    decimal AmountPaid, string? PaymentStatus, string? PaymentMethod, string? Notes
+);
+record UpdatePaymentRequest(string? PaymentStatus, string? PaymentMethod, decimal? AmountPaid, string? Notes);
+record AddExpenseRequest(string Description, string Category, decimal Amount,
+    DateTime? PaidAt, string? PaidBy, string? Notes);
+
+// ── Duda webhook records ──────────────────────────────────────────────────────
+record DudaWebhookPayload(
+    [property: System.Text.Json.Serialization.JsonPropertyName("event_type")] string EventType,
+    [property: System.Text.Json.Serialization.JsonPropertyName("event_timestamp")] long EventTimestamp,
+    [property: System.Text.Json.Serialization.JsonPropertyName("site_name")] string SiteName,
+    [property: System.Text.Json.Serialization.JsonPropertyName("data")] DudaFormData Data
+);
+record DudaFormData(
+    [property: System.Text.Json.Serialization.JsonPropertyName("pageName")] string PageName,
+    [property: System.Text.Json.Serialization.JsonPropertyName("fieldsData")] List<DudaField> FieldsData,
+    [property: System.Text.Json.Serialization.JsonPropertyName("utm_campaign")] string? UtmCampaign,
+    [property: System.Text.Json.Serialization.JsonPropertyName("additionalParams")] Dictionary<string, string>? AdditionalParams
+);
+record DudaField(
+    [property: System.Text.Json.Serialization.JsonPropertyName("label")] string Label,
+    [property: System.Text.Json.Serialization.JsonPropertyName("value")] string Value,
+    [property: System.Text.Json.Serialization.JsonPropertyName("type")] string Type,
+    [property: System.Text.Json.Serialization.JsonPropertyName("id")] string Id
+);
 record ChapterReportConfig(int ChapterId, string? WeeklyEmail, string? DailyEmail);
 record BroadcastRequest(string Audience, string Channel, string? Subject, string Body);
 record MarketingEmailRequest(string? CampaignName, string Audience, string Subject, string Body);

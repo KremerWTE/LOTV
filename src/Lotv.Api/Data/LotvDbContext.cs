@@ -61,6 +61,11 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     // ─── Settings ────────────────────────────────────────────────────────────
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
+    // ─── Retreats ─────────────────────────────────────────────────────────────
+    public DbSet<Retreat> Retreats => Set<Retreat>();
+    public DbSet<RetreatRegistration> RetreatRegistrations => Set<RetreatRegistration>();
+    public DbSet<RetreatExpense> RetreatExpenses => Set<RetreatExpense>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -299,6 +304,41 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(s => new { s.ChapterId, s.Key }).IsUnique();
             e.Property(s => s.Key).HasMaxLength(100);
             e.Property(s => s.Value).HasMaxLength(1000);
+        });
+
+        // ── Retreat ───────────────────────────────────────────────────────────
+        builder.Entity<Retreat>(e =>
+        {
+            e.HasIndex(r => r.ChapterId);
+            e.HasIndex(r => r.Date);
+            e.HasIndex(r => new { r.ChapterId, r.Status });
+            e.Property(r => r.TicketPrice).HasPrecision(12, 2);
+            e.Property(r => r.GoalAmount).HasPrecision(12, 2);
+            e.Ignore(r => r.Chapter);
+        });
+
+        // ── RetreatRegistration ───────────────────────────────────────────────
+        builder.Entity<RetreatRegistration>(e =>
+        {
+            e.HasIndex(r => r.RetreatId);
+            e.HasIndex(r => r.ChapterId);
+            e.HasIndex(r => new { r.RetreatId, r.ChapterId });
+            e.HasIndex(r => r.GiveButterTransactionId).IsUnique().HasFilter("[GiveButterTransactionId] IS NOT NULL");
+            e.HasIndex(r => r.DudaSubmissionId).IsUnique().HasFilter("[DudaSubmissionId] IS NOT NULL");
+            e.HasIndex(r => r.PaymentStatus);
+            e.HasIndex(r => r.RegistrationSource);
+            e.Property(r => r.AmountPaid).HasPrecision(12, 2);
+            e.HasOne(r => r.Retreat).WithMany(rt => rt.Registrations).HasForeignKey(r => r.RetreatId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── RetreatExpense ─────────────────────────────────────────────────────
+        builder.Entity<RetreatExpense>(e =>
+        {
+            e.HasIndex(ex => ex.RetreatId);
+            e.HasIndex(ex => ex.ChapterId);
+            e.HasIndex(ex => new { ex.RetreatId, ex.Category });
+            e.Property(ex => ex.Amount).HasPrecision(12, 2);
+            e.HasOne(ex => ex.Retreat).WithMany(r => r.Expenses).HasForeignKey(ex => ex.RetreatId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── Sponsor ──────────────────────────────────────────────────────────

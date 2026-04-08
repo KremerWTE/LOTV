@@ -666,6 +666,82 @@ public class ApiService
         var qs = string.Join("&", parts);
         return qs.Length > 0 ? "?" + qs : "";
     }
+
+    // ── Retreats ──────────────────────────────────────────────────────────────
+    public Task<List<RetreatListDto>> GetRetreatsAsync() =>
+        GetListAsync<RetreatListDto>("/api/v1/retreats");
+
+    public Task<RetreatListDto?> GetRetreatAsync(int id) =>
+        GetAsync<RetreatListDto>($"/api/v1/retreats/{id}");
+
+    public async Task<RetreatListDto?> CreateRetreatAsync(object body)
+    {
+        var resp = await AuthedPostAsync("/api/v1/retreats", body);
+        return resp?.IsSuccessStatusCode == true
+            ? await resp.Content.ReadFromJsonAsync<RetreatListDto>() : null;
+    }
+
+    public async Task<bool> UpdateRetreatAsync(int id, object body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/retreats/{id}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public Task<RetreatDashboardDto?> GetRetreatDashboardAsync(int id) =>
+        GetAsync<RetreatDashboardDto>($"/api/v1/retreats/{id}/dashboard");
+
+    public Task<List<RetreatRegistrationDto>> GetRetreatRegistrationsAsync(
+        int id, string? source = null, string? status = null, string? search = null)
+    {
+        var qs = BuildQs(("source", source), ("status", status), ("search", search));
+        return GetListAsync<RetreatRegistrationDto>($"/api/v1/retreats/{id}/registrations{qs}");
+    }
+
+    public async Task<RetreatRegistrationDto?> AddManualRegistrationAsync(int id, object body)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/retreats/{id}/registrations", body);
+        return resp?.IsSuccessStatusCode == true
+            ? await resp.Content.ReadFromJsonAsync<RetreatRegistrationDto>() : null;
+    }
+
+    public async Task<bool> UpdateRegistrationPaymentAsync(int id, int regId, object body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/retreats/{id}/registrations/{regId}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteRegistrationAsync(int id, int regId)
+    {
+        SetAuthHeader();
+        try { return (await _http.DeleteAsync($"/api/v1/retreats/{id}/registrations/{regId}")).IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
+    public Task<List<RetreatExpenseDto>> GetRetreatExpensesAsync(int id) =>
+        GetListAsync<RetreatExpenseDto>($"/api/v1/retreats/{id}/expenses");
+
+    public async Task<RetreatExpenseDto?> AddExpenseAsync(int id, object body)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/retreats/{id}/expenses", body);
+        return resp?.IsSuccessStatusCode == true
+            ? await resp.Content.ReadFromJsonAsync<RetreatExpenseDto>() : null;
+    }
+
+    public async Task<bool> DeleteExpenseAsync(int id, int expId)
+    {
+        SetAuthHeader();
+        try { return (await _http.DeleteAsync($"/api/v1/retreats/{id}/expenses/{expId}")).IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
+    public async Task<GbSyncResultDto?> TriggerGiveButterSyncAsync(int retreatId, string? since = null)
+    {
+        var url = $"/api/v1/givebutter/sync?retreatId={retreatId}";
+        if (since is not null) url += $"&since={since}";
+        var resp = await AuthedPostAsync(url, new { });
+        return resp?.IsSuccessStatusCode == true
+            ? await resp.Content.ReadFromJsonAsync<GbSyncResultDto>() : null;
+    }
 }
 
 // ── Response DTOs (API-specific shapes) ──────────────────────────────────────
@@ -747,3 +823,40 @@ public record ReconciliationRowDto(
         Delta != 0         ? "Discrepancy"   :
                              "Matched";
 }
+
+// ── Retreat DTOs ──────────────────────────────────────────────────────────────
+public record RetreatListDto(
+    int Id, string Title, string? Description, DateTime Date, DateTime? EndDate,
+    string Location, string? Address, string? City, string? State,
+    int Capacity, decimal TicketPrice, decimal GoalAmount,
+    string? GiveButterCampaignId, string Status, int ChapterId, DateTime CreatedAt
+);
+
+public record RetreatDashboardDto(
+    int Id, string Title, DateTime Date, string Location, string Status,
+    int Capacity, decimal GoalAmount, string? GiveButterCampaignId,
+    int TotalRegistered, double CapacityPct,
+    int PaidCount, int UnpaidCount, int PartialCount, int ComplimentaryCount,
+    decimal TotalRevenue, decimal TotalCosts, decimal NetPosition, double RevenuePct,
+    int FromGiveButter, int FromDuda, int FromManual,
+    List<RetreatExpenseSummaryDto> RecentExpenses
+);
+
+public record RetreatExpenseSummaryDto(int Id, string Description, string Category, decimal Amount, DateTime? PaidAt);
+
+public record RetreatRegistrationDto(
+    int Id, string FirstName, string LastName, string Email, string? Phone,
+    string? Address, string? City, string? State, string? Zip,
+    string? DietaryNeeds, string? AccessibilityNeeds,
+    string? EmergencyContactName, string? EmergencyContactPhone,
+    decimal AmountPaid, string PaymentStatus, string? PaymentMethod,
+    string RegistrationSource, string? GiveButterTransactionId,
+    string? Notes, DateTime RegisteredAt
+);
+
+public record RetreatExpenseDto(
+    int Id, string Description, string Category, decimal Amount,
+    DateTime? PaidAt, string? PaidBy, string? Notes, DateTime CreatedAt
+);
+
+public record GbSyncResultDto(int Synced, int Skipped, List<string> Errors);

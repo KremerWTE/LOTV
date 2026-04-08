@@ -1,0 +1,703 @@
+@page "/admin/retreats/{RetreatId:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Web.Layout
+@using Lotv.Web.Services
+
+<div class="page-header">
+    <div>
+        <a href="/admin/retreats" class="back-link">&#8592; All Retreats</a>
+        @if (_dash is not null)
+        {
+            <h1 class="page-title">@_dash.Title</h1>
+            <p class="page-subtitle">
+                &#128197; @_dash.Date.ToString("MMMM d, yyyy") &nbsp;&#8901;&nbsp;
+                &#128205; @_dash.Location &nbsp;&nbsp;
+                <span class="badge @StatusBadge(_dash.Status)">@_dash.Status</span>
+            </p>
+        }
+    </div>
+    <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" @onclick="SyncGiveButter" disabled="@_syncing">
+            @(_syncing ? "Syncing…" : "&#8635; Sync GiveButter")
+        </button>
+        <button class="btn btn-secondary" @onclick='() => _tab = "Settings"'>Edit</button>
+    </div>
+</div>
+
+@if (_syncResult is not null)
+{
+    <div class="alert @(_syncResult.Errors.Count > 0 ? "alert-warning" : "alert-success")" style="margin-bottom:16px">
+        GiveButter sync complete — @_syncResult.Synced synced, @_syncResult.Skipped skipped.
+        @if (_syncResult.Errors.Count > 0) { <span>@_syncResult.Errors.Count error(s).</span> }
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="loading-spinner">Loading dashboard…</div>
+}
+else if (_dash is null)
+{
+    <div class="alert alert-danger">Retreat not found.</div>
+}
+else
+{
+    <!-- KPI Strip -->
+    <div class="kpi-grid" style="margin-bottom:24px">
+        <div class="kpi-card kpi-navy">
+            <div class="kpi-label">Registered</div>
+            <div class="kpi-value">@_dash.TotalRegistered <span style="font-size:0.9rem;color:var(--gray)">/ @_dash.Capacity</span></div>
+            <div class="kpi-progress"><div class="kpi-progress-bar" style="width:@_dash.CapacityPct%"></div></div>
+            <div class="kpi-change">@_dash.CapacityPct.ToString("F0")% full</div>
+        </div>
+        <div class="kpi-card kpi-green">
+            <div class="kpi-label">Paid</div>
+            <div class="kpi-value" style="color:var(--green)">@_dash.PaidCount</div>
+            <div class="kpi-change">@_dash.ComplimentaryCount comp</div>
+        </div>
+        <div class="kpi-card kpi-red">
+            <div class="kpi-label">Unpaid</div>
+            <div class="kpi-value" style="color:var(--red)">@_dash.UnpaidCount</div>
+            <div class="kpi-change">@_dash.PartialCount partial</div>
+        </div>
+        <div class="kpi-card kpi-gold">
+            <div class="kpi-label">Revenue</div>
+            <div class="kpi-value" style="color:#b07d00">@_dash.TotalRevenue.ToString("C0")</div>
+            @if (_dash.GoalAmount > 0)
+            {
+                <div class="kpi-progress"><div class="kpi-progress-bar kpi-gold-bar" style="width:@Math.Min(_dash.RevenuePct,100)%"></div></div>
+                <div class="kpi-change">@_dash.RevenuePct.ToString("F0")% of @_dash.GoalAmount.ToString("C0") goal</div>
+            }
+        </div>
+        <div class="kpi-card kpi-amber">
+            <div class="kpi-label">Total Costs</div>
+            <div class="kpi-value" style="color:#b07d00">@_dash.TotalCosts.ToString("C0")</div>
+        </div>
+        <div class="kpi-card @(_dash.NetPosition >= 0 ? "kpi-green" : "kpi-red")">
+            <div class="kpi-label">Net Position</div>
+            <div class="kpi-value" style="color:@(_dash.NetPosition >= 0 ? "var(--green)" : "var(--red)")">
+                @_dash.NetPosition.ToString("C0")
+            </div>
+        </div>
+    </div>
+
+    <!-- Source mini-strip -->
+    <div class="source-strip">
+        <div class="source-card">
+            <span class="source-icon gb-icon">GB</span>
+            <span class="source-count">@_dash.FromGiveButter</span>
+            <span class="source-label">GiveButter</span>
+        </div>
+        <div class="source-card">
+            <span class="source-icon duda-icon">D</span>
+            <span class="source-count">@_dash.FromDuda</span>
+            <span class="source-label">Duda Form</span>
+        </div>
+        <div class="source-card">
+            <span class="source-icon manual-icon">M</span>
+            <span class="source-count">@_dash.FromManual</span>
+            <span class="source-label">Manual</span>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" style="margin:24px 0 0">
+        @foreach (var t in new[] { "Registrations", "Expenses", "Settings" })
+        {
+            <button class="tab @(_tab == t ? "active" : "")" @onclick="() => _tab = t">@t</button>
+        }
+    </div>
+
+    @if (_tab == "Registrations")
+    {
+        <!-- Filter + Add -->
+        <div class="toolbar">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select class="form-control" style="width:140px" @bind="_regSource" @bind:after="LoadRegistrations">
+                    <option value="">All Sources</option>
+                    <option value="GiveButter">GiveButter</option>
+                    <option value="Duda">Duda</option>
+                    <option value="Manual">Manual</option>
+                </select>
+                <select class="form-control" style="width:140px" @bind="_regStatus" @bind:after="LoadRegistrations">
+                    <option value="">All Statuses</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Unpaid">Unpaid</option>
+                    <option value="Partial">Partial</option>
+                    <option value="Complimentary">Complimentary</option>
+                </select>
+                <input class="form-control" style="width:200px" placeholder="Search name or email…"
+                       @bind="_regSearch" @bind:event="oninput" @bind:after="LoadRegistrations" />
+            </div>
+            <div style="display:flex;gap:8px">
+                <a href="/api/v1/retreats/@RetreatId/registrations/export" class="btn btn-secondary" target="_blank">&#8595; CSV</a>
+                <button class="btn btn-primary" @onclick="() => _showAddReg = true">+ Add Manual</button>
+            </div>
+        </div>
+
+        @if (_registrations.Count == 0)
+        {
+            <div class="empty-state" style="padding:40px">No registrations yet.</div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th><th>Email</th><th>Phone</th>
+                            <th>Source</th><th>Amount Paid</th><th>Status</th>
+                            <th>Registered</th><th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _registrations)
+                        {
+                            <tr>
+                                <td>@r.FirstName @r.LastName</td>
+                                <td>@r.Email</td>
+                                <td>@(r.Phone ?? "—")</td>
+                                <td><span class="source-badge @SourceBadge(r.RegistrationSource)">@r.RegistrationSource</span></td>
+                                <td>@r.AmountPaid.ToString("C2")</td>
+                                <td><span class="badge @PayBadge(r.PaymentStatus)">@r.PaymentStatus</span></td>
+                                <td>@r.RegisteredAt.ToString("MM/dd/yy")</td>
+                                <td>
+                                    <button class="btn btn-sm" @onclick="() => OpenEditReg(r)">Edit</button>
+                                    <button class="btn btn-sm btn-danger-sm" @onclick="() => DeleteReg(r.Id)">&#128465;</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+    @if (_tab == "Expenses")
+    {
+        <div class="toolbar">
+            <span>@_expenses.Count expense(s) &nbsp;&#8901;&nbsp; Total: <strong>@_expenses.Sum(e => e.Amount).ToString("C2")</strong></span>
+            <button class="btn btn-primary" @onclick="() => _showAddExp = true">+ Add Expense</button>
+        </div>
+        @if (_expenses.Count == 0)
+        {
+            <div class="empty-state" style="padding:40px">No expenses recorded yet.</div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Description</th><th>Category</th><th>Amount</th><th>Paid</th><th>By</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in _expenses)
+                        {
+                            <tr>
+                                <td>@e.Description</td>
+                                <td><span class="badge badge-gray">@e.Category</span></td>
+                                <td>@e.Amount.ToString("C2")</td>
+                                <td>@(e.PaidAt?.ToString("MM/dd/yy") ?? "—")</td>
+                                <td>@(e.PaidBy ?? "—")</td>
+                                <td><button class="btn btn-sm btn-danger-sm" @onclick="() => DeleteExp(e.Id)">&#128465;</button></td>
+                            </tr>
+                        }
+                        <tr style="font-weight:700;border-top:2px solid var(--border)">
+                            <td colspan="2">Total</td>
+                            <td>@_expenses.Sum(e => e.Amount).ToString("C2")</td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+    @if (_tab == "Settings")
+    {
+        <div class="panel" style="max-width:600px">
+            <div class="panel-header">Retreat Settings</div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input class="form-control" @bind="_editForm.Title" />
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea class="form-control" rows="2" @bind="_editForm.Description"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="datetime-local" class="form-control" @bind="_editForm.Date" />
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="datetime-local" class="form-control" @bind="_editForm.EndDate" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Location</label>
+                    <input class="form-control" @bind="_editForm.Location" />
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>City</label><input class="form-control" @bind="_editForm.City" /></div>
+                    <div class="form-group"><label>State</label><input class="form-control" @bind="_editForm.State" maxlength="2" /></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Capacity</label><input type="number" class="form-control" @bind="_editForm.Capacity" /></div>
+                    <div class="form-group"><label>Ticket Price</label><input type="number" class="form-control" @bind="_editForm.TicketPrice" step="5" /></div>
+                    <div class="form-group"><label>Revenue Goal</label><input type="number" class="form-control" @bind="_editForm.GoalAmount" step="100" /></div>
+                </div>
+                <div class="form-group">
+                    <label>GiveButter Campaign ID</label>
+                    <input class="form-control" @bind="_editForm.GiveButterCampaignId" />
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select class="form-control" @bind="_editForm.Status">
+                        <option value="Draft">Draft</option>
+                        <option value="Open">Open</option>
+                        <option value="Closed">Closed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" disabled="@_saving" @onclick="SaveSettings">
+                    @(_saving ? "Saving…" : "Save Settings")
+                </button>
+                @if (_settingsSaved) { <span style="color:var(--green);margin-left:12px">&#10003; Saved</span> }
+            </div>
+        </div>
+    }
+}
+
+<!-- Add Manual Registration Drawer -->
+@if (_showAddReg)
+{
+    <div class="drawer-overlay" @onclick="() => _showAddReg = false"></div>
+    <div class="drawer drawer-wide">
+        <div class="drawer-header">
+            <h2>Add Registration</h2>
+            <button class="btn-icon" aria-label="Close" @onclick="() => _showAddReg = false">&#10005;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="form-row">
+                <div class="form-group"><label>First Name *</label><input class="form-control" @bind="_regForm.FirstName" /></div>
+                <div class="form-group"><label>Last Name *</label><input class="form-control" @bind="_regForm.LastName" /></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Email *</label><input type="email" class="form-control" @bind="_regForm.Email" /></div>
+                <div class="form-group"><label>Phone</label><input class="form-control" @bind="_regForm.Phone" /></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>City</label><input class="form-control" @bind="_regForm.City" /></div>
+                <div class="form-group"><label>State</label><input class="form-control" @bind="_regForm.State" maxlength="2" /></div>
+            </div>
+            <div class="form-group"><label>Dietary Needs</label><input class="form-control" @bind="_regForm.DietaryNeeds" /></div>
+            <div class="form-group"><label>Accessibility Needs</label><input class="form-control" @bind="_regForm.AccessibilityNeeds" /></div>
+            <div class="form-row">
+                <div class="form-group"><label>Emergency Contact Name</label><input class="form-control" @bind="_regForm.EmergencyContactName" /></div>
+                <div class="form-group"><label>Emergency Contact Phone</label><input class="form-control" @bind="_regForm.EmergencyContactPhone" /></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Amount Paid ($)</label>
+                    <input type="number" class="form-control" @bind="_regForm.AmountPaid" step="5" min="0" />
+                </div>
+                <div class="form-group">
+                    <label>Payment Status</label>
+                    <select class="form-control" @bind="_regForm.PaymentStatus">
+                        <option value="Unpaid">Unpaid</option>
+                        <option value="Partial">Partial</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Complimentary">Complimentary</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select class="form-control" @bind="_regForm.PaymentMethod">
+                        <option value="">— select —</option>
+                        <option value="Check">Check</option>
+                        <option value="Cash">Cash</option>
+                        <option value="GiveButter">GiveButter</option>
+                        <option value="Waived">Waived</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group"><label>Notes</label><textarea class="form-control" rows="2" @bind="_regForm.Notes"></textarea></div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn btn-secondary" @onclick="() => _showAddReg = false">Cancel</button>
+            <button class="btn btn-primary" disabled="@_saving" @onclick="AddRegistration">
+                @(_saving ? "Saving…" : "Add Registration")
+            </button>
+        </div>
+    </div>
+}
+
+<!-- Edit Registration Drawer -->
+@if (_editReg is not null)
+{
+    <div class="drawer-overlay" @onclick="() => _editReg = null"></div>
+    <div class="drawer">
+        <div class="drawer-header">
+            <h2>Update Payment — @_editReg.FirstName @_editReg.LastName</h2>
+            <button class="btn-icon" aria-label="Close" @onclick="() => _editReg = null">&#10005;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Amount Paid ($)</label>
+                    <input type="number" class="form-control" @bind="_editAmountPaid" step="5" min="0" />
+                </div>
+                <div class="form-group">
+                    <label>Payment Status</label>
+                    <select class="form-control" @bind="_editPayStatus">
+                        <option value="Unpaid">Unpaid</option>
+                        <option value="Partial">Partial</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Refunded">Refunded</option>
+                        <option value="Complimentary">Complimentary</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select class="form-control" @bind="_editPayMethod">
+                        <option value="">—</option>
+                        <option value="Check">Check</option>
+                        <option value="Cash">Cash</option>
+                        <option value="GiveButter">GiveButter</option>
+                        <option value="DudaForm">Duda Form</option>
+                        <option value="Waived">Waived</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group"><label>Notes</label><textarea class="form-control" rows="2" @bind="_editNotes"></textarea></div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn btn-secondary" @onclick="() => _editReg = null">Cancel</button>
+            <button class="btn btn-primary" disabled="@_saving" @onclick="SaveRegPayment">
+                @(_saving ? "Saving…" : "Save")
+            </button>
+        </div>
+    </div>
+}
+
+<!-- Add Expense Drawer -->
+@if (_showAddExp)
+{
+    <div class="drawer-overlay" @onclick="() => _showAddExp = false"></div>
+    <div class="drawer">
+        <div class="drawer-header">
+            <h2>Add Expense</h2>
+            <button class="btn-icon" aria-label="Close" @onclick="() => _showAddExp = false">&#10005;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="form-group"><label>Description *</label><input class="form-control" @bind="_expForm.Description" /></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Category</label>
+                    <select class="form-control" @bind="_expForm.Category">
+                        <option value="Venue">Venue</option>
+                        <option value="Catering">Catering</option>
+                        <option value="Materials">Materials</option>
+                        <option value="Speaker">Speaker</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="AV">AV</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Amount ($) *</label>
+                    <input type="number" class="form-control" @bind="_expForm.Amount" step="10" min="0" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Date Paid</label><input type="date" class="form-control" @bind="_expForm.PaidAt" /></div>
+                <div class="form-group"><label>Paid By / Vendor</label><input class="form-control" @bind="_expForm.PaidBy" /></div>
+            </div>
+            <div class="form-group"><label>Notes</label><textarea class="form-control" rows="2" @bind="_expForm.Notes"></textarea></div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn btn-secondary" @onclick="() => _showAddExp = false">Cancel</button>
+            <button class="btn btn-primary" disabled="@_saving" @onclick="AddExpense">
+                @(_saving ? "Saving…" : "Add Expense")
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int RetreatId { get; set; }
+
+    bool _loading = true;
+    bool _saving = false;
+    bool _syncing = false;
+    bool _settingsSaved = false;
+    bool _showAddReg = false;
+    bool _showAddExp = false;
+    string _tab = "Registrations";
+    string _regSource = "";
+    string _regStatus = "";
+    string _regSearch = "";
+
+    RetreatDashboardDto? _dash;
+    List<RetreatRegistrationDto> _registrations = [];
+    List<RetreatExpenseDto> _expenses = [];
+    GbSyncResultDto? _syncResult;
+
+    RetreatRegistrationDto? _editReg;
+    decimal _editAmountPaid;
+    string _editPayStatus = "";
+    string _editPayMethod = "";
+    string? _editNotes;
+
+    RetreatFormModel _editForm = new();
+    RegFormModel _regForm = new();
+    ExpFormModel _expForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+        _loading = false;
+    }
+
+    async Task LoadAll()
+    {
+        _dash = await Api.GetRetreatDashboardAsync(RetreatId);
+        if (_dash is not null)
+        {
+            _editForm = new RetreatFormModel
+            {
+                Title = _dash.Title, Date = _dash.Date, Location = _dash.Location,
+                Capacity = _dash.Capacity, GoalAmount = _dash.GoalAmount,
+                GiveButterCampaignId = _dash.GiveButterCampaignId,
+                Status = _dash.Status
+            };
+        }
+        await LoadRegistrations();
+        _expenses = await Api.GetRetreatExpensesAsync(RetreatId);
+    }
+
+    async Task LoadRegistrations()
+    {
+        _registrations = await Api.GetRetreatRegistrationsAsync(RetreatId,
+            string.IsNullOrEmpty(_regSource) ? null : _regSource,
+            string.IsNullOrEmpty(_regStatus) ? null : _regStatus,
+            string.IsNullOrEmpty(_regSearch) ? null : _regSearch);
+    }
+
+    async Task SyncGiveButter()
+    {
+        _syncing = true; _syncResult = null;
+        _syncResult = await Api.TriggerGiveButterSyncAsync(RetreatId);
+        _syncing = false;
+        if (_syncResult?.Synced > 0) await LoadAll();
+    }
+
+    async Task AddRegistration()
+    {
+        if (string.IsNullOrWhiteSpace(_regForm.FirstName) || string.IsNullOrWhiteSpace(_regForm.Email)) return;
+        _saving = true;
+        var result = await Api.AddManualRegistrationAsync(RetreatId, new {
+            _regForm.FirstName, _regForm.LastName, _regForm.Email, _regForm.Phone,
+            Address = (string?)null, _regForm.City, _regForm.State, Zip = (string?)null,
+            _regForm.DietaryNeeds, _regForm.AccessibilityNeeds,
+            _regForm.EmergencyContactName, _regForm.EmergencyContactPhone,
+            _regForm.AmountPaid, _regForm.PaymentStatus, _regForm.PaymentMethod, _regForm.Notes
+        });
+        _saving = false;
+        if (result is not null) { _showAddReg = false; _regForm = new(); await LoadAll(); }
+    }
+
+    void OpenEditReg(RetreatRegistrationDto r)
+    {
+        _editReg = r;
+        _editAmountPaid = r.AmountPaid;
+        _editPayStatus = r.PaymentStatus;
+        _editPayMethod = r.PaymentMethod ?? "";
+        _editNotes = r.Notes;
+    }
+
+    async Task SaveRegPayment()
+    {
+        if (_editReg is null) return;
+        _saving = true;
+        await Api.UpdateRegistrationPaymentAsync(RetreatId, _editReg.Id, new {
+            PaymentStatus = _editPayStatus,
+            PaymentMethod = _editPayMethod,
+            AmountPaid = _editAmountPaid,
+            Notes = _editNotes
+        });
+        _saving = false;
+        _editReg = null;
+        await LoadAll();
+    }
+
+    async Task DeleteReg(int regId)
+    {
+        await Api.DeleteRegistrationAsync(RetreatId, regId);
+        await LoadAll();
+    }
+
+    async Task AddExpense()
+    {
+        if (string.IsNullOrWhiteSpace(_expForm.Description)) return;
+        _saving = true;
+        var result = await Api.AddExpenseAsync(RetreatId, new {
+            _expForm.Description, _expForm.Category, _expForm.Amount,
+            PaidAt = _expForm.PaidAt == default ? (DateTime?)null : _expForm.PaidAt,
+            _expForm.PaidBy, _expForm.Notes
+        });
+        _saving = false;
+        if (result is not null) { _showAddExp = false; _expForm = new(); await LoadAll(); }
+    }
+
+    async Task DeleteExp(int expId)
+    {
+        await Api.DeleteExpenseAsync(RetreatId, expId);
+        await LoadAll();
+    }
+
+    async Task SaveSettings()
+    {
+        _saving = true; _settingsSaved = false;
+        var ok = await Api.UpdateRetreatAsync(RetreatId, new {
+            _editForm.Title, Description = _editForm.Description, _editForm.Date,
+            EndDate = _editForm.EndDate, _editForm.Location,
+            Address = (string?)null, _editForm.City, _editForm.State,
+            _editForm.Capacity, _editForm.TicketPrice, _editForm.GoalAmount,
+            _editForm.GiveButterCampaignId, _editForm.Status, ChapterId = 1
+        });
+        _saving = false;
+        if (ok) { _settingsSaved = true; await LoadAll(); }
+    }
+
+    static string StatusBadge(string s) => s switch
+    {
+        "Open"      => "badge-green",
+        "Draft"     => "badge-gray",
+        "Closed"    => "badge-amber",
+        "Completed" => "badge-navy",
+        "Cancelled" => "badge-red",
+        _           => "badge-gray"
+    };
+
+    static string PayBadge(string s) => s switch
+    {
+        "Paid"          => "badge-green",
+        "Unpaid"        => "badge-red",
+        "Partial"       => "badge-amber",
+        "Refunded"      => "badge-gray",
+        "Complimentary" => "badge-navy",
+        _               => "badge-gray"
+    };
+
+    static string SourceBadge(string s) => s switch
+    {
+        "GiveButter" => "source-gb",
+        "Duda"       => "source-duda",
+        _            => "source-manual"
+    };
+
+    class RetreatFormModel
+    {
+        public string Title { get; set; } = "";
+        public string? Description { get; set; }
+        public DateTime Date { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string Location { get; set; } = "";
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public int Capacity { get; set; }
+        public decimal TicketPrice { get; set; }
+        public decimal GoalAmount { get; set; }
+        public string? GiveButterCampaignId { get; set; }
+        public string Status { get; set; } = "Draft";
+    }
+
+    class RegFormModel
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string? Phone { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? DietaryNeeds { get; set; }
+        public string? AccessibilityNeeds { get; set; }
+        public string? EmergencyContactName { get; set; }
+        public string? EmergencyContactPhone { get; set; }
+        public decimal AmountPaid { get; set; }
+        public string PaymentStatus { get; set; } = "Unpaid";
+        public string? PaymentMethod { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    class ExpFormModel
+    {
+        public string Description { get; set; } = "";
+        public string Category { get; set; } = "Other";
+        public decimal Amount { get; set; }
+        public DateTime PaidAt { get; set; }
+        public string? PaidBy { get; set; }
+        public string? Notes { get; set; }
+    }
+}
+
+<style>
+    .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+    .back-link { color:var(--green); font-size:0.85rem; text-decoration:none; display:block; margin-bottom:4px; }
+    .page-title { font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--navy); margin:0; }
+    .page-subtitle { color:var(--gray); margin:4px 0 0; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px; }
+    .kpi-card { background:white; border:1px solid var(--border); border-radius:10px; padding:16px; }
+    .kpi-label { font-size:0.75rem; text-transform:uppercase; color:var(--gray); letter-spacing:0.5px; margin-bottom:4px; }
+    .kpi-value { font-size:1.6rem; font-weight:700; line-height:1.1; }
+    .kpi-change { font-size:0.76rem; color:var(--gray); margin-top:4px; }
+    .kpi-progress { height:4px; background:var(--border); border-radius:2px; margin:6px 0 2px; }
+    .kpi-progress-bar { height:100%; background:var(--navy); border-radius:2px; max-width:100%; transition:width 0.4s; }
+    .kpi-gold-bar { background:#c8a45a; }
+    .source-strip { display:flex; gap:12px; margin-bottom:4px; }
+    .source-card { display:flex; align-items:center; gap:8px; background:white; border:1px solid var(--border); border-radius:8px; padding:10px 16px; }
+    .source-icon { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:700; }
+    .gb-icon { background:#e8f0fe; color:#1a56db; }
+    .duda-icon { background:#f0e8fe; color:#7c3aed; }
+    .manual-icon { background:#e8f4ec; color:var(--green); }
+    .source-count { font-size:1.2rem; font-weight:700; color:var(--navy); }
+    .source-label { font-size:0.78rem; color:var(--gray); }
+    .tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px; }
+    .tab { padding:10px 24px; background:none; border:none; border-bottom:2.5px solid transparent; cursor:pointer; font-size:0.9rem; color:var(--gray); margin-bottom:-2px; }
+    .tab.active { color:var(--navy); border-bottom-color:var(--navy); font-weight:600; }
+    .toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+    .table-wrapper { overflow-x:auto; }
+    .data-table { width:100%; border-collapse:collapse; font-size:0.875rem; }
+    .data-table th { background:#f8f9fa; padding:10px 12px; text-align:left; font-size:0.75rem; text-transform:uppercase; color:var(--gray); border-bottom:2px solid var(--border); white-space:nowrap; }
+    .data-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
+    .data-table tr:hover td { background:#fafbff; }
+    .source-badge { padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; }
+    .source-gb { background:#e8f0fe; color:#1a56db; }
+    .source-duda { background:#f0e8fe; color:#7c3aed; }
+    .source-manual { background:#e8f4ec; color:var(--green); }
+    .badge { padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; display:inline-block; }
+    .badge-green  { background:#e6f4ec; color:var(--green); }
+    .badge-red    { background:#fdecea; color:var(--red); }
+    .badge-amber  { background:#fff8e6; color:#b07d00; }
+    .badge-gray   { background:#f0f0f0; color:#666; }
+    .badge-navy   { background:#e8edf8; color:var(--navy); }
+    .btn-danger-sm { color:var(--red); background:none; border:none; cursor:pointer; padding:4px 8px; }
+    .btn-sm { padding:4px 12px; font-size:0.82rem; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .panel { background:white; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .panel-header { background:#f8f9fa; padding:14px 20px; font-weight:600; color:var(--navy); border-bottom:1px solid var(--border); }
+    .panel-body { padding:20px; }
+    .drawer-wide { width:560px; }
+    .alert-success { background:#e6f4ec; color:var(--green); border:1px solid #b6dfc6; border-radius:8px; padding:10px 16px; }
+    .alert-warning { background:#fff8e6; color:#b07d00; border:1px solid #f0d080; border-radius:8px; padding:10px 16px; }
+    .loading-spinner { text-align:center; padding:40px; color:var(--gray); }
+    .empty-state { text-align:center; color:var(--gray); }
+</style>
