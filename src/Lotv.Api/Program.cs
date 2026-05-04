@@ -124,6 +124,7 @@ builder.Services.AddScoped<IScheduledReportService, ScheduledReportService>();
 builder.Services.AddScoped<IFinancialAuditService, FinancialAuditService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<PdfReceiptService>();
+builder.Services.AddSingleton<IPushSender, PushSenderService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddSingleton<IMockDataService, MockDataService>();      // legacy mock service
 builder.Services.AddHostedService<ScheduledReportBackgroundService>();
@@ -253,7 +254,7 @@ app.MapHub<AuctionHub>("/hubs/auction");
 var publicIntake = app.MapGroup("/api/v1/public").WithTags("Public").AllowAnonymous().RequireRateLimiting("auth");
 
 // Family intake: creates a Family record + PackageRequest and triggers auto-assignment
-publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db, IAutoAssignmentService autoAssign) =>
+publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IPushSender pushSvc) =>
 {
     if (string.IsNullOrWhiteSpace(body.Family.Parent1FirstName) ||
         string.IsNullOrWhiteSpace(body.Family.Parent1LastName) ||
@@ -302,6 +303,10 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     });
     await db.SaveChangesAsync();
     await autoAssign.TryAutoAssignAsync(req.Id);
+
+    _ = pushSvc.SendToAllAsync("New request submitted",
+        $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package.",
+        $"/admin/cases/{req.Id}");
 
     return Results.Created($"/api/v1/requests/{req.Id}", new { familyId = body.Family.Id, requestId = req.Id });
 });
@@ -2525,15 +2530,18 @@ app.MapPost("/api/v1/payments/intent", async (PaymentIntentRequest body, IConfig
 
     if (string.IsNullOrEmpty(secretKey))
     {
-        // Dev / unconfigured — return a synthetic client secret the front-end can detect and skip card collection.
         return Results.Ok(new { clientSecret = (string?)null, publishableKey, mock = true });
     }
 
-    // TODO: replace with Stripe.net SDK call when the package is added.
-    // var options = new PaymentIntentCreateOptions { Amount = (long)(body.Amount * 100), Currency = body.Currency ?? "usd" };
-    // var intent = await new PaymentIntentService().CreateAsync(options);
-    // return Results.Ok(new { clientSecret = intent.ClientSecret, publishableKey, mock = false });
-    return Results.Ok(new { clientSecret = (string?)null, publishableKey, mock = true });
+    Stripe.StripeConfiguration.ApiKey = secretKey;
+    var options = new Stripe.PaymentIntentCreateOptions
+    {
+        Amount   = (long)(body.Amount * 100m),
+        Currency = (body.Currency ?? "usd").ToLowerInvariant(),
+        AutomaticPaymentMethods = new Stripe.PaymentIntentAutomaticPaymentMethodsOptions { Enabled = true },
+    };
+    var intent = await new Stripe.PaymentIntentService().CreateAsync(options);
+    return Results.Ok(new { clientSecret = intent.ClientSecret, publishableKey, mock = false });
 }).AllowAnonymous();
 
 app.MapPost("/api/v1/payments/webhook", async (HttpRequest request) =>

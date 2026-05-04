@@ -68,7 +68,7 @@
       if (donorId is not null)
       {
         _state = State.Verified;
-        Nav.NavigateTo($"/donor/recurring?DonorId={donorId.Value}");
+        Nav.NavigateTo($"/donor/portal?DonorId={donorId.Value}");
       }
       else
       {

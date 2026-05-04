@@ -27,8 +27,9 @@ builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<SignalRService>();
 builder.Services.AddScoped<AuctionSignalRService>();
 
-// ── Localization ──────────────────────────────────────────────────────────────
+// ── Localization + currency ───────────────────────────────────────────────────
 builder.Services.AddSingleton<LocalizationService>();
+builder.Services.AddScoped<CurrencyService>();
 
 
 var host = builder.Build();
@@ -40,5 +41,8 @@ await auth.TryRestoreSessionAsync();
 // Restore preferred culture
 var loc = host.Services.GetRequiredService<LocalizationService>();
 await loc.InitializeAsync();
+
+var cur = host.Services.GetRequiredService<CurrencyService>();
+await cur.InitializeAsync();
 
 await host.RunAsync();

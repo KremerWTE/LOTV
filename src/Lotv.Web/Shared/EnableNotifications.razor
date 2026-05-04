@@ -1,0 +1,61 @@
+@inject ApiService Api
+@inject IJSRuntime JS
+
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">
+  <div style="font-size:1.4rem;">&#128276;</div>
+  <div style="flex:1;">
+    <div style="font-weight:700;font-size:.88rem;color:var(--navy);">Browser notifications</div>
+    <div style="font-size:.78rem;color:var(--text-mid);">@_status</div>
+  </div>
+  @if (_state == State.Idle)
+  {
+    <button class="btn btn-primary" @onclick="EnableAsync">Enable</button>
+  }
+  else if (_state == State.Enabled)
+  {
+    <span style="color:var(--green-dark);font-weight:700;">&#10003; Enabled</span>
+  }
+  else if (_state == State.Unsupported)
+  {
+    <span style="color:var(--text-light);">Not supported</span>
+  }
+</div>
+
+@code {
+  enum State { Idle, Enabled, Unsupported, Failed }
+  private State _state = State.Idle;
+  private string _status = "Get alerted when new requests are submitted to your chapter.";
+
+  private async Task EnableAsync()
+  {
+    try
+    {
+      var supported = await JS.InvokeAsync<bool>("lotvPush.isSupported");
+      if (!supported) { _state = State.Unsupported; _status = "Your browser doesn't support push notifications."; return; }
+
+      var registered = await JS.InvokeAsync<bool>("lotvPush.registerServiceWorker");
+      if (!registered) { _state = State.Failed; _status = "Could not register service worker."; return; }
+
+      var key = await Api.GetVapidPublicKeyAsync();
+      if (string.IsNullOrEmpty(key)) { _state = State.Failed; _status = "Push notifications not configured on the server."; return; }
+
+      var json = await JS.InvokeAsync<string?>("lotvPush.subscribe", key);
+      if (string.IsNullOrEmpty(json)) { _state = State.Failed; _status = "Permission was not granted."; return; }
+
+      using var doc = System.Text.Json.JsonDocument.Parse(json);
+      var endpoint = doc.RootElement.GetProperty("endpoint").GetString() ?? "";
+      var keys     = doc.RootElement.GetProperty("keys");
+      var p256dh   = keys.GetProperty("p256dh").GetString() ?? "";
+      var auth     = keys.GetProperty("auth").GetString() ?? "";
+
+      var ok = await Api.RegisterPushAsync(endpoint, p256dh, auth);
+      _state  = ok ? State.Enabled : State.Failed;
+      _status = ok ? "You'll receive alerts in this browser." : "Could not register subscription with server.";
+    }
+    catch
+    {
+      _state = State.Failed;
+      _status = "Something went wrong enabling notifications.";
+    }
+  }
+}

@@ -1,0 +1,21 @@
+@inject CurrencyService Cur
+@implements IDisposable
+
+@if (Cur.Available.Count > 1)
+{
+  <select class="form-input" style="padding:6px 10px;font-size:.78rem;width:auto;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--text-mid);"
+          aria-label="Display currency"
+          @onchange="@(e => Change(e.Value?.ToString() ?? "USD"))">
+    @foreach (var c in Cur.Available)
+    {
+      <option value="@c.Code" selected="@(c.Code == Cur.Current)">@c.Symbol @c.Code</option>
+    }
+  </select>
+}
+
+@code {
+  protected override void OnInitialized() => Cur.OnCurrencyChanged += Refresh;
+  private async Task Change(string code) => await Cur.SetAsync(code);
+  private void Refresh() => InvokeAsync(StateHasChanged);
+  public void Dispose() => Cur.OnCurrencyChanged -= Refresh;
+}

@@ -36,6 +36,19 @@ public class AuthService
         }
     }
     public bool IsHqAdmin => UserRole == nameof(Lotv.Core.Models.UserRole.HQAdmin);
+    public string? UserAvatarUrl { get; private set; }
+
+    public async Task RefreshAvatarAsync()
+    {
+        try
+        {
+            var me = await _http.GetFromJsonAsync<MeDto>("/api/v1/users/me");
+            UserAvatarUrl = me?.AvatarUrl;
+            OnChange?.Invoke();
+        }
+        catch { }
+    }
+    private record MeDto(string? AvatarUrl);
     public string UserInitials
     {
         get

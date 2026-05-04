@@ -309,8 +309,20 @@
           }
         </div>
 
+        <button type="button" @onclick="ToggleTheme" aria-label="Toggle dark mode"
+                style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:.95rem;color:var(--text-mid);margin-right:8px;">
+          @(_dark ? "☀" : "🌙")
+        </button>
+
         <div class="user-pill" style="gap:8px;">
-          <div class="user-avatar">@Auth.UserInitials</div>
+          @if (!string.IsNullOrEmpty(Auth.UserAvatarUrl))
+          {
+            <img src="@Auth.UserAvatarUrl" alt="" class="user-avatar" style="object-fit:cover;" />
+          }
+          else
+          {
+            <div class="user-avatar">@Auth.UserInitials</div>
+          }
           <div>
             <div style="font-size:.82rem;font-weight:600;line-height:1.2;">@Auth.UserName</div>
             <div style="font-size:.68rem;color:var(--text-light);line-height:1;">@Auth.UserRole</div>
@@ -340,10 +352,13 @@
 
 <ToastNotification />
 
+@inject IJSRuntime JS
+
 @code {
   private int _openCount;
   private int _pendingAlloc;
   private string _pageTitle = "Dashboard Overview";
+  private bool _dark;
 
   private bool _showDemoBanner = false;
 
@@ -393,6 +408,15 @@
     Auth.OnChange += StateHasChanged;
     Nav.LocationChanged += (_, _) => { UpdateTitle(); CloseSidebar(); InvokeAsync(StateHasChanged); };
     UpdateTitle();
+
+    try { _dark = (await JS.InvokeAsync<string>("lotvTheme.get")) == "dark"; } catch { }
+    _ = Auth.RefreshAvatarAsync();
+  }
+
+  private async Task ToggleTheme()
+  {
+    _dark = !_dark;
+    try { await JS.InvokeVoidAsync("lotvTheme.set", _dark ? "dark" : "light"); } catch { }
   }
 
   private async Task LoadNotificationsAsync()

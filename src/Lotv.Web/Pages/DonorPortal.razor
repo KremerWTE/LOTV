@@ -1,0 +1,82 @@
+@page "/donor/portal"
+@layout PublicLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Donor Portal — LOTV Ministry</PageTitle>
+
+<div style="max-width:980px;margin:48px auto 80px;padding:0 24px;">
+
+  @if (DonorId is null or 0)
+  {
+    <div class="panel">
+      <div class="panel-body" style="text-align:center;padding:48px 24px;">
+        <div style="font-size:2.4rem;margin-bottom:14px;">&#128274;</div>
+        <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 12px;">Sign In Required</h2>
+        <p style="color:var(--text-mid);margin:0 0 18px;">Use your magic-link email to access your donor portal.</p>
+        <a href="/donor/login" class="btn btn-primary">Go to sign-in</a>
+      </div>
+    </div>
+  }
+  else
+  {
+    <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 24px;">Welcome back.</h1>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:28px;">
+      <div class="kpi"><div class="kpi-label">Total Given</div><div class="kpi-value">@_total.ToString("C0")</div></div>
+      <div class="kpi"><div class="kpi-label">Gifts</div><div class="kpi-value">@_count</div></div>
+      <div class="kpi"><div class="kpi-label">Last Gift</div><div class="kpi-value" style="font-size:1.05rem;">@(_last?.ToString("MMM d, yyyy") ?? "—")</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;">
+      <a href="/donor/impact?DonorId=@DonorId" class="panel" style="text-decoration:none;">
+        <div class="panel-body">
+          <div style="font-size:1.4rem;margin-bottom:8px;">&#128202;</div>
+          <strong style="font-family:var(--ff-head);color:var(--navy);">My Impact</strong>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Full giving history, families helped, category breakdown.</p>
+        </div>
+      </a>
+      <a href="/donor/recurring?DonorId=@DonorId" class="panel" style="text-decoration:none;">
+        <div class="panel-body">
+          <div style="font-size:1.4rem;margin-bottom:8px;">&#128260;</div>
+          <strong style="font-family:var(--ff-head);color:var(--navy);">Recurring Gifts</strong>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Pause, resume, change amount, or cancel monthly gifts.</p>
+        </div>
+      </a>
+      <a href="/donor/receipts?DonorId=@DonorId" class="panel" style="text-decoration:none;">
+        <div class="panel-body">
+          <div style="font-size:1.4rem;margin-bottom:8px;">&#128196;</div>
+          <strong style="font-family:var(--ff-head);color:var(--navy);">Tax Receipts</strong>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Download receipts and year-end giving statements.</p>
+        </div>
+      </a>
+      <a href="/give" class="panel" style="text-decoration:none;">
+        <div class="panel-body">
+          <div style="font-size:1.4rem;margin-bottom:8px;">&#128149;</div>
+          <strong style="font-family:var(--ff-head);color:var(--navy);">Make Another Gift</strong>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Continue supporting families in their hardest moments.</p>
+        </div>
+      </a>
+    </div>
+  }
+</div>
+
+@code {
+  [Parameter, SupplyParameterFromQuery] public int? DonorId { get; set; }
+
+  private decimal _total;
+  private int _count;
+  private DateTime? _last;
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (DonorId is null or 0) return;
+    var impact = await Api.GetPublicDonorImpactAsync(DonorId.Value);
+    if (impact is not null)
+    {
+      _total = impact.TotalGiven;
+      _count = impact.GiftCount;
+      _last  = impact.DonationHistory.OrderByDescending(d => d.Date).FirstOrDefault()?.Date;
+    }
+  }
+}
