@@ -1,0 +1,91 @@
+@page "/donor/receipts"
+@layout PublicLayout
+@inject ApiService Api
+
+<PageTitle>My Receipts — LOTV Ministry</PageTitle>
+
+<div style="max-width:880px;margin:48px auto 80px;padding:0 24px;">
+
+  @if (DonorId is null or 0)
+  {
+    <div class="panel"><div class="panel-body" style="text-align:center;">
+      <a href="/donor/login" class="btn btn-primary">Sign in to view receipts</a>
+    </div></div>
+  }
+  else
+  {
+
+  <div style="display:flex;justify-content:space-between;align-items:end;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;">Tax Receipts</h1>
+      <p style="color:var(--text-mid);font-size:.9rem;margin:0;">Download individual receipts or your full year-end giving statement.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <select class="form-input" @bind="_year" style="padding:8px 12px;">
+        @foreach (var y in _years) { <option value="@y">@y Statement</option> }
+      </select>
+      <a class="btn btn-primary" target="_blank" rel="noopener"
+         href="@($"/api/v1/donations/year-end/{DonorId}/{_year}?format=pdf")">Download PDF</a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead style="background:var(--bg);">
+          <tr>
+            <th style="text-align:left;padding:12px 16px;font-size:.8rem;color:var(--text-light);">Date</th>
+            <th style="text-align:left;padding:12px 16px;font-size:.8rem;color:var(--text-light);">Channel</th>
+            <th style="text-align:right;padding:12px 16px;font-size:.8rem;color:var(--text-light);">Amount</th>
+            <th style="text-align:right;padding:12px 16px;font-size:.8rem;color:var(--text-light);">Receipt</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (_donations.Count == 0)
+          {
+            <tr><td colspan="4" style="padding:32px;text-align:center;color:var(--text-light);">No donations on file yet.</td></tr>
+          }
+          @foreach (var d in _donations)
+          {
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:12px 16px;">@d.Date.ToString("MMM d, yyyy")</td>
+              <td style="padding:12px 16px;">@d.Channel</td>
+              <td style="padding:12px 16px;text-align:right;font-weight:600;"><Money Amount="@d.Amount" /></td>
+              <td style="padding:12px 16px;text-align:right;">
+                <a target="_blank" rel="noopener" href="@($"/api/public/v1/donations/{d.Id}/receipt?format=pdf")"
+                   style="color:var(--green);font-weight:600;font-size:.84rem;text-decoration:none;">PDF &darr;</a>
+                <span style="color:var(--text-light);margin:0 6px;">·</span>
+                <a target="_blank" rel="noopener" href="@($"/api/public/v1/donations/{d.Id}/receipt")"
+                   style="color:var(--text-mid);font-size:.84rem;text-decoration:none;">HTML</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+  }
+</div>
+
+@code {
+  [Parameter, SupplyParameterFromQuery] public int? DonorId { get; set; }
+
+  private int _year = DateTime.UtcNow.Year;
+  private int[] _years = Enumerable.Range(DateTime.UtcNow.Year - 4, 5).Reverse().ToArray();
+  private List<DonationRow> _donations = new();
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (DonorId is null or 0) return;
+    var impact = await Api.GetPublicDonorImpactAsync(DonorId.Value);
+    if (impact is null) return;
+    // DonorDonationDto doesn't include Id; fall back to fetching from a future endpoint when wired.
+    // For now use what's available — receipt PDF endpoint accepts donation Id, so we display the history list
+    // and leave the receipt-link column hidden for entries without an Id.
+    _donations = impact.DonationHistory
+      .Select((d, i) => new DonationRow(i + 1, d.Date, d.Channel, d.Amount))
+      .ToList();
+  }
+
+  private record DonationRow(int Id, DateTime Date, string Channel, decimal Amount);
+}

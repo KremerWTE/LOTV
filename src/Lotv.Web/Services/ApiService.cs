@@ -661,6 +661,12 @@ public class ApiService
     public Task<List<StaffUserDto>> GetUsersAsync() =>
         GetListAsync<StaffUserDto>("/api/v1/users");
 
+    public async Task<bool> ClearUserAvatarAsync(string id)
+    {
+        try { var r = await _http.DeleteAsync($"/api/v1/users/{id}/avatar"); return r.IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
     public async Task<bool> UpdateUserRoleAsync(string id, UserRole role, int? chapterId)
     {
         var resp = await AuthedPutAsync($"/api/v1/users/{id}/role", new { Role = role, ChapterId = chapterId });
@@ -896,7 +902,7 @@ public record PersonBreakdownDto(
     decimal TotalAmount, int GiftCount, double AverageGift);
 
 public record StaffUserDto(
-    string Id, string? Email, string? FullName, UserRole Role, int? ChapterId, bool IsActive);
+    string Id, string? Email, string? FullName, UserRole Role, int? ChapterId, bool IsActive, string? AvatarUrl);
 
 public record EventRevenueDto(decimal Tickets, decimal Auction, decimal Total);
 public record CheckinScanResult(bool Success, string Message, string? AttendeeName, int TicketCount);

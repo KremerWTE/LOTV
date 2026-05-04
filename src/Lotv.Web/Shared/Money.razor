@@ -1,0 +1,12 @@
+@inject CurrencyService Cur
+@implements IDisposable
+
+<span>@Cur.Format(Amount)</span>
+
+@code {
+  [Parameter] public decimal Amount { get; set; }
+
+  protected override void OnInitialized() => Cur.OnCurrencyChanged += Refresh;
+  private void Refresh() => InvokeAsync(StateHasChanged);
+  public void Dispose() => Cur.OnCurrencyChanged -= Refresh;
+}

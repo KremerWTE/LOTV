@@ -125,6 +125,8 @@ builder.Services.AddScoped<IFinancialAuditService, FinancialAuditService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<PdfReceiptService>();
 builder.Services.AddSingleton<IPushSender, PushSenderService>();
+builder.Services.AddHttpClient();
+builder.Services.AddHostedService<FxRefreshService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddSingleton<IMockDataService, MockDataService>();      // legacy mock service
 builder.Services.AddHostedService<ScheduledReportBackgroundService>();
@@ -509,7 +511,8 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
 });
 
 cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContext db,
-    IChapterContextService ctx, IHubContext<RequestsHub> hub) =>
+    IChapterContextService ctx, IHubContext<RequestsHub> hub, IPushSender pushSvc,
+    UserManager<LotvIdentityUser> userMgr) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
@@ -526,6 +529,13 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     });
     await db.SaveChangesAsync();
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, vol.Id, vol.FullName);
+    if (!string.IsNullOrEmpty(vol.Email))
+    {
+        var ident = await userMgr.FindByEmailAsync(vol.Email);
+        if (ident is not null)
+            _ = pushSvc.SendToUserAsync(ident.Id, "New assignment",
+                $"You've been assigned request #{id}.", $"/volunteer/pending/{id}");
+    }
     return Results.Ok(r);
 });
 
@@ -594,7 +604,7 @@ cases.MapPost("/{id:int}/decline", async (int id, DeclineRequest body, LotvDbCon
 }).RequireAuthorization("Volunteer");
 
 cases.MapPost("/{id:int}/escalate", async (int id, EscalateRequest body, LotvDbContext db,
-    IChapterContextService ctx, IHubContext<RequestsHub> hub) =>
+    IChapterContextService ctx, IHubContext<RequestsHub> hub, IPushSender pushSvc) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
@@ -606,6 +616,8 @@ cases.MapPost("/{id:int}/escalate", async (int id, EscalateRequest body, LotvDbC
     });
     await db.SaveChangesAsync();
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseEscalated", id, body.Reason);
+    _ = pushSvc.SendToAllAsync("Request escalated",
+        $"Request #{id} was escalated: {body.Reason}", $"/admin/cases/{id}");
     return Results.Ok(r);
 });
 
@@ -1361,8 +1373,17 @@ users.MapPut("/me/avatar", async (AvatarUpdateRequest body, IChapterContextServi
 });
 
 users.MapGet("/", async (UserManager<LotvIdentityUser> userMgr) =>
-    userMgr.Users.Select(u => new { u.Id, u.Email, u.FullName, u.Role, u.ChapterId, u.IsActive }).ToList()
+    userMgr.Users.Select(u => new { u.Id, u.Email, u.FullName, u.Role, u.ChapterId, u.IsActive, u.AvatarUrl }).ToList()
 ).RequireAuthorization("ChapterAdmin");
+
+users.MapDelete("/{id}/avatar", async (string id, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var u = await userMgr.FindByIdAsync(id);
+    if (u is null) return Results.NotFound();
+    u.AvatarUrl = null;
+    await userMgr.UpdateAsync(u);
+    return Results.Ok();
+}).RequireAuthorization("ChapterAdmin");
 
 users.MapPut("/{id}/role", async (string id, RoleChangeRequest body, UserManager<LotvIdentityUser> userMgr) =>
 {
