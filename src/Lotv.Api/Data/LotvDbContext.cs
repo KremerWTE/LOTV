@@ -69,6 +69,11 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     // ─── Report run log ───────────────────────────────────────────────────────
     public DbSet<ReportRunLog> ReportRunLogs => Set<ReportRunLog>();
 
+    // ─── Push subscriptions, donor magic links, FX rates ──────────────────────
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<DonorMagicLink> DonorMagicLinks => Set<DonorMagicLink>();
+    public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -350,6 +355,32 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(ex => new { ex.RetreatId, ex.Category });
             e.Property(ex => ex.Amount).HasPrecision(12, 2);
             e.HasOne(ex => ex.Retreat).WithMany(r => r.Expenses).HasForeignKey(ex => ex.RetreatId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── PushSubscription ─────────────────────────────────────────────────
+        builder.Entity<PushSubscription>(e =>
+        {
+            e.HasIndex(p => p.UserId);
+            e.HasIndex(p => p.Endpoint).IsUnique();
+            e.Property(p => p.Endpoint).HasMaxLength(500);
+            e.Property(p => p.P256dh).HasMaxLength(200);
+            e.Property(p => p.Auth).HasMaxLength(200);
+        });
+
+        // ── DonorMagicLink ───────────────────────────────────────────────────
+        builder.Entity<DonorMagicLink>(e =>
+        {
+            e.HasIndex(d => d.Token).IsUnique();
+            e.HasIndex(d => d.DonorId);
+            e.Property(d => d.Token).HasMaxLength(64);
+        });
+
+        // ── ExchangeRate ─────────────────────────────────────────────────────
+        builder.Entity<ExchangeRate>(e =>
+        {
+            e.HasIndex(x => new { x.CurrencyCode, x.AsOf });
+            e.Property(x => x.CurrencyCode).HasMaxLength(3);
+            e.Property(x => x.RateToUsd).HasPrecision(18, 8);
         });
 
         // ── Sponsor ──────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 @page "/my-profile"
 @inject ApiService Api
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>My Profile — LOTV Ministry</PageTitle>
 
@@ -34,6 +35,32 @@
       &#9888; @_error
     </div>
   }
+
+  <!-- AVATAR -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">Profile Photo</div>
+    <div class="panel-body" style="display:flex;align-items:center;gap:18px;">
+      <div style="width:84px;height:84px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid var(--border);">
+        @if (!string.IsNullOrEmpty(_avatarUrl))
+        {
+          <img src="@_avatarUrl" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;" />
+        }
+        else
+        {
+          <span style="font-size:2rem;color:var(--text-light);">&#128100;</span>
+        }
+      </div>
+      <div style="flex:1;">
+        <input type="file" @ref="_fileInput" accept="image/*" style="display:none;" @onchange="OnAvatarSelected" />
+        <button class="btn" type="button" @onclick="PickAvatar">Change Photo</button>
+        @if (!string.IsNullOrEmpty(_avatarUrl))
+        {
+          <button class="btn" type="button" @onclick="RemoveAvatar" style="margin-left:8px;">Remove</button>
+        }
+        <div style="font-size:.74rem;color:var(--text-light);margin-top:6px;">PNG/JPG, ~1MB max.</div>
+      </div>
+    </div>
+  </div>
 
   <!-- PERSONAL INFO -->
   <div class="panel" style="margin-bottom:20px;">
@@ -126,6 +153,28 @@
   private bool _requestUpdates = true;
   private bool _saved;
   private string _error = "";
+  private string? _avatarUrl;
+  private ElementReference _fileInput;
+
+  private async Task PickAvatar() => await JS.InvokeVoidAsync("lotvUpload.click", _fileInput);
+
+  private async Task OnAvatarSelected()
+  {
+    try
+    {
+      var dataUrl = await JS.InvokeAsync<string?>("lotvUpload.readDataUrl", _fileInput);
+      if (string.IsNullOrEmpty(dataUrl)) return;
+      var saved = await Api.UpdateAvatarAsync(dataUrl);
+      if (saved is not null) _avatarUrl = saved;
+    }
+    catch { _error = "Could not upload avatar."; }
+  }
+
+  private async Task RemoveAvatar()
+  {
+    await Api.UpdateAvatarAsync(null);
+    _avatarUrl = null;
+  }
 
   private async Task SaveAsync()
   {

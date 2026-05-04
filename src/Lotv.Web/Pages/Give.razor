@@ -1,6 +1,7 @@
 @page "/give"
 @layout PublicLayout
 @inject ApiService Api
+@inject IJSRuntime JS
 
 <PageTitle>Donate — Lily of the Valley Ministry</PageTitle>
 
@@ -123,12 +124,30 @@ else
         }
       </div>
 
-      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync">
-        @(_recurring ? "Set Up Monthly Gift" : "Give Now") &rarr;
+      @if (_stripeReady)
+      {
+        <div style="margin:18px 0;">
+          <div id="stripe-card-element" style="padding:12px;border:1px solid var(--border);border-radius:8px;background:white;"></div>
+          @if (!string.IsNullOrEmpty(_stripeError))
+          {
+            <div role="alert" style="color:var(--red);font-size:.82rem;margin-top:8px;">@_stripeError</div>
+          }
+        </div>
+      }
+
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync" disabled="@_busy">
+        @(_busy ? "Processing…" : ((_recurring ? "Set Up Monthly Gift" : "Give Now") + " →"))
       </button>
 
       <p style="font-size:.76rem;color:var(--text-light);text-align:center;margin:14px 0 0;line-height:1.6;">
-        This is a demonstration portal. No payment is processed.<br />
+        @if (_stripeMock)
+        {
+          <span>Payment processor not configured — demo mode (no charge).<br /></span>
+        }
+        else
+        {
+          <span>Secure payment via Stripe.<br /></span>
+        }
         LOTV Ministry is a 501(c)(3) non-profit organization.
       </p>
     </div>
@@ -151,6 +170,12 @@ else
   private bool _confirmedRecurring;
   private string _confirmedName = "";
 
+  private bool _stripeReady;
+  private bool _stripeMock = true;
+  private string _stripeError = "";
+  private string? _clientSecret;
+  private bool _busy;
+
   private void SelectAmount(decimal preset)
   {
     _amount       = preset;
@@ -166,12 +191,47 @@ else
     }
   }
 
+  private async Task EnsureStripeAsync()
+  {
+    if (_stripeReady || _amount <= 0) return;
+    var intent = await Api.CreatePaymentIntentAsync(_amount);
+    if (intent is null) return;
+    _stripeMock = intent.Mock || string.IsNullOrEmpty(intent.ClientSecret);
+    _clientSecret = intent.ClientSecret;
+    if (!_stripeMock && !string.IsNullOrEmpty(intent.PublishableKey))
+    {
+      try
+      {
+        await JS.InvokeVoidAsync("lotvStripe.init", intent.PublishableKey);
+        await JS.InvokeVoidAsync("lotvStripe.mountCard", "#stripe-card-element", _clientSecret);
+        _stripeReady = true;
+      }
+      catch (Exception ex) { _stripeError = ex.Message; }
+    }
+  }
+
   private async Task SubmitAsync()
   {
     if (_amount <= 0)             { _error = "Please select or enter a gift amount."; return; }
     if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
     { _error = "Please enter your first and last name."; return; }
     if (string.IsNullOrWhiteSpace(_email))   { _error = "Please enter your email address."; return; }
+
+    _busy = true;
+    try
+    {
+      // Initialize Stripe lazily on first submit so the user has filled the form.
+      await EnsureStripeAsync();
+
+      if (_stripeReady && !_stripeMock)
+      {
+        var result = await JS.InvokeAsync<StripeConfirmResult>("lotvStripe.confirm", "/donate/confirm");
+        if (!result.Ok) { _stripeError = result.Error ?? "Payment failed."; return; }
+      }
+    }
+    finally { _busy = false; }
+    var __noop = false;
+    if (__noop) return;
 
     var newDonor = new Donor
     {
@@ -213,4 +273,6 @@ else
     >= 250  => DonorTier.Supporter,
     _       => DonorTier.Friend
   };
+
+  private record StripeConfirmResult(bool Ok, string? Error, string? PaymentIntentId);
 }

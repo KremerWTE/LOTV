@@ -1,8 +1,9 @@
 @page "/events"
 @inject ApiService Api
 @inject NavigationManager Nav
+@inject LocalizationService Loc
 
-<PageTitle>Upcoming Events — LOTV Ministry</PageTitle>
+<PageTitle>@Loc["events.title"] — LOTV Ministry</PageTitle>
 
 <!-- PUBLIC NAV -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
@@ -23,7 +24,7 @@
 <!-- HERO -->
 <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy-dark,#0a1628) 100%);color:white;padding:48px 32px;text-align:center;">
   <div style="font-size:2.2rem;margin-bottom:10px;">&#128197;</div>
-  <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 8px;">Upcoming Events</h1>
+  <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 8px;">@Loc["events.title"]</h1>
   <p style="font-size:.95rem;opacity:.8;max-width:540px;margin:0 auto;">Join us for galas, silent auctions, and community gatherings. Every event supports families in need.</p>
 </div>
 

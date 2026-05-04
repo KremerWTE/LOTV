@@ -123,6 +123,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IScheduledReportService, ScheduledReportService>();
 builder.Services.AddScoped<IFinancialAuditService, FinancialAuditService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
+builder.Services.AddScoped<PdfReceiptService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddSingleton<IMockDataService, MockDataService>();      // legacy mock service
 builder.Services.AddHostedService<ScheduledReportBackgroundService>();
@@ -836,22 +837,34 @@ donations.MapPut("/{id:int}", async (int id, Donation donation, LotvDbContext db
     return Results.Ok(donation);
 });
 
-// Receipt — returns HTML for a single donation; used by DonationConfirm.razor download button
-donations.MapGet("/{id:int}/receipt", async (int id, IReceiptService receipts) =>
+// Receipt — supports ?format=pdf for download; HTML otherwise
+donations.MapGet("/{id:int}/receipt", async (int id, string? format,
+    IReceiptService receipts, PdfReceiptService pdf) =>
 {
+    if (string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
+    {
+        var bytes = await pdf.RenderReceiptAsync(id);
+        return bytes is null
+            ? Results.NotFound()
+            : Results.File(bytes, "application/pdf", $"LOTV-receipt-{id}.pdf");
+    }
     var (found, html) = await receipts.GetReceiptHtmlAsync(id);
-    return found
-        ? Results.Content(html!, "text/html")
-        : Results.NotFound();
+    return found ? Results.Content(html!, "text/html") : Results.NotFound();
 });
 
-// Year-end giving statement
-donations.MapGet("/year-end/{donorId:int}/{year:int}", async (int donorId, int year, IReceiptService receipts) =>
+// Year-end giving statement (HTML or PDF)
+donations.MapGet("/year-end/{donorId:int}/{year:int}", async (int donorId, int year, string? format,
+    IReceiptService receipts, PdfReceiptService pdf) =>
 {
+    if (string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
+    {
+        var bytes = await pdf.RenderYearEndAsync(donorId, year);
+        return bytes is null
+            ? Results.NotFound()
+            : Results.File(bytes, "application/pdf", $"LOTV-{year}-statement.pdf");
+    }
     var (found, html) = await receipts.GetYearEndHtmlAsync(donorId, year);
-    return found
-        ? Results.Content(html!, "text/html")
-        : Results.NotFound();
+    return found ? Results.Content(html!, "text/html") : Results.NotFound();
 });
 
 // ── Allocations ───────────────────────────────────────────────────────────────
@@ -1328,7 +1341,18 @@ var users = app.MapGroup("/api/v1/users").WithTags("Users").RequireAuthorization
 users.MapGet("/me", async (IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
 {
     var user = await userMgr.FindByIdAsync(ctx.UserId);
-    return user is null ? Results.NotFound() : Results.Ok(new { user.Id, user.Email, user.FullName, user.Role, user.ChapterId });
+    return user is null ? Results.NotFound() : Results.Ok(new { user.Id, user.Email, user.FullName, user.Role, user.ChapterId, user.AvatarUrl });
+});
+
+users.MapPut("/me/avatar", async (AvatarUpdateRequest body, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(ctx.UserId);
+    if (user is null) return Results.Unauthorized();
+    if (body.AvatarUrl is not null && body.AvatarUrl.Length > 1_500_000)
+        return Results.BadRequest(new { error = "Avatar too large (max ~1MB)." });
+    user.AvatarUrl = body.AvatarUrl;
+    await userMgr.UpdateAsync(user);
+    return Results.Ok(new { user.AvatarUrl });
 });
 
 users.MapGet("/", async (UserManager<LotvIdentityUser> userMgr) =>
@@ -2140,9 +2164,75 @@ publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRe
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
-// GET /api/public/v1/donations/{id}/receipt — donor self-service receipt (HTML)
-publicApi.MapGet("/donations/{id:int}/receipt", async (int id, IReceiptService receipts) =>
+// ── Donor magic-link self-service auth ───────────────────────────────────────
+publicApi.MapPost("/donor/magic-link", async (DonorMagicLinkRequest body,
+    LotvDbContext db, INotificationService notify) =>
 {
+    if (string.IsNullOrWhiteSpace(body.Email)) return Results.BadRequest(new { error = "Email is required." });
+    var donor = await db.Donors.FirstOrDefaultAsync(d => d.Email == body.Email);
+    if (donor is null) return Results.Ok(new { sent = true }); // do not leak existence
+
+    var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+    db.DonorMagicLinks.Add(new DonorMagicLink
+    {
+        DonorId   = donor.Id,
+        Token     = token,
+        ExpiresAt = DateTime.UtcNow.AddMinutes(20)
+    });
+    await db.SaveChangesAsync();
+
+    var link = $"/donor/login?token={token}";
+    await notify.SendEmailAsync(donor.Email!, donor.FullName ?? "Donor",
+        "Your LOTV donor portal sign-in link",
+        $"<p>Click below to access your donor portal. This link expires in 20 minutes.</p><p><a href=\"{link}\">{link}</a></p>");
+
+    return Results.Ok(new { sent = true });
+}).AllowAnonymous();
+
+publicApi.MapPost("/donor/verify-link", async (DonorMagicLinkVerifyRequest body, LotvDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Token)) return Results.BadRequest();
+    var link = await db.DonorMagicLinks.FirstOrDefaultAsync(l => l.Token == body.Token);
+    if (link is null || link.UsedAt is not null || link.ExpiresAt < DateTime.UtcNow)
+        return Results.Unauthorized();
+    link.UsedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { donorId = link.DonorId });
+}).AllowAnonymous();
+
+// ── Push subscriptions / VAPID ───────────────────────────────────────────────
+publicApi.MapGet("/push/vapid-public-key", (IConfiguration cfg) =>
+    Results.Text(cfg["Push:VapidPublicKey"] ?? "", "text/plain")
+).AllowAnonymous();
+
+// ── Currencies ───────────────────────────────────────────────────────────────
+publicApi.MapGet("/currencies", async (LotvDbContext db) =>
+{
+    var rates = await db.ExchangeRates
+        .GroupBy(r => r.CurrencyCode)
+        .Select(g => g.OrderByDescending(r => r.AsOf).First())
+        .ToDictionaryAsync(r => r.CurrencyCode, r => r.RateToUsd);
+    return Results.Ok(SupportedCurrencies.All
+        .Select(c => new
+        {
+            code = c.Code,
+            symbol = c.Symbol,
+            name = c.Name,
+            rateToUsd = rates.TryGetValue(c.Code, out var rate) ? rate : (c.Code == "USD" ? 1m : 0m)
+        }));
+}).AllowAnonymous();
+
+// GET /api/public/v1/donations/{id}/receipt — donor self-service receipt (HTML or PDF via ?format=pdf)
+publicApi.MapGet("/donations/{id:int}/receipt", async (int id, string? format,
+    IReceiptService receipts, PdfReceiptService pdf) =>
+{
+    if (string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
+    {
+        var bytes = await pdf.RenderReceiptAsync(id);
+        return bytes is null
+            ? Results.NotFound()
+            : Results.File(bytes, "application/pdf", $"LOTV-receipt-{id}.pdf");
+    }
     var (found, html) = await receipts.GetReceiptHtmlAsync(id);
     return found ? Results.Content(html!, "text/html") : Results.NotFound();
 }).AllowAnonymous();
@@ -2258,6 +2348,33 @@ reconciliation.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, 
 });
 
 // ── Notifications (broadcast & marketing email) ───────────────────────────────
+// Push subscription registration (any authenticated user)
+var push = app.MapGroup("/api/v1/push").WithTags("Push").RequireAuthorization();
+push.MapPost("/subscribe", async (PushSubscriptionRequest body, IChapterContextService ctx, LotvDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Endpoint)) return Results.BadRequest();
+    var existing = await db.PushSubscriptions.FirstOrDefaultAsync(p => p.Endpoint == body.Endpoint);
+    if (existing is null)
+    {
+        db.PushSubscriptions.Add(new PushSubscription
+        {
+            UserId = ctx.UserId, Endpoint = body.Endpoint, P256dh = body.P256dh, Auth = body.Auth
+        });
+    }
+    else
+    {
+        existing.UserId = ctx.UserId; existing.P256dh = body.P256dh; existing.Auth = body.Auth;
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+});
+push.MapDelete("/subscribe", async (string endpoint, LotvDbContext db) =>
+{
+    var sub = await db.PushSubscriptions.FirstOrDefaultAsync(p => p.Endpoint == endpoint);
+    if (sub is not null) { db.PushSubscriptions.Remove(sub); await db.SaveChangesAsync(); }
+    return Results.Ok();
+});
+
 var notify = app.MapGroup("/api/v1/notifications").WithTags("Notifications").RequireAuthorization("Staff");
 
 notify.MapPost("/broadcast", async (BroadcastRequest body, LotvDbContext db, INotificationService notif) =>
@@ -2396,6 +2513,29 @@ settingsGroup.MapPut("", async (LotvDbContext db, IChapterContextService ctx,
 });
 
 // ── Payments (Stripe webhook) ─────────────────────────────────────────────────
+// Create a PaymentIntent — returns client_secret to mount Stripe Elements client-side.
+// In a real deployment, install Stripe.net and call StripeConfiguration.ApiKey + new PaymentIntentService().Create(...).
+// For now this returns a deterministic stub so the front-end Stripe Elements wiring can be exercised end-to-end
+// once a real key is configured. When Stripe.net is added, replace the stub block with the SDK call.
+app.MapPost("/api/v1/payments/intent", async (PaymentIntentRequest body, IConfiguration cfg) =>
+{
+    if (body.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than 0." });
+    var publishableKey = cfg["Stripe:PublishableKey"] ?? "";
+    var secretKey      = cfg["Stripe:SecretKey"] ?? "";
+
+    if (string.IsNullOrEmpty(secretKey))
+    {
+        // Dev / unconfigured — return a synthetic client secret the front-end can detect and skip card collection.
+        return Results.Ok(new { clientSecret = (string?)null, publishableKey, mock = true });
+    }
+
+    // TODO: replace with Stripe.net SDK call when the package is added.
+    // var options = new PaymentIntentCreateOptions { Amount = (long)(body.Amount * 100), Currency = body.Currency ?? "usd" };
+    // var intent = await new PaymentIntentService().CreateAsync(options);
+    // return Results.Ok(new { clientSecret = intent.ClientSecret, publishableKey, mock = false });
+    return Results.Ok(new { clientSecret = (string?)null, publishableKey, mock = true });
+}).AllowAnonymous();
+
 app.MapPost("/api/v1/payments/webhook", async (HttpRequest request) =>
 {
     // Stripe signature verification and webhook processing happens here
@@ -2963,6 +3103,11 @@ record PublicIntakeRequest(string FamilyLastName, int ChapterId, PackageReason R
     string? City, string? State, string? Notes);
 record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,
     string? DonorFirstName, string? DonorLastName, string? StripePaymentIntentId);
+record AvatarUpdateRequest(string? AvatarUrl);
+record PaymentIntentRequest(decimal Amount, string? Currency);
+record PushSubscriptionRequest(string Endpoint, string P256dh, string Auth);
+record DonorMagicLinkRequest(string Email);
+record DonorMagicLinkVerifyRequest(string Token);
 record StaffOnboardingRequest(string FirstName, string LastName, string Title, string Phone, string NotifyPref, int ChapterId);
 record VolunteerOnboardingRequest(string FirstName, string LastName, string Phone, string Street, string City, string State, string Zip, List<string> AvailableDays, List<string> Skills, int MaxRequestsPerMonth, int ChapterId);
 record CreateApiKeyRequest(string PartnerName, string? ContactEmail, int? ChapterId,

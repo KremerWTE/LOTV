@@ -1,0 +1,13 @@
+{
+  "name": "Lily of the Valley Ministry",
+  "short_name": "LOTV",
+  "description": "Catholic apostolate supporting families through pregnancy and infant loss.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fb",
+  "theme_color": "#2d469d",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

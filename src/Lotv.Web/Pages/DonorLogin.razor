@@ -1,0 +1,87 @@
+@page "/donor/login"
+@layout PublicLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Donor Sign In — LOTV Ministry</PageTitle>
+
+<div style="max-width:440px;margin:80px auto 100px;padding:0 24px;">
+  <div class="panel">
+    <div class="panel-header" style="font-family:var(--ff-head);">Donor Self-Service Portal</div>
+    <div class="panel-body">
+
+      @if (_state == State.Verifying)
+      {
+        <p>Verifying your sign-in link…</p>
+      }
+      else if (_state == State.Verified)
+      {
+        <p>Welcome back. Redirecting to your portal…</p>
+      }
+      else if (_state == State.Sent)
+      {
+        <p style="color:var(--green-dark);">
+          &#10003; If a donor record exists for <strong>@_email</strong>, a sign-in link has been emailed.
+          The link expires in 20 minutes.
+        </p>
+        <button class="btn" @onclick="() => _state = State.Form">Send another link</button>
+      }
+      else if (_state == State.Failed)
+      {
+        <p style="color:var(--red);">This sign-in link is invalid or has expired.</p>
+        <button class="btn btn-primary" @onclick="() => _state = State.Form">Request a new link</button>
+      }
+      else
+      {
+        <p style="font-size:.86rem;color:var(--text-mid);margin:0 0 14px;">
+          Enter the email address you've donated with. We'll email you a one-time link to view your giving history,
+          manage recurring donations, and download receipts.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input class="form-input" type="email" @bind="_email" placeholder="you@example.com" />
+        </div>
+        <button class="btn btn-primary" @onclick="RequestLink" disabled="@(_busy || string.IsNullOrWhiteSpace(_email))">
+          @(_busy ? "Sending…" : "Email me a sign-in link")
+        </button>
+      }
+
+    </div>
+  </div>
+</div>
+
+@code {
+  enum State { Form, Sent, Verifying, Verified, Failed }
+  private State _state = State.Form;
+  private string _email = "";
+  private bool _busy;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var uri = new Uri(Nav.Uri);
+    var q = System.Web.HttpUtility.ParseQueryString(uri.Query);
+    var token = q["token"];
+    if (!string.IsNullOrWhiteSpace(token))
+    {
+      _state = State.Verifying;
+      var donorId = await Api.VerifyDonorMagicLinkAsync(token!);
+      if (donorId is not null)
+      {
+        _state = State.Verified;
+        Nav.NavigateTo($"/donor/recurring?DonorId={donorId.Value}");
+      }
+      else
+      {
+        _state = State.Failed;
+      }
+    }
+  }
+
+  private async Task RequestLink()
+  {
+    _busy = true;
+    await Api.RequestDonorMagicLinkAsync(_email);
+    _busy = false;
+    _state = State.Sent;
+  }
+}

@@ -1,9 +1,10 @@
 @page "/apply"
 @layout PublicLayout
 @inject ApiService Api
+@inject LocalizationService Loc
 @using Lotv.Core.Models
 
-<PageTitle>Request a Comfort Package — Lily of the Valley Ministry</PageTitle>
+<PageTitle>@Loc["apply.title"] — Lily of the Valley Ministry</PageTitle>
 
 @if (_submitted)
 {

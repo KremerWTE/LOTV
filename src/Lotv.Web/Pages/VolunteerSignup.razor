@@ -1,8 +1,9 @@
 @page "/volunteer"
 @layout PublicLayout
 @inject ApiService Api
+@inject LocalizationService Loc
 
-<PageTitle>Volunteer — Lily of the Valley Ministry</PageTitle>
+<PageTitle>@Loc["nav.volunteer"] — Lily of the Valley Ministry</PageTitle>
 
 @if (_submitted)
 {

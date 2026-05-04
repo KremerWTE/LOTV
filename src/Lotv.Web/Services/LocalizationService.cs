@@ -131,6 +131,33 @@ public class LocalizationService
             ["msg.thanks"]          = "Thank you",
             ["msg.required"]        = "This field is required.",
             ["msg.error"]           = "Something went wrong. Please try again.",
+
+            // Apply
+            ["apply.title"]          = "Request a Comfort Package",
+            ["apply.subtitle"]       = "We're so sorry for your loss. Please share a bit about your situation so we can send a package that fits your needs.",
+            ["apply.forMe"]          = "For me",
+            ["apply.forSomeoneElse"] = "For someone else",
+            ["apply.submit"]         = "Submit Request",
+            // Give
+            ["give.title"]           = "Support a Grieving Family",
+            ["give.subtitle"]        = "Every gift funds a hand-assembled comfort package delivered free of charge.",
+            ["give.amount"]          = "Gift Amount",
+            ["give.giveOnce"]        = "Give Now",
+            ["give.giveMonthly"]     = "Set Up Monthly Gift",
+            // Volunteer signup
+            ["vol.title"]            = "Become a Volunteer",
+            ["vol.subtitle"]         = "Assemble packages, pray for families, or serve as a parish liaison.",
+            ["vol.signup"]           = "Sign Up",
+            // Help / FAQ
+            ["help.title"]           = "Help & FAQ",
+            ["help.searchPlaceholder"] = "Search the FAQ…",
+            // Transparency
+            ["trans.title"]          = "Our Impact",
+            ["trans.subtitle"]       = "Where every gift goes — published openly and updated continuously.",
+            // Events
+            ["events.title"]         = "Upcoming Events",
+            ["events.past"]          = "Past Events",
+            ["events.rsvp"]          = "RSVP / Buy Tickets",
         },
         ["es"] = new()
         {
@@ -206,6 +233,33 @@ public class LocalizationService
             ["msg.thanks"]          = "Gracias",
             ["msg.required"]        = "Este campo es obligatorio.",
             ["msg.error"]           = "Algo salió mal. Por favor inténtelo de nuevo.",
+
+            // Apply
+            ["apply.title"]          = "Solicitar un Paquete de Consuelo",
+            ["apply.subtitle"]       = "Lamentamos mucho su pérdida. Por favor cuéntenos un poco sobre su situación para que podamos enviarle un paquete que se ajuste a sus necesidades.",
+            ["apply.forMe"]          = "Para mí",
+            ["apply.forSomeoneElse"] = "Para otra persona",
+            ["apply.submit"]         = "Enviar solicitud",
+            // Give
+            ["give.title"]           = "Apoye a una Familia en Duelo",
+            ["give.subtitle"]        = "Cada regalo financia un paquete de consuelo ensamblado a mano, entregado gratuitamente.",
+            ["give.amount"]          = "Monto del Regalo",
+            ["give.giveOnce"]        = "Donar Ahora",
+            ["give.giveMonthly"]     = "Configurar Donación Mensual",
+            // Volunteer signup
+            ["vol.title"]            = "Conviértase en Voluntario",
+            ["vol.subtitle"]         = "Ensamble paquetes, ore por familias o sirva como enlace parroquial.",
+            ["vol.signup"]           = "Inscribirse",
+            // Help / FAQ
+            ["help.title"]           = "Ayuda y Preguntas Frecuentes",
+            ["help.searchPlaceholder"] = "Buscar en las preguntas frecuentes…",
+            // Transparency
+            ["trans.title"]          = "Nuestro Impacto",
+            ["trans.subtitle"]       = "Adónde va cada donación — publicado abiertamente y actualizado continuamente.",
+            // Events
+            ["events.title"]         = "Próximos Eventos",
+            ["events.past"]          = "Eventos Pasados",
+            ["events.rsvp"]          = "Reservar / Comprar Boletos",
         },
     };
 }

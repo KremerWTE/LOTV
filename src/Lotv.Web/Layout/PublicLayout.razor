@@ -1,11 +1,12 @@
 @inherits LayoutComponentBase
 @inject LocalizationService Loc
+@inject IJSRuntime JS
 @implements IDisposable
 
-<div style="min-height:100vh;display:flex;flex-direction:column;background:#f8f9fb;font-family:var(--ff-body);">
+<div style="min-height:100vh;display:flex;flex-direction:column;background:var(--bg-page);font-family:var(--ff-body);">
 
   <!-- HEADER -->
-  <header style="background:white;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;">
+  <header style="background:var(--white);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;">
     <div style="max-width:1080px;margin:0 auto;padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;">
       <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
         <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">&#127803;</div>
@@ -14,36 +15,67 @@
           <div style="font-size:.66rem;color:var(--text-light);letter-spacing:.04em;text-transform:uppercase;">@Loc["layout.tagline"]</div>
         </div>
       </a>
-      <nav style="display:flex;align-items:center;gap:6px;">
-        <a href="/" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">@Loc["nav.home"]</a>
-        <a href="/apply" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">@Loc["nav.gethelp"]</a>
-        <a href="/give" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">@Loc["nav.donate"]</a>
-        <a href="/volunteer" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">@Loc["nav.volunteer"]</a>
-        <a href="/events" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">@Loc["nav.events"]</a>
-        <a href="/transparency" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">@Loc["nav.impact"]</a>
-        <span style="margin-left:8px;"><LanguageSwitcher /></span>
+
+      <!-- Desktop nav -->
+      <nav class="pub-desktop-nav" style="display:flex;align-items:center;gap:6px;">
+        <a href="/" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;">@Loc["nav.home"]</a>
+        <a href="/apply" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;">@Loc["nav.gethelp"]</a>
+        <a href="/give" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;">@Loc["nav.donate"]</a>
+        <a href="/volunteer" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;">@Loc["nav.volunteer"]</a>
+        <a href="/events" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;">@Loc["nav.events"]</a>
+        <a href="/transparency" style="padding:7px 14px;font-size:.84rem;font-weight:600;color:var(--text-mid);text-decoration:none;border-radius:7px;">@Loc["nav.impact"]</a>
+        <button type="button" @onclick="ToggleTheme" aria-label="Toggle dark mode"
+                style="margin-left:6px;padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:.95rem;color:var(--text-mid);">
+          @(_dark ? "☀" : "🌙")
+        </button>
+        <span style="margin-left:6px;"><LanguageSwitcher /></span>
         <a href="/login" style="margin-left:8px;padding:7px 16px;font-size:.82rem;font-weight:700;color:white;background:var(--navy);border-radius:8px;text-decoration:none;">@Loc["nav.staffLogin"]</a>
       </nav>
+
+      <!-- Mobile hamburger -->
+      <button type="button" class="pub-hamburger" @onclick="OpenMenu" aria-label="Open menu" aria-expanded="@_menuOpen">&#9776;</button>
     </div>
   </header>
 
+  @if (_menuOpen)
+  {
+    <div class="pub-mobile-backdrop" @onclick="CloseMenu"></div>
+    <nav class="pub-mobile-nav open" aria-label="Mobile navigation">
+      <button type="button" @onclick="CloseMenu" aria-label="Close menu"
+              style="align-self:flex-end;background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-mid);margin-bottom:8px;">&times;</button>
+      <a href="/" @onclick="CloseMenu">@Loc["nav.home"]</a>
+      <a href="/apply" @onclick="CloseMenu">@Loc["nav.gethelp"]</a>
+      <a href="/give" @onclick="CloseMenu">@Loc["nav.donate"]</a>
+      <a href="/volunteer" @onclick="CloseMenu">@Loc["nav.volunteer"]</a>
+      <a href="/events" @onclick="CloseMenu">@Loc["nav.events"]</a>
+      <a href="/transparency" @onclick="CloseMenu">@Loc["nav.impact"]</a>
+      <a href="/login" @onclick="CloseMenu">@Loc["nav.staffLogin"]</a>
+      <div style="display:flex;gap:8px;margin-top:14px;padding:0 14px;">
+        <button type="button" @onclick="ToggleTheme"
+                style="padding:8px 12px;background:transparent;border:1px solid var(--border);border-radius:7px;cursor:pointer;">
+          @(_dark ? "☀ Light" : "🌙 Dark")
+        </button>
+        <LanguageSwitcher />
+      </div>
+    </nav>
+  }
+
   <!-- PAGE CONTENT -->
-  <main style="flex:1;">
-    @Body
-  </main>
+  <main style="flex:1;">@Body</main>
 
   <!-- FOOTER -->
   <footer style="background:var(--navy);color:rgba(255,255,255,.7);padding:28px 24px;text-align:center;font-size:.78rem;">
     <div style="max-width:1080px;margin:0 auto;">
       <div style="font-weight:700;color:white;font-size:.9rem;margin-bottom:4px;">@Loc["layout.footerTitle"]</div>
       <div style="margin-bottom:10px;">@Loc["layout.footerBlurb"]</div>
-      <div style="display:flex;justify-content:center;gap:20px;font-size:.74rem;">
+      <div style="display:flex;justify-content:center;gap:20px;font-size:.74rem;flex-wrap:wrap;">
         <a href="/" style="color:rgba(255,255,255,.6);text-decoration:none;">@Loc["nav.home"]</a>
         <a href="/apply" style="color:rgba(255,255,255,.6);text-decoration:none;">@Loc["nav.gethelp"]</a>
         <a href="/give" style="color:rgba(255,255,255,.6);text-decoration:none;">@Loc["nav.donate"]</a>
         <a href="/volunteer" style="color:rgba(255,255,255,.6);text-decoration:none;">@Loc["nav.volunteer"]</a>
         <a href="/events" style="color:rgba(255,255,255,.6);text-decoration:none;">@Loc["nav.events"]</a>
         <a href="/transparency" style="color:rgba(255,255,255,.6);text-decoration:none;">@Loc["nav.impact"]</a>
+        <a href="/donor/login" style="color:rgba(255,255,255,.6);text-decoration:none;">Donor Login</a>
         <a href="/login" style="color:rgba(255,255,255,.6);text-decoration:none;">@Loc["nav.staffPortal"]</a>
       </div>
       <div style="margin-top:12px;font-size:.7rem;color:rgba(255,255,255,.4);">&copy; @DateTime.UtcNow.Year @Loc["layout.footerCredit"]</div>
@@ -53,7 +85,29 @@
 </div>
 
 @code {
-  protected override void OnInitialized() => Loc.OnCultureChanged += Refresh;
+  private bool _menuOpen;
+  private bool _dark;
+
+  protected override async Task OnInitializedAsync()
+  {
+    Loc.OnCultureChanged += Refresh;
+    try
+    {
+      var t = await JS.InvokeAsync<string>("lotvTheme.get");
+      _dark = t == "dark";
+    }
+    catch { }
+  }
+
+  private void OpenMenu()  => _menuOpen = true;
+  private void CloseMenu() => _menuOpen = false;
+
+  private async Task ToggleTheme()
+  {
+    _dark = !_dark;
+    try { await JS.InvokeVoidAsync("lotvTheme.set", _dark ? "dark" : "light"); } catch { }
+  }
+
   private void Refresh() => InvokeAsync(StateHasChanged);
   public void Dispose() => Loc.OnCultureChanged -= Refresh;
 }

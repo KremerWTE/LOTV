@@ -12,6 +12,7 @@ public class ApplicationUser
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
+    public string? AvatarUrl { get; set; }   // data URL or hosted URL
 
     public string FullName => $"{FirstName} {LastName}";
 }

@@ -380,6 +380,80 @@ public class ApiService
         catch { return false; }
     }
 
+    public async Task<string?> UpdateAvatarAsync(string? avatarUrl)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync("/api/v1/users/me/avatar", new { AvatarUrl = avatarUrl });
+            if (!resp.IsSuccessStatusCode) return null;
+            var doc = await resp.Content.ReadFromJsonAsync<AvatarResp>();
+            return doc?.AvatarUrl;
+        }
+        catch { return null; }
+    }
+    private record AvatarResp(string? AvatarUrl);
+
+    // ── Donor magic-link auth ─────────────────────────────────────────────
+    public async Task<bool> RequestDonorMagicLinkAsync(string email)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/public/v1/donor/magic-link", new { Email = email });
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+    public async Task<int?> VerifyDonorMagicLinkAsync(string token)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/public/v1/donor/verify-link", new { Token = token });
+            if (!resp.IsSuccessStatusCode) return null;
+            var doc = await resp.Content.ReadFromJsonAsync<MagicLinkResp>();
+            return doc?.DonorId;
+        }
+        catch { return null; }
+    }
+    private record MagicLinkResp(int DonorId);
+
+    // ── Push subscription ─────────────────────────────────────────────────
+    public async Task<bool> RegisterPushAsync(string endpoint, string p256dh, string auth)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/v1/push/subscribe",
+                new { Endpoint = endpoint, P256dh = p256dh, Auth = auth });
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+    public async Task<string?> GetVapidPublicKeyAsync()
+    {
+        try { return await _http.GetStringAsync("/api/public/v1/push/vapid-public-key"); }
+        catch { return null; }
+    }
+
+    // ── Multi-currency ────────────────────────────────────────────────────
+    public async Task<List<CurrencyDto>?> GetCurrenciesAsync()
+    {
+        try { return await _http.GetFromJsonAsync<List<CurrencyDto>>("/api/public/v1/currencies"); }
+        catch { return null; }
+    }
+    public record CurrencyDto(string Code, string Symbol, string Name, decimal RateToUsd);
+
+    public async Task<PaymentIntentDto?> CreatePaymentIntentAsync(decimal amount, string currency = "usd")
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/v1/payments/intent",
+                new { Amount = amount, Currency = currency });
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<PaymentIntentDto>();
+        }
+        catch { return null; }
+    }
+    public record PaymentIntentDto(string? ClientSecret, string PublishableKey, bool Mock);
+
     public Task<List<ChannelBreakdownDto>> GetDonationsByChannelAsync() =>
         GetListAsync<ChannelBreakdownDto>("/api/v1/dashboard/donations/by-channel");
 

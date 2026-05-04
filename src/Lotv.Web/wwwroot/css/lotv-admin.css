@@ -382,6 +382,50 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
   .chart-wrap svg { min-width: 240px; }
 }
 
+/* ── PUBLIC HAMBURGER (mobile nav) ───────────────────────────── */
+.pub-hamburger {
+  display: none; background: transparent; border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px; cursor: pointer; font-size: 1rem;
+  color: var(--text-mid);
+}
+.pub-mobile-nav {
+  display: none;
+  position: fixed; top: 0; right: 0; bottom: 0; width: 78%; max-width: 320px;
+  background: white; box-shadow: -4px 0 24px rgba(0,0,0,.18); z-index: 200;
+  padding: 24px 18px; flex-direction: column; gap: 6px; transform: translateX(100%);
+  transition: transform .22s ease;
+}
+.pub-mobile-nav.open { display: flex; transform: translateX(0); }
+.pub-mobile-nav a { padding: 12px 14px; border-radius: 8px; color: var(--navy);
+  text-decoration: none; font-weight: 600; font-size: .94rem; }
+.pub-mobile-nav a:hover { background: var(--bg); }
+.pub-mobile-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 199; }
+
+@media (max-width: 720px) {
+  .pub-hamburger { display: inline-flex; }
+  .pub-desktop-nav { display: none !important; }
+}
+
+/* ── DARK MODE ───────────────────────────────────────────────── */
+body.theme-dark {
+  --bg:           #1a1f1a;
+  --bg-page:      #11151a;
+  --white:        #1e242a;
+  --cream:        #1e242a;
+  --border:       #2c3530;
+  --text-dark:    #e8efe2;
+  --text-mid:     #b9c8b0;
+  --text-light:   #8a9d80;
+  --green-pale:   #1e2c1a;
+  --navy-pale:    #1a223a;
+  --gold-pale:    #2e2820;
+  --blush-pale:   #2a1f1d;
+  --lav-pale:     #221d2c;
+  --shadow:       0 2px 14px rgba(0,0,0,.45);
+}
+body.theme-dark { background: var(--bg-page); color: var(--text-dark); }
+body.theme-dark .sidebar { background: #14201a; }
+
 /* ── ACCESSIBILITY: focus-visible ────────────────────────────── */
 :focus-visible {
   outline: 2.5px solid var(--green);
