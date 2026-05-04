@@ -1,0 +1,68 @@
+@inject LocalizationService Loc
+@implements IDisposable
+
+<div style="position:relative;display:inline-block;">
+  <button type="button"
+          @onclick="Toggle"
+          aria-haspopup="listbox"
+          aria-expanded="@_open"
+          aria-label="@Loc["lang.label"]"
+          style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:7px;font-size:.78rem;font-weight:600;color:var(--text-mid);cursor:pointer;">
+    <span aria-hidden="true">&#127760;</span>
+    <span>@_currentName</span>
+    <span aria-hidden="true" style="font-size:.65rem;">&#9662;</span>
+  </button>
+  @if (_open)
+  {
+    <ul role="listbox"
+        aria-label="@Loc["lang.label"]"
+        style="position:absolute;right:0;top:calc(100% + 4px);min-width:140px;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.08);list-style:none;margin:0;padding:4px 0;z-index:200;">
+      @foreach (var c in Loc.AvailableCultures)
+      {
+        var isCurrent = c.Code == Loc.CurrentCulture;
+        <li role="option" aria-selected="@isCurrent">
+          <button type="button"
+                  @onclick="() => Choose(c.Code)"
+                  style="display:block;width:100%;text-align:left;padding:8px 14px;background:@(isCurrent ? "var(--bg)" : "transparent");border:none;font-size:.82rem;font-weight:@(isCurrent ? "700" : "500");color:var(--navy);cursor:pointer;">
+            @c.Name
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+@code {
+  private bool _open;
+  private string _currentName = "English";
+
+  protected override void OnInitialized()
+  {
+    Loc.OnCultureChanged += HandleChanged;
+    UpdateName();
+  }
+
+  private void Toggle() => _open = !_open;
+
+  private async Task Choose(string code)
+  {
+    _open = false;
+    await Loc.SetCultureAsync(code);
+  }
+
+  private void HandleChanged()
+  {
+    UpdateName();
+    InvokeAsync(StateHasChanged);
+  }
+
+  private void UpdateName()
+  {
+    foreach (var c in Loc.AvailableCultures)
+    {
+      if (c.Code == Loc.CurrentCulture) { _currentName = c.Name; return; }
+    }
+  }
+
+  public void Dispose() => Loc.OnCultureChanged -= HandleChanged;
+}

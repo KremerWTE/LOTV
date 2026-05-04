@@ -27,11 +27,18 @@ builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<SignalRService>();
 builder.Services.AddScoped<AuctionSignalRService>();
 
+// ── Localization ──────────────────────────────────────────────────────────────
+builder.Services.AddSingleton<LocalizationService>();
+
 
 var host = builder.Build();
 
 // Restore session from sessionStorage before first render
 var auth = host.Services.GetRequiredService<AuthService>();
 await auth.TryRestoreSessionAsync();
+
+// Restore preferred culture
+var loc = host.Services.GetRequiredService<LocalizationService>();
+await loc.InitializeAsync();
 
 await host.RunAsync();
