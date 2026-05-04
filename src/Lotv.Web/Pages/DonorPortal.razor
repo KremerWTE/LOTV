@@ -23,7 +23,7 @@
     <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 24px;">Welcome back.</h1>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:28px;">
-      <div class="kpi"><div class="kpi-label">Total Given</div><div class="kpi-value">@_total.ToString("C0")</div></div>
+      <div class="kpi"><div class="kpi-label">Total Given</div><div class="kpi-value"><Money Amount="@_total" /></div></div>
       <div class="kpi"><div class="kpi-label">Gifts</div><div class="kpi-value">@_count</div></div>
       <div class="kpi"><div class="kpi-label">Last Gift</div><div class="kpi-value" style="font-size:1.05rem;">@(_last?.ToString("MMM d, yyyy") ?? "—")</div></div>
     </div>

@@ -77,14 +77,8 @@
   protected override async Task OnInitializedAsync()
   {
     if (DonorId is null or 0) return;
-    var impact = await Api.GetPublicDonorImpactAsync(DonorId.Value);
-    if (impact is null) return;
-    // DonorDonationDto doesn't include Id; fall back to fetching from a future endpoint when wired.
-    // For now use what's available — receipt PDF endpoint accepts donation Id, so we display the history list
-    // and leave the receipt-link column hidden for entries without an Id.
-    _donations = impact.DonationHistory
-      .Select((d, i) => new DonationRow(i + 1, d.Date, d.Channel, d.Amount))
-      .ToList();
+    var rows = await Api.GetPublicDonorDonationsAsync(DonorId.Value);
+    _donations = rows.Select(r => new DonationRow(r.Id, r.Date, r.Channel, r.Amount)).ToList();
   }
 
   private record DonationRow(int Id, DateTime Date, string Channel, decimal Amount);

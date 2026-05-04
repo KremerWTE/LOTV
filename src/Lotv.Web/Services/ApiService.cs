@@ -217,6 +217,9 @@ public class ApiService
     public Task<PublicDonorImpactDto?> GetPublicDonorImpactAsync(int donorId) =>
         GetAsync<PublicDonorImpactDto>($"/api/public/v1/donors/{donorId}/impact");
 
+    public Task<List<PublicDonationRow>> GetPublicDonorDonationsAsync(int donorId) =>
+        GetListAsync<PublicDonationRow>($"/api/public/v1/donors/{donorId}/donations");
+
     public Task<List<PublicFamilyRequestDto>> GetPublicFamilyRequestsAsync(int familyId) =>
         GetListAsync<PublicFamilyRequestDto>($"/api/public/v1/families/{familyId}/requests");
 
@@ -417,6 +420,22 @@ public class ApiService
     private record MagicLinkResp(int DonorId);
 
     // ── Push subscription ─────────────────────────────────────────────────
+    public Task<List<PushSubRow>> GetPushSubscriptionsAsync() =>
+        GetListAsync<PushSubRow>("/api/v1/push/subscriptions");
+
+    public async Task<bool> RevokePushSubscriptionAsync(int id)
+    {
+        try { var r = await _http.DeleteAsync($"/api/v1/push/subscriptions/{id}"); return r.IsSuccessStatusCode; }
+        catch { return false; }
+    }
+    public record PushSubRow(int Id, string UserId, string? UserName, string? UserEmail, string Endpoint, DateTime CreatedAt);
+
+    public async Task<bool> SendTestPushAsync()
+    {
+        try { var r = await _http.PostAsync("/api/v1/push/test", null); return r.IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
     public async Task<bool> RegisterPushAsync(string endpoint, string p256dh, string auth)
     {
         try
@@ -871,6 +890,8 @@ public record PublicDonorImpactDto(
 public record DonorImpactCategoryDto(string Category, decimal Amount, double Percentage);
 
 public record DonorDonationDto(DateTime Date, decimal Amount, string Channel, string Status);
+
+public record PublicDonationRow(int Id, DateTime Date, decimal Amount, string Channel, string? Campaign, bool IsRecurring);
 
 public record PublicFamilyRequestDto(
     int Id, string Category, string Status, string Priority,

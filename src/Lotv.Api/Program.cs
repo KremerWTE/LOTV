@@ -127,6 +127,7 @@ builder.Services.AddScoped<PdfReceiptService>();
 builder.Services.AddSingleton<IPushSender, PushSenderService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<FxRefreshService>();
+builder.Services.AddHostedService<MagicLinkCleanupService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddSingleton<IMockDataService, MockDataService>();      // legacy mock service
 builder.Services.AddHostedService<ScheduledReportBackgroundService>();
@@ -1670,32 +1671,65 @@ recurring.MapPut("/{id:int}", async (int id, RecurringDonation body, LotvDbConte
     return Results.Ok(existing);
 }).RequireAuthorization("ChapterAdmin");
 
-recurring.MapPost("/{id:int}/pause", async (int id, LotvDbContext db) =>
+recurring.MapPost("/{id:int}/pause", async (int id, LotvDbContext db, IConfiguration cfg) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
     r.Status = RecurringStatus.Paused;
+    await SyncStripeRecurringAsync(r, "pause", cfg);
     await db.SaveChangesAsync();
     return Results.Ok(r);
 }).RequireAuthorization("ChapterAdmin");
 
-recurring.MapPost("/{id:int}/cancel", async (int id, LotvDbContext db) =>
+recurring.MapPost("/{id:int}/cancel", async (int id, LotvDbContext db, IConfiguration cfg) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
     r.Status = RecurringStatus.Cancelled;
+    await SyncStripeRecurringAsync(r, "cancel", cfg);
     await db.SaveChangesAsync();
     return Results.Ok(r);
 }).RequireAuthorization("ChapterAdmin");
 
-recurring.MapPost("/{id:int}/resume", async (int id, LotvDbContext db) =>
+recurring.MapPost("/{id:int}/resume", async (int id, LotvDbContext db, IConfiguration cfg) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
     r.Status = RecurringStatus.Active;
+    await SyncStripeRecurringAsync(r, "resume", cfg);
     await db.SaveChangesAsync();
     return Results.Ok(r);
 }).RequireAuthorization("ChapterAdmin");
+
+static async Task SyncStripeRecurringAsync(RecurringDonation r, string action, IConfiguration cfg)
+{
+    var key = cfg["Stripe:SecretKey"];
+    if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(r.StripeSubscriptionId)) return;
+    Stripe.StripeConfiguration.ApiKey = key;
+    var svc = new Stripe.SubscriptionService();
+    try
+    {
+        switch (action)
+        {
+            case "pause":
+                await svc.UpdateAsync(r.StripeSubscriptionId, new Stripe.SubscriptionUpdateOptions
+                {
+                    PauseCollection = new Stripe.SubscriptionPauseCollectionOptions { Behavior = "void" }
+                });
+                break;
+            case "resume":
+                await svc.UpdateAsync(r.StripeSubscriptionId, new Stripe.SubscriptionUpdateOptions
+                {
+                    PauseCollection = null
+                });
+                break;
+            case "cancel":
+                await svc.CancelAsync(r.StripeSubscriptionId);
+                break;
+        }
+    }
+    catch { /* swallow — DB state is the source of truth; admin can reconcile */ }
+}
 
 // ── Pledges ───────────────────────────────────────────────────────────────────
 var pledges = app.MapGroup("/api/v1/pledges").WithTags("Pledges").RequireAuthorization("Staff");
@@ -2190,6 +2224,26 @@ publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRe
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
+// Public donor donations list (for /donor/receipts) — includes Donation.Id for per-receipt links.
+publicApi.MapGet("/donors/{donorId:int}/donations", async (int donorId, LotvDbContext db) =>
+{
+    var donor = await db.Donors.FindAsync(donorId);
+    if (donor is null) return Results.NotFound();
+    var rows = await db.Donations
+        .Where(d => d.DonorId == donorId)
+        .OrderByDescending(d => d.Date)
+        .Select(d => new {
+            id        = d.Id,
+            date      = d.Date,
+            amount    = d.Amount,
+            channel   = d.Channel.ToString(),
+            campaign  = d.Campaign,
+            isRecurring = d.IsRecurring
+        })
+        .ToListAsync();
+    return Results.Ok(rows);
+}).AllowAnonymous();
+
 // ── Donor magic-link self-service auth ───────────────────────────────────────
 publicApi.MapPost("/donor/magic-link", async (DonorMagicLinkRequest body,
     LotvDbContext db, INotificationService notify) =>
@@ -2394,6 +2448,37 @@ push.MapPost("/subscribe", async (PushSubscriptionRequest body, IChapterContextS
     await db.SaveChangesAsync();
     return Results.Ok(new { ok = true });
 });
+push.MapGet("/subscriptions", async (LotvDbContext db, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var subs = await db.PushSubscriptions.OrderByDescending(s => s.CreatedAt).ToListAsync();
+    var users = await userMgr.Users.ToDictionaryAsync(u => u.Id, u => new { u.FullName, u.Email });
+    return Results.Ok(subs.Select(s => new
+    {
+        s.Id,
+        s.UserId,
+        userName  = users.TryGetValue(s.UserId, out var u) ? u.FullName : null,
+        userEmail = users.TryGetValue(s.UserId, out var u2) ? u2.Email : null,
+        endpoint  = s.Endpoint.Length > 60 ? s.Endpoint[..60] + "…" : s.Endpoint,
+        s.CreatedAt,
+    }));
+}).RequireAuthorization("ChapterAdmin");
+
+push.MapDelete("/subscriptions/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var s = await db.PushSubscriptions.FindAsync(id);
+    if (s is null) return Results.NotFound();
+    db.PushSubscriptions.Remove(s);
+    await db.SaveChangesAsync();
+    return Results.Ok();
+}).RequireAuthorization("ChapterAdmin");
+
+push.MapPost("/test", async (IPushSender sender, IChapterContextService ctx) =>
+{
+    await sender.SendToUserAsync(ctx.UserId, "LOTV test notification",
+        "If you're seeing this, push delivery is working.", "/admin/dashboard");
+    return Results.Ok(new { sent = true });
+});
+
 push.MapDelete("/subscribe", async (string endpoint, LotvDbContext db) =>
 {
     var sub = await db.PushSubscriptions.FirstOrDefaultAsync(p => p.Endpoint == endpoint);

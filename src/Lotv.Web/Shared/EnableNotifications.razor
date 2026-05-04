@@ -14,6 +14,7 @@
   else if (_state == State.Enabled)
   {
     <span style="color:var(--green-dark);font-weight:700;">&#10003; Enabled</span>
+    <button class="btn btn-sm" type="button" @onclick="SendTest">Send test</button>
   }
   else if (_state == State.Unsupported)
   {
@@ -25,6 +26,12 @@
   enum State { Idle, Enabled, Unsupported, Failed }
   private State _state = State.Idle;
   private string _status = "Get alerted when new requests are submitted to your chapter.";
+
+  private async Task SendTest()
+  {
+    var ok = await Api.SendTestPushAsync();
+    _status = ok ? "Test sent — check your notifications." : "Test failed (server may not be configured).";
+  }
 
   private async Task EnableAsync()
   {

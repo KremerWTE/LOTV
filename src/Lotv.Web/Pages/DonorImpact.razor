@@ -33,7 +33,7 @@
   {
     <!-- IMPACT HEADLINE -->
     <div style="text-align:center;margin-bottom:36px;">
-      <div style="font-size:3rem;font-family:var(--ff-head);font-weight:800;color:var(--gold);">@_totalGiven.ToString("C0")</div>
+      <div style="font-size:3rem;font-family:var(--ff-head);font-weight:800;color:var(--gold);"><Money Amount="@_totalGiven" /></div>
       <div style="font-size:1.1rem;color:var(--navy);font-weight:600;margin:6px 0;">Total contributed to LOTV Ministry</div>
       <p style="color:var(--text-mid);font-size:.88rem;">Thank you for your generosity. Your gifts have helped @_familiesHelped families across @_chaptersServed chapters.</p>
     </div>
@@ -43,7 +43,7 @@
       <div class="kpi-card kpi-gold">
         <div class="kpi-icon">&#128184;</div>
         <div class="kpi-label">Total Given</div>
-        <div class="kpi-value" style="color:var(--gold)">@_totalGiven.ToString("C0")</div>
+        <div class="kpi-value" style="color:var(--gold)"><Money Amount="@_totalGiven" /></div>
       </div>
       <div class="kpi-card kpi-navy">
         <div class="kpi-icon">&#127873;</div>
@@ -58,7 +58,7 @@
       <div class="kpi-card kpi-amber">
         <div class="kpi-icon">&#127803;</div>
         <div class="kpi-label">Avg Gift</div>
-        <div class="kpi-value" style="color:var(--amber)">@(_giftCount > 0 ? (_totalGiven / _giftCount).ToString("C0") : "$0")</div>
+        <div class="kpi-value" style="color:var(--amber)">@if (_giftCount > 0) { <Money Amount="@(_totalGiven / _giftCount)" /> } else { <text>$0</text> }</div>
       </div>
     </div>
 
@@ -78,7 +78,7 @@
             <div style="margin-bottom:14px;">
               <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:4px;">
                 <span style="font-weight:600;">@item.Category</span>
-                <span>@item.Amount.ToString("C0") &mdash; @item.Percentage.ToString("F0")%</span>
+                <span><Money Amount="@item.Amount" /> &mdash; @item.Percentage.ToString("F0")%</span>
               </div>
               <div style="height:12px;background:var(--bg);border-radius:6px;overflow:hidden;">
                 <div style="height:100%;width:@barPct%;background:var(--gold);border-radius:6px;transition:width .3s;"></div>
@@ -113,7 +113,7 @@
               {
                 <tr>
                   <td>@d.Date.ToString("MMM d, yyyy")</td>
-                  <td style="text-align:right;font-weight:700;color:var(--gold);">@d.Amount.ToString("C0")</td>
+                  <td style="text-align:right;font-weight:700;color:var(--gold);"><Money Amount="@d.Amount" /></td>
                   <td>@d.Channel</td>
                   <td><span class="badge badge-delivered" style="font-size:.66rem;">@d.Status</span></td>
                 </tr>

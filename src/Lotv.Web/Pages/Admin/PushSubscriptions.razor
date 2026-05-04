@@ -1,0 +1,45 @@
+@page "/admin/push-subscriptions"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Push Subscriptions — LOTV Staff</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Push Subscriptions</h2><p>Browser notification endpoints registered by users in this org.</p></div>
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>User</th><th>Email</th><th>Endpoint</th><th>Registered</th><th></th></tr>
+      </thead>
+      <tbody>
+        @if (_rows.Count == 0)
+        {
+          <tr><td colspan="5" style="padding:32px;text-align:center;color:var(--text-light);">No subscriptions yet. Users can opt in from the Settings page.</td></tr>
+        }
+        @foreach (var r in _rows)
+        {
+          <tr>
+            <td><strong>@(r.UserName ?? "—")</strong></td>
+            <td style="font-size:.78rem;color:var(--text-light);">@r.UserEmail</td>
+            <td style="font-family:monospace;font-size:.72rem;color:var(--text-light);">@r.Endpoint</td>
+            <td style="font-size:.78rem;color:var(--text-light);">@r.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</td>
+            <td><button class="btn btn-sm" @onclick="() => Revoke(r.Id)">Revoke</button></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@code {
+  private List<ApiService.PushSubRow> _rows = new();
+  protected override async Task OnInitializedAsync() => _rows = await Api.GetPushSubscriptionsAsync();
+  private async Task Revoke(int id)
+  {
+    if (await Api.RevokePushSubscriptionAsync(id))
+      _rows = await Api.GetPushSubscriptionsAsync();
+  }
+}
