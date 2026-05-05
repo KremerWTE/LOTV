@@ -203,7 +203,7 @@
   private string _dNotes = "";
   private string _addError = "";
 
-  private readonly string[] _filters = ["All", "This Month", "Online", "Check", "Gala", "Unallocated", "Recurring"];
+  private readonly string[] _filters = ["All", "This Month", "Online", "Check", "Gala", "Unallocated", "Recurring", "One-time"];
 
   private IEnumerable<Donation> Filtered
   {
@@ -220,6 +220,7 @@
           "Gala"       => d.Channel == DonationChannel.Gala,
           "Unallocated"=> d.AllocationStatus == AllocationStatus.Unallocated,
           "Recurring"  => d.IsRecurring,
+          "One-time"   => !d.IsRecurring,
           _            => true
         };
         var matchSearch = string.IsNullOrEmpty(_search) ||

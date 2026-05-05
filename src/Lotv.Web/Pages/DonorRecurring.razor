@@ -63,7 +63,7 @@
             <!-- Amount + frequency -->
             <div style="flex:1;min-width:180px;">
               <div style="font-family:var(--ff-head);font-size:1.6rem;font-weight:700;color:var(--navy);">
-                @s.Amount.ToString("C0")
+<Money Amount="@s.Amount" />
               </div>
               <div style="font-size:.82rem;color:var(--text-light);">@s.FrequencyLabel</div>
             </div>
@@ -182,11 +182,11 @@
       </div>
       <div>
         <div style="color:var(--text-light);margin-bottom:2px;">Monthly giving</div>
-        <div style="font-size:1.4rem;font-weight:700;color:#2d6a2d;">@MonthlyTotal.ToString("C0")</div>
+        <div style="font-size:1.4rem;font-weight:700;color:#2d6a2d;"><Money Amount="@MonthlyTotal" /></div>
       </div>
       <div>
         <div style="color:var(--text-light);margin-bottom:2px;">Projected annual impact</div>
-        <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@(MonthlyTotal * 12).ToString("C0")</div>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--navy);"><Money Amount="@(MonthlyTotal * 12)" /></div>
       </div>
     </div>
   }

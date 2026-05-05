@@ -2,6 +2,7 @@
 @layout PublicLayout
 @inject ApiService Api
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Donor Sign In — LOTV Ministry</PageTitle>
 
@@ -68,6 +69,7 @@
       if (donorId is not null)
       {
         _state = State.Verified;
+        try { await JS.InvokeVoidAsync("sessionStorage.setItem", "lotv.donorToken", token); } catch { }
         Nav.NavigateTo($"/donor/portal?DonorId={donorId.Value}");
       }
       else

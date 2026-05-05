@@ -121,7 +121,10 @@
   private async Task OpenBillingPortal()
   {
     if (DonorId is null) return;
-    var url = await Api.CreateBillingPortalUrlAsync(DonorId.Value);
+    string? token = null;
+    try { token = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorToken"); } catch { }
+    if (string.IsNullOrEmpty(token)) { Nav.NavigateTo("/donor/login"); return; }
+    var url = await Api.CreateBillingPortalUrlAsync(DonorId.Value, token);
     if (!string.IsNullOrEmpty(url)) Nav.NavigateTo(url, forceLoad: true);
   }
 

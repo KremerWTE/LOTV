@@ -2251,8 +2251,15 @@ publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRe
 }).AllowAnonymous();
 
 // Stripe Customer Portal session for donor self-service (cards, subscriptions, invoices).
-publicApi.MapPost("/donors/{donorId:int}/billing-portal", async (int donorId, LotvDbContext db, IConfiguration cfg) =>
+// Requires the caller to present a valid (used/unexpired) DonorMagicLink token for the donorId.
+publicApi.MapPost("/donors/{donorId:int}/billing-portal", async (int donorId, BillingPortalRequest body, LotvDbContext db, IConfiguration cfg) =>
 {
+    if (string.IsNullOrEmpty(body.Token)) return Results.Unauthorized();
+    var link = await db.DonorMagicLinks
+        .Where(l => l.DonorId == donorId && l.Token == body.Token && l.ExpiresAt > DateTime.UtcNow.AddHours(-1))
+        .FirstOrDefaultAsync();
+    if (link is null) return Results.Unauthorized();
+
     var donor = await db.Donors.FindAsync(donorId);
     if (donor is null) return Results.NotFound();
     var key = cfg["Stripe:SecretKey"];
@@ -2503,27 +2510,63 @@ push.MapPost("/subscribe", async (PushSubscriptionRequest body, IChapterContextS
     await db.SaveChangesAsync();
     return Results.Ok(new { ok = true });
 });
+// Bulk: send portal links to all chapter donors with email + no active link in past 24h.
+app.MapPost("/api/v1/donors/send-portal-link/bulk", async (LotvDbContext db, INotificationService notify, IChapterContextService ctx) =>
+{
+    var donors = await db.Donors
+        .Where(d => d.ChapterId == ctx.ChapterId && !string.IsNullOrEmpty(d.Email) && !d.IsAnonymous)
+        .ToListAsync();
+
+    var recent = (await db.DonorMagicLinks
+        .Where(l => l.ExpiresAt > DateTime.UtcNow && l.UsedAt == null)
+        .Select(l => l.DonorId)
+        .ToListAsync()).ToHashSet();
+
+    var sent = 0;
+    foreach (var donor in donors)
+    {
+        if (recent.Contains(donor.Id)) continue;
+        var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        db.DonorMagicLinks.Add(new DonorMagicLink
+        {
+            DonorId = donor.Id, Token = token, ExpiresAt = DateTime.UtcNow.AddDays(7),
+        });
+        var link = $"/donor/login?token={token}";
+        try
+        {
+            await notify.SendEmailAsync(donor.Email!, donor.FullName ?? "Donor",
+                "Access your LOTV donor portal",
+                $"<p>Hello {donor.FirstName},</p><p>You can access your donor portal here (link valid 7 days):</p><p><a href=\"{link}\">{link}</a></p>");
+            sent++;
+        }
+        catch { }
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok(new { sent, skipped = donors.Count - sent });
+}).RequireAuthorization("ChapterAdmin");
+
 // Admin-triggered donor portal magic-link (no email-existence check; admins already have donor record)
-app.MapPost("/api/v1/donors/{donorId:int}/send-portal-link", async (int donorId, LotvDbContext db, INotificationService notify) =>
+app.MapPost("/api/v1/donors/{donorId:int}/send-portal-link", async (int donorId, int? days, LotvDbContext db, INotificationService notify) =>
 {
     var donor = await db.Donors.FindAsync(donorId);
     if (donor is null) return Results.NotFound();
     if (string.IsNullOrEmpty(donor.Email)) return Results.BadRequest(new { error = "Donor has no email on file." });
 
+    var ttlDays = days is 1 or 3 or 7 or 30 ? days.Value : 7;
     var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
     db.DonorMagicLinks.Add(new DonorMagicLink
     {
         DonorId   = donor.Id,
         Token     = token,
-        ExpiresAt = DateTime.UtcNow.AddDays(7),
+        ExpiresAt = DateTime.UtcNow.AddDays(ttlDays),
     });
     await db.SaveChangesAsync();
 
     var link = $"/donor/login?token={token}";
     await notify.SendEmailAsync(donor.Email!, donor.FullName ?? "Donor",
         "Access your LOTV donor portal",
-        $"<p>Hello {donor.FirstName},</p><p>You can access your donor portal here (link valid 7 days):</p><p><a href=\"{link}\">{link}</a></p>");
-    return Results.Ok(new { sent = true });
+        $"<p>Hello {donor.FirstName},</p><p>You can access your donor portal here (link valid {ttlDays} day{(ttlDays != 1 ? "s" : "")}):</p><p><a href=\"{link}\">{link}</a></p>");
+    return Results.Ok(new { sent = true, expiresInDays = ttlDays });
 }).RequireAuthorization("ChapterAdmin");
 
 // EF migration introspection (admin diagnostics)
@@ -2811,7 +2854,21 @@ app.MapPost("/api/v1/payments/webhook", async (HttpRequest request, LotvDbContex
             ? Stripe.EventUtility.ParseEvent(json)
             : Stripe.EventUtility.ConstructEvent(json, sig, sigSecret);
     }
-    catch (Exception ex) { log.LogWarning(ex, "Stripe webhook signature failed"); return Results.BadRequest(); }
+    catch (Exception ex)
+    {
+        log.LogWarning(ex, "Stripe webhook signature failed");
+        db.AuditEntries.Add(new AuditEntry
+        {
+            Entity    = "StripeWebhook",
+            EntityId  = "0",
+            Action    = "SignatureFailed",
+            UserName  = "Stripe (anon)",
+            Timestamp = DateTime.UtcNow,
+            Details   = ex.Message,
+        });
+        await db.SaveChangesAsync();
+        return Results.BadRequest();
+    }
 
     // Idempotency: skip if already processed
     if (await db.WebhookEvents.AnyAsync(w => w.Source == "stripe" && w.ExternalId == ev.Id))
@@ -3460,6 +3517,7 @@ record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,
     string? DonorFirstName, string? DonorLastName, string? StripePaymentIntentId);
 record AvatarUpdateRequest(string? AvatarUrl);
 record PaymentIntentRequest(decimal Amount, string? Currency);
+record BillingPortalRequest(string Token);
 record PushSubscriptionRequest(string Endpoint, string P256dh, string Auth);
 record DonorMagicLinkRequest(string Email);
 record DonorMagicLinkVerifyRequest(string Token);

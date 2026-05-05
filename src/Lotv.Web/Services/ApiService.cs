@@ -220,11 +220,12 @@ public class ApiService
     public Task<List<PublicDonationRow>> GetPublicDonorDonationsAsync(int donorId) =>
         GetListAsync<PublicDonationRow>($"/api/public/v1/donors/{donorId}/donations");
 
-    public async Task<string?> CreateBillingPortalUrlAsync(int donorId)
+    public async Task<string?> CreateBillingPortalUrlAsync(int donorId, string token)
     {
         try
         {
-            var resp = await _http.PostAsync($"/api/public/v1/donors/{donorId}/billing-portal", null);
+            var resp = await _http.PostAsJsonAsync($"/api/public/v1/donors/{donorId}/billing-portal",
+                new { Token = token });
             if (!resp.IsSuccessStatusCode) return null;
             var doc = await resp.Content.ReadFromJsonAsync<BillingPortalDto>();
             return doc?.Url;
@@ -233,9 +234,21 @@ public class ApiService
     }
     private record BillingPortalDto(string Url);
 
-    public async Task<bool> SendDonorPortalLinkAsync(int donorId)
+    public async Task<BulkLinkResult?> SendBulkPortalLinksAsync()
     {
-        try { var r = await _http.PostAsync($"/api/v1/donors/{donorId}/send-portal-link", null); return r.IsSuccessStatusCode; }
+        try
+        {
+            var resp = await _http.PostAsync("/api/v1/donors/send-portal-link/bulk", null);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<BulkLinkResult>();
+        }
+        catch { return null; }
+    }
+    public record BulkLinkResult(int Sent, int Skipped);
+
+    public async Task<bool> SendDonorPortalLinkAsync(int donorId, int days = 7)
+    {
+        try { var r = await _http.PostAsync($"/api/v1/donors/{donorId}/send-portal-link?days={days}", null); return r.IsSuccessStatusCode; }
         catch { return false; }
     }
 

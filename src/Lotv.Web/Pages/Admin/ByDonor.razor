@@ -6,6 +6,11 @@
 
 <div class="page-hd">
   <div><h2>Donations by Donor</h2><p>Giving summary per individual donor</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" type="button" @onclick="BulkSendPortalLinks" disabled="@_bulkBusy">
+      @(_bulkBusy ? "Sending…" : "📧 Bulk-send portal links")
+    </button>
+  </div>
 </div>
 @if (_toast is not null)
 {
@@ -126,6 +131,19 @@
   [Parameter, SupplyParameterFromQuery] public string? City { get; set; }
   [Parameter, SupplyParameterFromQuery] public string? Diocese { get; set; }
   private string? _toast;
+  private bool _bulkBusy;
+  private async Task BulkSendPortalLinks()
+  {
+    _bulkBusy = true;
+    var result = await Api.SendBulkPortalLinksAsync();
+    _bulkBusy = false;
+    _toast = result is null
+      ? "Bulk send failed."
+      : $"Sent {result.Sent} link(s); skipped {result.Skipped} (already had a recent link).";
+    StateHasChanged();
+    _ = Task.Delay(4000).ContinueWith(_ => { _toast = null; InvokeAsync(StateHasChanged); });
+  }
+
   private async Task SendPortalLink(Donor donor)
   {
     var ok = await Api.SendDonorPortalLinkAsync(donor.Id);
