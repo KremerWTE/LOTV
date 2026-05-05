@@ -26,6 +26,7 @@ public class Donor
     public int GiftCount { get; set; }
     public DonorTier Tier { get; set; }
     public string? Notes { get; set; }
+    public string? AvatarUrl { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public string FullName => $"{FirstName} {LastName}";

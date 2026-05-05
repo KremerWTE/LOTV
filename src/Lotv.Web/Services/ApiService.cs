@@ -420,6 +420,10 @@ public class ApiService
     private record MagicLinkResp(int DonorId);
 
     // ── Push subscription ─────────────────────────────────────────────────
+    public Task<MigrationsDto?> GetMigrationsAsync() =>
+        GetAsync<MigrationsDto>("/api/v1/admin/migrations");
+    public record MigrationsDto(List<string> Applied, List<string> Pending);
+
     public Task<List<PushSubRow>> GetPushSubscriptionsAsync() =>
         GetListAsync<PushSubRow>("/api/v1/push/subscriptions");
 

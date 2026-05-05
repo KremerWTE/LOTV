@@ -76,7 +76,7 @@ else
   <div class="kpi-card kpi-green">
     <div class="kpi-icon">&#128184;</div>
     <div class="kpi-label">Donations This Month</div>
-    <div class="kpi-value" style="color:var(--green)">@_stats.DonationsThisMonth.ToString("C0")</div>
+    <div class="kpi-value" style="color:var(--green)"><Money Amount="@_stats.DonationsThisMonth" /></div>
     @if (_donationGrowth > 0)
     { <div class="kpi-change change-up">&#9650; @_donationGrowth% vs. last month</div> }
     else if (_donationGrowth < 0)
@@ -115,7 +115,7 @@ else
   <div class="kpi-card kpi-amber">
     <div class="kpi-icon">&#128197;</div>
     <div class="kpi-label">Unallocated Funds</div>
-    <div class="kpi-value" style="color:var(--amber)">@_stats.UnallocatedFunds.ToString("C0")</div>
+    <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_stats.UnallocatedFunds" /></div>
     <div class="kpi-change">@_stats.PendingAllocations allocations pending review</div>
   </div>
 </div>
@@ -133,7 +133,7 @@ else
       {
         <div style="font-size:.75rem;color:var(--text-light);margin-bottom:6px;display:flex;justify-content:space-between;">
           <span>Monthly giving — last 12 months</span>
-          <span style="font-weight:600;color:var(--green);">Peak: @_timeline.Max(p => p.Donations).ToString("C0")</span>
+          <span style="font-weight:600;color:var(--green);">Peak: <Money Amount="@_timeline.Max(p => p.Donations)" /></span>
         </div>
       }
       <LineChart Items="_timeline"
@@ -303,15 +303,15 @@ else
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:20px;">
         <div style="background:var(--gold-pale,#fefce8);border:1px solid var(--gold);border-radius:10px;padding:14px 16px;text-align:center;">
           <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--gold);margin-bottom:4px;">Total Revenue YTD</div>
-          <div style="font-size:1.4rem;font-weight:700;color:var(--gold);">@_eventRevenue.ToString("C0")</div>
+          <div style="font-size:1.4rem;font-weight:700;color:var(--gold);"><Money Amount="@_eventRevenue" /></div>
         </div>
         <div style="background:var(--green-pale);border:1px solid var(--green);border-radius:10px;padding:14px 16px;text-align:center;">
           <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:4px;">Ticket Revenue</div>
-          <div style="font-size:1.4rem;font-weight:700;color:var(--green);">@_ticketRevenue.ToString("C0")</div>
+          <div style="font-size:1.4rem;font-weight:700;color:var(--green);"><Money Amount="@_ticketRevenue" /></div>
         </div>
         <div style="background:#f0f0ff;border:1px solid var(--navy);border-radius:10px;padding:14px 16px;text-align:center;">
           <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--navy);margin-bottom:4px;">Auction Revenue</div>
-          <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@_auctionRevenue.ToString("C0")</div>
+          <div style="font-size:1.4rem;font-weight:700;color:var(--navy);"><Money Amount="@_auctionRevenue" /></div>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;">
           <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:4px;">Upcoming Events</div>

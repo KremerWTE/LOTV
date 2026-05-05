@@ -1,0 +1,62 @@
+@page "/admin/migrations"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>DB Migrations — LOTV Staff</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Database Migrations</h2><p>EF Core migration history for the current connection.</p></div>
+</div>
+
+@if (_data is null)
+{
+  <Loading Message="Loading migration history…" />
+}
+else
+{
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+
+    <div class="panel">
+      <div class="panel-head"><h3>Applied (@_data.Applied.Count)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        @if (_data.Applied.Count == 0)
+        {
+          <div style="padding:18px;color:var(--text-light);">No migrations applied.</div>
+        }
+        else
+        {
+          <ul style="list-style:none;margin:0;padding:0;">
+            @foreach (var m in _data.Applied)
+            {
+              <li style="padding:10px 16px;border-top:1px solid var(--border);font-family:monospace;font-size:.78rem;">@m</li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Pending (@_data.Pending.Count)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        @if (_data.Pending.Count == 0)
+        {
+          <div style="padding:18px;color:var(--green-dark);">&#10003; All migrations applied — schema is up to date.</div>
+        }
+        else
+        {
+          <ul style="list-style:none;margin:0;padding:0;">
+            @foreach (var m in _data.Pending)
+            {
+              <li style="padding:10px 16px;border-top:1px solid var(--border);font-family:monospace;font-size:.78rem;color:var(--amber);">&#9888; @m</li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private ApiService.MigrationsDto? _data;
+  protected override async Task OnInitializedAsync() => _data = await Api.GetMigrationsAsync();
+}

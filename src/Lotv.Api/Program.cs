@@ -2224,6 +2224,18 @@ publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRe
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
+// Donor avatar update (self-service via magic-link query param)
+publicApi.MapPut("/donors/{donorId:int}/avatar", async (int donorId, AvatarUpdateRequest body, LotvDbContext db) =>
+{
+    var d = await db.Donors.FindAsync(donorId);
+    if (d is null) return Results.NotFound();
+    if (body.AvatarUrl is not null && body.AvatarUrl.Length > 1_500_000)
+        return Results.BadRequest(new { error = "Avatar too large (max ~1MB)." });
+    d.AvatarUrl = body.AvatarUrl;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { d.AvatarUrl });
+}).AllowAnonymous();
+
 // Public donor donations list (for /donor/receipts) — includes Donation.Id for per-receipt links.
 publicApi.MapGet("/donors/{donorId:int}/donations", async (int donorId, LotvDbContext db) =>
 {
@@ -2448,6 +2460,14 @@ push.MapPost("/subscribe", async (PushSubscriptionRequest body, IChapterContextS
     await db.SaveChangesAsync();
     return Results.Ok(new { ok = true });
 });
+// EF migration introspection (admin diagnostics)
+app.MapGet("/api/v1/admin/migrations", async (LotvDbContext db) =>
+{
+    var applied = (await db.Database.GetAppliedMigrationsAsync()).ToList();
+    var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+    return Results.Ok(new { applied, pending });
+}).RequireAuthorization("ChapterAdmin");
+
 push.MapGet("/subscriptions", async (LotvDbContext db, UserManager<LotvIdentityUser> userMgr) =>
 {
     var subs = await db.PushSubscriptions.OrderByDescending(s => s.CreatedAt).ToListAsync();
@@ -2650,10 +2670,87 @@ app.MapPost("/api/v1/payments/intent", async (PaymentIntentRequest body, IConfig
     return Results.Ok(new { clientSecret = intent.ClientSecret, publishableKey, mock = false });
 }).AllowAnonymous();
 
-app.MapPost("/api/v1/payments/webhook", async (HttpRequest request) =>
+app.MapPost("/api/v1/payments/webhook", async (HttpRequest request, LotvDbContext db,
+    IConfiguration cfg, ILogger<Program> log) =>
 {
-    // Stripe signature verification and webhook processing happens here
-    // TODO: implement with Stripe.net SDK
+    var sigSecret = cfg["Stripe:WebhookSecret"] ?? "";
+    var secretKey = cfg["Stripe:SecretKey"] ?? "";
+    if (string.IsNullOrEmpty(secretKey)) return Results.Ok(); // unconfigured — accept silently
+
+    request.EnableBuffering();
+    using var sr = new StreamReader(request.Body, leaveOpen: true);
+    var json = await sr.ReadToEndAsync();
+    request.Body.Position = 0;
+
+    Stripe.Event ev;
+    try
+    {
+        var sig = request.Headers["Stripe-Signature"].FirstOrDefault() ?? "";
+        ev = string.IsNullOrEmpty(sigSecret)
+            ? Stripe.EventUtility.ParseEvent(json)
+            : Stripe.EventUtility.ConstructEvent(json, sig, sigSecret);
+    }
+    catch (Exception ex) { log.LogWarning(ex, "Stripe webhook signature failed"); return Results.BadRequest(); }
+
+    Stripe.StripeConfiguration.ApiKey = secretKey;
+
+    switch (ev.Type)
+    {
+        case "customer.subscription.created":
+        case "customer.subscription.updated":
+        {
+            if (ev.Data.Object is not Stripe.Subscription sub) break;
+            // Match by Stripe customer id → Donor
+            var donor = await db.Donors.FirstOrDefaultAsync(d => d.StripeCustomerId == sub.CustomerId);
+            if (donor is null) break;
+            var existing = await db.RecurringDonations.FirstOrDefaultAsync(r => r.StripeSubscriptionId == sub.Id);
+            var amount = sub.Items?.Data?.FirstOrDefault()?.Price?.UnitAmount is long c ? c / 100m : 0m;
+            if (existing is null)
+            {
+                db.RecurringDonations.Add(new RecurringDonation
+                {
+                    DonorId = donor.Id, ChapterId = donor.ChapterId,
+                    Amount = amount, Frequency = RecurringFrequency.Monthly,
+                    Status = sub.Status == "active" ? RecurringStatus.Active : RecurringStatus.Paused,
+                    StripeSubscriptionId = sub.Id,
+                });
+            }
+            else if (sub.Status == "canceled")
+            {
+                existing.Status = RecurringStatus.Cancelled;
+            }
+            await db.SaveChangesAsync();
+            break;
+        }
+        case "invoice.payment_succeeded":
+        {
+            if (ev.Data.Object is not Stripe.Invoice inv) break;
+            var donor = await db.Donors.FirstOrDefaultAsync(d => d.StripeCustomerId == inv.CustomerId);
+            if (donor is null) break;
+            db.Donations.Add(new Donation
+            {
+                DonorId   = donor.Id,
+                ChapterId = donor.ChapterId,
+                Amount    = (inv.AmountPaid) / 100m,
+                Date      = DateTime.UtcNow,
+                Channel   = DonationChannel.Online,
+                IsRecurring = !string.IsNullOrEmpty(inv.SubscriptionId),
+                StripePaymentIntentId = inv.PaymentIntentId,
+            });
+            donor.TotalGiven  += inv.AmountPaid / 100m;
+            donor.GiftCount   += 1;
+            donor.LastGiftDate = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            break;
+        }
+        case "customer.subscription.deleted":
+        {
+            if (ev.Data.Object is not Stripe.Subscription sub) break;
+            var existing = await db.RecurringDonations.FirstOrDefaultAsync(r => r.StripeSubscriptionId == sub.Id);
+            if (existing is not null) { existing.Status = RecurringStatus.Cancelled; await db.SaveChangesAsync(); }
+            break;
+        }
+    }
     return Results.Ok();
 }).WithTags("Payments").AllowAnonymous().RequireRateLimiting("payment");
 
