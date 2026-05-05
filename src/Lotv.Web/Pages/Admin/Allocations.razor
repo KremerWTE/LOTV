@@ -14,22 +14,22 @@
   <div class="kpi-card kpi-green">
     <div class="kpi-icon">&#9989;</div>
     <div class="kpi-label">Allocated</div>
-    <div class="kpi-value" style="color:var(--green)">@_allocs.Where(a => a.Status == AllocationStatus.Allocated).Sum(a => a.Amount).ToString("C0")</div>
+    <div class="kpi-value" style="color:var(--green)"><Money Amount="@_allocs.Where(a => a.Status == AllocationStatus.Allocated).Sum(a => a.Amount)" /></div>
   </div>
   <div class="kpi-card kpi-amber">
     <div class="kpi-icon">&#128336;</div>
     <div class="kpi-label">Pending Review</div>
-    <div class="kpi-value" style="color:var(--amber)">@_allocs.Where(a => a.Status == AllocationStatus.PendingReview).Sum(a => a.Amount).ToString("C0")</div>
+    <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_allocs.Where(a => a.Status == AllocationStatus.PendingReview).Sum(a => a.Amount)" /></div>
   </div>
   <div class="kpi-card kpi-navy">
     <div class="kpi-icon">&#128203;</div>
     <div class="kpi-label">Unallocated</div>
-    <div class="kpi-value" style="color:var(--navy)">@_allocs.Where(a => a.Status == AllocationStatus.Unallocated).Sum(a => a.Amount).ToString("C0")</div>
+    <div class="kpi-value" style="color:var(--navy)"><Money Amount="@_allocs.Where(a => a.Status == AllocationStatus.Unallocated).Sum(a => a.Amount)" /></div>
   </div>
   <div class="kpi-card kpi-gold">
     <div class="kpi-icon">&#128184;</div>
     <div class="kpi-label">Total Tracked</div>
-    <div class="kpi-value" style="color:var(--gold)">@_allocs.Sum(a => a.Amount).ToString("C0")</div>
+    <div class="kpi-value" style="color:var(--gold)"><Money Amount="@_allocs.Sum(a => a.Amount)" /></div>
   </div>
 </div>
 
@@ -50,7 +50,7 @@
           <tr>
             <td style="font-size:.74rem;color:var(--text-light);">#@a.Id</td>
             <td><strong>@(a.Donation?.Donor?.FullName ?? $"Donation #{a.DonationId}")</strong></td>
-            <td style="font-weight:700;color:var(--green);">@a.Amount.ToString("C0")</td>
+            <td style="font-weight:700;color:var(--green);"><Money Amount="@a.Amount" /></td>
             <td style="font-size:.82rem;">@a.AllocatedTo</td>
             <td>
               @switch (a.Status)
@@ -93,7 +93,7 @@
     <div class="drawer-body">
       <div style="background:var(--green-pale);border-radius:10px;padding:14px 16px;font-size:.84rem;margin-bottom:4px;">
         <div><strong>Donor:</strong> @(_reviewing.Donation?.Donor?.FullName ?? $"Donation #{_reviewing.DonationId}")</div>
-        <div style="margin-top:4px;"><strong>Amount:</strong> <span style="color:var(--green);font-weight:700;">@_reviewing.Amount.ToString("C0")</span></div>
+        <div style="margin-top:4px;"><strong>Amount:</strong> <span style="color:var(--green);font-weight:700;"><Money Amount="@_reviewing.Amount" /></span></div>
         <div style="margin-top:4px;"><strong>Received:</strong> @_reviewing.CreatedAt.ToString("MMM d, yyyy")</div>
       </div>
       <div class="form-group">

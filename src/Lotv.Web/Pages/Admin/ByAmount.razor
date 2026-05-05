@@ -98,9 +98,7 @@ else
             <td style="text-align:right;color:var(--gold);">@_bands.Sum(b => b.TotalAmount).ToString("C0")</td>
             <td style="text-align:right;">100%</td>
             <td style="text-align:right;color:var(--text-mid);">
-              @(_bands.Sum(b => b.GiftCount) > 0
-                ? (_bands.Sum(b => b.TotalAmount) / _bands.Sum(b => b.GiftCount)).ToString("C0")
-                : "$0")
+              @if (_bands.Sum(b => b.GiftCount) > 0) { <Money Amount="@(_bands.Sum(b => b.TotalAmount) / _bands.Sum(b => b.GiftCount))" /> } else { <text>$0</text> }
             </td>
           </tr>
         </tbody>

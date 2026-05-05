@@ -435,6 +435,22 @@ public class ApiService
         GetAsync<MigrationsDto>("/api/v1/admin/migrations");
     public record MigrationsDto(List<string> Applied, List<string> Pending);
 
+    public Task<List<WebhookEventRow>> GetWebhookEventsAsync(string? source = null) =>
+        GetListAsync<WebhookEventRow>($"/api/v1/admin/webhooks{(source is null ? "" : $"?source={source}")}");
+    public record WebhookEventRow(int Id, string Source, string ExternalId, string EventType, DateTime ReceivedAt);
+
+    public async Task<VapidKeyPair?> GenerateVapidKeysAsync()
+    {
+        try
+        {
+            var resp = await _http.PostAsync("/api/v1/admin/vapid/generate", null);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<VapidKeyPair>();
+        }
+        catch { return null; }
+    }
+    public record VapidKeyPair(string PublicKey, string PrivateKey);
+
     public Task<DiagnosticsDto?> GetDiagnosticsAsync() =>
         GetAsync<DiagnosticsDto>("/api/v1/admin/diagnostics");
     public record DiagnosticsDto(int PushSubscriptionCount, DateTime? FxLatest, double? FxAgeHours,

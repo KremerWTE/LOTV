@@ -48,8 +48,20 @@
         {
           <tr>
             <td>
-              <strong>@d.Donor.FullName</strong>
-              <div style="font-size:.74rem;color:var(--text-light);">@d.Donor.Email</div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                @if (!string.IsNullOrEmpty(d.Donor.AvatarUrl))
+                {
+                  <img src="@d.Donor.AvatarUrl" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0;" />
+                }
+                else
+                {
+                  <div style="width:30px;height:30px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--text-mid);flex-shrink:0;">@(d.Donor.FullName.Length > 0 ? d.Donor.FullName[0] : '?')</div>
+                }
+                <div>
+                  <strong>@d.Donor.FullName</strong>
+                  <div style="font-size:.74rem;color:var(--text-light);">@d.Donor.Email</div>
+                </div>
+              </div>
             </td>
             <td><span class="badge @TierBadge(d.Donor.Tier)">@d.Donor.Tier</span></td>
             <td style="font-weight:600;">@d.GiftCount</td>

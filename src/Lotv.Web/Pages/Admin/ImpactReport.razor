@@ -23,7 +23,7 @@
   <div class="kpi-card kpi-amber">
     <div class="kpi-icon">&#128184;</div>
     <div class="kpi-label">Total Donations Raised</div>
-    <div class="kpi-value" style="color:var(--amber)">@_donations.Sum(d => d.Amount).ToString("C0")</div>
+    <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_donations.Sum(d => d.Amount)" /></div>
   </div>
   <div class="kpi-card kpi-gold">
     <div class="kpi-icon">&#9195;</div>
@@ -136,8 +136,8 @@
               FormatFunc='m => $"{m.Amount:C0} ({m.GiftCount} gifts)"'
               Color="var(--green)" MaxBarHeight="140" />
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:24px;">
-      <div style="font-size:.82rem;"><strong>6-month total:</strong> @_monthlyTrend.Sum(m => m.Amount).ToString("C0")</div>
-      <div style="font-size:.82rem;"><strong>Avg / month:</strong> @(_monthlyTrend.Count > 0 ? (_monthlyTrend.Sum(m => m.Amount) / _monthlyTrend.Count).ToString("C0") : "—")</div>
+      <div style="font-size:.82rem;"><strong>6-month total:</strong> <Money Amount="@_monthlyTrend.Sum(m => m.Amount)" /></div>
+      <div style="font-size:.82rem;"><strong>Avg / month:</strong> @if (_monthlyTrend.Count > 0) { <Money Amount="@(_monthlyTrend.Sum(m => m.Amount) / _monthlyTrend.Count)" /> } else { <text>—</text> }</div>
       <div style="font-size:.82rem;"><strong>Best month:</strong> @(_monthlyTrend.OrderByDescending(m => m.Amount).FirstOrDefault()?.Label ?? "—")</div>
     </div>
   </div>

@@ -1,0 +1,55 @@
+@page "/admin/webhooks"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Webhook Events — LOTV Staff</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Webhook Events</h2><p>Last 100 inbound webhook deliveries (idempotency ledger).</p></div>
+  <div class="page-hd-actions" style="display:flex;gap:8px;">
+    <button class="btn btn-sm @(_filter is null ? "btn-primary" : "")" @onclick="() => Apply(null)">All</button>
+    <button class="btn btn-sm @(_filter == "stripe" ? "btn-primary" : "")" @onclick='() => Apply("stripe")'>Stripe</button>
+    <button class="btn btn-sm @(_filter == "givebutter" ? "btn-primary" : "")" @onclick='() => Apply("givebutter")'>GiveButter</button>
+    <button class="btn btn-sm" @onclick="Load">&#8635; Refresh</button>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Received</th><th>Source</th><th>Event Type</th><th>External ID</th></tr>
+      </thead>
+      <tbody>
+        @if (_rows.Count == 0)
+        {
+          <tr><td colspan="4" style="padding:32px;text-align:center;color:var(--text-light);">No webhook events match this filter.</td></tr>
+        }
+        @foreach (var r in _rows)
+        {
+          <tr>
+            <td style="font-size:.78rem;color:var(--text-light);">@r.ReceivedAt.ToLocalTime().ToString("MMM d, h:mm:ss tt")</td>
+            <td><span class="badge">@r.Source</span></td>
+            <td style="font-family:monospace;font-size:.78rem;">@r.EventType</td>
+            <td style="font-family:monospace;font-size:.72rem;color:var(--text-light);">@r.ExternalId</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@code {
+  private List<ApiService.WebhookEventRow> _rows = new();
+  private string? _filter;
+
+  protected override async Task OnInitializedAsync() => await Load();
+
+  private async Task Apply(string? src)
+  {
+    _filter = src;
+    await Load();
+  }
+
+  private async Task Load() => _rows = await Api.GetWebhookEventsAsync(_filter);
+}

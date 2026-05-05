@@ -2494,6 +2494,31 @@ app.MapGet("/api/v1/admin/migrations", async (LotvDbContext db) =>
     return Results.Ok(new { applied, pending });
 }).RequireAuthorization("ChapterAdmin");
 
+// Webhook events admin viewer
+app.MapGet("/api/v1/admin/webhooks", async (LotvDbContext db, string? source, int take = 100) =>
+{
+    var q = db.WebhookEvents.AsQueryable();
+    if (!string.IsNullOrEmpty(source)) q = q.Where(w => w.Source == source);
+    var rows = await q.OrderByDescending(w => w.ReceivedAt).Take(Math.Min(take, 500)).ToListAsync();
+    return Results.Ok(rows);
+}).RequireAuthorization("ChapterAdmin");
+
+// VAPID keypair generator — HQAdmin-only diagnostic helper that emits a key pair
+// for the operator to drop into appsettings/Push:VapidPublicKey + VapidPrivateKey.
+// Uses ECDsa P-256 + URL-safe base64 (the format Web Push expects).
+app.MapPost("/api/v1/admin/vapid/generate", () =>
+{
+    using var ecdsa = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+    var p = ecdsa.ExportParameters(includePrivateParameters: true);
+    static string B64(byte[] b) => Convert.ToBase64String(b).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    // Public key = uncompressed point: 0x04 || X || Y (65 bytes)
+    var pub = new byte[65];
+    pub[0] = 0x04;
+    Array.Copy(p.Q.X!, 0, pub, 1, 32);
+    Array.Copy(p.Q.Y!, 0, pub, 33, 32);
+    return Results.Ok(new { publicKey = B64(pub), privateKey = B64(p.D!) });
+}).RequireAuthorization("ChapterAdmin");
+
 // Health diagnostics — extended runtime stats for /admin/health
 app.MapGet("/api/v1/admin/diagnostics", async (LotvDbContext db) =>
 {
@@ -2847,6 +2872,15 @@ app.MapPost("/api/v1/payments/givebutter/webhook", async (
     var tx = envelope.Data;
     if (string.IsNullOrEmpty(tx.CampaignId))
         return Results.Ok();
+
+    // Idempotency: dedupe replayed deliveries by GiveButter transaction id
+    if (!string.IsNullOrEmpty(tx.Id))
+    {
+        if (await db.WebhookEvents.AnyAsync(w => w.Source == "givebutter" && w.ExternalId == tx.Id))
+            return Results.Ok(new { duplicate = true });
+        db.WebhookEvents.Add(new WebhookEvent { Source = "givebutter", ExternalId = tx.Id, EventType = envelope.Event });
+        await db.SaveChangesAsync();
+    }
 
     // Find retreat by GiveButter campaign ID
     var retreat = tx.CampaignId is not null
