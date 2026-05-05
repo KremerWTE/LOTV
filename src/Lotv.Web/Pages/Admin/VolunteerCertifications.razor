@@ -1,0 +1,200 @@
+@page "/admin/volunteer-certifications"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Volunteer Certifications — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Certifications</h2><p>Track CPR, background checks, safe-environment training, and more</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="Reload">↻ Refresh</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">📋</div>
+    <div class="kpi-label">Total Certs</div>
+    <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Verified</div>
+    <div class="kpi-value" style="color:var(--green)">@_all.Count(c => c.IsVerified)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">⚠</div>
+    <div class="kpi-label">Expiring (30d)</div>
+    <div class="kpi-value" style="color:var(--amber)">@_all.Count(c => c.ExpiresDate.HasValue && c.ExpiresDate <= DateTime.UtcNow.AddDays(30) && c.ExpiresDate >= DateTime.UtcNow)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">❌</div>
+    <div class="kpi-label">Expired</div>
+    <div class="kpi-value" style="color:var(--gold)">@_all.Count(c => c.ExpiresDate.HasValue && c.ExpiresDate < DateTime.UtcNow)</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:240px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search volunteer / cert type..." @bind="_search" @bind:event="oninput" />
+  @foreach (var t in new[] { "All", "CPR", "BackgroundCheck", "SafeEnvironment", "FirstAid", "Other" })
+  {
+    <button class="filter-chip @(_typeFilter == t ? "active" : "")" @onclick="() => _typeFilter = t">@t</button>
+  }
+  <button class="filter-chip @(_expiringOnly ? "active" : "")" @onclick="() => _expiringOnly = !_expiringOnly">⚠ Expiring soon</button>
+  <button class="btn btn-primary btn-sm" style="margin-left:auto;" @onclick="() => OpenAdd()">+ Add Certification</button>
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Volunteer</th><th>Cert Type</th><th>Issued</th><th>Expires</th><th>Verified</th><th>Notes</th><th></th></tr>
+      </thead>
+      <tbody>
+        @foreach (var c in Filtered)
+        {
+          <tr>
+            <td style="font-weight:600;font-size:.84rem;">@VolName(c.VolunteerId)</td>
+            <td><span class="badge badge-new" style="font-size:.66rem;">@c.CertType</span></td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@c.IssuedDate.ToString("MMM d, yyyy")</td>
+            <td style="font-size:.78rem;">
+              @if (c.ExpiresDate.HasValue)
+              {
+                var expired = c.ExpiresDate < DateTime.UtcNow;
+                var expiring = !expired && c.ExpiresDate <= DateTime.UtcNow.AddDays(30);
+                <span style="color:@(expired ? "var(--red)" : expiring ? "var(--amber)" : "inherit")">
+                  @c.ExpiresDate.Value.ToString("MMM d, yyyy")
+                  @if (expired) { <text> ❌</text> } else if (expiring) { <text> ⚠</text> }
+                </span>
+              }
+              else { <span style="color:var(--text-light);">—</span> }
+            </td>
+            <td style="text-align:center;">@(c.IsVerified ? "✅" : "—")</td>
+            <td style="font-size:.76rem;color:var(--text-mid);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(c.Notes ?? "—")</td>
+            <td>
+              <button class="btn btn-sm" @onclick="() => OpenEdit(c)">Edit</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (!Filtered.Any())
+    {
+      <div style="text-align:center;padding:32px;color:var(--text-light);font-size:.88rem;">No certifications found.</div>
+    }
+  </div>
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "Add Certification" : "Edit Certification")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Volunteer *</label>
+      <select class="form-input" style="margin-bottom:10px;" @bind="_form.VolunteerId">
+        <option value="0">— Select volunteer —</option>
+        @foreach (var v in _volunteers)
+        {
+          <option value="@v.Id">@v.FirstName @v.LastName</option>
+        }
+      </select>
+
+      <label class="form-label">Cert Type *</label>
+      <select class="form-input" style="margin-bottom:10px;" @bind="_form.CertType">
+        <option value="CPR">CPR</option>
+        <option value="BackgroundCheck">Background Check</option>
+        <option value="SafeEnvironment">Safe Environment</option>
+        <option value="FirstAid">First Aid</option>
+        <option value="Other">Other</option>
+      </select>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label class="form-label">Issued Date *</label>
+          <input class="form-input" type="date" @bind="_form.IssuedDate" />
+        </div>
+        <div>
+          <label class="form-label">Expires Date</label>
+          <input class="form-input" type="date" @bind="_form.ExpiresDate" />
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <input type="checkbox" id="cert-verified" @bind="_form.IsVerified" />
+        <label for="cert-verified" style="font-size:.84rem;margin:0;">Verified by staff</label>
+      </div>
+
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" rows="3" @bind="_form.Notes" style="margin-bottom:14px;"></textarea>
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<VolCertDto> _all = [];
+  private List<VolunteerSummary> _volunteers = [];
+  private string _search = "", _typeFilter = "All";
+  private bool _expiringOnly, _editing, _saving;
+  private string _err = "";
+  private CertForm _form = new();
+
+  private record VolunteerSummary(int Id, string FirstName, string LastName);
+  private string VolName(int id) { var v = _volunteers.FirstOrDefault(v => v.Id == id); return v is null ? $"#{id}" : $"{v.FirstName} {v.LastName}"; }
+
+  private IEnumerable<VolCertDto> Filtered => _all.Where(c =>
+    (_typeFilter == "All" || c.CertType == _typeFilter) &&
+    (!_expiringOnly || (c.ExpiresDate.HasValue && c.ExpiresDate <= DateTime.UtcNow.AddDays(30) && c.ExpiresDate >= DateTime.UtcNow)) &&
+    (string.IsNullOrEmpty(_search) || VolName(c.VolunteerId).Contains(_search, StringComparison.OrdinalIgnoreCase) || c.CertType.Contains(_search, StringComparison.OrdinalIgnoreCase))
+  ).OrderBy(c => c.ExpiresDate ?? DateTime.MaxValue);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all = await Api.GetAllCertificationsAsync();
+    var vols = await Api.GetVolunteersAsync();
+    _volunteers = vols.Select(v => new VolunteerSummary(v.Id, v.FirstName, v.LastName)).ToList();
+  }
+
+  private async Task Reload() { _all = await Api.GetAllCertificationsAsync(); }
+
+  private class CertForm
+  {
+    public int Id { get; set; }
+    public int VolunteerId { get; set; }
+    public string CertType { get; set; } = "CPR";
+    public DateTime IssuedDate { get; set; } = DateTime.Today;
+    public DateTime? ExpiresDate { get; set; }
+    public bool IsVerified { get; set; }
+    public string? Notes { get; set; }
+    public VolCertDto ToDto() => new(Id, VolunteerId, CertType, IssuedDate, ExpiresDate, IsVerified, Notes);
+  }
+
+  private void OpenAdd() { _form = new CertForm(); _err = ""; _editing = true; }
+  private void OpenEdit(VolCertDto c) { _form = new CertForm { Id = c.Id, VolunteerId = c.VolunteerId, CertType = c.CertType, IssuedDate = c.IssuedDate, ExpiresDate = c.ExpiresDate, IsVerified = c.IsVerified, Notes = c.Notes }; _err = ""; _editing = true; }
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (_form.VolunteerId == 0) { _err = "Select a volunteer."; return; }
+    _saving = true; _err = "";
+    var dto = _form.ToDto();
+    var ok = _form.Id == 0
+      ? await Api.CreateCertificationAsync(_form.VolunteerId, dto)
+      : await Api.UpdateCertificationAsync(_form.VolunteerId, _form.Id, dto);
+    _saving = false;
+    if (ok) { _editing = false; _all = await Api.GetAllCertificationsAsync(); }
+    else _err = "Save failed.";
+  }
+}

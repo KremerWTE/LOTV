@@ -1,0 +1,111 @@
+@page "/admin/notification-prefs"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Notification Preferences — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Notification Preferences</h2><p>Control which events trigger email and push notifications for your account</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "💾 Save Preferences")</button>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading preferences…" />
+}
+else
+{
+  <div class="panel" style="max-width:640px;">
+    <div class="panel-head"><h3>Event Notification Settings</h3></div>
+    <div class="panel-body">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px 12px;font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);border-bottom:1px solid var(--border);">Event</th>
+            <th style="text-align:center;padding:8px 12px;font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);border-bottom:1px solid var(--border);">Email</th>
+            <th style="text-align:center;padding:8px 12px;font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);border-bottom:1px solid var(--border);">Push</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var row in _rows)
+          {
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px;">
+                <div style="font-weight:600;font-size:.86rem;">@row.Label</div>
+                <div style="font-size:.74rem;color:var(--text-light);">@row.Description</div>
+              </td>
+              <td style="text-align:center;padding:12px;">
+                <input type="checkbox" style="width:18px;height:18px;cursor:pointer;"
+                       checked="@GetPref(row.EventType).EmailEnabled"
+                       @onchange="e => SetEmail(row.EventType, (bool)(e.Value ?? false))" />
+              </td>
+              <td style="text-align:center;padding:12px;">
+                <input type="checkbox" style="width:18px;height:18px;cursor:pointer;"
+                       checked="@GetPref(row.EventType).PushEnabled"
+                       @onchange="e => SetPush(row.EventType, (bool)(e.Value ?? false))" />
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  @if (_saved)
+  {
+    <div class="alert alert-success" style="max-width:640px;margin-top:12px;">✅ Preferences saved.</div>
+  }
+}
+
+@code {
+  private bool _loading = true, _saving, _saved;
+  private List<NotifPrefDto> _prefs = [];
+
+  private record EventRow(string EventType, string Label, string Description);
+  private static readonly EventRow[] _rows =
+  [
+    new("NewRequest",    "New Service Request",    "When a family submits a new request"),
+    new("Assignment",    "Volunteer Assignment",    "When a volunteer is assigned or reassigned"),
+    new("Escalation",    "Case Escalation",         "When a case is escalated"),
+    new("Donation",      "Major Donation",          "When a donation ≥ $1,000 is received"),
+    new("DailyDigest",   "Daily Digest Email",      "Overnight activity summary at 6 AM"),
+    new("WeeklySummary", "Weekly Summary Email",    "Chapter KPIs every Monday at 7 AM"),
+    new("MagicLink",     "Magic Link Sent",         "When a donor or volunteer portal link is sent"),
+    new("WebhookFail",   "Webhook Failure",         "When a webhook signature verification fails"),
+  ];
+
+  private NotifPrefDto GetPref(string et) => _prefs.FirstOrDefault(p => p.EventType == et) ?? new(et, true, true);
+
+  private void SetEmail(string et, bool v)
+  {
+    var p = GetPref(et);
+    _prefs.RemoveAll(x => x.EventType == et);
+    _prefs.Add(new(et, v, p.PushEnabled));
+  }
+
+  private void SetPush(string et, bool v)
+  {
+    var p = GetPref(et);
+    _prefs.RemoveAll(x => x.EventType == et);
+    _prefs.Add(new(et, p.EmailEnabled, v));
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    _prefs = await Api.GetNotificationPrefsAsync();
+    foreach (var row in _rows)
+      if (!_prefs.Any(p => p.EventType == row.EventType))
+        _prefs.Add(new(row.EventType, true, true));
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _saving = true; _saved = false;
+    await Api.SaveNotificationPrefsAsync(_prefs);
+    _saving = false; _saved = true;
+    _ = Task.Delay(3000).ContinueWith(_ => { _saved = false; InvokeAsync(StateHasChanged); });
+  }
+}

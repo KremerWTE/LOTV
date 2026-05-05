@@ -936,6 +936,13 @@ public class ApiService
         catch { return null; }
     }
 
+    private async Task<HttpResponseMessage?> AuthedDeleteAsync(string url)
+    {
+        SetAuthHeader();
+        try { return await _http.DeleteAsync(url); }
+        catch { return null; }
+    }
+
     // ── Reconciliation ────────────────────────────────────────────────────────
     public Task<List<ReconciliationRowDto>> GetReconciliationAsync(string period) =>
         GetListAsync<ReconciliationRowDto>($"/api/v1/reconciliation?period={Uri.EscapeDataString(period)}");
@@ -1047,6 +1054,93 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true
             ? await resp.Content.ReadFromJsonAsync<GbSyncResultDto>() : null;
     }
+
+    // ── Chapter management ────────────────────────────────────────────────────
+    public Task<List<Chapter>> GetChaptersAdminAsync() =>
+        GetListAsync<Chapter>("/api/v1/chapters");
+
+    public async Task<bool> CreateChapterAsync(Chapter body)
+    {
+        var resp = await AuthedPostAsync("/api/v1/chapters", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> UpdateChapterAsync(int id, Chapter body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/chapters/{id}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Volunteer certifications ──────────────────────────────────────────────
+    public Task<List<VolCertDto>> GetAllCertificationsAsync() =>
+        GetListAsync<VolCertDto>("/api/v1/certifications/expiring?days=365");
+
+    public async Task<bool> CreateCertificationAsync(int volId, VolCertDto body)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/volunteers/{volId}/certifications", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> UpdateCertificationAsync(int volId, int certId, VolCertDto body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/volunteers/{volId}/certifications/{certId}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Donor touchpoints ─────────────────────────────────────────────────────
+    public Task<List<TouchpointDto>> GetDonorTouchpointsAsync(int donorId) =>
+        GetListAsync<TouchpointDto>($"/api/v1/donors/{donorId}/touchpoints");
+
+    public async Task<bool> CreateDonorTouchpointAsync(int donorId, TouchpointDto body)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/donors/{donorId}/touchpoints", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteDonorTouchpointAsync(int donorId, int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/donors/{donorId}/touchpoints/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Grants ────────────────────────────────────────────────────────────────
+    public Task<List<GrantDto>> GetGrantsAsync(string? status = null)
+    {
+        var url = "/api/v1/grants" + (status is not null ? $"?status={status}" : "");
+        return GetListAsync<GrantDto>(url);
+    }
+
+    public async Task<bool> CreateGrantAsync(GrantDto body)
+    {
+        var resp = await AuthedPostAsync("/api/v1/grants", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> UpdateGrantAsync(int id, GrantDto body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/grants/{id}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteGrantAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/grants/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Notification preferences ──────────────────────────────────────────────
+    public Task<List<NotifPrefDto>> GetNotificationPrefsAsync() =>
+        GetListAsync<NotifPrefDto>("/api/v1/users/me/notification-prefs");
+
+    public async Task<bool> SaveNotificationPrefsAsync(List<NotifPrefDto> prefs)
+    {
+        var resp = await AuthedPutAsync("/api/v1/users/me/notification-prefs", prefs);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Chapter analytics ─────────────────────────────────────────────────────
+    public Task<List<ChapterAnalyticsDto>> GetChapterAnalyticsAsync() =>
+        GetListAsync<ChapterAnalyticsDto>("/api/v1/admin/chapter-analytics");
 }
 
 // ── Response DTOs (API-specific shapes) ──────────────────────────────────────
@@ -1172,3 +1266,18 @@ public record RetreatExpenseDto(
 );
 
 public record GbSyncResultDto(int Synced, int Skipped, List<string> Errors);
+
+public record VolCertDto(int Id, int VolunteerId, string CertType, DateTime IssuedDate,
+    DateTime? ExpiresDate, bool IsVerified, string? Notes);
+
+public record TouchpointDto(int Id, int DonorId, string TouchType, string Notes,
+    DateTime TouchDate, string StaffName);
+
+public record GrantDto(int Id, int ChapterId, string GrantorName, string Purpose,
+    decimal Amount, DateTime AwardedDate, DateTime? ReportDueDate, string Status, string? Notes);
+
+public record NotifPrefDto(string EventType, bool EmailEnabled, bool PushEnabled);
+
+public record ChapterAnalyticsDto(int Id, string Name, string City, string State,
+    int OpenCases, int OverdueCases, int FulfilledMtd, decimal TotalDonations,
+    int DonationCount, int ActiveVols, int ActivePledges);

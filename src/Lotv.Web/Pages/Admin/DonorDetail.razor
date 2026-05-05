@@ -138,6 +138,66 @@ else
   </div>
 }
 
+<!-- STEWARDSHIP TOUCHPOINTS -->
+<div class="panel" style="margin-top:18px;">
+  <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;">
+    <h3 style="margin:0;">Stewardship Log</h3>
+    <button class="btn btn-primary btn-sm" @onclick="() => _addTouch = true">+ Log Touchpoint</button>
+  </div>
+  <div class="panel-body" style="padding:0;">
+    @if (_touchpoints.Count == 0)
+    {
+      <div style="text-align:center;padding:24px;color:var(--text-light);font-size:.84rem;">No touchpoints logged yet.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Type</th><th>Staff</th><th>Notes</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var tp in _touchpoints.OrderByDescending(t => t.TouchDate))
+          {
+            <tr>
+              <td style="font-size:.78rem;color:var(--text-light);white-space:nowrap;">@tp.TouchDate.ToString("MMM d, yyyy")</td>
+              <td><span class="badge badge-inprogress" style="font-size:.66rem;">@tp.TouchType</span></td>
+              <td style="font-size:.82rem;">@tp.StaffName</td>
+              <td style="font-size:.78rem;color:var(--text-mid);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@tp.Notes</td>
+              <td><button class="btn btn-sm" style="color:var(--red);" @onclick="() => DeleteTouchpoint(tp.Id)">✕</button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (_addTouch)
+{
+  <div class="drawer-overlay" @onclick="() => _addTouch = false"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>Log Touchpoint</h3>
+      <button class="drawer-close" @onclick="() => _addTouch = false">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Type</label>
+      <select class="form-input" style="margin-bottom:10px;" @bind="_newTouch.TouchType">
+        @foreach (var t in new[] { "Call", "Email", "Meeting", "Letter", "Visit", "Other" })
+        { <option value="@t">@t</option> }
+      </select>
+      <label class="form-label">Date</label>
+      <input class="form-input" type="date" style="margin-bottom:10px;" @bind="_newTouch.TouchDate" />
+      <label class="form-label">Staff Name</label>
+      <input class="form-input" style="margin-bottom:10px;" @bind="_newTouch.StaffName" />
+      <label class="form-label">Notes *</label>
+      <textarea class="form-input" rows="4" @bind="_newTouch.Notes" style="margin-bottom:14px;"></textarea>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SaveTouchpoint">Save</button>
+        <button class="btn" @onclick="() => _addTouch = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
 <!-- EDIT DRAWER -->
 @if (_editing && _donor != null)
 {
@@ -189,8 +249,20 @@ else
 
   private Donor? _donor;
   private List<Donation> _donations = [];
+  private List<TouchpointDto> _touchpoints = [];
   private bool _loading = true;
   private bool _editing;
+  private bool _addTouch;
+  private TouchForm _newTouch = new();
+
+  private class TouchForm
+  {
+    public string TouchType { get; set; } = "Call";
+    public string Notes { get; set; } = "";
+    public DateTime TouchDate { get; set; } = DateTime.Today;
+    public string StaffName { get; set; } = "";
+    public TouchpointDto ToDto() => new(0, 0, TouchType, Notes, TouchDate, StaffName);
+  }
 
   private IEnumerable<(string Label, string? Val)> ProfileRows => _donor == null ? [] :
   [
@@ -208,15 +280,32 @@ else
     _loading = true;
     var t1 = Api.GetDonorAsync(Id);
     var t2 = Api.GetDonationsAsync(donorId: Id);
-    await Task.WhenAll(t1, t2);
-    _donor    = t1.Result;
-    _donations = t2.Result;
-    _loading  = false;
+    var t3 = Api.GetDonorTouchpointsAsync(Id);
+    await Task.WhenAll(t1, t2, t3);
+    _donor      = t1.Result;
+    _donations  = t2.Result;
+    _touchpoints = t3.Result;
+    _loading    = false;
   }
 
   private async Task SaveAsync()
   {
     if (_donor != null) await Api.UpdateDonorAsync(_donor.Id, _donor);
     _editing = false;
+  }
+
+  private async Task SaveTouchpoint()
+  {
+    if (string.IsNullOrWhiteSpace(_newTouch.Notes)) return;
+    await Api.CreateDonorTouchpointAsync(Id, _newTouch.ToDto());
+    _touchpoints = await Api.GetDonorTouchpointsAsync(Id);
+    _addTouch = false;
+    _newTouch = new();
+  }
+
+  private async Task DeleteTouchpoint(int id)
+  {
+    await Api.DeleteDonorTouchpointAsync(Id, id);
+    _touchpoints = await Api.GetDonorTouchpointsAsync(Id);
   }
 }

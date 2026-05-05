@@ -3634,6 +3634,198 @@ if (app.Environment.IsDevelopment())
     }).WithTags("Legacy");
 }
 
+// ─── Chapter management (HQAdmin) ────────────────────────────────────────────
+var chapMgmt = app.MapGroup("/api/v1/chapters").WithTags("Chapters").RequireAuthorization("HQAdmin");
+
+chapMgmt.MapGet("/", async (LotvDbContext db) =>
+{
+    var list = await db.Chapters.OrderBy(c => c.Name).ToListAsync();
+    return Results.Ok(list);
+});
+
+chapMgmt.MapPost("/", async (Chapter body, LotvDbContext db) =>
+{
+    db.Chapters.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/chapters/{body.Id}", body);
+});
+
+chapMgmt.MapPut("/{id:int}", async (int id, Chapter body, LotvDbContext db) =>
+{
+    var ch = await db.Chapters.FindAsync(id);
+    if (ch is null) return Results.NotFound();
+    ch.Name = body.Name; ch.City = body.City; ch.State = body.State;
+    ch.ContactName = body.ContactName; ch.ContactEmail = body.ContactEmail;
+    ch.ContactPhone = body.ContactPhone; ch.IsActive = body.IsActive;
+    ch.MaxActiveCasesPerVolunteer = body.MaxActiveCasesPerVolunteer;
+    ch.AcceptanceWindowHours = body.AcceptanceWindowHours;
+    ch.UrgentAcceptanceWindowHours = body.UrgentAcceptanceWindowHours;
+    ch.MaxReassignmentAttempts = body.MaxReassignmentAttempts;
+    ch.DefaultServiceRadiusMiles = body.DefaultServiceRadiusMiles;
+    await db.SaveChangesAsync();
+    return Results.Ok(ch);
+});
+
+// ─── Volunteer certifications ─────────────────────────────────────────────────
+var vcerts = app.MapGroup("/api/v1/volunteers/{volId:int}/certifications").WithTags("VolunteerCertifications").RequireAuthorization("Staff");
+
+vcerts.MapGet("/", async (int volId, LotvDbContext db) =>
+    Results.Ok(await db.VolunteerCertifications.Where(c => c.VolunteerId == volId)
+        .OrderByDescending(c => c.IssuedDate).ToListAsync()));
+
+vcerts.MapPost("/", async (int volId, VolunteerCertification body, LotvDbContext db) =>
+{
+    body.VolunteerId = volId;
+    body.CreatedAt = DateTime.UtcNow;
+    db.VolunteerCertifications.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/volunteers/{volId}/certifications/{body.Id}", body);
+});
+
+vcerts.MapPut("/{certId:int}", async (int volId, int certId, VolunteerCertification body, LotvDbContext db) =>
+{
+    var cert = await db.VolunteerCertifications.FirstOrDefaultAsync(c => c.Id == certId && c.VolunteerId == volId);
+    if (cert is null) return Results.NotFound();
+    cert.CertType = body.CertType; cert.IssuedDate = body.IssuedDate;
+    cert.ExpiresDate = body.ExpiresDate; cert.IsVerified = body.IsVerified; cert.Notes = body.Notes;
+    await db.SaveChangesAsync();
+    return Results.Ok(cert);
+});
+
+vcerts.MapDelete("/{certId:int}", async (int volId, int certId, LotvDbContext db) =>
+{
+    var cert = await db.VolunteerCertifications.FirstOrDefaultAsync(c => c.Id == certId && c.VolunteerId == volId);
+    if (cert is null) return Results.NotFound();
+    db.VolunteerCertifications.Remove(cert);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+app.MapGet("/api/v1/certifications/expiring", async (int days, LotvDbContext db) =>
+{
+    var cutoff = DateTime.UtcNow.AddDays(days);
+    var certs = await db.VolunteerCertifications
+        .Include(c => c.Volunteer)
+        .Where(c => c.ExpiresDate != null && c.ExpiresDate <= cutoff && c.ExpiresDate >= DateTime.UtcNow)
+        .OrderBy(c => c.ExpiresDate)
+        .Select(c => new { c.Id, c.VolunteerId, VolunteerName = c.Volunteer!.FirstName + " " + c.Volunteer!.LastName, c.CertType, c.ExpiresDate, c.IsVerified })
+        .ToListAsync();
+    return Results.Ok(certs);
+}).RequireAuthorization("Staff");
+
+// ─── Donor touchpoints / stewardship ─────────────────────────────────────────
+var touchpoints = app.MapGroup("/api/v1/donors/{donorId:int}/touchpoints").WithTags("Touchpoints").RequireAuthorization("Staff");
+
+touchpoints.MapGet("/", async (int donorId, LotvDbContext db) =>
+    Results.Ok(await db.DonorTouchpoints.Where(t => t.DonorId == donorId)
+        .OrderByDescending(t => t.TouchDate).ToListAsync()));
+
+touchpoints.MapPost("/", async (int donorId, DonorTouchpoint body, LotvDbContext db, HttpContext http) =>
+{
+    body.DonorId = donorId;
+    body.CreatedAt = DateTime.UtcNow;
+    if (string.IsNullOrEmpty(body.StaffName))
+        body.StaffName = http.User.FindFirst("email")?.Value ?? http.User.Identity?.Name ?? "Staff";
+    db.DonorTouchpoints.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/donors/{donorId}/touchpoints/{body.Id}", body);
+});
+
+touchpoints.MapDelete("/{id:int}", async (int donorId, int id, LotvDbContext db) =>
+{
+    var tp = await db.DonorTouchpoints.FirstOrDefaultAsync(t => t.Id == id && t.DonorId == donorId);
+    if (tp is null) return Results.NotFound();
+    db.DonorTouchpoints.Remove(tp);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+// ─── Grants ───────────────────────────────────────────────────────────────────
+var grants = app.MapGroup("/api/v1/grants").WithTags("Grants").RequireAuthorization("Staff");
+
+grants.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, string? status) =>
+{
+    var q = db.Grants.AsQueryable();
+    if (ctx.ChapterId.HasValue) q = q.Where(g => g.ChapterId == ctx.ChapterId.Value);
+    if (!string.IsNullOrEmpty(status)) q = q.Where(g => g.Status == status);
+    return Results.Ok(await q.OrderByDescending(g => g.AwardedDate).ToListAsync());
+});
+
+grants.MapPost("/", async (Grant body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    if (ctx.ChapterId.HasValue) body.ChapterId = ctx.ChapterId.Value;
+    body.CreatedAt = DateTime.UtcNow;
+    db.Grants.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/grants/{body.Id}", body);
+});
+
+grants.MapPut("/{id:int}", async (int id, Grant body, LotvDbContext db) =>
+{
+    var g = await db.Grants.FindAsync(id);
+    if (g is null) return Results.NotFound();
+    g.GrantorName = body.GrantorName; g.Purpose = body.Purpose; g.Amount = body.Amount;
+    g.AwardedDate = body.AwardedDate; g.ReportDueDate = body.ReportDueDate;
+    g.Status = body.Status; g.Notes = body.Notes;
+    await db.SaveChangesAsync();
+    return Results.Ok(g);
+});
+
+grants.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var g = await db.Grants.FindAsync(id);
+    if (g is null) return Results.NotFound();
+    db.Grants.Remove(g);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+// ─── Notification preferences ─────────────────────────────────────────────────
+app.MapGet("/api/v1/users/me/notification-prefs", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var uid = ctx.UserId;
+    if (uid is null) return Results.Unauthorized();
+    var prefs = await db.NotificationPrefs.Where(p => p.UserId == uid).ToListAsync();
+    return Results.Ok(prefs);
+}).RequireAuthorization();
+
+app.MapPut("/api/v1/users/me/notification-prefs", async (List<NotificationPref> body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var uid = ctx.UserId;
+    if (uid is null) return Results.Unauthorized();
+    var existing = await db.NotificationPrefs.Where(p => p.UserId == uid).ToListAsync();
+    db.NotificationPrefs.RemoveRange(existing);
+    foreach (var pref in body) { pref.UserId = uid; db.NotificationPrefs.Add(pref); }
+    await db.SaveChangesAsync();
+    return Results.Ok();
+}).RequireAuthorization();
+
+// ─── Chapter analytics (HQAdmin) ──────────────────────────────────────────────
+app.MapGet("/api/v1/admin/chapter-analytics", async (LotvDbContext db) =>
+{
+    var chapters = await db.Chapters.Where(c => c.IsActive).ToListAsync();
+    var result = new List<object>();
+    foreach (var ch in chapters)
+    {
+        var cases      = await db.Requests.Where(r => r.ChapterId == ch.Id).ToListAsync();
+        var vols       = await db.Volunteers.CountAsync(v => v.ChapterId == ch.Id);
+        var donations  = await db.Donations.Where(d => d.ChapterId == ch.Id).ToListAsync();
+        var pledges    = await db.DonorPledges.CountAsync(p => p.ChapterId == ch.Id && p.Status == PledgeStatus.Active);
+        result.Add(new
+        {
+            ch.Id, ch.Name, ch.City, ch.State,
+            OpenCases      = cases.Count(c => c.Status != CaseStatus.Fulfilled && c.Status != CaseStatus.Cancelled),
+            OverdueCases   = cases.Count(c => c.DueDate.HasValue && c.DueDate < DateTime.UtcNow && c.Status != CaseStatus.Fulfilled && c.Status != CaseStatus.Cancelled),
+            FulfilledMtd   = cases.Count(c => c.Status == CaseStatus.Fulfilled && c.UpdatedAt.Month == DateTime.UtcNow.Month && c.UpdatedAt.Year == DateTime.UtcNow.Year),
+            TotalDonations = donations.Sum(d => d.Amount),
+            DonationCount  = donations.Count,
+            ActiveVols     = vols,
+            ActivePledges  = pledges,
+        });
+    }
+    return Results.Ok(result);
+}).RequireAuthorization("HQAdmin");
+
 app.Run();
 
 // ─────────────────────────────────────────────────────────────────────────────

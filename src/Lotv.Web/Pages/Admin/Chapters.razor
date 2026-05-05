@@ -1,0 +1,206 @@
+@page "/admin/chapters"
+@layout AdminLayout
+@inject ApiService Api
+@inject IJSRuntime JS
+
+<PageTitle>Chapters — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Management</h2><p>Add, edit, and configure local chapters</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ New Chapter</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🏛</div>
+    <div class="kpi-label">Total Chapters</div>
+    <div class="kpi-value" style="color:var(--navy)">@_chapters.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value" style="color:var(--green)">@_chapters.Count(c => c.IsActive)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">⏸</div>
+    <div class="kpi-label">Inactive</div>
+    <div class="kpi-value" style="color:var(--amber)">@_chapters.Count(c => !c.IsActive)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">🗺</div>
+    <div class="kpi-label">States</div>
+    <div class="kpi-value" style="color:var(--gold)">@_chapters.Select(c => c.State).Distinct().Count()</div>
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:280px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search chapters..." @bind="_search" @bind:event="oninput" />
+  <button class="filter-chip @(_showInactive ? "active" : "")" @onclick="() => _showInactive = !_showInactive">Show inactive</button>
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th><th>Location</th><th>Contact</th>
+          <th>Max Cases/Vol</th><th>Accept Window</th><th>Status</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var ch in Filtered)
+        {
+          <tr>
+            <td style="font-weight:600;">@ch.Name</td>
+            <td style="font-size:.82rem;color:var(--text-mid);">@ch.City, @ch.State</td>
+            <td>
+              <div style="font-size:.82rem;font-weight:500;">@ch.ContactName</div>
+              <div style="font-size:.72rem;color:var(--text-light);">@ch.ContactEmail</div>
+            </td>
+            <td style="font-size:.82rem;text-align:center;">@ch.MaxActiveCasesPerVolunteer</td>
+            <td style="font-size:.82rem;text-align:center;">@ch.AcceptanceWindowHours h</td>
+            <td>
+              <span class="badge @(ch.IsActive ? "badge-fulfilled" : "badge-cancelled")" style="font-size:.66rem;">
+                @(ch.IsActive ? "Active" : "Inactive")
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-sm" @onclick="() => OpenDrawer(ch)">Edit</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (!Filtered.Any())
+    {
+      <div style="text-align:center;padding:32px;color:var(--text-light);font-size:.88rem;">No chapters found.</div>
+    }
+  </div>
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer" style="width:520px;">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "New Chapter" : "Edit Chapter")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="grid-column:1/-1;">
+          <label class="form-label">Chapter Name *</label>
+          <input class="form-input" @bind="_form.Name" placeholder="e.g. Dallas Chapter" />
+        </div>
+        <div>
+          <label class="form-label">City *</label>
+          <input class="form-input" @bind="_form.City" />
+        </div>
+        <div>
+          <label class="form-label">State *</label>
+          <input class="form-input" @bind="_form.State" maxlength="2" placeholder="TX" />
+        </div>
+        <div>
+          <label class="form-label">Contact Name</label>
+          <input class="form-input" @bind="_form.ContactName" />
+        </div>
+        <div>
+          <label class="form-label">Contact Email</label>
+          <input class="form-input" type="email" @bind="_form.ContactEmail" />
+        </div>
+        <div>
+          <label class="form-label">Contact Phone</label>
+          <input class="form-input" type="tel" @bind="_form.ContactPhone" />
+        </div>
+        <div>
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_form.IsActive">
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-light);margin-bottom:12px;">Auto-Assignment Config</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="form-label">Max Cases per Volunteer</label>
+            <input class="form-input" type="number" @bind="_form.MaxActiveCasesPerVolunteer" min="1" max="20" />
+          </div>
+          <div>
+            <label class="form-label">Acceptance Window (h)</label>
+            <input class="form-input" type="number" @bind="_form.AcceptanceWindowHours" min="1" max="168" />
+          </div>
+          <div>
+            <label class="form-label">Urgent Window (h)</label>
+            <input class="form-input" type="number" @bind="_form.UrgentAcceptanceWindowHours" min="1" max="48" />
+          </div>
+          <div>
+            <label class="form-label">Max Reassignment Attempts</label>
+            <input class="form-input" type="number" @bind="_form.MaxReassignmentAttempts" min="1" max="10" />
+          </div>
+          <div>
+            <label class="form-label">Default Service Radius (mi)</label>
+            <input class="form-input" type="number" @bind="_form.DefaultServiceRadiusMiles" min="1" max="200" />
+          </div>
+        </div>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_err))
+      {
+        <div class="alert alert-danger" style="margin-top:12px;">@_err</div>
+      }
+      <div style="margin-top:18px;display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save Chapter")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<Chapter> _chapters = [];
+  private string _search = "";
+  private bool _showInactive;
+  private bool _editing;
+  private bool _saving;
+  private string _err = "";
+  private Chapter _form = new();
+
+  private IEnumerable<Chapter> Filtered => _chapters
+    .Where(c => (_showInactive || c.IsActive) &&
+                (string.IsNullOrEmpty(_search) ||
+                 c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                 c.City.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                 c.State.Contains(_search, StringComparison.OrdinalIgnoreCase)))
+    .OrderBy(c => c.Name);
+
+  protected override async Task OnInitializedAsync() => _chapters = await Api.GetChaptersAdminAsync();
+
+  private void OpenDrawer(Chapter? ch)
+  {
+    _form = ch is null ? new Chapter { IsActive = true, MaxActiveCasesPerVolunteer = 6, AcceptanceWindowHours = 24, UrgentAcceptanceWindowHours = 4, MaxReassignmentAttempts = 3, DefaultServiceRadiusMiles = 25 }
+                       : new Chapter { Id = ch.Id, Name = ch.Name, City = ch.City, State = ch.State, ContactName = ch.ContactName, ContactEmail = ch.ContactEmail, ContactPhone = ch.ContactPhone, IsActive = ch.IsActive, MaxActiveCasesPerVolunteer = ch.MaxActiveCasesPerVolunteer, AcceptanceWindowHours = ch.AcceptanceWindowHours, UrgentAcceptanceWindowHours = ch.UrgentAcceptanceWindowHours, MaxReassignmentAttempts = ch.MaxReassignmentAttempts, DefaultServiceRadiusMiles = ch.DefaultServiceRadiusMiles };
+    _err = "";
+    _editing = true;
+  }
+
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (string.IsNullOrWhiteSpace(_form.Name) || string.IsNullOrWhiteSpace(_form.City) || string.IsNullOrWhiteSpace(_form.State))
+    { _err = "Name, city, and state are required."; return; }
+    _saving = true; _err = "";
+    var ok = _form.Id == 0 ? await Api.CreateChapterAsync(_form) : await Api.UpdateChapterAsync(_form.Id, _form);
+    _saving = false;
+    if (ok) { _editing = false; _chapters = await Api.GetChaptersAdminAsync(); }
+    else _err = "Save failed — check for duplicate chapter name.";
+  }
+}

@@ -76,6 +76,18 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
     public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
 
+    // ─── Volunteer certifications ────────────────────────────────────────────
+    public DbSet<VolunteerCertification> VolunteerCertifications => Set<VolunteerCertification>();
+
+    // ─── Donor touchpoints / stewardship ─────────────────────────────────────
+    public DbSet<DonorTouchpoint> DonorTouchpoints => Set<DonorTouchpoint>();
+
+    // ─── Grants ───────────────────────────────────────────────────────────────
+    public DbSet<Grant> Grants => Set<Grant>();
+
+    // ─── Notification preferences ─────────────────────────────────────────────
+    public DbSet<NotificationPref> NotificationPrefs => Set<NotificationPref>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -414,6 +426,40 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.Property(s => s.CommittedAmount).HasPrecision(12, 2);
             e.Property(s => s.PaidToDate).HasPrecision(12, 2);
             e.HasOne(s => s.Chapter).WithMany().HasForeignKey(s => s.ChapterId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── VolunteerCertification ────────────────────────────────────────────
+        builder.Entity<VolunteerCertification>(e =>
+        {
+            e.HasIndex(c => c.VolunteerId);
+            e.HasIndex(c => new { c.VolunteerId, c.CertType });
+            e.HasIndex(c => c.ExpiresDate);
+            e.HasOne(c => c.Volunteer).WithMany().HasForeignKey(c => c.VolunteerId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── DonorTouchpoint ───────────────────────────────────────────────────
+        builder.Entity<DonorTouchpoint>(e =>
+        {
+            e.HasIndex(t => t.DonorId);
+            e.HasIndex(t => t.TouchDate);
+            e.HasOne(t => t.Donor).WithMany().HasForeignKey(t => t.DonorId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Grant ─────────────────────────────────────────────────────────────
+        builder.Entity<Grant>(e =>
+        {
+            e.HasIndex(g => g.ChapterId);
+            e.HasIndex(g => g.Status);
+            e.HasIndex(g => g.ReportDueDate);
+            e.Property(g => g.Amount).HasPrecision(12, 2);
+        });
+
+        // ── NotificationPref ──────────────────────────────────────────────────
+        builder.Entity<NotificationPref>(e =>
+        {
+            e.HasIndex(n => new { n.UserId, n.EventType }).IsUnique();
+            e.Property(n => n.UserId).HasMaxLength(450);
+            e.Property(n => n.EventType).HasMaxLength(60);
         });
     }
 }

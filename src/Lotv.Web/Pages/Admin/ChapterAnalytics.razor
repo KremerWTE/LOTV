@@ -1,0 +1,205 @@
+@page "/admin/chapter-analytics"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Chapter Analytics — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Analytics</h2><p>Side-by-side performance comparison across all active chapters</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="Reload">↻ Refresh</button>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading chapter analytics…" Size="lg" />
+}
+else
+{
+  <!-- KPI STRIP (national totals) -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">🏛</div>
+      <div class="kpi-label">Active Chapters</div>
+      <div class="kpi-value" style="color:var(--navy)">@_data.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">📂</div>
+      <div class="kpi-label">Open Cases (National)</div>
+      <div class="kpi-value" style="color:var(--amber)">@_data.Sum(d => d.OpenCases)</div>
+    </div>
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">🔴</div>
+      <div class="kpi-label">Overdue (National)</div>
+      <div class="kpi-value" style="color:var(--red)">@_data.Sum(d => d.OverdueCases)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-label">Fulfilled MTD</div>
+      <div class="kpi-value" style="color:var(--green)">@_data.Sum(d => d.FulfilledMtd)</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--gold)">@_data.Sum(d => d.TotalDonations).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">🤝</div>
+      <div class="kpi-label">Active Volunteers</div>
+      <div class="kpi-value" style="color:var(--navy)">@_data.Sum(d => d.ActiveVols)</div>
+    </div>
+  </div>
+
+  <!-- SORT / FILTER -->
+  <div class="filter-bar" style="margin-bottom:12px;">
+    <span style="font-size:.78rem;color:var(--text-light);">Sort by:</span>
+    @foreach (var col in new[] { "Name", "OpenCases", "Overdue", "Fulfilled", "Donations", "Volunteers" })
+    {
+      <button class="filter-chip @(_sortCol == col ? "active" : "")" @onclick="() => SetSort(col)">
+        @col @(_sortCol == col ? (_asc ? "↑" : "↓") : "")
+      </button>
+    }
+  </div>
+
+  <!-- COMPARISON TABLE -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Chapter</th><th>Location</th>
+            <th style="text-align:center;">Open Cases</th>
+            <th style="text-align:center;">Overdue</th>
+            <th style="text-align:center;">Fulfilled MTD</th>
+            <th style="text-align:right;">Donations</th>
+            <th style="text-align:center;">Volunteers</th>
+            <th style="text-align:center;">Pledges</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var d in Sorted)
+          {
+            <tr>
+              <td style="font-weight:700;">@d.Name</td>
+              <td style="font-size:.8rem;color:var(--text-mid);">@d.City, @d.State</td>
+              <td style="text-align:center;">
+                <span class="badge @(d.OpenCases > 10 ? "badge-onhold" : "badge-inprogress")" style="font-size:.72rem;">@d.OpenCases</span>
+              </td>
+              <td style="text-align:center;">
+                <span class="badge @(d.OverdueCases > 0 ? "badge-cancelled" : "badge-fulfilled")" style="font-size:.72rem;">@d.OverdueCases</span>
+              </td>
+              <td style="text-align:center;font-weight:600;color:var(--green);">@d.FulfilledMtd</td>
+              <td style="text-align:right;font-weight:700;color:var(--gold);">@d.TotalDonations.ToString("C0")</td>
+              <td style="text-align:center;">@d.ActiveVols</td>
+              <td style="text-align:center;">@d.ActivePledges</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- BAR CHART: Open Cases per Chapter -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Open Cases by Chapter</h3></div>
+      <div class="panel-body">
+        @{ var maxCases = _data.Any() ? _data.Max(d => d.OpenCases) : 1; }
+        @foreach (var d in _data.OrderByDescending(x => x.OpenCases))
+        {
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:.82rem;">
+            <div style="width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-mid);">@d.Name</div>
+            <div style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden;">
+              <div style="width:@(maxCases > 0 ? (d.OpenCases * 100 / maxCases) : 0)%;background:var(--navy);height:100%;border-radius:4px;transition:width .4s;"></div>
+            </div>
+            <div style="width:30px;text-align:right;font-weight:600;">@d.OpenCases</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Donations by Chapter</h3></div>
+      <div class="panel-body">
+        @{ var maxDon = _data.Any() ? _data.Max(d => d.TotalDonations) : 1; }
+        @foreach (var d in _data.OrderByDescending(x => x.TotalDonations))
+        {
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:.82rem;">
+            <div style="width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-mid);">@d.Name</div>
+            <div style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden;">
+              <div style="width:@(maxDon > 0 ? (int)(d.TotalDonations * 100 / maxDon) : 0)%;background:var(--gold);height:100%;border-radius:4px;transition:width .4s;"></div>
+            </div>
+            <div style="width:60px;text-align:right;font-weight:600;color:var(--gold);">@d.TotalDonations.ToString("C0")</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Volunteers by Chapter</h3></div>
+      <div class="panel-body">
+        @{ var maxVol = _data.Any() ? _data.Max(d => d.ActiveVols) : 1; }
+        @foreach (var d in _data.OrderByDescending(x => x.ActiveVols))
+        {
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:.82rem;">
+            <div style="width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-mid);">@d.Name</div>
+            <div style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden;">
+              <div style="width:@(maxVol > 0 ? (d.ActiveVols * 100 / maxVol) : 0)%;background:var(--green);height:100%;border-radius:4px;transition:width .4s;"></div>
+            </div>
+            <div style="width:30px;text-align:right;font-weight:600;">@d.ActiveVols</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Fulfilled MTD by Chapter</h3></div>
+      <div class="panel-body">
+        @{ var maxFul = _data.Any() ? _data.Max(d => d.FulfilledMtd) : 1; }
+        @foreach (var d in _data.OrderByDescending(x => x.FulfilledMtd))
+        {
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:.82rem;">
+            <div style="width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-mid);">@d.Name</div>
+            <div style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden;">
+              <div style="width:@(maxFul > 0 ? (d.FulfilledMtd * 100 / maxFul) : 0)%;background:var(--green);height:100%;border-radius:4px;transition:width .4s;"></div>
+            </div>
+            <div style="width:30px;text-align:right;font-weight:600;color:var(--green);">@d.FulfilledMtd</div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<ChapterAnalyticsDto> _data = [];
+  private bool _loading = true;
+  private string _sortCol = "Name";
+  private bool _asc = true;
+
+  private IEnumerable<ChapterAnalyticsDto> Sorted => _sortCol switch
+  {
+    "OpenCases"  => _asc ? _data.OrderBy(d => d.OpenCases)      : _data.OrderByDescending(d => d.OpenCases),
+    "Overdue"    => _asc ? _data.OrderBy(d => d.OverdueCases)    : _data.OrderByDescending(d => d.OverdueCases),
+    "Fulfilled"  => _asc ? _data.OrderBy(d => d.FulfilledMtd)   : _data.OrderByDescending(d => d.FulfilledMtd),
+    "Donations"  => _asc ? _data.OrderBy(d => d.TotalDonations) : _data.OrderByDescending(d => d.TotalDonations),
+    "Volunteers" => _asc ? _data.OrderBy(d => d.ActiveVols)      : _data.OrderByDescending(d => d.ActiveVols),
+    _            => _asc ? _data.OrderBy(d => d.Name)            : _data.OrderByDescending(d => d.Name),
+  };
+
+  protected override async Task OnInitializedAsync() => await Reload();
+
+  private async Task Reload()
+  {
+    _loading = true;
+    _data = await Api.GetChapterAnalyticsAsync();
+    _loading = false;
+  }
+
+  private void SetSort(string col)
+  {
+    if (_sortCol == col) _asc = !_asc;
+    else { _sortCol = col; _asc = true; }
+  }
+}

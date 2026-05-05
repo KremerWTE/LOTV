@@ -1,0 +1,207 @@
+@page "/admin/grants"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Grants — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Grant Tracking</h2><p>Manage foundation grants, reporting deadlines, and funding status</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ New Grant</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-label">Total Awarded</div>
+    <div class="kpi-value" style="color:var(--navy)">@_grants.Sum(g => g.Amount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Active Grants</div>
+    <div class="kpi-value" style="color:var(--green)">@_grants.Count(g => g.Status == "Active")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">📄</div>
+    <div class="kpi-label">Reports Due (30d)</div>
+    <div class="kpi-value" style="color:var(--amber)">@_grants.Count(g => g.ReportDueDate.HasValue && g.ReportDueDate <= DateTime.UtcNow.AddDays(30) && g.ReportDueDate >= DateTime.UtcNow)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">🏁</div>
+    <div class="kpi-label">Completed</div>
+    <div class="kpi-value" style="color:var(--gold)">@_grants.Count(g => g.Status == "Complete")</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:260px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search grantor / purpose..." @bind="_search" @bind:event="oninput" />
+  @foreach (var s in new[] { "All", "Active", "Reporting", "Complete", "Expired" })
+  {
+    var n = s == "All" ? _grants.Count : _grants.Count(g => g.Status == s);
+    <button class="filter-chip @(_statusFilter == s ? "active" : "")" @onclick="() => _statusFilter = s">@s · @n</button>
+  }
+  <button class="filter-chip @(_dueSoon ? "active" : "")" @onclick="() => _dueSoon = !_dueSoon">⚠ Due soon</button>
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Grantor</th><th>Purpose</th><th style="text-align:right;">Amount</th><th>Awarded</th><th>Report Due</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        @foreach (var g in Filtered)
+        {
+          var reportAlert = g.ReportDueDate.HasValue && g.ReportDueDate <= DateTime.UtcNow.AddDays(30);
+          <tr style="cursor:pointer;" @onclick="() => OpenDrawer(g)">
+            <td style="font-weight:600;">@g.GrantorName</td>
+            <td style="font-size:.82rem;color:var(--text-mid);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@g.Purpose</td>
+            <td style="text-align:right;font-weight:700;color:var(--gold);">@g.Amount.ToString("C0")</td>
+            <td style="font-size:.78rem;color:var(--text-light);">@g.AwardedDate.ToString("MMM d, yyyy")</td>
+            <td style="font-size:.78rem;">
+              @if (g.ReportDueDate.HasValue)
+              {
+                var overdue = g.ReportDueDate < DateTime.UtcNow;
+                <span style="color:@(overdue ? "var(--red)" : reportAlert ? "var(--amber)" : "inherit")">
+                  @g.ReportDueDate.Value.ToString("MMM d, yyyy")
+                  @if (overdue) { <text> ❌</text> } else if (reportAlert) { <text> ⚠</text> }
+                </span>
+              }
+              else { <text>—</text> }
+            </td>
+            <td>
+              <span class="badge @StatusBadge(g.Status)" style="font-size:.66rem;">@g.Status</span>
+            </td>
+            <td><button class="btn btn-sm" @onclick:stopPropagation="true" @onclick="() => OpenDrawer(g)">Edit</button></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (!Filtered.Any())
+    {
+      <div style="text-align:center;padding:32px;color:var(--text-light);font-size:.88rem;">No grants found.</div>
+    }
+  </div>
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer" style="width:500px;">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "New Grant" : "Edit Grant")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Grantor Name *</label>
+      <input class="form-input" style="margin-bottom:10px;" @bind="_form.GrantorName" placeholder="Foundation or organization name" />
+
+      <label class="form-label">Purpose *</label>
+      <textarea class="form-input" rows="2" style="margin-bottom:10px;" @bind="_form.Purpose"></textarea>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label class="form-label">Amount *</label>
+          <input class="form-input" type="number" min="0" step="100" @bind="_form.Amount" />
+        </div>
+        <div>
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_form.Status">
+            @foreach (var s in new[] { "Active", "Reporting", "Complete", "Expired" })
+            { <option value="@s">@s</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Awarded Date *</label>
+          <input class="form-input" type="date" @bind="_form.AwardedDate" />
+        </div>
+        <div>
+          <label class="form-label">Report Due Date</label>
+          <input class="form-input" type="date" @bind="_form.ReportDueDate" />
+        </div>
+      </div>
+
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" rows="3" style="margin-bottom:14px;" @bind="_form.Notes"></textarea>
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save Grant")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+        @if (_form.Id != 0)
+        {
+          <button class="btn" style="margin-left:auto;color:var(--red);" @onclick="Delete">Delete</button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<GrantDto> _grants = [];
+  private string _search = "", _statusFilter = "All";
+  private bool _dueSoon, _editing, _saving;
+  private string _err = "";
+  private GrantForm _form = new();
+
+  private class GrantForm
+  {
+    public int Id { get; set; }
+    public string GrantorName { get; set; } = "";
+    public string Purpose { get; set; } = "";
+    public decimal Amount { get; set; }
+    public DateTime AwardedDate { get; set; } = DateTime.Today;
+    public DateTime? ReportDueDate { get; set; }
+    public string Status { get; set; } = "Active";
+    public string? Notes { get; set; }
+    public GrantDto ToDto() => new(Id, 0, GrantorName, Purpose, Amount, AwardedDate, ReportDueDate, Status, Notes);
+  }
+
+  private IEnumerable<GrantDto> Filtered => _grants.Where(g =>
+    (_statusFilter == "All" || g.Status == _statusFilter) &&
+    (!_dueSoon || (g.ReportDueDate.HasValue && g.ReportDueDate <= DateTime.UtcNow.AddDays(30) && g.ReportDueDate >= DateTime.UtcNow)) &&
+    (string.IsNullOrEmpty(_search) || g.GrantorName.Contains(_search, StringComparison.OrdinalIgnoreCase) || g.Purpose.Contains(_search, StringComparison.OrdinalIgnoreCase))
+  ).OrderByDescending(g => g.AwardedDate);
+
+  protected override async Task OnInitializedAsync() => _grants = await Api.GetGrantsAsync();
+
+  private void OpenDrawer(GrantDto? g)
+  {
+    _form = g is null ? new GrantForm() : new GrantForm { Id = g.Id, GrantorName = g.GrantorName, Purpose = g.Purpose, Amount = g.Amount, AwardedDate = g.AwardedDate, ReportDueDate = g.ReportDueDate, Status = g.Status, Notes = g.Notes };
+    _err = ""; _editing = true;
+  }
+
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (string.IsNullOrWhiteSpace(_form.GrantorName) || string.IsNullOrWhiteSpace(_form.Purpose) || _form.Amount <= 0)
+    { _err = "Grantor, purpose, and amount are required."; return; }
+    _saving = true; _err = "";
+    var dto = _form.ToDto();
+    var ok = _form.Id == 0 ? await Api.CreateGrantAsync(dto) : await Api.UpdateGrantAsync(_form.Id, dto);
+    _saving = false;
+    if (ok) { _editing = false; _grants = await Api.GetGrantsAsync(); }
+    else _err = "Save failed.";
+  }
+
+  private async Task Delete()
+  {
+    await Api.DeleteGrantAsync(_form.Id);
+    _editing = false;
+    _grants = await Api.GetGrantsAsync();
+  }
+
+  private static string StatusBadge(string s) => s switch
+  {
+    "Active"    => "badge-fulfilled",
+    "Reporting" => "badge-inprogress",
+    "Complete"  => "badge-shipped",
+    "Expired"   => "badge-cancelled",
+    _           => "badge-new"
+  };
+}

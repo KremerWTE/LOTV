@@ -70,6 +70,10 @@
     "/admin/events" or "/admin/retreats" => "🎉",
     "/admin/wishlist" or "/admin/inventory" => "📦",
     "/admin/audit" or "/admin/webhooks" or "/admin/migrations" or "/admin/push-subscriptions" => "🔧",
+    "/admin/chapters" or "/admin/chapter-analytics" => "🏛",
+    "/admin/volunteer-certifications" => "📋",
+    "/admin/grants" => "💵",
+    "/admin/notification-prefs" => "🔔",
     "/admin/settings" or "/admin/users" or "/admin/diocese-data" or "/admin/health" => "⚙",
     "/admin/reconciliation" or "/admin/reports/schedule" => "📋",
     "/admin/notifications" or "/admin/marketing" => "✉",
@@ -117,6 +121,11 @@
     new("Scheduled Reports", "/admin/reports/schedule"),
     new("Send Notification", "/admin/notifications"),
     new("Marketing Email", "/admin/marketing"),
+    new("Chapter Management", "/admin/chapters"),
+    new("Chapter Analytics", "/admin/chapter-analytics"),
+    new("Volunteer Certifications", "/admin/volunteer-certifications"),
+    new("Grants", "/admin/grants"),
+    new("Notification Preferences", "/admin/notification-prefs"),
   };
 
   private bool _open;
