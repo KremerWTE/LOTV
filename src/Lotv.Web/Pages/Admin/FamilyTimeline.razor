@@ -1,0 +1,133 @@
+@page "/admin/families/{Id:int}/timeline"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Family Timeline — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Family Timeline</h2><p>Complete interaction history for @(_family?.FullName ?? $"Family #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/families/@Id" class="btn btn-sm">← Family Profile</a>
+    <a href="/admin/families/@Id/edit" class="btn btn-sm">Edit Profile</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_family is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Family #@Id not found.</div></div>
+}
+else
+{
+  <!-- FAMILY HEADER -->
+  <div class="panel" style="margin-bottom:18px;border-left:4px solid var(--navy);">
+    <div class="panel-body">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:.84rem;">
+        <div><span style="color:var(--text-light);">Reason</span><br/><strong>@_family.Reason.ToDisplayName()</strong></div>
+        <div><span style="color:var(--text-light);">Status</span><br/><span class="badge badge-@(_family.Status == FamilyStatus.Active ? "fulfilled" : "onhold")" style="font-size:.62rem;">@_family.Status</span></div>
+        <div><span style="color:var(--text-light);">Cases</span><br/><strong>@_cases.Count total, @_cases.Count(c => c.Status == CaseStatus.Fulfilled) fulfilled</strong></div>
+        <div><span style="color:var(--text-light);">Notes</span><br/><strong>@_notes.Count <span style="font-weight:400;color:var(--text-mid);">(@_notes.Count(n => n.IsPinned) pinned)</span></strong></div>
+        <div><span style="color:var(--text-light);">Member Since</span><br/><strong>@_family.CreatedAt.ToString("MMM d, yyyy")</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div style="display:flex;flex-direction:column;gap:0;">
+    @foreach (var item in _timeline)
+    {
+      <div style="display:flex;gap:16px;margin-bottom:0;">
+        <!-- Timeline column -->
+        <div style="display:flex;flex-direction:column;align-items:center;width:40px;flex-shrink:0;">
+          <div style="width:12px;height:12px;border-radius:50%;background:@item.DotColor;border:2px solid white;box-shadow:0 0 0 2px @item.DotColor;flex-shrink:0;margin-top:16px;"></div>
+          <div style="width:2px;flex:1;background:var(--border);min-height:16px;"></div>
+        </div>
+        <!-- Card -->
+        <div style="flex:1;padding-bottom:12px;">
+          <div class="panel" style="border-left:3px solid @item.DotColor;margin:8px 0 0 0;">
+            <div class="panel-body" style="padding:10px 14px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                <div style="flex:1;">
+                  <div style="font-size:.78rem;color:var(--text-light);margin-bottom:3px;">@item.Date.ToString("MMM d, yyyy") · @item.Category</div>
+                  <div style="font-size:.86rem;font-weight:600;">@item.Title</div>
+                  @if (!string.IsNullOrEmpty(item.Detail))
+                  {
+                    <div style="font-size:.78rem;color:var(--text-mid);margin-top:4px;">@item.Detail</div>
+                  }
+                </div>
+                @if (!string.IsNullOrEmpty(item.Link))
+                {
+                  <a href="@item.Link" class="btn btn-sm" style="font-size:.7rem;flex-shrink:0;">View</a>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+    @if (!_timeline.Any())
+    {
+      <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No timeline events found.</div></div>
+    }
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Family? _family;
+  private List<PackageRequest> _cases = [];
+  private List<FamilyNoteDto> _notes = [];
+  private List<TimelineItem> _timeline = [];
+  private bool _loading = true;
+
+  private record TimelineItem(DateTime Date, string Category, string Title, string? Detail, string DotColor, string? Link);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var familyTask = Api.GetFamilyAsync(Id);
+    var notesTask  = Api.GetFamilyNotesAsync(Id);
+    var casesTask  = Api.GetRequestsAsync(familyId: Id);
+    await Task.WhenAll(familyTask, notesTask, casesTask);
+    _family = await familyTask;
+    _notes  = await notesTask;
+    _cases  = await casesTask;
+
+    var items = new List<TimelineItem>();
+
+    if (_family is not null)
+      items.Add(new TimelineItem(_family.CreatedAt, "Intake", "Family registered in system",
+        $"{_family.Reason.ToDisplayName()} · {_family.City}, {_family.State}", "var(--navy)", null));
+
+    foreach (var c in _cases)
+    {
+      var color = c.Status == CaseStatus.Fulfilled ? "var(--green)" :
+                  c.Status == CaseStatus.Cancelled ? "var(--text-light)" : "var(--amber)";
+      items.Add(new TimelineItem(c.CreatedAt, "Case Created",
+        $"Case #{c.Id} — {c.Category}",
+        $"Priority: {c.Priority} · Status: {c.Status}", color,
+        $"/admin/cases/{c.Id}"));
+      if (c.ShippedDate.HasValue)
+        items.Add(new TimelineItem(c.ShippedDate.Value, "Case Shipped",
+          $"Case #{c.Id} shipped", c.TrackingNumber is not null ? $"Tracking: {c.TrackingNumber}" : null,
+          "var(--green)", $"/admin/cases/{c.Id}"));
+    }
+
+    foreach (var n in _notes)
+    {
+      var color = n.NoteType == "Milestone" ? "var(--gold)" : n.IsPinned ? "var(--navy)" : "var(--text-mid)";
+      items.Add(new TimelineItem(n.CreatedAt, $"Note — {n.NoteType}",
+        n.Content.Length > 80 ? n.Content[..77] + "…" : n.Content,
+        $"By {n.StaffName}" + (n.IsPinned ? " · Pinned" : ""),
+        color, null));
+    }
+
+    _timeline = items.OrderByDescending(i => i.Date).ToList();
+    _loading = false;
+  }
+}

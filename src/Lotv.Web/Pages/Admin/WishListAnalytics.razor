@@ -1,0 +1,146 @@
+@page "/admin/wishlist/analytics"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Wish List Analytics — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Wish List Analytics</h2><p>Fulfillment rates and demand by resource category</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/wishlist" class="btn btn-sm">← Wish List</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-label">Total Items</div>
+    <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Fulfilled</div>
+    <div class="kpi-value" style="color:var(--green)">@_all.Count(i => i.Status == WishListStatus.Fulfilled)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-label">Open / Partial</div>
+    <div class="kpi-value" style="color:var(--amber)">@_all.Count(i => i.Status is WishListStatus.Open or WishListStatus.PartiallyFulfilled)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-label">Fulfillment Rate</div>
+    <div class="kpi-value" style="color:var(--gold)">@(_all.Any() ? $"{(double)_all.Count(i => i.Status == WishListStatus.Fulfilled) / _all.Count * 100:F0}%" : "—")</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+  <!-- CATEGORY BREAKDOWN -->
+  <div class="panel">
+    <div class="panel-head"><h3>By Category</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_catStats.Any())
+      {
+        <div style="padding:32px;text-align:center;color:var(--text-light);">No data.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead><tr><th>Category</th><th style="text-align:right;">Total</th><th style="text-align:right;">Fulfilled</th><th style="width:130px;">Rate</th></tr></thead>
+          <tbody>
+            @foreach (var s in _catStats.OrderByDescending(s => s.Total))
+            {
+              var rate = s.Total > 0 ? (double)s.Fulfilled / s.Total * 100 : 0;
+              <tr>
+                <td style="font-size:.84rem;font-weight:600;">@s.Category.ToDisplayName()</td>
+                <td style="text-align:right;font-size:.82rem;">@s.Total</td>
+                <td style="text-align:right;font-size:.82rem;color:var(--green);">@s.Fulfilled</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="flex:1;background:var(--bg);border-radius:4px;height:8px;overflow:hidden;">
+                      <div style="height:100%;width:@(rate.ToString("F1"))%;background:var(--green);opacity:.7;border-radius:4px;"></div>
+                    </div>
+                    <span style="font-size:.72rem;color:var(--text-light);width:34px;text-align:right;">@rate.ToString("F0")%</span>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+
+  <!-- STATUS BREAKDOWN + QUANTITY STATS -->
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Status Breakdown</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Status</th><th style="text-align:right;">Count</th><th style="text-align:right;">Qty Requested</th><th style="text-align:right;">Qty Fulfilled</th></tr></thead>
+          <tbody>
+            @foreach (var status in Enum.GetValues<WishListStatus>())
+            {
+              var items = _all.Where(i => i.Status == status).ToList();
+              if (!items.Any()) continue;
+              <tr>
+                <td><span class="badge badge-@StatusBadge(status)" style="font-size:.62rem;">@status</span></td>
+                <td style="text-align:right;font-size:.82rem;">@items.Count</td>
+                <td style="text-align:right;font-size:.78rem;color:var(--text-mid);">@items.Sum(i => i.QuantityRequested)</td>
+                <td style="text-align:right;font-size:.78rem;color:var(--green);">@items.Sum(i => i.QuantityFulfilled)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MOST NEEDED -->
+    <div class="panel">
+      <div class="panel-head"><h3>Most Needed (Open)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Item</th><th style="text-align:right;">Remaining</th></tr></thead>
+          <tbody>
+            @foreach (var item in _all.Where(i => i.QuantityRemaining > 0).OrderByDescending(i => i.QuantityRemaining).Take(8))
+            {
+              <tr>
+                <td>
+                  <div style="font-size:.82rem;font-weight:600;">@item.Title</div>
+                  <div style="font-size:.72rem;color:var(--text-light);">@item.Category.ToDisplayName()</div>
+                </td>
+                <td style="text-align:right;font-size:.84rem;font-weight:700;color:var(--amber);">@item.QuantityRemaining</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+@code {
+  private List<WishListItem> _all = [];
+  private record CatStat(WishListCategory Category, int Total, int Fulfilled);
+  private List<CatStat> _catStats = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all = await Api.GetWishListAsync();
+    _catStats = _all.GroupBy(i => i.Category)
+      .Select(g => new CatStat(g.Key, g.Count(), g.Count(i => i.Status == WishListStatus.Fulfilled)))
+      .ToList();
+  }
+
+  private static string StatusBadge(WishListStatus s) => s switch
+  {
+    WishListStatus.Fulfilled          => "fulfilled",
+    WishListStatus.PartiallyFulfilled => "onhold",
+    WishListStatus.Cancelled          => "cancelled",
+    _                                 => "new"
+  };
+}

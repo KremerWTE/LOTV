@@ -64,6 +64,9 @@
         <NavLink class="sidebar-link" href="/admin/cases/overdue">
           <span class="icon">&#128680;</span> Overdue Cases
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/cases/bulk">
+          <span class="icon">&#9999;</span> Bulk Update
+        </NavLink>
       }
     </div>
 
@@ -105,6 +108,9 @@
         <NavLink class="sidebar-link" href="/admin/donors/retention">
           <span class="icon">&#128260;</span> Donor Retention
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/donors/segments">
+          <span class="icon">&#127942;</span> Donor Segments
+        </NavLink>
       </div>
     }
 
@@ -132,6 +138,15 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/events">
           <span class="icon">&#127880;</span> Events
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/events/summary">
+          <span class="icon">&#128202;</span> Event Summary
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/sponsors/report">
+          <span class="icon">&#127970;</span> Sponsors Report
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/wishlist/analytics">
+          <span class="icon">&#128230;</span> Wish List Analytics
         </NavLink>
       }
       @if (_canSeeDonations)
@@ -672,6 +687,12 @@
       var u when u.EndsWith("/admin/reports/history")   => "Report Run History",
       var u when u.EndsWith("/admin/donors/retention")  => "Donor Retention Analysis",
       var u when u.EndsWith("/admin/resources/flow")    => "Resource Flow Dashboard",
+      var u when u.Contains("/admin/families/") && u.EndsWith("/timeline") => "Family Timeline",
+      var u when u.EndsWith("/admin/wishlist/analytics") => "Wish List Analytics",
+      var u when u.EndsWith("/admin/donors/segments")   => "Donor Segments",
+      var u when u.EndsWith("/admin/events/summary")    => "Event Summary",
+      var u when u.EndsWith("/admin/sponsors/report")   => "Sponsors Report",
+      var u when u.EndsWith("/admin/cases/bulk")        => "Bulk Case Update",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

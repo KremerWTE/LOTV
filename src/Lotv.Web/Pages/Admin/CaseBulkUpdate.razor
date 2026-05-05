@@ -1,0 +1,164 @@
+@page "/admin/cases/bulk"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Bulk Case Update — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Bulk Case Update</h2><p>Select multiple cases and apply a status or priority change in one action</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
+         placeholder="&#128269; Filter cases…" @bind="_search" @bind:event="oninput" />
+  @foreach (var s in new[] { "All", "New", "InProgress", "OnHold", "AwaitingShipment" })
+  {
+    <button class="filter-chip @(_statusFilter == s ? "active" : "")" @onclick="() => { _statusFilter = s; _selected.Clear(); }">@s</button>
+  }
+</div>
+
+<!-- BULK ACTION BAR -->
+@if (_selected.Any())
+{
+  <div style="background:var(--navy);color:white;border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-weight:600;">@_selected.Count case@(_selected.Count == 1 ? "" : "s") selected</span>
+    <span style="font-size:.8rem;opacity:.7;">Apply to all selected:</span>
+    <select class="form-input" style="width:160px;font-size:.82rem;padding:4px 10px;" @bind="_bulkStatus">
+      <option value="">— Set Status —</option>
+      @foreach (var s in Enum.GetValues<CaseStatus>())
+      { <option value="@s">@s</option> }
+    </select>
+    <select class="form-input" style="width:140px;font-size:.82rem;padding:4px 10px;" @bind="_bulkPriority">
+      <option value="">— Set Priority —</option>
+      @foreach (var p in Enum.GetValues<RequestPriority>())
+      { <option value="@p">@p</option> }
+    </select>
+    <button class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;" @onclick="ApplyBulk" disabled="@(_applying || (string.IsNullOrEmpty(_bulkStatus) && string.IsNullOrEmpty(_bulkPriority)))">
+      @(_applying ? "Applying…" : "Apply")
+    </button>
+    <button class="btn btn-sm" style="background:transparent;color:white;border-color:rgba(255,255,255,.3);" @onclick="() => _selected.Clear()">Clear</button>
+    @if (!string.IsNullOrEmpty(_bulkResult)) { <span style="font-size:.8rem;color:#a3e6c4;">@_bulkResult</span> }
+  </div>
+}
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (_loading)
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div>
+    }
+    else if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No cases match this filter.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:40px;">
+              <input type="checkbox"
+                     checked="@AllSelected"
+                     @onchange="ToggleAll"
+                     style="width:15px;height:15px;cursor:pointer;" />
+            </th>
+            <th>Case #</th>
+            <th>Family</th>
+            <th>Category</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Days Open</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var c in Filtered.OrderByDescending(c => c.CreatedAt))
+          {
+            var days = (int)(DateTime.UtcNow - c.CreatedAt).TotalDays;
+            var isChecked = _selected.Contains(c.Id);
+            <tr style="@(isChecked ? "background:rgba(10,60,120,.05);" : "")cursor:pointer;" @onclick="() => Toggle(c.Id)">
+              <td @onclick:stopPropagation="true">
+                <input type="checkbox" checked="@isChecked"
+                       @onchange="() => Toggle(c.Id)"
+                       style="width:15px;height:15px;cursor:pointer;" />
+              </td>
+              <td style="font-size:.82rem;font-weight:600;color:var(--navy);">#@c.Id</td>
+              <td style="font-size:.84rem;">@(c.Family?.FullName ?? $"Family #{c.FamilyId}")</td>
+              <td><span class="badge badge-new" style="font-size:.62rem;">@c.Category</span></td>
+              <td>
+                @if (c.Priority == RequestPriority.Urgent)
+                { <span class="badge badge-cancelled" style="font-size:.62rem;">Urgent</span> }
+                else if (c.Priority == RequestPriority.High)
+                { <span class="badge badge-onhold" style="font-size:.62rem;">High</span> }
+                else { <span class="badge badge-new" style="font-size:.62rem;">@c.Priority</span> }
+              </td>
+              <td><span class="badge badge-onhold" style="font-size:.62rem;">@c.Status</span></td>
+              <td style="font-size:.78rem;color:@(days >= 14 ? "var(--red)" : "var(--text-light)");">@days d</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@code {
+  private List<PackageRequest> _cases = [];
+  private HashSet<int> _selected = [];
+  private string _search = "", _statusFilter = "All";
+  private string _bulkStatus = "", _bulkPriority = "";
+  private string _bulkResult = "";
+  private bool _loading = true, _applying;
+
+  private bool AllSelected => Filtered.Any() && Filtered.All(c => _selected.Contains(c.Id));
+
+  private IEnumerable<PackageRequest> Filtered => _cases.Where(c =>
+    (_statusFilter == "All" || c.Status.ToString() == _statusFilter) &&
+    (string.IsNullOrEmpty(_search) ||
+     (c.Family?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+     c.Id.ToString().Contains(_search)));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _cases = await Api.GetRequestsAsync();
+    _cases = _cases.Where(c => c.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled)).ToList();
+    _loading = false;
+  }
+
+  private void Toggle(int id)
+  {
+    if (!_selected.Remove(id)) _selected.Add(id);
+  }
+
+  private void ToggleAll(ChangeEventArgs _)
+  {
+    if (AllSelected) { foreach (var c in Filtered) _selected.Remove(c.Id); }
+    else { foreach (var c in Filtered) _selected.Add(c.Id); }
+  }
+
+  private async Task ApplyBulk()
+  {
+    if (!_selected.Any()) return;
+    _applying = true; _bulkResult = "";
+    int done = 0;
+    foreach (var id in _selected.ToList())
+    {
+      bool ok = true;
+      if (!string.IsNullOrEmpty(_bulkStatus) && Enum.TryParse<CaseStatus>(_bulkStatus, out var status))
+        ok &= await Api.UpdateRequestStatusAsync(id, status);
+      if (!string.IsNullOrEmpty(_bulkPriority) && Enum.TryParse<RequestPriority>(_bulkPriority, out var priority))
+        ok &= await Api.UpdateRequestPriorityAsync(id, priority);
+      if (ok) done++;
+    }
+    _cases = await Api.GetRequestsAsync();
+    _cases = _cases.Where(c => c.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled)).ToList();
+    _selected.Clear();
+    _bulkStatus = ""; _bulkPriority = "";
+    _bulkResult = $"{done} case{(done == 1 ? "" : "s")} updated.";
+    _applying = false;
+  }
+}

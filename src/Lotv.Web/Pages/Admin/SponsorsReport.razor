@@ -1,0 +1,167 @@
+@page "/admin/sponsors/report"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Sponsors Report — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Sponsors Report</h2><p>Sponsor pipeline, tier breakdown, and renewal tracking</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/sponsorships" class="btn btn-sm">← Sponsorships</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#127970;</div>
+    <div class="kpi-label">Total Sponsors</div>
+    <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Committed</div>
+    <div class="kpi-value" style="color:var(--green)">@_all.Sum(s => s.CommittedAmount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-label">Total Paid to Date</div>
+    <div class="kpi-value" style="color:var(--amber)">@_all.Sum(s => s.PaidToDate).ToString("C0")</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-label">Renewals (30d)</div>
+    <div class="kpi-value" style="color:var(--red)">@_renewalSoon.Count</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+  <!-- TIER BREAKDOWN -->
+  <div class="panel">
+    <div class="panel-head"><h3>By Tier</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Tier</th><th style="text-align:right;">Count</th><th style="text-align:right;">Committed</th><th style="text-align:right;">Collected</th></tr></thead>
+        <tbody>
+          @foreach (var tier in _tierStats.OrderByDescending(t => t.Committed))
+          {
+            <tr>
+              <td style="font-size:.84rem;font-weight:600;">@tier.Tier</td>
+              <td style="text-align:right;font-size:.82rem;">@tier.Count</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--navy);font-weight:600;">@tier.Committed.ToString("C0")</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green);">@tier.PaidToDate.ToString("C0")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RENEWALS DUE SOON -->
+  <div class="panel" style="border-left:3px solid var(--amber);">
+    <div class="panel-head"><h3>Renewals Due Within 30 Days</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_renewalSoon.Any())
+      {
+        <div style="padding:24px;text-align:center;color:var(--text-light);font-size:.84rem;">No renewals due soon.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead><tr><th>Company</th><th>Tier</th><th>Renewal</th><th style="text-align:right;">Amount</th></tr></thead>
+          <tbody>
+            @foreach (var s in _renewalSoon.OrderBy(s => s.RenewalDate))
+            {
+              var days = (s.RenewalDate!.Value - DateTime.Today).Days;
+              <tr>
+                <td style="font-size:.82rem;font-weight:600;">@s.CompanyName</td>
+                <td><span class="badge badge-new" style="font-size:.6rem;">@s.Tier</span></td>
+                <td style="font-size:.76rem;color:@(days <= 7 ? "var(--red)" : "var(--amber)");">
+                  @s.RenewalDate.Value.ToString("MMM d") <span style="font-size:.68rem;">(@days d)</span>
+                </td>
+                <td style="text-align:right;font-size:.84rem;color:var(--navy);">@s.CommittedAmount.ToString("C0")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+
+</div>
+
+<!-- FULL SPONSOR LIST -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
+         placeholder="&#128269; Search sponsors…" @bind="_search" @bind:event="oninput" />
+  @foreach (var status in new[] { "All", "Active", "Pending", "Lapsed", "Declined" })
+  {
+    <button class="filter-chip @(_statusFilter == status ? "active" : "")" @onclick="() => _statusFilter = status">@status</button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    <table class="data-table">
+      <thead><tr><th>Company</th><th>Contact</th><th>Tier</th><th>Status</th><th style="text-align:right;">Committed</th><th style="text-align:right;">Paid</th><th>Renewal</th></tr></thead>
+      <tbody>
+        @foreach (var s in Filtered.OrderByDescending(s => s.CommittedAmount))
+        {
+          var outstanding = s.CommittedAmount - s.PaidToDate;
+          <tr>
+            <td style="font-size:.84rem;font-weight:600;">@s.CompanyName</td>
+            <td style="font-size:.78rem;color:var(--text-mid);">
+              <div>@s.ContactName</div>
+              <div style="font-size:.72rem;">@s.Email</div>
+            </td>
+            <td><span class="badge badge-new" style="font-size:.6rem;">@s.Tier</span></td>
+            <td><span class="badge badge-@StatusBadge(s.Status)" style="font-size:.6rem;">@s.Status</span></td>
+            <td style="text-align:right;font-size:.84rem;font-weight:600;color:var(--navy);">@s.CommittedAmount.ToString("C0")</td>
+            <td style="text-align:right;font-size:.84rem;color:var(--green);">
+              @s.PaidToDate.ToString("C0")
+              @if (outstanding > 0) { <div style="font-size:.68rem;color:var(--amber);">@outstanding.ToString("C0") remaining</div> }
+            </td>
+            <td style="font-size:.76rem;color:var(--text-light);">
+              @(s.RenewalDate?.ToString("MMM d, yyyy") ?? "—")
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@code {
+  private List<SponsorDto> _all = [];
+  private List<SponsorDto> _renewalSoon = [];
+  private string _search = "", _statusFilter = "All";
+
+  private record TierStat(string Tier, int Count, decimal Committed, decimal PaidToDate);
+  private List<TierStat> _tierStats = [];
+
+  private IEnumerable<SponsorDto> Filtered => _all.Where(s =>
+    (_statusFilter == "All" || s.Status == _statusFilter) &&
+    (string.IsNullOrEmpty(_search) ||
+     s.CompanyName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+     s.ContactName.Contains(_search, StringComparison.OrdinalIgnoreCase)));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all = await Api.GetSponsorsAsync();
+    _renewalSoon = _all.Where(s => s.RenewalDate.HasValue &&
+                                    s.RenewalDate.Value >= DateTime.Today &&
+                                    s.RenewalDate.Value <= DateTime.Today.AddDays(30)).ToList();
+    _tierStats = _all.GroupBy(s => s.Tier)
+      .Select(g => new TierStat(g.Key, g.Count(), g.Sum(s => s.CommittedAmount), g.Sum(s => s.PaidToDate)))
+      .ToList();
+  }
+
+  private static string StatusBadge(string status) => status switch
+  {
+    "Active"  => "fulfilled",
+    "Lapsed"  => "onhold",
+    "Declined" => "cancelled",
+    _          => "new"
+  };
+}
