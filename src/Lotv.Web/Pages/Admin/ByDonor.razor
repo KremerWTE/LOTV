@@ -115,16 +115,27 @@
 </div>
 
 @code {
+  [Parameter, SupplyParameterFromQuery] public string? City { get; set; }
+
   private record DonorRow(Donor Donor, int GiftCount, decimal Total);
   private List<DonorRow> _rows = [];
   private Dictionary<int, List<Donation>> _giftsByDonor = new();
   private string _search = "";
   private int _expanded;
 
-  private IEnumerable<DonorRow> Filtered => string.IsNullOrWhiteSpace(_search)
-    ? _rows
-    : _rows.Where(r => r.Donor.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-                        r.Donor.Email.Contains(_search, StringComparison.OrdinalIgnoreCase));
+  private IEnumerable<DonorRow> Filtered
+  {
+    get
+    {
+      var src = string.IsNullOrWhiteSpace(City)
+        ? _rows
+        : _rows.Where(r => string.Equals(r.Donor.City, City, StringComparison.OrdinalIgnoreCase));
+      return string.IsNullOrWhiteSpace(_search)
+        ? src
+        : src.Where(r => r.Donor.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                         r.Donor.Email.Contains(_search, StringComparison.OrdinalIgnoreCase));
+    }
+  }
 
   protected override async Task OnInitializedAsync()
   {

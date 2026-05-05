@@ -93,7 +93,7 @@ else
             {
               var avg = row.TotalDonors > 0 ? row.TotalAmount / row.TotalDonors : 0;
               <tr>
-                <td style="font-weight:600;">@row.City</td>
+                <td style="font-weight:600;"><a href="@($"/admin/by-donor?city={Uri.EscapeDataString(row.City)}")" style="color:var(--navy);text-decoration:none;">@row.City</a></td>
                 <td style="color:var(--text-mid);">@row.State</td>
                 <td style="text-align:right;">@row.TotalDonors</td>
                 <td style="text-align:right;font-weight:700;color:var(--gold);"><Money Amount="@row.TotalAmount" /></td>

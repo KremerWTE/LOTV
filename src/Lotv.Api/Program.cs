@@ -2743,7 +2743,7 @@ app.MapPost("/api/v1/payments/intent", async (PaymentIntentRequest body, IConfig
 }).AllowAnonymous();
 
 app.MapPost("/api/v1/payments/webhook", async (HttpRequest request, LotvDbContext db,
-    IConfiguration cfg, ILogger<Program> log) =>
+    IConfiguration cfg, ILogger<Program> log, IPushSender pushSvc) =>
 {
     var sigSecret = cfg["Stripe:WebhookSecret"] ?? "";
     var secretKey = cfg["Stripe:SecretKey"] ?? "";
@@ -2815,10 +2815,18 @@ app.MapPost("/api/v1/payments/webhook", async (HttpRequest request, LotvDbContex
                 IsRecurring = !string.IsNullOrEmpty(inv.SubscriptionId),
                 StripePaymentIntentId = inv.PaymentIntentId,
             });
-            donor.TotalGiven  += inv.AmountPaid / 100m;
+            var amt = inv.AmountPaid / 100m;
+            donor.TotalGiven  += amt;
             donor.GiftCount   += 1;
             donor.LastGiftDate = DateTime.UtcNow;
             await db.SaveChangesAsync();
+
+            // Notify admins on large gifts so finance can recognise major donors quickly.
+            if (amt >= 1000m)
+            {
+                _ = pushSvc.SendToAllAsync("Major gift received",
+                    $"{donor.FullName} gave {amt:C0}.", $"/admin/by-donor");
+            }
             break;
         }
         case "customer.subscription.deleted":
