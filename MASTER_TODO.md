@@ -2,7 +2,7 @@
 
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-05-04 (feature blast: Stripe Elements, PDF receipts, donor portal, PWA + push, dark mode, avatars, multi-currency, mobile hamburger, full i18n rollout) — Phase 4 COMPLETE; Phase 5 COMPLETE — 423 tests passing (0 failures); Phase 6 IN PROGRESS — CI/CD workflows complete, environment config + OWASP review done; E2E Playwright test suite complete; mobile responsiveness + WCAG 2.1 AA accessibility audit complete; QR event check-in, real-time silent auction, all dashboard API endpoints, all public-facing pages now use anonymous endpoints, 35-test PublicApiTests suite added; WCAG 2.1 AA aria-pressed/aria-label/aria-expanded pass; Leaflet geographic maps live on ImpactDashboard + DioceseData; Kanban write-back wired; email delivery wired (ReceiptService + ScheduledReportService); Settings page wired to AppSetting API (key-value, chapter-scoped); remaining Task.Delay stubs confirmed as toast timers only — all mutation pages fully wired to API; HttpClient BaseAddress fixed (5275); CORS dev origins fixed
+**Last Updated**: 2026-05-05 (continuous feature build session; 109 incremental features across 21 commits — see sessions/2026-05-05-features-z-through-o5.md) — Phase 4 COMPLETE; Phase 5 COMPLETE — 423 tests passing (0 failures); Phase 6 IN PROGRESS — CI/CD workflows complete, environment config + OWASP review done; E2E Playwright test suite complete; mobile responsiveness + WCAG 2.1 AA accessibility audit complete; QR event check-in, real-time silent auction, all dashboard API endpoints, all public-facing pages now use anonymous endpoints, 35-test PublicApiTests suite added; WCAG 2.1 AA aria-pressed/aria-label/aria-expanded pass; Leaflet geographic maps live on ImpactDashboard + DioceseData; Kanban write-back wired; email delivery wired (ReceiptService + ScheduledReportService); Settings page wired to AppSetting API (key-value, chapter-scoped); remaining Task.Delay stubs confirmed as toast timers only — all mutation pages fully wired to API; HttpClient BaseAddress fixed (5275); CORS dev origins fixed
 **Org Model**: Centralized nonprofit — National HQ → Local Chapters (2-tier)
 
 ---
@@ -643,6 +643,20 @@
 - [x] PWA + web push — `manifest.webmanifest`, `sw.js` (push + notificationclick handlers), `lotvPush` JS wrapper, `PushSubscription` model, `POST /api/v1/push/subscribe`, `GET /api/public/v1/push/vapid-public-key` (server-side WebPush sender pending VAPID key configuration + Lib.Net.Http.WebPush package)
 - [x] Multi-currency — `ExchangeRate` model, `SupportedCurrencies` (USD/CAD/EUR/GBP/MXN), `GET /api/public/v1/currencies` returns codes/symbols/latest rates
 - [x] Migration `AddAvatarPushDonorLinkFx` — adds AvatarUrl to AspNetUsers, plus PushSubscriptions / DonorMagicLinks / ExchangeRates tables
+- [x] Stripe.net SDK live — `PaymentIntentService.CreateAsync` in `/payments/intent`; webhook handlers for subscription + invoice events with idempotency via `WebhookEvent` table; signature failures logged to `AuditEntry`; webhook replay endpoint
+- [x] WebPush sender — `PushSenderService` (VAPID-signed); fires on apply / assign / escalate / major gift (≥ $1000); admin push-test to current or any user; `/admin/push-subscriptions` viewer; VAPID key generator on Settings
+- [x] FX refresh job — `FxRefreshService` daily pull (USD/CAD/EUR/GBP/MXN) with seed defaults; `<Money>` component on 14+ pages (donor + admin dashboards, all "By X" reports, allocations, recurring, receipts)
+- [x] Donor self-service portal complete — `/donor/portal` with KPI strip, avatar, recurring inline cancel, billing-portal tile (Stripe Customer Portal), year-end PDF, update profile, magic-link sliding refresh, expiry badge; donor receipts page with HTML + PDF
+- [x] Volunteer self-service portal — `/volunteer/portal` magic-link auth, assignment-count badge, session badge + sliding refresh
+- [x] Admin power features — Cmd-K command palette (40+ pages, 4 quick actions, recents, emoji icons), "/" focuses search, sidebar collapse (persisted), dark-mode + language + currency switchers, sticky table headers + filter shadow, infinite-scroll pagination on AuditLog/ByDonor/Donations/DonorImpact
+- [x] Webhooks admin — `/admin/webhooks` with search, sort, source colors (stripe/givebutter), drill-down drawer with payload viewer + replay, prune > 90 days (manual + daily background)
+- [x] Audit log power UX — drawer, "My actions" filter, "Last 24h" chip, top-noisy-users panel, filter counts, signature-failed filter, CSV + JSON export
+- [x] ByDonor / ByDiocese / ByCity drill-through — clickable cells filter ByDonor by `?city=` or `?diocese=` query params
+- [x] Bulk admin operations — bulk-send portal links (chapter or diocese), bulk-allocate donations, bulk-set donation channel
+- [x] Background jobs — FxRefreshService (daily), MagicLinkCleanupService (hourly, donor + volunteer), WebhookCleanupService (daily, 90-day retention)
+- [x] PDF receipts — QuestPDF service for individual receipts + year-end statements; public donor variants
+- [x] Diagnostics endpoint + Health page panel (push count, FX freshness, migrations, webhook 7d/24h, donors-with-StripeCustomer)
+- [x] First-run migration hint on `/admin/migrations` (when 0 applied + N pending)
 
 ### Future Features
 - [x] Recurring donations (Stripe subscriptions) — `RecurringDonation` model + `DonorRecurring.razor` (`/donor/recurring`): active schedules list, pause/resume/cancel/edit actions, cancel confirmation, new recurring gift modal with preset amounts/frequency/start date/campaign; `MonthlyTotal` computed from frequency normalization
