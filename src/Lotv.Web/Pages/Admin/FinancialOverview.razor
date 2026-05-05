@@ -1,0 +1,187 @@
+@page "/admin/financial"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Financial Overview — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Financial Overview</h2><p>Unified view of donations, pledges, grants, and fund allocations</p></div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading financial data…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--green)">@_donations.Sum(d => d.Amount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">🔁</div>
+      <div class="kpi-label">Monthly Recurring</div>
+      <div class="kpi-value" style="color:var(--navy)">@RecurringMonthlyRate.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">🤝</div>
+      <div class="kpi-label">Active Pledge Pipeline</div>
+      <div class="kpi-value" style="color:var(--gold)">@_pledges.Where(p => p.Status == PledgeStatus.Active).Sum(p => p.RemainingAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">🏛</div>
+      <div class="kpi-label">Grant Funding</div>
+      <div class="kpi-value" style="color:var(--amber)">@_grants.Where(g => g.Status == "Active").Sum(g => g.Amount).ToString("C0")</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+
+    <!-- RECENT DONATIONS -->
+    <div class="panel">
+      <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;">
+        <h3>Recent Donations (@_donations.Count)</h3>
+        <a href="/admin/donations" style="font-size:.78rem;color:var(--green);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Donor</th><th>Amount</th><th>Channel</th></tr></thead>
+          <tbody>
+            @foreach (var d in _donations.OrderByDescending(d => d.Date).Take(8))
+            {
+              <tr>
+                <td style="font-size:.76rem;color:var(--text-light);">@d.Date.ToString("MMM d")</td>
+                <td style="font-size:.82rem;">@(d.Donor?.FullName ?? "—")</td>
+                <td style="font-size:.84rem;font-weight:600;color:var(--green);">@d.Amount.ToString("C0")</td>
+                <td style="font-size:.72rem;color:var(--text-light);">@d.Channel</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ACTIVE PLEDGES -->
+    <div class="panel">
+      <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;">
+        <h3>Pledge Pipeline</h3>
+        <a href="/admin/pledges" style="font-size:.78rem;color:var(--green);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Donor</th><th>Pledged</th><th>Remaining</th><th>Due</th></tr></thead>
+          <tbody>
+            @foreach (var p in _pledges.Where(p => p.Status == PledgeStatus.Active).OrderBy(p => p.TargetDate).Take(8))
+            {
+              <tr>
+                <td style="font-size:.82rem;font-weight:600;">@(p.Donor?.FullName ?? $"Donor #{p.DonorId}")</td>
+                <td style="font-size:.82rem;">@p.PledgedAmount.ToString("C0")</td>
+                <td style="font-size:.84rem;color:var(--navy);font-weight:600;">@p.RemainingAmount.ToString("C0")</td>
+                <td style="font-size:.76rem;color:@(p.IsOverdue ? "var(--red)" : "var(--text-light)");">@p.TargetDate.ToString("MMM d, yyyy")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+
+    <!-- GRANTS SUMMARY -->
+    <div class="panel">
+      <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;">
+        <h3>Grants (@_grants.Count)</h3>
+        <a href="/admin/grants" style="font-size:.78rem;color:var(--green);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Grantor</th><th>Amount</th><th>Status</th><th>Due</th></tr></thead>
+          <tbody>
+            @foreach (var g in _grants.OrderByDescending(g => g.Amount).Take(6))
+            {
+              <tr>
+                <td style="font-size:.82rem;font-weight:600;">@g.GrantorName</td>
+                <td style="font-size:.84rem;color:var(--green);font-weight:600;">@g.Amount.ToString("C0")</td>
+                <td><span class="badge @GrantStatusBadge(g.Status)" style="font-size:.62rem;">@g.Status</span></td>
+                <td style="font-size:.72rem;color:@(g.ReportDueDate.HasValue && g.ReportDueDate < DateTime.Today.AddDays(30) ? "var(--amber)" : "var(--text-light)");">
+                  @(g.ReportDueDate?.ToString("MMM d, yyyy") ?? "—")
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PENDING ALLOCATIONS -->
+    <div class="panel">
+      <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;">
+        <h3>Pending Allocations</h3>
+        <a href="/admin/allocations" style="font-size:.78rem;color:var(--green);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_allocations.Any())
+        {
+          <div style="padding:24px;text-align:center;color:var(--text-light);font-size:.84rem;">No pending allocations.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>To</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              @foreach (var a in _allocations.Take(6))
+              {
+                <tr>
+                  <td style="font-size:.82rem;font-weight:600;">@a.AllocatedTo</td>
+                  <td style="font-size:.84rem;color:var(--navy);font-weight:600;">@a.Amount.ToString("C0")</td>
+                  <td style="font-size:.72rem;">@a.Status</td>
+                  <td style="font-size:.72rem;color:var(--text-light);">@a.CreatedAt.ToString("MMM d")</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+  </div>
+}
+
+@code {
+  private List<Donation> _donations = [];
+  private List<DonorPledge> _pledges = [];
+  private List<GrantDto> _grants = [];
+  private List<FundAllocation> _allocations = [];
+  private bool _loading = true;
+
+  private decimal RecurringMonthlyRate => 0m; // placeholder — real data from recurring endpoint
+
+  protected override async Task OnInitializedAsync()
+  {
+    var t1 = Api.GetDonationsAsync();
+    var t2 = Api.GetPledgesAsync("Active");
+    var t3 = Api.GetGrantsAsync();
+    var t4 = Api.GetAllocationsAsync("PendingReview");
+    await Task.WhenAll(t1, t2, t3, t4);
+    _donations   = t1.Result;
+    _pledges     = t2.Result;
+    _grants      = t3.Result;
+    _allocations = t4.Result;
+    _loading = false;
+  }
+
+  private static string GrantStatusBadge(string s) => s switch
+  {
+    "Active"    => "badge-fulfilled",
+    "Reporting" => "badge-onhold",
+    "Complete"  => "badge-shipped",
+    "Expired"   => "badge-cancelled",
+    _           => "badge-new"
+  };
+}

@@ -1,0 +1,245 @@
+@page "/admin/pledges"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Pledges — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Pledges</h2><p>Committed giving pledges and fulfillment tracking</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ New Pledge</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🤝</div>
+    <div class="kpi-label">Active Pledges</div>
+    <div class="kpi-value" style="color:var(--navy)">@_pledges.Count(p => p.Status == PledgeStatus.Active)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-label">Total Pledged</div>
+    <div class="kpi-value" style="color:var(--gold)">@_pledges.Where(p => p.Status == PledgeStatus.Active).Sum(p => p.PledgedAmount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Total Fulfilled</div>
+    <div class="kpi-value" style="color:var(--green)">@_pledges.Sum(p => p.FulfilledAmount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">⚠</div>
+    <div class="kpi-label">Overdue</div>
+    <div class="kpi-value" style="color:var(--red)">@_pledges.Count(p => p.IsOverdue)</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search pledges…" @bind="_search" @bind:event="oninput" />
+  @foreach (var s in new[] { "All", "Active", "Fulfilled", "Overdue", "Cancelled", "Lapsed" })
+  {
+    var n = s == "All" ? _pledges.Count : _pledges.Count(p => p.Status.ToString() == s);
+    <button class="filter-chip @(_statusFilter == s ? "active" : "")" @onclick="() => _statusFilter = s">@s · @n</button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No pledges found.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr><th>Donor</th><th>Pledged</th><th>Fulfilled</th><th>Progress</th><th>Status</th><th>Target Date</th><th>Campaign</th><th></th></tr>
+        </thead>
+        <tbody>
+          @foreach (var p in Filtered)
+          {
+            var pct = (int)p.FulfillmentPercent;
+            <tr @onclick="() => OpenDrawer(p)" style="cursor:pointer;">
+              <td style="font-weight:600;font-size:.84rem;">@(p.Donor?.FullName ?? $"Donor #{p.DonorId}")</td>
+              <td style="font-size:.84rem;color:var(--navy);font-weight:600;">@p.PledgedAmount.ToString("C0")</td>
+              <td style="font-size:.84rem;color:var(--green);">@p.FulfilledAmount.ToString("C0")</td>
+              <td style="min-width:120px;">
+                <div style="background:var(--bg);border-radius:4px;height:8px;overflow:hidden;">
+                  <div style="width:@pct%;background:@(pct >= 100 ? "var(--green)" : "var(--navy)");height:100%;border-radius:4px;transition:width .4s;"></div>
+                </div>
+                <div style="font-size:.66rem;color:var(--text-light);margin-top:2px;">@pct%</div>
+              </td>
+              <td>
+                <span class="badge @StatusBadge(p.Status)" style="font-size:.64rem;">
+                  @(p.IsOverdue ? "Overdue" : p.Status.ToString())
+                </span>
+              </td>
+              <td style="font-size:.78rem;color:@(p.IsOverdue ? "var(--red)" : "var(--text-mid)");">
+                @p.TargetDate.ToString("MMM d, yyyy")
+              </td>
+              <td style="font-size:.78rem;color:var(--text-light);">@(p.Campaign ?? "—")</td>
+              <td @onclick:stopPropagation="true">
+                @if (p.Status == PledgeStatus.Active && !p.IsFulfilled)
+                {
+                  <button class="btn btn-sm" style="font-size:.7rem;" @onclick="() => OpenPayment(p)">Apply Payment</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer" style="width:460px;">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "New Pledge" : "Edit Pledge")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Donor ID *</label>
+      <input class="form-input" type="number" style="margin-bottom:10px;" @bind="_form.DonorId" />
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label class="form-label">Pledged Amount *</label>
+          <input class="form-input" type="number" min="0" step="50" @bind="_form.PledgedAmount" />
+        </div>
+        <div>
+          <label class="form-label">Target Date *</label>
+          <input class="form-input" type="date" @bind="_form.TargetDate" />
+        </div>
+        <div>
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_form.StatusStr">
+            @foreach (var s in Enum.GetNames<PledgeStatus>())
+            { <option value="@s">@s</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Campaign</label>
+          <input class="form-input" @bind="_form.Campaign" placeholder="e.g. Spring 2026" />
+        </div>
+      </div>
+
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" rows="2" style="margin-bottom:14px;" @bind="_form.Notes"></textarea>
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (_paymentOpen && _paymentPledge is not null)
+{
+  <div class="drawer-overlay" @onclick="ClosePayment"></div>
+  <div class="drawer" style="width:360px;">
+    <div class="drawer-head">
+      <h3>Apply Payment</h3>
+      <button class="drawer-close" @onclick="ClosePayment">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div style="margin-bottom:10px;font-size:.84rem;color:var(--text-mid);">
+        Pledge: @_paymentPledge.PledgedAmount.ToString("C0") · Remaining: @_paymentPledge.RemainingAmount.ToString("C0")
+      </div>
+      <label class="form-label">Payment Amount *</label>
+      <input class="form-input" type="number" min="1" step="50" style="margin-bottom:14px;" @bind="_paymentAmount" />
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SavePayment">Apply</button>
+        <button class="btn" @onclick="ClosePayment">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<DonorPledge> _pledges = [];
+  private string _search = "", _statusFilter = "All";
+  private bool _editing, _saving, _paymentOpen;
+  private string _err = "";
+  private DonorPledge? _paymentPledge;
+  private decimal _paymentAmount;
+
+  private class PledgeForm
+  {
+    public int Id { get; set; }
+    public int DonorId { get; set; }
+    public decimal PledgedAmount { get; set; }
+    public DateTime TargetDate { get; set; } = DateTime.Today.AddMonths(6);
+    public string StatusStr { get; set; } = "Active";
+    public string? Campaign { get; set; }
+    public string? Notes { get; set; }
+    public DonorPledge ToModel() => new()
+    {
+      Id = Id, DonorId = DonorId, PledgedAmount = PledgedAmount, TargetDate = TargetDate,
+      Status = Enum.Parse<PledgeStatus>(StatusStr), Campaign = Campaign, Notes = Notes
+    };
+  }
+  private PledgeForm _form = new();
+
+  private IEnumerable<DonorPledge> Filtered => _pledges.Where(p =>
+    (_statusFilter == "All" || p.Status.ToString() == _statusFilter) &&
+    (string.IsNullOrEmpty(_search) || (p.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+     (p.Campaign?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
+  ).OrderByDescending(p => p.IsOverdue).ThenByDescending(p => p.PledgedAmount);
+
+  protected override async Task OnInitializedAsync() => _pledges = await Api.GetPledgesAsync();
+
+  private void OpenDrawer(DonorPledge? p)
+  {
+    _form = p is null ? new PledgeForm() : new PledgeForm
+    {
+      Id = p.Id, DonorId = p.DonorId, PledgedAmount = p.PledgedAmount, TargetDate = p.TargetDate,
+      StatusStr = p.Status.ToString(), Campaign = p.Campaign, Notes = p.Notes
+    };
+    _err = ""; _editing = true;
+  }
+
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (_form.DonorId == 0 || _form.PledgedAmount <= 0) { _err = "Donor ID and pledged amount are required."; return; }
+    _saving = true; _err = "";
+    var model = _form.ToModel();
+    bool ok;
+    if (_form.Id == 0) { var created = await Api.CreatePledgeAsync(model); ok = created is not null; }
+    else ok = await Api.UpdatePledgeAsync(_form.Id, model);
+    _saving = false;
+    if (ok) { _editing = false; _pledges = await Api.GetPledgesAsync(); }
+    else _err = "Save failed.";
+  }
+
+  private void OpenPayment(DonorPledge p) { _paymentPledge = p; _paymentAmount = p.RemainingAmount; _paymentOpen = true; }
+  private void ClosePayment() => _paymentOpen = false;
+
+  private async Task SavePayment()
+  {
+    if (_paymentPledge is null || _paymentAmount <= 0) return;
+    await Api.ApplyPledgePaymentAsync(_paymentPledge.Id, _paymentAmount);
+    _paymentOpen = false;
+    _pledges = await Api.GetPledgesAsync();
+  }
+
+  private static string StatusBadge(PledgeStatus s) => s switch
+  {
+    PledgeStatus.Active    => "badge-new",
+    PledgeStatus.Fulfilled => "badge-fulfilled",
+    PledgeStatus.Overdue   => "badge-cancelled",
+    PledgeStatus.Cancelled => "badge-cancelled",
+    PledgeStatus.Lapsed    => "badge-onhold",
+    _                      => "badge-new"
+  };
+}

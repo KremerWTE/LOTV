@@ -1075,6 +1075,9 @@ public class ApiService
     public Task<List<VolCertDto>> GetAllCertificationsAsync() =>
         GetListAsync<VolCertDto>("/api/v1/certifications/expiring?days=365");
 
+    public Task<List<VolCertDto>> GetVolunteerCertificationsAsync(int volId) =>
+        GetListAsync<VolCertDto>($"/api/v1/volunteers/{volId}/certifications");
+
     public async Task<bool> CreateCertificationAsync(int volId, VolCertDto body)
     {
         var resp = await AuthedPostAsync($"/api/v1/volunteers/{volId}/certifications", body);
@@ -1141,6 +1144,86 @@ public class ApiService
     // ── Chapter analytics ─────────────────────────────────────────────────────
     public Task<List<ChapterAnalyticsDto>> GetChapterAnalyticsAsync() =>
         GetListAsync<ChapterAnalyticsDto>("/api/v1/admin/chapter-analytics");
+
+    // ── Inventory additional mutations ────────────────────────────────────────
+    public Task<ResourceItem?> GetInventoryItemAsync(int id) =>
+        GetAsync<ResourceItem>($"/api/v1/inventory/{id}");
+
+    public async Task<ResourceItem?> CreateInventoryItemAsync(ResourceItem item)
+    {
+        var resp = await AuthedPostAsync("/api/v1/inventory", item);
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<ResourceItem>() : null;
+    }
+
+    public async Task<bool> UpdateInventoryItemAsync(int id, ResourceItem item)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/inventory/{id}", item);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> AdjustInventoryAsync(int id, int delta, string reason)
+    {
+        var resp = await AuthedPatchAsync($"/api/v1/inventory/{id}/adjust", new { Delta = delta, Reason = reason });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Pledges ───────────────────────────────────────────────────────────────
+    public Task<List<DonorPledge>> GetPledgesAsync(string? status = null)
+    {
+        var url = "/api/v1/pledges" + (status is not null ? $"?status={status}" : "");
+        return GetListAsync<DonorPledge>(url);
+    }
+
+    public async Task<DonorPledge?> CreatePledgeAsync(DonorPledge pledge)
+    {
+        var resp = await AuthedPostAsync("/api/v1/pledges", pledge);
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<DonorPledge>() : null;
+    }
+
+    public async Task<bool> UpdatePledgeAsync(int id, DonorPledge pledge)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/pledges/{id}", pledge);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> ApplyPledgePaymentAsync(int id, decimal amount)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/pledges/{id}/apply", new { Amount = amount });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Recurring Donations (admin) ───────────────────────────────────────────
+    public Task<List<RecurringDonation>> GetAllRecurringAsync(string? status = null)
+    {
+        var url = "/api/v1/recurring" + (status is not null ? $"?status={status}" : "");
+        return GetListAsync<RecurringDonation>(url);
+    }
+
+    public async Task<bool> PauseRecurringAdminAsync(int id)
+    {
+        try { return (await _http.PostAsync($"/api/v1/recurring/{id}/pause", null)).IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
+    public async Task<bool> CancelRecurringAdminAsync(int id)
+    {
+        try { return (await _http.PostAsync($"/api/v1/recurring/{id}/cancel", null)).IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
+    public async Task<bool> ResumeRecurringAdminAsync(int id)
+    {
+        try { return (await _http.PostAsync($"/api/v1/recurring/{id}/resume", null)).IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
+    // ── SMS Log ───────────────────────────────────────────────────────────────
+    public Task<List<SmsLogDto>> GetSmsLogAsync(int? caseId = null, int page = 1) =>
+        GetListAsync<SmsLogDto>($"/api/v1/cases/sms-log{BuildQs(("caseId", caseId?.ToString()), ("page", page.ToString()))}");
+
+    // ── Volunteer admin ───────────────────────────────────────────────────────
+    public Task<Volunteer?> GetVolunteerByIdAsync(int id) =>
+        GetAsync<Volunteer>($"/api/v1/volunteers/{id}");
 
     // ── Family notes ──────────────────────────────────────────────────────────
     public Task<List<FamilyNoteDto>> GetFamilyNotesAsync(int familyId) =>
@@ -1393,3 +1476,7 @@ public record StaffTaskDto(int Id, int ChapterId, string Title, string? Descript
 
 public record AnnouncementDto(int Id, int? ChapterId, string Title, string Body,
     string Audience, bool IsPinned, DateTime? ExpiresAt, string AuthorName, DateTime CreatedAt);
+
+public record SmsLogDto(int Id, string ToPhoneNumber, string MessageType, int? CaseId,
+    string? UserId, string Body, bool Success, string? ProviderMessageId,
+    string? ErrorMessage, DateTime SentAt);

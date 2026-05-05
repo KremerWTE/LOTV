@@ -1,0 +1,162 @@
+@page "/admin/volunteers/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Detail — LOTV Staff Portal</PageTitle>
+
+@if (_loading)
+{
+  <Loading Message="Loading volunteer…" Size="lg" />
+}
+else if (_vol is null)
+{
+  <div class="panel" style="text-align:center;padding:48px;">
+    <p style="color:var(--text-mid);">Volunteer not found.</p>
+    <a href="/admin/volunteers" class="btn btn-primary" style="margin-top:12px;">← Back</a>
+  </div>
+}
+else
+{
+  <div class="page-hd">
+    <div>
+      <h2>@_vol.FullName</h2>
+      <p>@_vol.Role.ToDisplayName() · @_vol.Status</p>
+    </div>
+    <div class="page-hd-actions">
+      <a href="/admin/volunteers" class="btn btn-sm">← Back</a>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;">
+    <!-- PROFILE -->
+    <div class="panel">
+      <div class="panel-head"><h3>Profile</h3></div>
+      <div class="panel-body">
+        <table style="width:100%;border-collapse:collapse;">
+          @foreach (var (label, val) in ProfileRows)
+          {
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 4px;font-size:.76rem;font-weight:700;color:var(--text-light);width:130px;text-transform:uppercase;letter-spacing:.06em;">@label</td>
+              <td style="padding:8px 4px;font-size:.84rem;">@(val ?? "—")</td>
+            </tr>
+          }
+        </table>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel">
+        <div class="panel-head"><h3>Assignment Stats</h3></div>
+        <div class="panel-body">
+          <div class="kpi-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="kpi-card kpi-navy" style="padding:14px;">
+              <div class="kpi-label">Active Cases</div>
+              <div class="kpi-value" style="color:var(--navy);font-size:1.5rem;">@_vol.ActiveCases</div>
+            </div>
+            <div class="kpi-card kpi-green" style="padding:14px;">
+              <div class="kpi-label">Total Fulfilled</div>
+              <div class="kpi-value" style="color:var(--green);font-size:1.5rem;">@_vol.TotalCasesFulfilled</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CERTIFICATIONS -->
+      <div class="panel">
+        <div class="panel-head"><h3>Certifications (@_certs.Count)</h3></div>
+        <div class="panel-body" style="padding:0;">
+          @if (_certs.Count == 0)
+          {
+            <div style="padding:16px;text-align:center;font-size:.84rem;color:var(--text-light);">No certifications on file.</div>
+          }
+          else
+          {
+            @foreach (var c in _certs.OrderBy(c => c.ExpiresDate ?? DateTime.MaxValue))
+            {
+              var expired = c.ExpiresDate.HasValue && c.ExpiresDate < DateTime.Today;
+              var expiringSoon = !expired && c.ExpiresDate.HasValue && c.ExpiresDate < DateTime.Today.AddDays(30);
+              <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                  <div style="font-size:.84rem;font-weight:600;">@c.CertType</div>
+                  <div style="font-size:.72rem;color:var(--text-light);">Issued @c.IssuedDate.ToString("MMM d, yyyy")</div>
+                </div>
+                <div style="text-align:right;">
+                  @if (c.ExpiresDate.HasValue)
+                  {
+                    <div style="font-size:.74rem;color:@(expired ? "var(--red)" : expiringSoon ? "var(--amber)" : "var(--text-light)");">
+                      @(expired ? "Expired" : "Expires") @c.ExpiresDate.Value.ToString("MMM d, yyyy")
+                    </div>
+                  }
+                  @if (c.IsVerified) { <span class="badge badge-fulfilled" style="font-size:.6rem;">Verified</span> }
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE CASES -->
+  @if (_cases.Count > 0)
+  {
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-head"><h3>Assigned Cases (@_cases.Count)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Case #</th><th>Family</th><th>Category</th><th>Status</th><th>Priority</th><th>Created</th></tr></thead>
+          <tbody>
+            @foreach (var c in _cases.OrderByDescending(x => x.CreatedAt).Take(10))
+            {
+              <tr @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")' style="cursor:pointer;">
+                <td style="font-size:.78rem;color:var(--text-light);">#@c.Id</td>
+                <td style="font-size:.84rem;font-weight:600;">@(c.Family?.FullName ?? $"Family #{c.FamilyId}")</td>
+                <td style="font-size:.78rem;">@c.Category</td>
+                <td><span class="badge badge-inprogress" style="font-size:.64rem;">@c.Status</span></td>
+                <td style="font-size:.78rem;">@c.Priority</td>
+                <td style="font-size:.76rem;color:var(--text-light);">@c.CreatedAt.ToString("MMM d, yyyy")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Volunteer? _vol;
+  private List<VolCertDto> _certs = [];
+  private List<PackageRequest> _cases = [];
+  private bool _loading = true;
+
+  private IEnumerable<(string Label, string? Val)> ProfileRows => _vol is null ? [] :
+  [
+    ("Email",    _vol.Email),
+    ("Phone",    _vol.Phone),
+    ("Role",     _vol.Role.ToDisplayName()),
+    ("Status",   _vol.Status.ToString()),
+    ("Parish",   _vol.ParishName),
+    ("Diocese",  _vol.DioceseName),
+    ("Joined",   _vol.JoinedDate.ToString("MMMM d, yyyy")),
+    ("Notes",    _vol.Notes),
+  ];
+
+  protected override async Task OnParametersSetAsync()
+  {
+    _loading = true;
+    var t1 = Api.GetVolunteerByIdAsync(Id);
+    var t2 = Api.GetVolunteerCertificationsAsync(Id);
+    var t3 = Api.GetRequestsAsync(status: "InProgress");
+    await Task.WhenAll(t1, t2, t3);
+    _vol   = t1.Result;
+    _certs = t2.Result;
+    _cases = t3.Result.Where(c => c.AssignedToId == Id).ToList();
+    _loading = false;
+  }
+}

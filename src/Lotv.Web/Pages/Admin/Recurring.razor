@@ -1,0 +1,145 @@
+@page "/admin/recurring"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Recurring Donations — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Recurring Donations</h2><p>All active and historical recurring giving schedules</p></div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🔁</div>
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value" style="color:var(--navy)">@_schedules.Count(r => r.Status == RecurringStatus.Active)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-label">Monthly Run Rate</div>
+    <div class="kpi-value" style="color:var(--gold)">@MonthlyRunRate.ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">⏸</div>
+    <div class="kpi-label">Paused</div>
+    <div class="kpi-value" style="color:var(--amber)">@_schedules.Count(r => r.Status == RecurringStatus.Paused)</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">⚠</div>
+    <div class="kpi-label">Past Due</div>
+    <div class="kpi-value" style="color:var(--red)">@_schedules.Count(r => r.Status == RecurringStatus.PastDue)</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search…" @bind="_search" @bind:event="oninput" />
+  @foreach (var s in new[] { "All", "Active", "Paused", "PastDue", "Cancelled", "Completed" })
+  {
+    var n = s == "All" ? _schedules.Count : _schedules.Count(r => r.Status.ToString() == s);
+    <button class="filter-chip @(_statusFilter == s ? "active" : "")" @onclick="() => _statusFilter = s">
+      @(s == "PastDue" ? "Past Due" : s) · @n
+    </button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No recurring schedules found.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead><tr><th>Donor</th><th>Amount</th><th>Frequency</th><th>Status</th><th>Next Charge</th><th>Last Charged</th><th>Campaign</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var r in Filtered)
+          {
+            var overdue = r.Status == RecurringStatus.PastDue || (r.Status == RecurringStatus.Active && r.NextChargeDate < DateTime.Today);
+            <tr>
+              <td style="font-weight:600;font-size:.84rem;">@(r.Donor?.FullName ?? $"Donor #{r.DonorId}")</td>
+              <td style="font-size:.84rem;color:var(--green);font-weight:600;">@r.Amount.ToString("C0")</td>
+              <td style="font-size:.78rem;">@r.Frequency.ToDisplayName()</td>
+              <td><span class="badge @StatusBadge(r.Status)" style="font-size:.64rem;">@(r.Status == RecurringStatus.PastDue ? "Past Due" : r.Status.ToString())</span></td>
+              <td style="font-size:.78rem;color:@(overdue ? "var(--red)" : "var(--text-mid)");">@r.NextChargeDate.ToString("MMM d, yyyy")</td>
+              <td style="font-size:.78rem;color:var(--text-light);">@(r.LastChargedAt.HasValue ? r.LastChargedAt.Value.ToString("MMM d, yyyy") : "—")</td>
+              <td style="font-size:.78rem;color:var(--text-light);">@(r.Campaign ?? "—")</td>
+              <td style="display:flex;gap:4px;" @onclick:stopPropagation="true">
+                @if (r.Status == RecurringStatus.Active)
+                {
+                  <button class="btn btn-sm" style="font-size:.7rem;" @onclick="() => PauseAsync(r.Id)">Pause</button>
+                }
+                @if (r.Status == RecurringStatus.Paused)
+                {
+                  <button class="btn btn-sm" style="font-size:.7rem;color:var(--green);" @onclick="() => ResumeAsync(r.Id)">Resume</button>
+                }
+                @if (r.Status is RecurringStatus.Active or RecurringStatus.Paused or RecurringStatus.PastDue)
+                {
+                  <button class="btn btn-sm" style="font-size:.7rem;color:var(--red);" @onclick="() => CancelAsync(r.Id)">Cancel</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@code {
+  private List<RecurringDonation> _schedules = [];
+  private string _search = "", _statusFilter = "All";
+
+  private decimal MonthlyRunRate => _schedules
+    .Where(r => r.Status == RecurringStatus.Active)
+    .Sum(r => r.Frequency switch
+    {
+      RecurringFrequency.Weekly    => r.Amount * 4.33m,
+      RecurringFrequency.BiWeekly  => r.Amount * 2.17m,
+      RecurringFrequency.Monthly   => r.Amount,
+      RecurringFrequency.Quarterly => r.Amount / 3m,
+      RecurringFrequency.Annually  => r.Amount / 12m,
+      _                            => r.Amount
+    });
+
+  private IEnumerable<RecurringDonation> Filtered => _schedules.Where(r =>
+    (_statusFilter == "All" || r.Status.ToString() == _statusFilter) &&
+    (string.IsNullOrEmpty(_search) ||
+     (r.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+     (r.Campaign?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
+  ).OrderBy(r => r.Status == RecurringStatus.Active ? 0 : 1).ThenBy(r => r.NextChargeDate);
+
+  protected override async Task OnInitializedAsync() => _schedules = await Api.GetAllRecurringAsync();
+
+  private async Task PauseAsync(int id)
+  {
+    await Api.PauseRecurringAdminAsync(id);
+    _schedules = await Api.GetAllRecurringAsync();
+  }
+
+  private async Task ResumeAsync(int id)
+  {
+    await Api.ResumeRecurringAdminAsync(id);
+    _schedules = await Api.GetAllRecurringAsync();
+  }
+
+  private async Task CancelAsync(int id)
+  {
+    await Api.CancelRecurringAdminAsync(id);
+    _schedules = await Api.GetAllRecurringAsync();
+  }
+
+  private static string StatusBadge(RecurringStatus s) => s switch
+  {
+    RecurringStatus.Active    => "badge-fulfilled",
+    RecurringStatus.Paused    => "badge-onhold",
+    RecurringStatus.PastDue   => "badge-cancelled",
+    RecurringStatus.Cancelled => "badge-cancelled",
+    RecurringStatus.Completed => "badge-shipped",
+    _                         => "badge-new"
+  };
+}

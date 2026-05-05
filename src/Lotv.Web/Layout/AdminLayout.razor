@@ -124,6 +124,12 @@
         <NavLink class="sidebar-link" href="/admin/donors">
           <span class="icon">&#127873;</span> Donors Database
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/pledges">
+          <span class="icon">&#129309;</span> Pledges
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/recurring">
+          <span class="icon">&#128260;</span> Recurring
+        </NavLink>
       }
     </div>
 
@@ -210,6 +216,15 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/announcements">
           <span class="icon">&#128226;</span> Announcements
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/financial">
+          <span class="icon">&#128200;</span> Financial Overview
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/inventory">
+          <span class="icon">&#128230;</span> Inventory
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/sms-log">
+          <span class="icon">&#128241;</span> SMS Log
         </NavLink>
       }
     </div>
@@ -607,8 +622,14 @@
       var u when u.EndsWith("/admin/pledge-renewals")  => "Pledge Renewals",
       var u when u.EndsWith("/admin/staff-tasks")      => "Staff Task Board",
       var u when u.EndsWith("/admin/announcements")    => "Announcements",
-      var u when u.EndsWith("/admin/volunteer-skills") => "Volunteer Skill Directory",
-      var u when u.Contains("/admin/families/")        => "Family Detail",
+      var u when u.EndsWith("/admin/volunteer-skills")  => "Volunteer Skill Directory",
+      var u when u.Contains("/admin/families/")         => "Family Detail",
+      var u when u.Contains("/admin/volunteers/")       => "Volunteer Detail",
+      var u when u.EndsWith("/admin/pledges")           => "Donor Pledges",
+      var u when u.EndsWith("/admin/recurring")         => "Recurring Donations",
+      var u when u.EndsWith("/admin/inventory")         => "Resource Inventory",
+      var u when u.EndsWith("/admin/sms-log")           => "SMS Communication Log",
+      var u when u.EndsWith("/admin/financial")         => "Financial Overview",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

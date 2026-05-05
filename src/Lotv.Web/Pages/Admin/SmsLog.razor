@@ -1,0 +1,141 @@
+@page "/admin/sms-log"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>SMS Log — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>SMS Communication Log</h2><p>Outbound SMS history for case notifications and alerts</p></div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:140px;font-size:.82rem;padding:5px 10px;"
+         type="number" placeholder="Case ID (optional)" @bind="_caseId" />
+  <button class="btn btn-sm" @onclick="Load">Filter</button>
+  <button class="btn btn-sm" @onclick="Reset">Reset</button>
+  @foreach (var t in new[] { "All", "Success", "Failed" })
+  {
+    <button class="filter-chip @(_resultFilter == t ? "active" : "")" @onclick="() => _resultFilter = t">@t</button>
+  }
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">📱</div>
+    <div class="kpi-label">Total Messages</div>
+    <div class="kpi-value" style="color:var(--navy)">@_logs.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Delivered</div>
+    <div class="kpi-value" style="color:var(--green)">@_logs.Count(l => l.Success)</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">❌</div>
+    <div class="kpi-label">Failed</div>
+    <div class="kpi-value" style="color:var(--red)">@_logs.Count(l => !l.Success)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">📊</div>
+    <div class="kpi-label">Delivery Rate</div>
+    <div class="kpi-value" style="color:var(--gold)">
+      @(_logs.Count > 0 ? $"{_logs.Count(l => l.Success) * 100 / _logs.Count}%" : "—")
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (_loading)
+    {
+      <Loading Message="Loading SMS log…" />
+    }
+    else if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No messages found.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead><tr><th>Sent At</th><th>To</th><th>Type</th><th>Case</th><th>Status</th><th>Message</th><th>Provider ID</th></tr></thead>
+        <tbody>
+          @foreach (var l in Filtered)
+          {
+            <tr>
+              <td style="font-size:.76rem;color:var(--text-light);white-space:nowrap;">@l.SentAt.ToString("MMM d h:mm tt")</td>
+              <td style="font-size:.78rem;font-family:monospace;">@l.ToPhoneNumber</td>
+              <td style="font-size:.76rem;">@MsgTypeLabel(l.MessageType)</td>
+              <td style="font-size:.78rem;">
+                @if (l.CaseId.HasValue)
+                { <a href="/admin/cases/@l.CaseId" style="color:var(--navy);">Case #@l.CaseId</a> }
+                else { <span style="color:var(--text-light);">—</span> }
+              </td>
+              <td>
+                @if (l.Success)
+                { <span class="badge badge-fulfilled" style="font-size:.64rem;">Sent</span> }
+                else
+                { <span class="badge badge-cancelled" style="font-size:.64rem;" title="@l.ErrorMessage">Failed</span> }
+              </td>
+              <td style="font-size:.76rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@l.Body">@l.Body</td>
+              <td style="font-size:.68rem;color:var(--text-light);font-family:monospace;">@(l.ProviderMessageId ?? "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (_page > 1 || _logs.Count >= 50)
+      {
+        <div style="padding:12px 18px;display:flex;gap:10px;border-top:1px solid var(--border);">
+          @if (_page > 1) { <button class="btn btn-sm" @onclick="PrevPage">← Prev</button> }
+          <span style="font-size:.78rem;color:var(--text-light);align-self:center;">Page @_page</span>
+          @if (_logs.Count >= 50) { <button class="btn btn-sm" @onclick="NextPage">Next →</button> }
+        </div>
+      }
+    }
+  </div>
+</div>
+
+@code {
+  private List<SmsLogDto> _logs = [];
+  private bool _loading = true;
+  private int? _caseId;
+  private string _resultFilter = "All";
+  private int _page = 1;
+
+  private IEnumerable<SmsLogDto> Filtered => _resultFilter switch
+  {
+    "Success" => _logs.Where(l => l.Success),
+    "Failed"  => _logs.Where(l => !l.Success),
+    _         => _logs
+  };
+
+  protected override async Task OnInitializedAsync() => await Load();
+
+  private async Task Load()
+  {
+    _loading = true;
+    _logs = await Api.GetSmsLogAsync(caseId: _caseId, page: _page);
+    _loading = false;
+  }
+
+  private async Task Reset()
+  {
+    _caseId = null; _page = 1;
+    await Load();
+  }
+
+  private async Task PrevPage() { _page = Math.Max(1, _page - 1); await Load(); }
+  private async Task NextPage() { _page++; await Load(); }
+
+  private static string MsgTypeLabel(string t) => t switch
+  {
+    "AssignmentNotification" => "Assignment",
+    "OverdueReminder"        => "Overdue Alert",
+    "CheckInConfirmation"    => "Check-In",
+    "AssignmentAccepted"     => "Accepted",
+    "Custom"                 => "Custom",
+    _                        => t
+  };
+}

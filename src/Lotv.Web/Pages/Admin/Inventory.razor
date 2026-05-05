@@ -1,0 +1,252 @@
+@page "/admin/inventory"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Resource Inventory — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Resource Inventory</h2><p>Physical goods donated and available for package requests</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ Add Item</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">📦</div>
+    <div class="kpi-label">Total Items</div>
+    <div class="kpi-value" style="color:var(--navy)">@_items.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Units Available</div>
+    <div class="kpi-value" style="color:var(--green)">@_items.Sum(i => i.QuantityAvailable)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">🔒</div>
+    <div class="kpi-label">Reserved</div>
+    <div class="kpi-value" style="color:var(--amber)">@_items.Sum(i => i.QuantityReserved)</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">⚠</div>
+    <div class="kpi-label">Low Stock (&lt;3)</div>
+    <div class="kpi-value" style="color:var(--red)">@_items.Count(i => i.QuantityAvailable < 3)</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search items…" @bind="_search" @bind:event="oninput" />
+  @foreach (var cat in new[] { "All" }.Concat(Enum.GetNames<ResourceCategory>()))
+  {
+    var n = cat == "All" ? _items.Count : _items.Count(i => i.Category.ToString() == cat);
+    <button class="filter-chip @(_catFilter == cat ? "active" : "")" @onclick="() => _catFilter = cat">
+      @CatLabel(cat) · @n
+    </button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No inventory items found.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Category</th><th>On Hand</th><th>Reserved</th><th>Available</th><th>Unit</th><th>Stock</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var item in Filtered.OrderBy(i => i.QuantityAvailable))
+          {
+            var low = item.QuantityAvailable < 3;
+            <tr>
+              <td>
+                <div style="font-weight:600;font-size:.84rem;">@item.Name</div>
+                @if (!string.IsNullOrEmpty(item.Description))
+                { <div style="font-size:.72rem;color:var(--text-light);">@item.Description</div> }
+              </td>
+              <td style="font-size:.78rem;">@CatLabel(item.Category.ToString())</td>
+              <td style="font-size:.84rem;text-align:center;">@item.QuantityOnHand</td>
+              <td style="font-size:.84rem;text-align:center;color:var(--amber);">@item.QuantityReserved</td>
+              <td style="font-size:.84rem;text-align:center;font-weight:700;color:@(low ? "var(--red)" : "var(--green)");">@item.QuantityAvailable</td>
+              <td style="font-size:.78rem;color:var(--text-light);">@item.Unit</td>
+              <td>
+                @if (low)
+                { <span class="badge badge-cancelled" style="font-size:.6rem;">Low Stock</span> }
+                else if (item.QuantityAvailable >= 10)
+                { <span class="badge badge-fulfilled" style="font-size:.6rem;">Good</span> }
+                else
+                { <span class="badge badge-onhold" style="font-size:.6rem;">OK</span> }
+              </td>
+              <td style="display:flex;gap:4px;">
+                <button class="btn btn-sm" style="font-size:.7rem;" @onclick="() => OpenDrawer(item)">Edit</button>
+                <button class="btn btn-sm" style="font-size:.7rem;" @onclick="() => OpenAdjust(item)">Adjust</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer" style="width:460px;">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "Add Inventory Item" : "Edit Item")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Name *</label>
+      <input class="form-input" style="margin-bottom:10px;" @bind="_form.Name" />
+
+      <label class="form-label">Category</label>
+      <select class="form-input" style="margin-bottom:10px;" @bind="_form.CategoryStr">
+        @foreach (var c in Enum.GetNames<ResourceCategory>())
+        { <option value="@c">@CatLabel(c)</option> }
+      </select>
+
+      <label class="form-label">Description</label>
+      <textarea class="form-input" rows="2" style="margin-bottom:10px;" @bind="_form.Description"></textarea>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div>
+          <label class="form-label">Quantity On Hand</label>
+          <input class="form-input" type="number" min="0" @bind="_form.QuantityOnHand" />
+        </div>
+        <div>
+          <label class="form-label">Unit</label>
+          <input class="form-input" @bind="_form.Unit" placeholder="box, set, unit…" />
+        </div>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (_adjusting && _adjustItem is not null)
+{
+  <div class="drawer-overlay" @onclick="CloseAdjust"></div>
+  <div class="drawer" style="width:360px;">
+    <div class="drawer-head">
+      <h3>Adjust: @_adjustItem.Name</h3>
+      <button class="drawer-close" @onclick="CloseAdjust">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div style="margin-bottom:10px;font-size:.84rem;color:var(--text-mid);">Current: @_adjustItem.QuantityOnHand @_adjustItem.Unit on hand</div>
+      <label class="form-label">Adjustment (+/-)</label>
+      <input class="form-input" type="number" style="margin-bottom:10px;" @bind="_adjustDelta" />
+      <label class="form-label">Reason</label>
+      <input class="form-input" style="margin-bottom:14px;" @bind="_adjustReason" placeholder="Donation received, damaged, etc." />
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SaveAdjust">Apply</button>
+        <button class="btn" @onclick="CloseAdjust">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<ResourceItem> _items = [];
+  private string _search = "", _catFilter = "All";
+  private bool _editing, _saving, _adjusting;
+  private string _err = "";
+  private ResourceItem? _adjustItem;
+  private int _adjustDelta;
+  private string _adjustReason = "";
+
+  private class ItemForm
+  {
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string CategoryStr { get; set; } = "MemoryBox";
+    public string? Description { get; set; }
+    public int QuantityOnHand { get; set; }
+    public string Unit { get; set; } = "unit";
+    public ResourceItem ToModel(int chapterId = 0) => new()
+    {
+      Id = Id, Name = Name, Description = Description,
+      Category = Enum.Parse<ResourceCategory>(CategoryStr),
+      QuantityOnHand = QuantityOnHand, Unit = Unit, ChapterId = chapterId
+    };
+  }
+  private ItemForm _form = new();
+
+  private IEnumerable<ResourceItem> Filtered => _items.Where(i =>
+    (_catFilter == "All" || i.Category.ToString() == _catFilter) &&
+    (string.IsNullOrEmpty(_search) || i.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+     (i.Description?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+  protected override async Task OnInitializedAsync() => _items = await Api.GetInventoryAsync();
+
+  private void OpenDrawer(ResourceItem? item)
+  {
+    _form = item is null ? new ItemForm() : new ItemForm
+    {
+      Id = item.Id, Name = item.Name, CategoryStr = item.Category.ToString(),
+      Description = item.Description, QuantityOnHand = item.QuantityOnHand, Unit = item.Unit
+    };
+    _err = ""; _editing = true;
+  }
+
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (string.IsNullOrWhiteSpace(_form.Name)) { _err = "Name is required."; return; }
+    _saving = true; _err = "";
+    var model = _form.ToModel();
+    bool ok;
+    if (_form.Id == 0)
+    {
+      var created = await Api.CreateInventoryItemAsync(model);
+      ok = created is not null;
+    }
+    else
+    {
+      ok = await Api.UpdateInventoryItemAsync(_form.Id, model);
+    }
+    _saving = false;
+    if (ok) { _editing = false; _items = await Api.GetInventoryAsync(); }
+    else _err = "Save failed.";
+  }
+
+  private void OpenAdjust(ResourceItem item)
+  {
+    _adjustItem = item; _adjustDelta = 0; _adjustReason = ""; _adjusting = true;
+  }
+
+  private void CloseAdjust() => _adjusting = false;
+
+  private async Task SaveAdjust()
+  {
+    if (_adjustItem is null) return;
+    await Api.AdjustInventoryAsync(_adjustItem.Id, _adjustDelta, _adjustReason);
+    _adjusting = false;
+    _items = await Api.GetInventoryAsync();
+  }
+
+  private static string CatLabel(string c) => c switch
+  {
+    "BabyClothing"      => "Baby Clothing",
+    "MemoryBox"         => "Memory Box",
+    "GriefBook"         => "Grief Book",
+    "KnittedBlanket"    => "Knitted Blanket",
+    "CarePackage"       => "Care Package",
+    "HospitalSupply"    => "Hospital Supply",
+    "OtherPhysicalGood" => "Other",
+    "All"               => "All",
+    _                   => c
+  };
+}
