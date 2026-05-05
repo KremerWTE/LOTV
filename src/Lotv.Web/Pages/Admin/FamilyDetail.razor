@@ -1,0 +1,211 @@
+@page "/admin/families/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Family Detail — LOTV Staff Portal</PageTitle>
+
+@if (_loading)
+{
+  <Loading Message="Loading family record…" Size="lg" />
+}
+else if (_family is null)
+{
+  <div class="panel" style="text-align:center;padding:48px;">
+    <p style="color:var(--text-mid);">Family not found.</p>
+    <a href="/admin/families" class="btn btn-primary" style="margin-top:12px;">← Back</a>
+  </div>
+}
+else
+{
+  <div class="page-hd">
+    <div>
+      <h2>@_family.FullName</h2>
+      <p>@_family.Reason.ToDisplayName() · @_family.City, @_family.State</p>
+    </div>
+    <div class="page-hd-actions">
+      <a href="/admin/families" class="btn btn-sm">← Back</a>
+      <a href="/admin/cases?familyId=@_family.Id" class="btn btn-sm">View Cases</a>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;">
+    <!-- PROFILE -->
+    <div class="panel">
+      <div class="panel-head"><h3>Profile</h3></div>
+      <div class="panel-body">
+        <table style="width:100%;border-collapse:collapse;">
+          @foreach (var (label, val) in ProfileRows)
+          {
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 4px;font-size:.76rem;font-weight:700;color:var(--text-light);width:130px;text-transform:uppercase;letter-spacing:.06em;">@label</td>
+              <td style="padding:8px 4px;font-size:.84rem;">@(val ?? "—")</td>
+            </tr>
+          }
+        </table>
+      </div>
+    </div>
+
+    <!-- CASES SUMMARY -->
+    <div class="panel">
+      <div class="panel-head"><h3>Cases (@_cases.Count)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        @if (_cases.Count == 0)
+        {
+          <div style="padding:24px;text-align:center;color:var(--text-light);font-size:.84rem;">No cases on record.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Status</th><th>Category</th><th>Priority</th></tr></thead>
+            <tbody>
+              @foreach (var c in _cases.OrderByDescending(x => x.CreatedAt).Take(8))
+              {
+                <tr @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")' style="cursor:pointer;">
+                  <td style="font-size:.76rem;color:var(--text-light);">@c.CreatedAt.ToString("MMM d, yyyy")</td>
+                  <td><span class="badge badge-inprogress" style="font-size:.64rem;">@c.Status</span></td>
+                  <td style="font-size:.78rem;">@c.Category</td>
+                  <td style="font-size:.78rem;">@c.Priority</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- FAMILY NOTES LOG -->
+  <div class="panel" style="margin-top:18px;">
+    <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;">
+      <h3>Support Notes</h3>
+      <button class="btn btn-primary btn-sm" @onclick="() => _addNote = true">+ Add Note</button>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (_notes.Count == 0)
+      {
+        <div style="padding:24px;text-align:center;color:var(--text-light);font-size:.84rem;">No notes yet.</div>
+      }
+      else
+      {
+        @foreach (var n in _notes.OrderByDescending(x => x.IsPinned).ThenByDescending(x => x.CreatedAt))
+        {
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);@(n.IsPinned ? "background:var(--bg);" : "")">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span class="badge @NoteTypeBadge(n.NoteType)" style="font-size:.64rem;">@n.NoteType</span>
+              @if (n.IsPinned) { <span style="font-size:.72rem;color:var(--amber);">📌 Pinned</span> }
+              @if (n.MilestoneDate.HasValue) { <span style="font-size:.72rem;color:var(--navy);">📅 @n.MilestoneDate.Value.ToString("MMM d, yyyy")</span> }
+              <span style="margin-left:auto;font-size:.72rem;color:var(--text-light);">@n.StaffName · @n.CreatedAt.ToString("MMM d, yyyy")</span>
+              <button class="btn btn-sm" style="padding:2px 8px;font-size:.7rem;color:var(--red);" @onclick="() => DeleteNote(n.Id)">✕</button>
+            </div>
+            <div style="font-size:.84rem;line-height:1.5;white-space:pre-wrap;">@n.Content</div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+@if (_addNote)
+{
+  <div class="drawer-overlay" @onclick="() => _addNote = false"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>Add Support Note</h3>
+      <button class="drawer-close" @onclick="() => _addNote = false">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Note Type</label>
+      <select class="form-input" style="margin-bottom:10px;" @bind="_noteForm.NoteType">
+        @foreach (var t in new[] { "General", "MilestoneDate", "FollowUp", "SupportCall", "Prayer", "Referral" })
+        { <option value="@t">@t</option> }
+      </select>
+      <label class="form-label">Content *</label>
+      <textarea class="form-input" rows="4" style="margin-bottom:10px;" @bind="_noteForm.Content"></textarea>
+      @if (_noteForm.NoteType == "MilestoneDate")
+      {
+        <label class="form-label">Milestone Date</label>
+        <input class="form-input" type="date" style="margin-bottom:10px;" @bind="_noteForm.MilestoneDate" />
+      }
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <input type="checkbox" id="pin-note" @bind="_noteForm.IsPinned" />
+        <label for="pin-note" style="font-size:.84rem;margin:0;">Pin this note</label>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SaveNote">Save</button>
+        <button class="btn" @onclick="() => _addNote = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Family? _family;
+  private List<PackageRequest> _cases = [];
+  private List<FamilyNoteDto> _notes = [];
+  private bool _loading = true, _addNote;
+  private NoteForm _noteForm = new();
+
+  private class NoteForm
+  {
+    public string NoteType { get; set; } = "General";
+    public string Content { get; set; } = "";
+    public DateTime? MilestoneDate { get; set; }
+    public bool IsPinned { get; set; }
+    public FamilyNoteDto ToDto() => new(0, 0, NoteType, Content, MilestoneDate, "", IsPinned, DateTime.UtcNow);
+  }
+
+  private IEnumerable<(string Label, string? Val)> ProfileRows => _family is null ? [] :
+  [
+    ("Email",      _family.Email),
+    ("Phone",      _family.Phone),
+    ("Address",    _family.StreetAddress + (_family.Apt is not null ? $" #{_family.Apt}" : "")),
+    ("City/State", $"{_family.City}, {_family.State} {_family.Zip}"),
+    ("Status",     _family.Status.ToString()),
+    ("Reason",     _family.Reason.ToDisplayName()),
+    ("Parish",     _family.ParishName),
+    ("Diocese",    _family.DioceseName),
+    ("How Heard",  _family.HowHeard),
+    ("Contact Notes", _family.ContactNotes),
+  ];
+
+  protected override async Task OnParametersSetAsync()
+  {
+    _loading = true;
+    var t1 = Api.GetFamilyAsync(Id);
+    var t2 = Api.GetRequestsAsync(familyId: Id);
+    var t3 = Api.GetFamilyNotesAsync(Id);
+    await Task.WhenAll(t1, t2, t3);
+    _family = t1.Result;
+    _cases  = t2.Result;
+    _notes  = t3.Result;
+    _loading = false;
+  }
+
+  private async Task SaveNote()
+  {
+    if (string.IsNullOrWhiteSpace(_noteForm.Content)) return;
+    await Api.CreateFamilyNoteAsync(Id, _noteForm.ToDto());
+    _notes = await Api.GetFamilyNotesAsync(Id);
+    _addNote = false;
+    _noteForm = new();
+  }
+
+  private async Task DeleteNote(int id)
+  {
+    await Api.DeleteFamilyNoteAsync(Id, id);
+    _notes = await Api.GetFamilyNotesAsync(Id);
+  }
+
+  private static string NoteTypeBadge(string t) => t switch
+  {
+    "FollowUp"    => "badge-inprogress",
+    "SupportCall" => "badge-new",
+    "Prayer"      => "badge-fulfilled",
+    "Referral"    => "badge-shipped",
+    "MilestoneDate" => "badge-onhold",
+    _             => "badge-new"
+  };
+}

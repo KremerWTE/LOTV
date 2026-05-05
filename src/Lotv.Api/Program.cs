@@ -3634,6 +3634,218 @@ if (app.Environment.IsDevelopment())
     }).WithTags("Legacy");
 }
 
+// ─── Family notes ─────────────────────────────────────────────────────────────
+var familyNotes = app.MapGroup("/api/v1/families/{familyId:int}/notes").WithTags("FamilyNotes").RequireAuthorization("Staff");
+
+familyNotes.MapGet("/", async (int familyId, LotvDbContext db) =>
+    Results.Ok(await db.FamilyNotes.Where(n => n.FamilyId == familyId)
+        .OrderByDescending(n => n.IsPinned).ThenByDescending(n => n.CreatedAt).ToListAsync()));
+
+familyNotes.MapPost("/", async (int familyId, FamilyNote body, LotvDbContext db, HttpContext http) =>
+{
+    body.FamilyId = familyId;
+    body.CreatedAt = DateTime.UtcNow;
+    if (string.IsNullOrEmpty(body.StaffName))
+        body.StaffName = http.User.FindFirst("email")?.Value ?? http.User.Identity?.Name ?? "Staff";
+    db.FamilyNotes.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/families/{familyId}/notes/{body.Id}", body);
+});
+
+familyNotes.MapPut("/{noteId:int}", async (int familyId, int noteId, FamilyNote body, LotvDbContext db) =>
+{
+    var n = await db.FamilyNotes.FirstOrDefaultAsync(x => x.Id == noteId && x.FamilyId == familyId);
+    if (n is null) return Results.NotFound();
+    n.Content = body.Content; n.NoteType = body.NoteType;
+    n.MilestoneDate = body.MilestoneDate; n.IsPinned = body.IsPinned;
+    await db.SaveChangesAsync();
+    return Results.Ok(n);
+});
+
+familyNotes.MapDelete("/{noteId:int}", async (int familyId, int noteId, LotvDbContext db) =>
+{
+    var n = await db.FamilyNotes.FirstOrDefaultAsync(x => x.Id == noteId && x.FamilyId == familyId);
+    if (n is null) return Results.NotFound();
+    db.FamilyNotes.Remove(n);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+var campaignGroup = app.MapGroup("/api/v1/campaigns").WithTags("Campaigns").RequireAuthorization("Staff");
+
+campaignGroup.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, string? status) =>
+{
+    var q = db.Campaigns.AsQueryable();
+    if (ctx.ChapterId.HasValue) q = q.Where(c => c.ChapterId == ctx.ChapterId.Value);
+    if (!string.IsNullOrEmpty(status)) q = q.Where(c => c.Status == status);
+    var campaigns = await q.OrderByDescending(c => c.StartDate).ToListAsync();
+    // enrich with donation totals
+    var result = new List<object>();
+    foreach (var camp in campaigns)
+    {
+        var raised = await db.Donations
+            .Where(d => d.Campaign == camp.Name || d.Campaign == camp.ExternalCode)
+            .SumAsync(d => (decimal?)d.Amount) ?? 0;
+        result.Add(new { camp.Id, camp.ChapterId, camp.Name, camp.Description, camp.GoalAmount, camp.StartDate, camp.EndDate, camp.Status, camp.ExternalCode, Raised = raised, GiftCount = await db.Donations.CountAsync(d => d.Campaign == camp.Name || d.Campaign == camp.ExternalCode) });
+    }
+    return Results.Ok(result);
+});
+
+campaignGroup.MapPost("/", async (Campaign body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    if (ctx.ChapterId.HasValue) body.ChapterId = ctx.ChapterId.Value;
+    body.CreatedAt = DateTime.UtcNow;
+    db.Campaigns.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/campaigns/{body.Id}", body);
+});
+
+campaignGroup.MapPut("/{id:int}", async (int id, Campaign body, LotvDbContext db) =>
+{
+    var c = await db.Campaigns.FindAsync(id);
+    if (c is null) return Results.NotFound();
+    c.Name = body.Name; c.Description = body.Description; c.GoalAmount = body.GoalAmount;
+    c.StartDate = body.StartDate; c.EndDate = body.EndDate; c.Status = body.Status;
+    c.ExternalCode = body.ExternalCode;
+    await db.SaveChangesAsync();
+    return Results.Ok(c);
+});
+
+campaignGroup.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var c = await db.Campaigns.FindAsync(id);
+    if (c is null) return Results.NotFound();
+    db.Campaigns.Remove(c);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+// ─── Staff tasks ───────────────────────────────────────────────────────────────
+var staffTasks = app.MapGroup("/api/v1/staff-tasks").WithTags("StaffTasks").RequireAuthorization("Staff");
+
+staffTasks.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, string? status, string? assignee) =>
+{
+    var q = db.StaffTasks.AsQueryable();
+    if (ctx.ChapterId.HasValue) q = q.Where(t => t.ChapterId == ctx.ChapterId.Value);
+    if (!string.IsNullOrEmpty(status)) q = q.Where(t => t.Status == status);
+    if (!string.IsNullOrEmpty(assignee)) q = q.Where(t => t.AssignedToUserId == assignee);
+    return Results.Ok(await q.OrderByDescending(t => t.DueDate ?? DateTime.MaxValue).ThenByDescending(t => t.CreatedAt).ToListAsync());
+});
+
+staffTasks.MapPost("/", async (StaffTask body, LotvDbContext db, IChapterContextService ctx, HttpContext http) =>
+{
+    if (ctx.ChapterId.HasValue) body.ChapterId = ctx.ChapterId.Value;
+    body.CreatedAt = DateTime.UtcNow;
+    if (string.IsNullOrEmpty(body.CreatedByName))
+        body.CreatedByName = http.User.FindFirst("email")?.Value ?? "Staff";
+    db.StaffTasks.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/staff-tasks/{body.Id}", body);
+});
+
+staffTasks.MapPut("/{id:int}", async (int id, StaffTask body, LotvDbContext db) =>
+{
+    var t = await db.StaffTasks.FindAsync(id);
+    if (t is null) return Results.NotFound();
+    t.Title = body.Title; t.Description = body.Description; t.Priority = body.Priority;
+    t.Status = body.Status; t.DueDate = body.DueDate;
+    t.AssignedToUserId = body.AssignedToUserId; t.AssignedToName = body.AssignedToName;
+    t.LinkedCaseId = body.LinkedCaseId; t.LinkedDonorId = body.LinkedDonorId;
+    if (body.Status == "Done" && t.CompletedAt is null) t.CompletedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(t);
+});
+
+staffTasks.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var t = await db.StaffTasks.FindAsync(id);
+    if (t is null) return Results.NotFound();
+    db.StaffTasks.Remove(t);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+// ─── Announcements ─────────────────────────────────────────────────────────────
+var announcements = app.MapGroup("/api/v1/announcements").WithTags("Announcements").RequireAuthorization("Staff");
+
+announcements.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, string? audience) =>
+{
+    var now = DateTime.UtcNow;
+    var q = db.Announcements.Where(a => a.ExpiresAt == null || a.ExpiresAt > now);
+    if (ctx.ChapterId.HasValue) q = q.Where(a => a.ChapterId == null || a.ChapterId == ctx.ChapterId.Value);
+    if (!string.IsNullOrEmpty(audience)) q = q.Where(a => a.Audience == audience);
+    return Results.Ok(await q.OrderByDescending(a => a.IsPinned).ThenByDescending(a => a.CreatedAt).ToListAsync());
+});
+
+announcements.MapPost("/", async (Announcement body, LotvDbContext db, IChapterContextService ctx, HttpContext http) =>
+{
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) body.ChapterId = ctx.ChapterId.Value;
+    body.CreatedAt = DateTime.UtcNow;
+    if (string.IsNullOrEmpty(body.AuthorName))
+        body.AuthorName = http.User.FindFirst("email")?.Value ?? "Staff";
+    db.Announcements.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/announcements/{body.Id}", body);
+});
+
+announcements.MapPut("/{id:int}", async (int id, Announcement body, LotvDbContext db) =>
+{
+    var a = await db.Announcements.FindAsync(id);
+    if (a is null) return Results.NotFound();
+    a.Title = body.Title; a.Body = body.Body; a.Audience = body.Audience;
+    a.IsPinned = body.IsPinned; a.ExpiresAt = body.ExpiresAt;
+    await db.SaveChangesAsync();
+    return Results.Ok(a);
+});
+
+announcements.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var a = await db.Announcements.FindAsync(id);
+    if (a is null) return Results.NotFound();
+    db.Announcements.Remove(a);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+app.MapGet("/api/public/v1/announcements", async (LotvDbContext db, string? audience) =>
+{
+    var now = DateTime.UtcNow;
+    var q = db.Announcements.Where(a => (a.ExpiresAt == null || a.ExpiresAt > now) && a.ChapterId == null);
+    if (!string.IsNullOrEmpty(audience)) q = q.Where(a => a.Audience == audience || a.Audience == "Public");
+    else q = q.Where(a => a.Audience == "Public");
+    return Results.Ok(await q.OrderByDescending(a => a.IsPinned).ThenByDescending(a => a.CreatedAt).ToListAsync());
+}).AllowAnonymous();
+
+// pledge renewals utility endpoint (uses existing DonorPledge data)
+app.MapGet("/api/v1/pledges/renewals", async (LotvDbContext db, IChapterContextService ctx, int days = 30) =>
+{
+    var cutoff = DateTime.UtcNow.AddDays(days);
+    var q = db.DonorPledges.Include(p => p.Donor).AsQueryable();
+    if (ctx.ChapterId.HasValue) q = q.Where(p => p.ChapterId == ctx.ChapterId.Value);
+    var upcoming = await q
+        .Where(p => p.Status == PledgeStatus.Active && p.TargetDate <= cutoff)
+        .OrderBy(p => p.TargetDate)
+        .Select(p => new {
+            p.Id, p.DonorId,
+            DonorName = p.Donor == null ? "" : p.Donor.FirstName + " " + p.Donor.LastName,
+            DonorEmail = p.Donor == null ? "" : p.Donor.Email,
+            p.PledgedAmount, p.FulfilledAmount, p.TargetDate, p.Campaign, p.Status
+        })
+        .ToListAsync();
+    var overdue = await q
+        .Where(p => p.Status == PledgeStatus.Overdue)
+        .OrderBy(p => p.TargetDate)
+        .Select(p => new {
+            p.Id, p.DonorId,
+            DonorName = p.Donor == null ? "" : p.Donor.FirstName + " " + p.Donor.LastName,
+            DonorEmail = p.Donor == null ? "" : p.Donor.Email,
+            p.PledgedAmount, p.FulfilledAmount, p.TargetDate, p.Campaign, p.Status
+        })
+        .ToListAsync();
+    return Results.Ok(new { Upcoming = upcoming, Overdue = overdue });
+}).RequireAuthorization("Staff");
+
 // ─── Chapter management (HQAdmin) ────────────────────────────────────────────
 var chapMgmt = app.MapGroup("/api/v1/chapters").WithTags("Chapters").RequireAuthorization("HQAdmin");
 

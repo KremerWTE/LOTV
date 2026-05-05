@@ -109,6 +109,9 @@
         <NavLink class="sidebar-link" href="/admin/volunteer-certifications">
           <span class="icon">&#128203;</span> Certifications
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/volunteer-skills">
+          <span class="icon">&#127979;</span> Skill Directory
+        </NavLink>
         <NavLink class="sidebar-link" href="/admin/sponsorships">
           <span class="icon">&#127970;</span> Sponsorships
         </NavLink>
@@ -195,6 +198,18 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/notification-prefs">
           <span class="icon">&#128276;</span> Notification Prefs
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/campaigns">
+          <span class="icon">&#127919;</span> Campaigns
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/pledge-renewals">
+          <span class="icon">&#128197;</span> Pledge Renewals
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/staff-tasks">
+          <span class="icon">&#128203;</span> Staff Tasks
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/announcements">
+          <span class="icon">&#128226;</span> Announcements
         </NavLink>
       }
     </div>
@@ -586,8 +601,14 @@
       var u when u.EndsWith("/admin/reports/schedule") => "Scheduled Reports",
       var u when u.EndsWith("/admin/allocate/money")   => "Allocate Funds",
       var u when u.EndsWith("/admin/allocate/resources") => "Allocate Resources",
-      var u when u.EndsWith("/admin/settings")    => "Settings",
-      var u when u.EndsWith("/admin/users")       => "User Management",
+      var u when u.EndsWith("/admin/settings")         => "Settings",
+      var u when u.EndsWith("/admin/users")            => "User Management",
+      var u when u.EndsWith("/admin/campaigns")        => "Campaign Management",
+      var u when u.EndsWith("/admin/pledge-renewals")  => "Pledge Renewals",
+      var u when u.EndsWith("/admin/staff-tasks")      => "Staff Task Board",
+      var u when u.EndsWith("/admin/announcements")    => "Announcements",
+      var u when u.EndsWith("/admin/volunteer-skills") => "Volunteer Skill Directory",
+      var u when u.Contains("/admin/families/")        => "Family Detail",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

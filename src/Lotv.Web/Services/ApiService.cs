@@ -23,9 +23,9 @@ public class ApiService
     }
 
     // ── Requests / Cases ──────────────────────────────────────────────────────
-    public Task<List<PackageRequest>> GetRequestsAsync(string? status = null, bool? overdue = null)
+    public Task<List<PackageRequest>> GetRequestsAsync(string? status = null, bool? overdue = null, int? familyId = null)
     {
-        var qs = BuildQs(("status", status), ("overdue", overdue?.ToString().ToLower()));
+        var qs = BuildQs(("status", status), ("overdue", overdue?.ToString().ToLower()), ("familyId", familyId?.ToString()));
         return GetListAsync<PackageRequest>($"/api/v1/requests{qs}");
     }
 
@@ -1141,6 +1141,98 @@ public class ApiService
     // ── Chapter analytics ─────────────────────────────────────────────────────
     public Task<List<ChapterAnalyticsDto>> GetChapterAnalyticsAsync() =>
         GetListAsync<ChapterAnalyticsDto>("/api/v1/admin/chapter-analytics");
+
+    // ── Family notes ──────────────────────────────────────────────────────────
+    public Task<List<FamilyNoteDto>> GetFamilyNotesAsync(int familyId) =>
+        GetListAsync<FamilyNoteDto>($"/api/v1/families/{familyId}/notes");
+
+    public async Task<bool> CreateFamilyNoteAsync(int familyId, FamilyNoteDto body)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/families/{familyId}/notes", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteFamilyNoteAsync(int familyId, int noteId)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/families/{familyId}/notes/{noteId}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Campaigns ─────────────────────────────────────────────────────────────
+    public Task<List<CampaignDto>> GetCampaignsAsync(string? status = null)
+    {
+        var url = "/api/v1/campaigns" + (status is not null ? $"?status={status}" : "");
+        return GetListAsync<CampaignDto>(url);
+    }
+
+    public async Task<bool> CreateCampaignAsync(CampaignDto body)
+    {
+        var resp = await AuthedPostAsync("/api/v1/campaigns", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> UpdateCampaignAsync(int id, CampaignDto body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/campaigns/{id}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteCampaignAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/campaigns/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Pledge renewals ───────────────────────────────────────────────────────
+    public Task<PledgeRenewalsDto?> GetPledgeRenewalsAsync(int days = 30) =>
+        GetAsync<PledgeRenewalsDto>($"/api/v1/pledges/renewals?days={days}");
+
+    // ── Staff tasks ───────────────────────────────────────────────────────────
+    public Task<List<StaffTaskDto>> GetStaffTasksAsync(string? status = null, string? assignee = null)
+    {
+        var qs = BuildQs(("status", status), ("assignee", assignee));
+        return GetListAsync<StaffTaskDto>($"/api/v1/staff-tasks{qs}");
+    }
+
+    public async Task<bool> CreateStaffTaskAsync(StaffTaskDto body)
+    {
+        var resp = await AuthedPostAsync("/api/v1/staff-tasks", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> UpdateStaffTaskAsync(int id, StaffTaskDto body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/staff-tasks/{id}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteStaffTaskAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/staff-tasks/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Announcements ─────────────────────────────────────────────────────────
+    public Task<List<AnnouncementDto>> GetAnnouncementsAsync() =>
+        GetListAsync<AnnouncementDto>("/api/v1/announcements");
+
+    public async Task<bool> CreateAnnouncementAsync(AnnouncementDto body)
+    {
+        var resp = await AuthedPostAsync("/api/v1/announcements", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> UpdateAnnouncementAsync(int id, AnnouncementDto body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/announcements/{id}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteAnnouncementAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/announcements/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
 }
 
 // ── Response DTOs (API-specific shapes) ──────────────────────────────────────
@@ -1281,3 +1373,23 @@ public record NotifPrefDto(string EventType, bool EmailEnabled, bool PushEnabled
 public record ChapterAnalyticsDto(int Id, string Name, string City, string State,
     int OpenCases, int OverdueCases, int FulfilledMtd, decimal TotalDonations,
     int DonationCount, int ActiveVols, int ActivePledges);
+
+public record FamilyNoteDto(int Id, int FamilyId, string NoteType, string Content,
+    DateTime? MilestoneDate, string StaffName, bool IsPinned, DateTime CreatedAt);
+
+public record CampaignDto(int Id, int ChapterId, string Name, string? Description,
+    decimal GoalAmount, DateTime StartDate, DateTime? EndDate, string Status,
+    string? ExternalCode, decimal Raised, int GiftCount);
+
+public record PledgeRenewalItemDto(int Id, string DonorName, string? Email,
+    decimal Amount, string Frequency, DateTime NextChargeDate, string Status);
+
+public record PledgeRenewalsDto(List<PledgeRenewalItemDto> Upcoming, List<PledgeRenewalItemDto> Overdue);
+
+public record StaffTaskDto(int Id, int ChapterId, string Title, string? Description,
+    string AssignedToName, string CreatedByName, DateTime? DueDate,
+    string Priority, string Status, int? LinkedCaseId, int? LinkedDonorId,
+    DateTime CreatedAt, DateTime? CompletedAt);
+
+public record AnnouncementDto(int Id, int? ChapterId, string Title, string Body,
+    string Audience, bool IsPinned, DateTime? ExpiresAt, string AuthorName, DateTime CreatedAt);

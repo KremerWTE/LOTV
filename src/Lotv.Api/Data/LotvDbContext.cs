@@ -88,6 +88,18 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     // ─── Notification preferences ─────────────────────────────────────────────
     public DbSet<NotificationPref> NotificationPrefs => Set<NotificationPref>();
 
+    // ─── Family notes ──────────────────────────────────────────────────────────
+    public DbSet<FamilyNote> FamilyNotes => Set<FamilyNote>();
+
+    // ─── Campaigns ────────────────────────────────────────────────────────────
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+
+    // ─── Staff tasks ──────────────────────────────────────────────────────────
+    public DbSet<StaffTask> StaffTasks => Set<StaffTask>();
+
+    // ─── Announcements ────────────────────────────────────────────────────────
+    public DbSet<Announcement> Announcements => Set<Announcement>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -460,6 +472,46 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(n => new { n.UserId, n.EventType }).IsUnique();
             e.Property(n => n.UserId).HasMaxLength(450);
             e.Property(n => n.EventType).HasMaxLength(60);
+        });
+
+        // ── FamilyNote ─────────────────────────────────────────────────────────
+        builder.Entity<FamilyNote>(e =>
+        {
+            e.HasIndex(n => n.FamilyId);
+            e.HasIndex(n => n.CreatedAt);
+            e.HasIndex(n => n.MilestoneDate);
+            e.HasOne(n => n.Family).WithMany().HasForeignKey(n => n.FamilyId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Campaign ───────────────────────────────────────────────────────────
+        builder.Entity<Campaign>(e =>
+        {
+            e.HasIndex(c => c.ChapterId);
+            e.HasIndex(c => c.Status);
+            e.HasIndex(c => new { c.ChapterId, c.Status });
+            e.HasIndex(c => c.StartDate);
+            e.Property(c => c.GoalAmount).HasPrecision(12, 2);
+            e.Property(c => c.ExternalCode).HasMaxLength(100);
+        });
+
+        // ── StaffTask ──────────────────────────────────────────────────────────
+        builder.Entity<StaffTask>(e =>
+        {
+            e.HasIndex(t => t.ChapterId);
+            e.HasIndex(t => t.AssignedToUserId);
+            e.HasIndex(t => t.Status);
+            e.HasIndex(t => t.DueDate);
+            e.HasIndex(t => new { t.ChapterId, t.Status });
+            e.Property(t => t.AssignedToUserId).HasMaxLength(450);
+        });
+
+        // ── Announcement ───────────────────────────────────────────────────────
+        builder.Entity<Announcement>(e =>
+        {
+            e.HasIndex(a => a.ChapterId);
+            e.HasIndex(a => a.Audience);
+            e.HasIndex(a => a.CreatedAt);
+            e.HasIndex(a => a.ExpiresAt);
         });
     }
 }

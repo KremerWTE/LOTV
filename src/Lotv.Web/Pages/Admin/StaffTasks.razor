@@ -1,0 +1,246 @@
+@page "/admin/staff-tasks"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Staff Tasks — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Staff Task Board</h2><p>Internal task tracking for chapter staff</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ New Task</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">📋</div>
+    <div class="kpi-label">Open</div>
+    <div class="kpi-value" style="color:var(--navy)">@_tasks.Count(t => t.Status == "Open")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">⚙</div>
+    <div class="kpi-label">In Progress</div>
+    <div class="kpi-value" style="color:var(--amber)">@_tasks.Count(t => t.Status == "InProgress")</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Done This Week</div>
+    <div class="kpi-value" style="color:var(--green)">@_tasks.Count(t => t.Status == "Done" && t.CompletedAt >= DateTime.UtcNow.AddDays(-7))</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">🔴</div>
+    <div class="kpi-label">Urgent / Overdue</div>
+    <div class="kpi-value" style="color:var(--red)">@_tasks.Count(t => (t.Priority == "Urgent" || (t.DueDate.HasValue && t.DueDate < DateTime.Today)) && t.Status != "Done" && t.Status != "Cancelled")</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search tasks…" @bind="_search" @bind:event="oninput" />
+  @foreach (var s in new[] { "All", "Open", "InProgress", "Done", "Cancelled" })
+  {
+    var n = s == "All" ? _tasks.Count : _tasks.Count(t => t.Status == s);
+    <button class="filter-chip @(_statusFilter == s ? "active" : "")" @onclick="() => _statusFilter = s">
+      @(s == "InProgress" ? "In Progress" : s) · @n
+    </button>
+  }
+  @foreach (var p in new[] { "Urgent", "High" })
+  {
+    <button class="filter-chip @(_priorityFilter == p ? "active" : "")" @onclick='() => _priorityFilter = _priorityFilter == p ? "" : p'>
+      @p
+    </button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No tasks found.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead><tr><th>Title</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Due</th><th>Links</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var t in Filtered)
+          {
+            var overdue = t.DueDate.HasValue && t.DueDate < DateTime.Today && t.Status != "Done" && t.Status != "Cancelled";
+            <tr @onclick="() => OpenDrawer(t)" style="cursor:pointer;">
+              <td>
+                <div style="font-weight:600;font-size:.84rem;">@t.Title</div>
+                @if (!string.IsNullOrEmpty(t.Description))
+                { <div style="font-size:.72rem;color:var(--text-light);">@(t.Description.Length > 60 ? t.Description[..60] + "…" : t.Description)</div> }
+              </td>
+              <td><span class="badge @PriorityBadge(t.Priority)" style="font-size:.64rem;">@t.Priority</span></td>
+              <td><span class="badge @StatusBadge(t.Status)" style="font-size:.64rem;">@(t.Status == "InProgress" ? "In Progress" : t.Status)</span></td>
+              <td style="font-size:.78rem;">@t.AssignedToName</td>
+              <td style="font-size:.78rem;color:@(overdue ? "var(--red)" : "var(--text-mid)");">
+                @(t.DueDate.HasValue ? t.DueDate.Value.ToString("MMM d, yyyy") : "—")
+                @if (overdue) { <span style="font-size:.64rem;"> ⚠</span> }
+              </td>
+              <td style="font-size:.72rem;color:var(--text-light);">
+                @if (t.LinkedCaseId.HasValue) { <a href="/admin/cases/@t.LinkedCaseId" @onclick:stopPropagation="true">Case #@t.LinkedCaseId</a> }
+                @if (t.LinkedDonorId.HasValue) { <a href="/admin/donors?donor=@t.LinkedDonorId" @onclick:stopPropagation="true">Donor #@t.LinkedDonorId</a> }
+              </td>
+              <td @onclick:stopPropagation="true">
+                <button class="btn btn-sm" style="font-size:.7rem;" @onclick="() => QuickDone(t)" disabled="@(t.Status == "Done")">
+                  ✓ Done
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer" style="width:480px;">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "New Task" : "Edit Task")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Title *</label>
+      <input class="form-input" style="margin-bottom:10px;" @bind="_form.Title" />
+
+      <label class="form-label">Description</label>
+      <textarea class="form-input" rows="3" style="margin-bottom:10px;" @bind="_form.Description"></textarea>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label class="form-label">Priority</label>
+          <select class="form-input" @bind="_form.Priority">
+            @foreach (var p in new[] { "Low", "Normal", "High", "Urgent" })
+            { <option value="@p">@p</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_form.Status">
+            @foreach (var s in new[] { "Open", "InProgress", "Done", "Cancelled" })
+            { <option value="@s">@(s == "InProgress" ? "In Progress" : s)</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Assigned To</label>
+          <input class="form-input" @bind="_form.AssignedToName" placeholder="Staff name" />
+        </div>
+        <div>
+          <label class="form-label">Due Date</label>
+          <input class="form-input" type="date" @bind="_form.DueDate" />
+        </div>
+      </div>
+
+      <label class="form-label">Linked Case ID <span style="color:var(--text-light);font-size:.74rem;">(optional)</span></label>
+      <input class="form-input" type="number" style="margin-bottom:10px;" @bind="_form.LinkedCaseId" placeholder="Case #" />
+
+      <label class="form-label">Linked Donor ID <span style="color:var(--text-light);font-size:.74rem;">(optional)</span></label>
+      <input class="form-input" type="number" style="margin-bottom:14px;" @bind="_form.LinkedDonorId" placeholder="Donor #" />
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save Task")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+        @if (_form.Id != 0)
+        { <button class="btn" style="margin-left:auto;color:var(--red);" @onclick="Delete">Delete</button> }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<StaffTaskDto> _tasks = [];
+  private string _search = "", _statusFilter = "All", _priorityFilter = "";
+  private bool _editing, _saving;
+  private string _err = "";
+  private TaskForm _form = new();
+
+  private class TaskForm
+  {
+    public int Id { get; set; }
+    public string Title { get; set; } = "";
+    public string? Description { get; set; }
+    public string AssignedToName { get; set; } = "";
+    public DateTime? DueDate { get; set; }
+    public string Priority { get; set; } = "Normal";
+    public string Status { get; set; } = "Open";
+    public int? LinkedCaseId { get; set; }
+    public int? LinkedDonorId { get; set; }
+    public StaffTaskDto ToDto() => new(Id, 0, Title, Description, AssignedToName, "",
+      DueDate, Priority, Status, LinkedCaseId, LinkedDonorId, DateTime.UtcNow, null);
+  }
+
+  private IEnumerable<StaffTaskDto> Filtered => _tasks.Where(t =>
+    (_statusFilter == "All" || t.Status == _statusFilter) &&
+    (string.IsNullOrEmpty(_priorityFilter) || t.Priority == _priorityFilter) &&
+    (string.IsNullOrEmpty(_search) || t.Title.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+     (t.AssignedToName.Contains(_search, StringComparison.OrdinalIgnoreCase)))
+  ).OrderBy(t => t.Status == "Done" ? 1 : 0).ThenByDescending(t => PriorityOrder(t.Priority)).ThenBy(t => t.DueDate ?? DateTime.MaxValue);
+
+  private static int PriorityOrder(string p) => p switch { "Urgent" => 4, "High" => 3, "Normal" => 2, _ => 1 };
+
+  protected override async Task OnInitializedAsync() => _tasks = await Api.GetStaffTasksAsync();
+
+  private void OpenDrawer(StaffTaskDto? t)
+  {
+    _form = t is null ? new TaskForm() : new TaskForm
+    {
+      Id = t.Id, Title = t.Title, Description = t.Description, AssignedToName = t.AssignedToName,
+      DueDate = t.DueDate, Priority = t.Priority, Status = t.Status,
+      LinkedCaseId = t.LinkedCaseId, LinkedDonorId = t.LinkedDonorId
+    };
+    _err = ""; _editing = true;
+  }
+
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (string.IsNullOrWhiteSpace(_form.Title)) { _err = "Title is required."; return; }
+    _saving = true; _err = "";
+    var ok = _form.Id == 0
+      ? await Api.CreateStaffTaskAsync(_form.ToDto())
+      : await Api.UpdateStaffTaskAsync(_form.Id, _form.ToDto());
+    _saving = false;
+    if (ok) { _editing = false; _tasks = await Api.GetStaffTasksAsync(); }
+    else _err = "Save failed.";
+  }
+
+  private async Task Delete()
+  {
+    await Api.DeleteStaffTaskAsync(_form.Id);
+    _editing = false;
+    _tasks = await Api.GetStaffTasksAsync();
+  }
+
+  private async Task QuickDone(StaffTaskDto t)
+  {
+    var updated = t with { Status = "Done", CompletedAt = DateTime.UtcNow };
+    if (await Api.UpdateStaffTaskAsync(t.Id, updated))
+      _tasks = await Api.GetStaffTasksAsync();
+  }
+
+  private static string StatusBadge(string s) => s switch
+  {
+    "Open"       => "badge-new",
+    "InProgress" => "badge-inprogress",
+    "Done"       => "badge-fulfilled",
+    "Cancelled"  => "badge-cancelled",
+    _            => "badge-new"
+  };
+
+  private static string PriorityBadge(string p) => p switch
+  {
+    "Urgent" => "badge-cancelled",
+    "High"   => "badge-onhold",
+    "Normal" => "badge-new",
+    _        => "badge-shipped"
+  };
+}

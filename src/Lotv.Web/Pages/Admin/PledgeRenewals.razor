@@ -1,0 +1,130 @@
+@page "/admin/pledge-renewals"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Pledge Renewals — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Pledge Renewals</h2><p>Upcoming and overdue recurring pledge renewals</p></div>
+  <div class="page-hd-actions">
+    <select class="form-input" style="width:120px;font-size:.82rem;padding:5px 10px;" @bind="_days" @bind:after="Load">
+      <option value="7">Next 7 days</option>
+      <option value="14">Next 14 days</option>
+      <option value="30">Next 30 days</option>
+      <option value="60">Next 60 days</option>
+      <option value="90">Next 90 days</option>
+    </select>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">📅</div>
+    <div class="kpi-label">Upcoming</div>
+    <div class="kpi-value" style="color:var(--navy)">@(_data?.Upcoming.Count ?? 0)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-label">Upcoming Value</div>
+    <div class="kpi-value" style="color:var(--gold)">@((_data?.Upcoming.Sum(x => x.Amount) ?? 0).ToString("C0"))</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">⚠</div>
+    <div class="kpi-label">Overdue</div>
+    <div class="kpi-value" style="color:var(--red)">@(_data?.Overdue.Count ?? 0)</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">💸</div>
+    <div class="kpi-label">Overdue Value</div>
+    <div class="kpi-value" style="color:var(--red)">@((_data?.Overdue.Sum(x => x.Amount) ?? 0).ToString("C0"))</div>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading renewals…" />
+}
+else
+{
+  <!-- OVERDUE -->
+  @if (_data?.Overdue.Count > 0)
+  {
+    <div class="panel" style="margin-bottom:20px;border:1px solid #fca5a5;">
+      <div class="panel-head" style="background:#fff1f2;">
+        <h3 style="color:var(--red);">Overdue Renewals (@_data.Overdue.Count)</h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Donor</th><th>Email</th><th>Amount</th><th>Frequency</th><th>Due</th><th>Overdue By</th></tr></thead>
+          <tbody>
+            @foreach (var r in _data.Overdue.OrderBy(x => x.NextChargeDate))
+            {
+              var days = (int)(DateTime.Today - r.NextChargeDate.Date).TotalDays;
+              <tr>
+                <td style="font-weight:600;font-size:.84rem;">@r.DonorName</td>
+                <td style="font-size:.78rem;color:var(--text-light);">@(r.Email ?? "—")</td>
+                <td style="font-size:.84rem;color:var(--green);font-weight:600;">@r.Amount.ToString("C0")</td>
+                <td style="font-size:.78rem;">@r.Frequency</td>
+                <td style="font-size:.78rem;color:var(--red);">@r.NextChargeDate.ToString("MMM d, yyyy")</td>
+                <td><span class="badge badge-cancelled" style="font-size:.64rem;">@days day@(days == 1 ? "" : "s") overdue</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- UPCOMING -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Upcoming Renewals (next @_days days · @(_data?.Upcoming.Count ?? 0) pledges)</h3>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!(_data?.Upcoming.Any() ?? false))
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No upcoming renewals in this window.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead><tr><th>Donor</th><th>Email</th><th>Amount</th><th>Frequency</th><th>Renewal Date</th><th>Days Until</th></tr></thead>
+          <tbody>
+            @foreach (var r in _data!.Upcoming.OrderBy(x => x.NextChargeDate))
+            {
+              var daysLeft = (int)(r.NextChargeDate.Date - DateTime.Today).TotalDays;
+              <tr>
+                <td style="font-weight:600;font-size:.84rem;">@r.DonorName</td>
+                <td style="font-size:.78rem;color:var(--text-light);">@(r.Email ?? "—")</td>
+                <td style="font-size:.84rem;color:var(--green);font-weight:600;">@r.Amount.ToString("C0")</td>
+                <td style="font-size:.78rem;">@r.Frequency</td>
+                <td style="font-size:.78rem;">@r.NextChargeDate.ToString("MMM d, yyyy")</td>
+                <td>
+                  <span class="badge @(daysLeft <= 3 ? "badge-onhold" : "badge-new")" style="font-size:.64rem;">
+                    @(daysLeft == 0 ? "Today" : daysLeft == 1 ? "Tomorrow" : $"{daysLeft}d")
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private PledgeRenewalsDto? _data;
+  private bool _loading = true;
+  private int _days = 30;
+
+  protected override async Task OnInitializedAsync() => await Load();
+
+  private async Task Load()
+  {
+    _loading = true;
+    _data = await Api.GetPledgeRenewalsAsync(_days);
+    _loading = false;
+  }
+}

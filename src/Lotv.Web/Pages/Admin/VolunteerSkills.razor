@@ -1,0 +1,168 @@
+@page "/admin/volunteer-skills"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Volunteer Directory — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Directory</h2><p>Browse volunteers by role, status, and assignment history</p></div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:14px;">
+  <input class="form-input" style="width:240px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search volunteers…" @bind="_search" @bind:event="oninput" />
+  @foreach (var s in new[] { "All", "Active", "Inactive", "Onboarding" })
+  {
+    var n = s == "All" ? _volunteers.Count : _volunteers.Count(v => v.Status.ToString() == s);
+    <button class="filter-chip @(_statusFilter == s ? "active" : "")" @onclick="() => _statusFilter = s">@s · @n</button>
+  }
+</div>
+
+<!-- ROLE FILTER CHIPS -->
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+  <button class="filter-chip @(_roleFilter == "" ? "active" : "")" @onclick='() => _roleFilter = ""'>All Roles</button>
+  @foreach (var role in _allRoles)
+  {
+    var count = _volunteers.Count(v => v.Role.ToString() == role);
+    <button class="filter-chip @(_roleFilter == role ? "active" : "")" @onclick="() => _roleFilter = role">
+      @RoleDisplayName(role) · @count
+    </button>
+  }
+</div>
+
+<!-- KPI ROW -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🤝</div>
+    <div class="kpi-label">Total Volunteers</div>
+    <div class="kpi-value" style="color:var(--navy)">@_volunteers.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value" style="color:var(--green)">@_volunteers.Count(v => v.Status == Lotv.Core.Models.VolunteerStatus.Active)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">📦</div>
+    <div class="kpi-label">Active Cases</div>
+    <div class="kpi-value" style="color:var(--gold)">@_volunteers.Sum(v => v.ActiveCases)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">🏆</div>
+    <div class="kpi-label">Total Fulfilled</div>
+    <div class="kpi-value" style="color:var(--amber)">@_volunteers.Sum(v => v.TotalCasesFulfilled)</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No volunteers match the current filters.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th @onclick='() => Sort("name")' style="cursor:pointer;">Name @SortArrow("name")</th>
+            <th>Status</th>
+            <th>Role</th>
+            <th>Contact</th>
+            <th @onclick='() => Sort("active")' style="cursor:pointer;">Active Cases @SortArrow("active")</th>
+            <th @onclick='() => Sort("fulfilled")' style="cursor:pointer;">Fulfilled @SortArrow("fulfilled")</th>
+            <th>Parish / Diocese</th>
+            <th>Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var v in Filtered)
+          {
+            <tr>
+              <td>
+                <div style="font-weight:600;font-size:.84rem;">@v.FullName</div>
+              </td>
+              <td><span class="badge @StatusBadge(v.Status.ToString())" style="font-size:.64rem;">@v.Status</span></td>
+              <td style="font-size:.78rem;">@v.Role.ToDisplayName()</td>
+              <td style="font-size:.72rem;color:var(--text-light);">
+                @(v.Email)<br />@(v.Phone ?? "")
+              </td>
+              <td style="font-size:.84rem;text-align:center;font-weight:@(v.ActiveCases > 0 ? "700" : "400");color:@(v.ActiveCases > 0 ? "var(--navy)" : "var(--text-light)");">@v.ActiveCases</td>
+              <td style="font-size:.84rem;text-align:center;">@v.TotalCasesFulfilled</td>
+              <td style="font-size:.72rem;color:var(--text-mid);">
+                @(v.ParishName ?? "—")<br />
+                <span style="color:var(--text-light);">@(v.DioceseName ?? "")</span>
+              </td>
+              <td style="font-size:.72rem;color:var(--text-light);">@v.JoinedDate.ToString("MMM d, yyyy")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@code {
+  private List<Volunteer> _volunteers = [];
+  private string _search = "";
+  private string _statusFilter = "All";
+  private string _roleFilter = "";
+  private string _sortField = "name";
+  private bool _sortAsc = true;
+
+  private List<string> _allRoles = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _volunteers = await Api.GetVolunteersAsync();
+    _allRoles = _volunteers.Select(v => v.Role.ToString()).Distinct().OrderBy(r => r).ToList();
+  }
+
+  private IEnumerable<Volunteer> Filtered
+  {
+    get
+    {
+      var q = _volunteers.AsEnumerable();
+      if (_statusFilter != "All") q = q.Where(v => v.Status.ToString() == _statusFilter);
+      if (!string.IsNullOrEmpty(_roleFilter)) q = q.Where(v => v.Role.ToString() == _roleFilter);
+      if (!string.IsNullOrEmpty(_search))
+        q = q.Where(v => v.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                         v.Email.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                         (v.ParishName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false));
+      q = _sortField switch
+      {
+        "active"    => _sortAsc ? q.OrderBy(v => v.ActiveCases) : q.OrderByDescending(v => v.ActiveCases),
+        "fulfilled" => _sortAsc ? q.OrderBy(v => v.TotalCasesFulfilled) : q.OrderByDescending(v => v.TotalCasesFulfilled),
+        _           => _sortAsc ? q.OrderBy(v => v.LastName) : q.OrderByDescending(v => v.LastName),
+      };
+      return q;
+    }
+  }
+
+  private void Sort(string field)
+  {
+    if (_sortField == field) _sortAsc = !_sortAsc;
+    else { _sortField = field; _sortAsc = true; }
+  }
+
+  private string SortArrow(string field) => _sortField != field ? "" : _sortAsc ? " ↑" : " ↓";
+
+  private static string RoleDisplayName(string role) => role switch
+  {
+    "PackageAssembler" => "Package Assembler",
+    "PrayerAmbassador" => "Prayer Ambassador",
+    "ParishLiaison"    => "Parish Liaison",
+    "EventHelper"      => "Event Helper",
+    "Admin"            => "Admin Support",
+    _                  => role
+  };
+
+  private static string StatusBadge(string s) => s switch
+  {
+    "Active"     => "badge-fulfilled",
+    "Inactive"   => "badge-cancelled",
+    "Onboarding" => "badge-onhold",
+    _            => "badge-new"
+  };
+}

@@ -1,0 +1,209 @@
+@page "/admin/announcements"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Announcements — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Announcements</h2><p>Internal announcements for staff, volunteers, donors, and the public</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ New Announcement</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">📣</div>
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value" style="color:var(--navy)">@_announcements.Count</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">📌</div>
+    <div class="kpi-label">Pinned</div>
+    <div class="kpi-value" style="color:var(--amber)">@_announcements.Count(a => a.IsPinned)</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">🌐</div>
+    <div class="kpi-label">Public</div>
+    <div class="kpi-value" style="color:var(--green)">@_announcements.Count(a => a.Audience == "Public")</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">⏰</div>
+    <div class="kpi-label">Expiring Soon</div>
+    <div class="kpi-value" style="color:var(--red)">@_announcements.Count(a => a.ExpiresAt.HasValue && a.ExpiresAt.Value <= DateTime.Now.AddDays(7))</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search announcements…" @bind="_search" @bind:event="oninput" />
+  @foreach (var aud in new[] { "All", "Staff", "Volunteers", "Donors", "Public" })
+  {
+    var n = aud == "All" ? _announcements.Count : _announcements.Count(a => a.Audience == aud);
+    <button class="filter-chip @(_audienceFilter == aud ? "active" : "")" @onclick="() => _audienceFilter = aud">@aud · @n</button>
+  }
+</div>
+
+<div style="display:flex;flex-direction:column;gap:12px;">
+  @foreach (var a in Filtered)
+  {
+    <div class="panel" style="border-left:4px solid @AudienceColor(a.Audience);">
+      <div class="panel-body">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            @if (a.IsPinned) { <span style="font-size:.8rem;color:var(--amber);">📌</span> }
+            <span class="badge @AudienceBadge(a.Audience)" style="font-size:.64rem;">@a.Audience</span>
+            @if (!a.ChapterId.HasValue) { <span class="badge badge-shipped" style="font-size:.6rem;">National</span> }
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            @if (a.ExpiresAt.HasValue)
+            {
+              var expired = a.ExpiresAt.Value < DateTime.Now;
+              <span style="font-size:.72rem;color:@(expired ? "var(--red)" : "var(--text-light)");">
+                @(expired ? "Expired" : "Expires") @a.ExpiresAt.Value.ToString("MMM d, yyyy")
+              </span>
+            }
+            <button class="btn btn-sm" style="font-size:.7rem;" @onclick="() => OpenDrawer(a)">Edit</button>
+            <button class="btn btn-sm" style="font-size:.7rem;color:var(--red);" @onclick="() => DeleteAnnouncement(a.Id)">✕</button>
+          </div>
+        </div>
+        <div style="font-weight:700;font-size:.96rem;margin-bottom:6px;">@a.Title</div>
+        <div style="font-size:.84rem;color:var(--text-mid);line-height:1.5;white-space:pre-wrap;">@a.Body</div>
+        <div style="margin-top:8px;font-size:.72rem;color:var(--text-light);">
+          Posted by @a.AuthorName &bull; @a.CreatedAt.ToString("MMM d, yyyy h:mm tt")
+        </div>
+      </div>
+    </div>
+  }
+  @if (!Filtered.Any())
+  {
+    <div style="text-align:center;padding:48px;color:var(--text-light);">No announcements found.</div>
+  }
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer" style="width:500px;">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "New Announcement" : "Edit Announcement")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Title *</label>
+      <input class="form-input" style="margin-bottom:10px;" @bind="_form.Title" />
+
+      <label class="form-label">Body *</label>
+      <textarea class="form-input" rows="5" style="margin-bottom:10px;" @bind="_form.Body"></textarea>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label class="form-label">Audience</label>
+          <select class="form-input" @bind="_form.Audience">
+            @foreach (var a in new[] { "Staff", "Volunteers", "Donors", "Public" })
+            { <option value="@a">@a</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Expires At <span style="color:var(--text-light);font-size:.74rem;">(optional)</span></label>
+          <input class="form-input" type="datetime-local" @bind="_form.ExpiresAt" />
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <input type="checkbox" id="pin-ann" @bind="_form.IsPinned" />
+        <label for="pin-ann" style="font-size:.84rem;margin:0;">Pin this announcement</label>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+        @if (_form.Id != 0)
+        { <button class="btn" style="margin-left:auto;color:var(--red);" @onclick="() => DeleteAnnouncement(_form.Id)">Delete</button> }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<AnnouncementDto> _announcements = [];
+  private string _search = "", _audienceFilter = "All";
+  private bool _editing, _saving;
+  private string _err = "";
+  private AnnForm _form = new();
+
+  private class AnnForm
+  {
+    public int Id { get; set; }
+    public string Title { get; set; } = "";
+    public string Body { get; set; } = "";
+    public string Audience { get; set; } = "Staff";
+    public bool IsPinned { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public AnnouncementDto ToDto() => new(Id, null, Title, Body, Audience, IsPinned, ExpiresAt, "", DateTime.UtcNow);
+  }
+
+  private IEnumerable<AnnouncementDto> Filtered => _announcements
+    .Where(a =>
+      (_audienceFilter == "All" || a.Audience == _audienceFilter) &&
+      (string.IsNullOrEmpty(_search) ||
+       a.Title.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+       a.Body.Contains(_search, StringComparison.OrdinalIgnoreCase)))
+    .OrderByDescending(a => a.IsPinned)
+    .ThenByDescending(a => a.CreatedAt);
+
+  protected override async Task OnInitializedAsync() => _announcements = await Api.GetAnnouncementsAsync();
+
+  private void OpenDrawer(AnnouncementDto? a)
+  {
+    _form = a is null ? new AnnForm() : new AnnForm
+    {
+      Id = a.Id, Title = a.Title, Body = a.Body, Audience = a.Audience,
+      IsPinned = a.IsPinned, ExpiresAt = a.ExpiresAt
+    };
+    _err = ""; _editing = true;
+  }
+
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (string.IsNullOrWhiteSpace(_form.Title) || string.IsNullOrWhiteSpace(_form.Body))
+    { _err = "Title and body are required."; return; }
+    _saving = true; _err = "";
+    var ok = _form.Id == 0
+      ? await Api.CreateAnnouncementAsync(_form.ToDto())
+      : await Api.UpdateAnnouncementAsync(_form.Id, _form.ToDto());
+    _saving = false;
+    if (ok) { _editing = false; _announcements = await Api.GetAnnouncementsAsync(); }
+    else _err = "Save failed.";
+  }
+
+  private async Task DeleteAnnouncement(int id)
+  {
+    await Api.DeleteAnnouncementAsync(id);
+    _editing = false;
+    _announcements = await Api.GetAnnouncementsAsync();
+  }
+
+  private static string AudienceColor(string a) => a switch
+  {
+    "Staff"      => "var(--navy)",
+    "Volunteers" => "var(--green)",
+    "Donors"     => "var(--gold)",
+    "Public"     => "var(--amber)",
+    _            => "var(--border)"
+  };
+
+  private static string AudienceBadge(string a) => a switch
+  {
+    "Staff"      => "badge-inprogress",
+    "Volunteers" => "badge-fulfilled",
+    "Donors"     => "badge-onhold",
+    "Public"     => "badge-shipped",
+    _            => "badge-new"
+  };
+}

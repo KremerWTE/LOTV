@@ -71,9 +71,13 @@
     "/admin/wishlist" or "/admin/inventory" => "📦",
     "/admin/audit" or "/admin/webhooks" or "/admin/migrations" or "/admin/push-subscriptions" => "🔧",
     "/admin/chapters" or "/admin/chapter-analytics" => "🏛",
-    "/admin/volunteer-certifications" => "📋",
+    "/admin/volunteer-certifications" or "/admin/volunteer-skills" => "📋",
     "/admin/grants" => "💵",
     "/admin/notification-prefs" => "🔔",
+    "/admin/campaigns" => "🎯",
+    "/admin/pledge-renewals" => "📅",
+    "/admin/staff-tasks" => "✅",
+    "/admin/announcements" => "📣",
     "/admin/settings" or "/admin/users" or "/admin/diocese-data" or "/admin/health" => "⚙",
     "/admin/reconciliation" or "/admin/reports/schedule" => "📋",
     "/admin/notifications" or "/admin/marketing" => "✉",
@@ -126,6 +130,11 @@
     new("Volunteer Certifications", "/admin/volunteer-certifications"),
     new("Grants", "/admin/grants"),
     new("Notification Preferences", "/admin/notification-prefs"),
+    new("Campaigns", "/admin/campaigns"),
+    new("Pledge Renewals", "/admin/pledge-renewals"),
+    new("Staff Tasks", "/admin/staff-tasks"),
+    new("Announcements", "/admin/announcements"),
+    new("Volunteer Skill Directory", "/admin/volunteer-skills"),
   };
 
   private bool _open;

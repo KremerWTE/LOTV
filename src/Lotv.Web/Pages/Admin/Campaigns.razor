@@ -1,0 +1,198 @@
+@page "/admin/campaigns"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Campaigns — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Campaign Management</h2><p>Track fundraising campaigns and goal progress</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ New Campaign</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🎯</div>
+    <div class="kpi-label">Active Campaigns</div>
+    <div class="kpi-value" style="color:var(--navy)">@_campaigns.Count(c => c.Status == "Active")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-label">Total Goal</div>
+    <div class="kpi-value" style="color:var(--gold)">@_campaigns.Where(c => c.Status == "Active").Sum(c => c.GoalAmount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">📈</div>
+    <div class="kpi-label">Total Raised</div>
+    <div class="kpi-value" style="color:var(--green)">@_campaigns.Sum(c => c.Raised).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">🏁</div>
+    <div class="kpi-label">Completed</div>
+    <div class="kpi-value" style="color:var(--amber)">@_campaigns.Count(c => c.Status == "Completed")</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:240px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search campaigns..." @bind="_search" @bind:event="oninput" />
+  @foreach (var s in new[] { "All", "Active", "Paused", "Completed", "Cancelled" })
+  {
+    var n = s == "All" ? _campaigns.Count : _campaigns.Count(c => c.Status == s);
+    <button class="filter-chip @(_statusFilter == s ? "active" : "")" @onclick="() => _statusFilter = s">@s · @n</button>
+  }
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+  @foreach (var c in Filtered)
+  {
+    var pct = c.GoalAmount > 0 ? Math.Min(100, (int)(c.Raised * 100 / c.GoalAmount)) : 0;
+    <div class="panel" style="cursor:pointer;" @onclick="() => OpenDrawer(c)">
+      <div class="panel-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span class="badge @StatusBadge(c.Status)" style="font-size:.66rem;">@c.Status</span>
+          @if (!string.IsNullOrEmpty(c.ExternalCode))
+          { <span style="font-size:.7rem;color:var(--text-light);font-family:monospace;">@c.ExternalCode</span> }
+        </div>
+        <div style="font-weight:700;font-size:1rem;margin-bottom:4px;">@c.Name</div>
+        @if (!string.IsNullOrEmpty(c.Description))
+        { <div style="font-size:.78rem;color:var(--text-mid);margin-bottom:10px;">@c.Description</div> }
+        <div style="font-size:.76rem;color:var(--text-light);margin-bottom:6px;">
+          @c.StartDate.ToString("MMM d, yyyy") @(c.EndDate.HasValue ? $"→ {c.EndDate.Value.ToString("MMM d, yyyy")}" : "· Ongoing")
+        </div>
+        <!-- goal bar -->
+        <div style="background:var(--bg);border-radius:6px;height:10px;overflow:hidden;margin-bottom:6px;">
+          <div style="width:@pct%;background:@(pct >= 100 ? "var(--green)" : "var(--navy)");height:100%;border-radius:6px;transition:width .4s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.78rem;">
+          <span style="color:var(--gold);font-weight:700;">@c.Raised.ToString("C0") raised</span>
+          <span style="color:var(--text-light);">Goal: @c.GoalAmount.ToString("C0") · @pct%</span>
+        </div>
+        @if (c.GiftCount > 0)
+        { <div style="font-size:.72rem;color:var(--text-light);margin-top:4px;">@c.GiftCount gift@(c.GiftCount == 1 ? "" : "s")</div> }
+      </div>
+    </div>
+  }
+  @if (!Filtered.Any())
+  {
+    <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-light);">No campaigns found.</div>
+  }
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer" style="width:500px;">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "New Campaign" : "Edit Campaign")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Campaign Name *</label>
+      <input class="form-input" style="margin-bottom:10px;" @bind="_form.Name" />
+
+      <label class="form-label">Description</label>
+      <textarea class="form-input" rows="2" style="margin-bottom:10px;" @bind="_form.Description"></textarea>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label class="form-label">Goal Amount *</label>
+          <input class="form-input" type="number" min="0" step="100" @bind="_form.GoalAmount" />
+        </div>
+        <div>
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_form.Status">
+            @foreach (var s in new[] { "Active", "Paused", "Completed", "Cancelled" })
+            { <option value="@s">@s</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Start Date *</label>
+          <input class="form-input" type="date" @bind="_form.StartDate" />
+        </div>
+        <div>
+          <label class="form-label">End Date</label>
+          <input class="form-input" type="date" @bind="_form.EndDate" />
+        </div>
+      </div>
+
+      <label class="form-label">External Code <span style="color:var(--text-light);font-size:.74rem;">(GiveButter slug / Stripe campaign ID)</span></label>
+      <input class="form-input" style="margin-bottom:14px;" @bind="_form.ExternalCode" placeholder="e.g. spring-2026" />
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save Campaign")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+        @if (_form.Id != 0)
+        { <button class="btn" style="margin-left:auto;color:var(--red);" @onclick="Delete">Delete</button> }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<CampaignDto> _campaigns = [];
+  private string _search = "", _statusFilter = "All";
+  private bool _editing, _saving;
+  private string _err = "";
+  private CampaignForm _form = new();
+
+  private class CampaignForm
+  {
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public decimal GoalAmount { get; set; }
+    public DateTime StartDate { get; set; } = DateTime.Today;
+    public DateTime? EndDate { get; set; }
+    public string Status { get; set; } = "Active";
+    public string? ExternalCode { get; set; }
+    public CampaignDto ToDto() => new(Id, 0, Name, Description, GoalAmount, StartDate, EndDate, Status, ExternalCode, 0, 0);
+  }
+
+  private IEnumerable<CampaignDto> Filtered => _campaigns.Where(c =>
+    (_statusFilter == "All" || c.Status == _statusFilter) &&
+    (string.IsNullOrEmpty(_search) || c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) || (c.Description?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
+  ).OrderByDescending(c => c.StartDate);
+
+  protected override async Task OnInitializedAsync() => _campaigns = await Api.GetCampaignsAsync();
+
+  private void OpenDrawer(CampaignDto? c)
+  {
+    _form = c is null ? new CampaignForm() : new CampaignForm { Id = c.Id, Name = c.Name, Description = c.Description, GoalAmount = c.GoalAmount, StartDate = c.StartDate, EndDate = c.EndDate, Status = c.Status, ExternalCode = c.ExternalCode };
+    _err = ""; _editing = true;
+  }
+
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (string.IsNullOrWhiteSpace(_form.Name) || _form.GoalAmount <= 0)
+    { _err = "Name and goal amount are required."; return; }
+    _saving = true; _err = "";
+    var dto = _form.ToDto();
+    var ok = _form.Id == 0 ? await Api.CreateCampaignAsync(dto) : await Api.UpdateCampaignAsync(_form.Id, dto);
+    _saving = false;
+    if (ok) { _editing = false; _campaigns = await Api.GetCampaignsAsync(); }
+    else _err = "Save failed.";
+  }
+
+  private async Task Delete()
+  {
+    await Api.DeleteCampaignAsync(_form.Id);
+    _editing = false;
+    _campaigns = await Api.GetCampaignsAsync();
+  }
+
+  private static string StatusBadge(string s) => s switch
+  {
+    "Active"    => "badge-fulfilled",
+    "Paused"    => "badge-onhold",
+    "Completed" => "badge-shipped",
+    "Cancelled" => "badge-cancelled",
+    _           => "badge-new"
+  };
+}
