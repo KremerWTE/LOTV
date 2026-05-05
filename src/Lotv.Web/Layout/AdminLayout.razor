@@ -5,7 +5,7 @@
 @inject SignalRService Hub
 @implements IDisposable
 
-<div class="lotv-app">
+<div class="lotv-app @(_sidebarCollapsed ? "sidebar-collapsed" : "")">
 
   <!-- MOBILE SIDEBAR BACKDROP -->
   @if (_sidebarOpen)
@@ -319,6 +319,11 @@
           }
         </div>
 
+        <button type="button" @onclick="() => _sidebarCollapsed = !_sidebarCollapsed"
+                aria-label="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
+                style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:.95rem;color:var(--text-mid);margin-right:8px;">
+          @(_sidebarCollapsed ? "»" : "«")
+        </button>
         @if (_pendingMigrations > 0 && _isAdmin)
         {
           <a href="/admin/migrations" title="@_pendingMigrations pending migration(s)"
@@ -378,6 +383,7 @@
   private int _pendingAlloc;
   private string _pageTitle = "Dashboard Overview";
   private bool _dark;
+  private bool _sidebarCollapsed;
   private int _pendingMigrations;
   private int _webhook24h;
 

@@ -1,6 +1,7 @@
 @page "/admin/webhooks"
 @layout AdminLayout
 @inject ApiService Api
+@inject IJSRuntime JS
 
 <PageTitle>Webhook Events — LOTV Staff</PageTitle>
 
@@ -96,6 +97,8 @@
 
   private async Task Prune()
   {
+    var ok = await JS.InvokeAsync<bool>("confirm", "Permanently delete webhook events older than 90 days?");
+    if (!ok) return;
     var deleted = await Api.PruneWebhooksAsync(90);
     if (deleted is not null) await Load();
   }

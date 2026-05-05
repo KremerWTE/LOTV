@@ -16,7 +16,7 @@
 </div>
 
 <!-- DATE RANGE FILTER -->
-<div class="filter-bar" style="margin-bottom:20px;">
+<div class="filter-bar" style="margin-bottom:20px;position:sticky;top:0;z-index:10;background:var(--bg-page);padding:10px 0;">
   @foreach (var r in new[]{"MTD","QTD","YTD","All Time"})
   { <button class="filter-chip @(_range == r ? "active" : "")" aria-pressed="@(_range == r)" @onclick="() => SetRange(r)">@r</button> }
 </div>

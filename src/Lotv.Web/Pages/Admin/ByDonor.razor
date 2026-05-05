@@ -92,13 +92,22 @@
             </td>
             <td style="font-size:.76rem;color:var(--text-light);">@d.Donor.LastGiftDate.ToString("MMM d, yyyy")</td>
             <td style="font-size:.76rem;color:var(--text-mid);">@(d.Donor.ParishName ?? "—")</td>
-            <td style="display:flex;gap:6px;">
+            <td style="position:relative;">
               <button class="btn btn-sm" @onclick="() => ToggleExpand(d.Donor.Id)">
                 @(_expanded == d.Donor.Id ? "&#9650;" : "Gifts")
               </button>
-              @if (!string.IsNullOrEmpty(d.Donor.Email))
+              <button class="btn btn-sm" title="More actions" @onclick="() => _kebabOpen = _kebabOpen == d.Donor.Id ? 0 : d.Donor.Id">⋯</button>
+              @if (_kebabOpen == d.Donor.Id)
               {
-                <button class="btn btn-sm" title="Email portal sign-in link" @onclick="() => SendPortalLink(d.Donor)">&#128231;</button>
+                <div @onclick:stopPropagation="true" style="position:absolute;right:0;top:100%;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);min-width:180px;z-index:50;padding:6px 0;">
+                  <a href="@($"/admin/donors/{d.Donor.Id}")" class="kebab-item" style="display:block;padding:8px 14px;font-size:.82rem;color:var(--navy);text-decoration:none;">View profile</a>
+                  @if (!string.IsNullOrEmpty(d.Donor.Email))
+                  {
+                    <button class="kebab-item" style="width:100%;text-align:left;padding:8px 14px;font-size:.82rem;background:transparent;border:none;cursor:pointer;color:var(--navy);"
+                            @onclick="async () => { _kebabOpen = 0; await SendPortalLink(d.Donor); }">📧 Send portal link</button>
+                    <a href="@($"mailto:{d.Donor.Email}")" class="kebab-item" style="display:block;padding:8px 14px;font-size:.82rem;color:var(--navy);text-decoration:none;">✉ Email donor</a>
+                  }
+                </div>
               }
             </td>
           </tr>
@@ -143,6 +152,7 @@
   [Parameter, SupplyParameterFromQuery(Name = "asc")]  public bool? AscParam { get; set; }
   private string? _toast;
   private bool _bulkBusy;
+  private int _kebabOpen;
   private async Task BulkSendPortalLinks()
   {
     _bulkBusy = true;

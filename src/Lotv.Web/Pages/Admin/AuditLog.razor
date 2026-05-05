@@ -43,7 +43,7 @@
   @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged","Deleted","SignatureFailed"})
   { <button class="filter-chip @(_actionFilter == f ? "active" : "")" aria-pressed="@(_actionFilter == f)" @onclick="() => _actionFilter = f">@(f == "SignatureFailed" ? "⚠ Webhook fails" : f)</button> }
   <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
-  @foreach (var d in new[]{"All Time","Today","This Week","This Month"})
+  @foreach (var d in new[]{"All Time","Last 24h","Today","This Week","This Month"})
   { <button class="filter-chip @(_dateFilter == d ? "active" : "")" aria-pressed="@(_dateFilter == d)" @onclick="() => _dateFilter = d">@d</button> }
   <button class="filter-chip @(_mineOnly ? "active" : "")" aria-pressed="@_mineOnly" @onclick="() => _mineOnly = !_mineOnly">My actions</button>
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search entries..." @bind="_search" @bind:event="oninput" />
@@ -113,6 +113,7 @@
     var matchAction = _actionFilter == "All" || e.Action.Equals(_actionFilter, StringComparison.OrdinalIgnoreCase);
     var matchDate   = _dateFilter switch
     {
+      "Last 24h"   => e.Timestamp >= now.AddHours(-24),
       "Today"      => e.Timestamp.Date == now.Date,
       "This Week"  => e.Timestamp >= now.AddDays(-7),
       "This Month" => e.Timestamp.Year == now.Year && e.Timestamp.Month == now.Month,

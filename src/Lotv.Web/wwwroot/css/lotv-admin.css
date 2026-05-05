@@ -426,6 +426,18 @@ body.theme-dark {
 body.theme-dark { background: var(--bg-page); color: var(--text-dark); }
 body.theme-dark .sidebar { background: #14201a; }
 
+/* ── SIDEBAR COLLAPSE (icon-only) ────────────────────────────── */
+.lotv-app.sidebar-collapsed .sidebar { width: 56px; }
+.lotv-app.sidebar-collapsed .sidebar-link span:not(.icon),
+.lotv-app.sidebar-collapsed .sidebar-section-label,
+.lotv-app.sidebar-collapsed .sidebar-logo-text,
+.lotv-app.sidebar-collapsed .sidebar-badge,
+.lotv-app.sidebar-collapsed .sidebar-footer { display: none !important; }
+.lotv-app.sidebar-collapsed .sidebar-link { justify-content: center; padding: 9px 8px; }
+
+/* ── KEBAB MENU HOVER ────────────────────────────────────────── */
+.kebab-item:hover { background: var(--bg); }
+
 /* ── TOPBAR SCROLL SHADOW ────────────────────────────────────── */
 .lotv-content { scroll-padding-top: 1px; }
 .topbar.scrolled { box-shadow: 0 4px 14px rgba(0,0,0,.08); border-bottom-color: transparent; }
