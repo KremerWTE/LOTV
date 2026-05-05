@@ -78,6 +78,13 @@
       _activeCount = await Api.GetVolunteerAssignmentCountAsync(id);
     try
     {
+      var token = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.volunteerToken");
+      if (!string.IsNullOrEmpty(token))
+      {
+        var newExp = await Api.RefreshVolunteerSessionAsync(token);
+        if (newExp is not null)
+          await JS.InvokeVoidAsync("sessionStorage.setItem", "lotv.volunteerTokenExpires", newExp.Value.ToString("O"));
+      }
       var iso = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.volunteerTokenExpires");
       if (DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var exp))
       {

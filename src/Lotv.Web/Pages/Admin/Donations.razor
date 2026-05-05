@@ -59,6 +59,11 @@
           <span style="font-size:.84rem;">@_selected.Count selected</span>
           <button class="btn btn-sm" style="margin-left:10px;" @onclick='() => BulkSet("Allocated")'>Mark Allocated</button>
           <button class="btn btn-sm" @onclick='() => BulkSet("Unallocated")'>Mark Unallocated</button>
+          <select class="form-input" style="width:auto;display:inline-block;font-size:.76rem;padding:4px 8px;margin-left:6px;" @bind="_bulkChannel">
+            @foreach (var ch in Enum.GetValues<DonationChannel>())
+            { <option value="@ch.ToString()">@ch</option> }
+          </select>
+          <button class="btn btn-sm" @onclick="BulkSetChannel">Set Channel</button>
           <button class="btn btn-sm" @onclick="() => _selected.Clear()">Clear</button>
         </caption>
       }
@@ -255,6 +260,13 @@
   private async Task BulkSet(string status)
   {
     var n = await Api.BulkAllocateAsync(_selected.ToArray(), status);
+    if (n > 0) { _selected.Clear(); _all = await Api.GetDonationsAsync(); }
+  }
+
+  private string _bulkChannel = nameof(DonationChannel.Online);
+  private async Task BulkSetChannel()
+  {
+    var n = await Api.BulkChannelAsync(_selected.ToArray(), _bulkChannel);
     if (n > 0) { _selected.Clear(); _all = await Api.GetDonationsAsync(); }
   }
 

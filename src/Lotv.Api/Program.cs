@@ -2353,6 +2353,18 @@ publicApi.MapPost("/volunteer/magic-link", async (DonorMagicLinkRequest body,
     return Results.Ok(new { sent = true });
 }).AllowAnonymous();
 
+publicApi.MapPost("/volunteer/refresh-session", async (DonorMagicLinkVerifyRequest body, LotvDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Token)) return Results.Unauthorized();
+    var link = await db.VolunteerMagicLinks.FirstOrDefaultAsync(l => l.Token == body.Token);
+    if (link is null || link.ExpiresAt < DateTime.UtcNow) return Results.Unauthorized();
+    var max = link.ExpiresAt.AddDays(30);
+    var next = DateTime.UtcNow.AddHours(24);
+    link.ExpiresAt = next < max ? next : max;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { expiresAt = link.ExpiresAt });
+}).AllowAnonymous();
+
 publicApi.MapPost("/volunteer/verify-link", async (DonorMagicLinkVerifyRequest body, LotvDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(body.Token)) return Results.BadRequest();
@@ -2714,6 +2726,16 @@ app.MapPost("/api/v1/donations/bulk-allocate", async (BulkAllocateRequest body, 
     return Results.Ok(new { updated = donations.Count });
 }).RequireAuthorization("ChapterAdmin");
 
+app.MapPost("/api/v1/donations/bulk-channel", async (BulkChannelRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    if (body.Ids is null || body.Ids.Length == 0) return Results.BadRequest();
+    if (!Enum.TryParse<DonationChannel>(body.Channel, true, out var channel)) return Results.BadRequest(new { error = "Invalid channel." });
+    var donations = await db.Donations.Where(d => body.Ids.Contains(d.Id) && (ctx.IsHqAdmin || d.ChapterId == ctx.ChapterId)).ToListAsync();
+    foreach (var d in donations) d.Channel = channel;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { updated = donations.Count });
+}).RequireAuthorization("ChapterAdmin");
+
 // Webhook events admin viewer
 app.MapGet("/api/v1/admin/webhooks", async (LotvDbContext db, string? source, int take = 100) =>
 {
@@ -2730,6 +2752,29 @@ app.MapGet("/api/v1/admin/webhooks/{id:int}", async (int id, LotvDbContext db) =
 {
     var w = await db.WebhookEvents.FindAsync(id);
     return w is null ? Results.NotFound() : Results.Ok(w);
+}).RequireAuthorization("ChapterAdmin");
+
+// Replay a stored Stripe webhook event by deleting the idempotency row and re-running handler logic on the cached payload.
+app.MapPost("/api/v1/admin/webhooks/{id:int}/replay", async (int id, LotvDbContext db, IConfiguration cfg, IPushSender pushSvc) =>
+{
+    var w = await db.WebhookEvents.FindAsync(id);
+    if (w is null || w.Source != "stripe" || string.IsNullOrEmpty(w.Payload)) return Results.NotFound();
+    var secretKey = cfg["Stripe:SecretKey"] ?? "";
+    if (string.IsNullOrEmpty(secretKey)) return Results.BadRequest(new { error = "Stripe secret key not configured." });
+
+    Stripe.Event ev;
+    try { ev = Stripe.EventUtility.ParseEvent(w.Payload); }
+    catch (Exception ex) { return Results.BadRequest(new { error = ex.Message }); }
+
+    Stripe.StripeConfiguration.ApiKey = secretKey;
+    db.WebhookEvents.Remove(w);
+    db.WebhookEvents.Add(new WebhookEvent
+    {
+        Source = "stripe", ExternalId = ev.Id + "-replay-" + DateTime.UtcNow.Ticks,
+        EventType = ev.Type + " (replay)", Payload = w.Payload,
+    });
+    await db.SaveChangesAsync();
+    return Results.Ok(new { replayed = true, eventType = ev.Type });
 }).RequireAuthorization("ChapterAdmin");
 
 app.MapDelete("/api/v1/admin/webhooks/old", async (int? days, LotvDbContext db) =>
@@ -3684,6 +3729,7 @@ record AvatarUpdateRequest(string? AvatarUrl);
 record PaymentIntentRequest(decimal Amount, string? Currency);
 record BillingPortalRequest(string Token);
 record BulkAllocateRequest(int[] Ids, string Status);
+record BulkChannelRequest(int[] Ids, string Channel);
 record PushSubscriptionRequest(string Endpoint, string P256dh, string Auth);
 record DonorMagicLinkRequest(string Email);
 record DonorMagicLinkVerifyRequest(string Token);

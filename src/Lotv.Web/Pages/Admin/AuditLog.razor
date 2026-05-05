@@ -39,6 +39,27 @@
   </div>
 </div>
 
+<!-- TOP NOISY USERS -->
+@{
+  var noisy = _log.GroupBy(e => e.UserName)
+    .Select(g => new { User = g.Key, Count = g.Count() })
+    .OrderByDescending(x => x.Count).Take(5).ToList();
+}
+@if (noisy.Any())
+{
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:.84rem;">
+      <strong style="color:var(--text-light);font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;">Top contributors</strong>
+      @foreach (var u in noisy)
+      {
+        <button class="filter-chip" @onclick="() => { _search = u.User; _mineOnly = false; }">
+          @u.User · @u.Count
+        </button>
+      }
+    </div>
+  </div>
+}
+
 <!-- FILTER BAR -->
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged","Deleted","SignatureFailed"})

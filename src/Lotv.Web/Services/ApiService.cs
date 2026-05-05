@@ -459,6 +459,18 @@ public class ApiService
         try { return (await _http.PostAsJsonAsync("/api/public/v1/volunteer/magic-link", new { Email = email })).IsSuccessStatusCode; }
         catch { return false; }
     }
+    public async Task<DateTime?> RefreshVolunteerSessionAsync(string token)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/public/v1/volunteer/refresh-session", new { Token = token });
+            if (!resp.IsSuccessStatusCode) return null;
+            var doc = await resp.Content.ReadFromJsonAsync<VolMagicLinkResp>();
+            return doc?.ExpiresAt;
+        }
+        catch { return null; }
+    }
+
     public async Task<VolMagicLinkResp?> VerifyVolunteerMagicLinkAsync(string token)
     {
         try
@@ -540,6 +552,24 @@ public class ApiService
         catch { return 0; }
     }
     private record BulkAllocateResp(int Updated);
+
+    public async Task<int> BulkChannelAsync(int[] ids, string channel)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/v1/donations/bulk-channel", new { Ids = ids, Channel = channel });
+            if (!resp.IsSuccessStatusCode) return 0;
+            var doc = await resp.Content.ReadFromJsonAsync<BulkAllocateResp>();
+            return doc?.Updated ?? 0;
+        }
+        catch { return 0; }
+    }
+
+    public async Task<bool> ReplayWebhookAsync(int id)
+    {
+        try { return (await _http.PostAsync($"/api/v1/admin/webhooks/{id}/replay", null)).IsSuccessStatusCode; }
+        catch { return false; }
+    }
 
     public async Task<int?> PruneWebhooksAsync(int days = 90)
     {

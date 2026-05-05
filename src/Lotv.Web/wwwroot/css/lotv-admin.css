@@ -425,6 +425,17 @@ body.theme-dark {
 }
 body.theme-dark { background: var(--bg-page); color: var(--text-dark); }
 body.theme-dark .sidebar { background: #14201a; }
+/* Catch hard-coded white inline backgrounds — overlay them so dark mode reads as dark */
+body.theme-dark [style*="background:white"],
+body.theme-dark [style*="background: white"],
+body.theme-dark [style*="background:#fff"],
+body.theme-dark [style*="background: #fff"]
+  { background: var(--white) !important; color: var(--text-dark); }
+body.theme-dark .panel,
+body.theme-dark .topbar,
+body.theme-dark .data-table thead th { background: var(--white); color: var(--text-dark); }
+body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background: var(--bg); color: var(--text-dark); border-color: var(--border); }
+body.theme-dark a { color: #a8c8f0; }
 
 /* ── SIDEBAR COLLAPSE (icon-only) ────────────────────────────── */
 .lotv-app.sidebar-collapsed .sidebar { width: 56px; }
