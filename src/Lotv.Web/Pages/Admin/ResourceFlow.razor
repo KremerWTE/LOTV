@@ -1,0 +1,154 @@
+@page "/admin/resources/flow"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Resource Flow — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Resource Flow Dashboard</h2><p>How money and physical resources are moving through the chapter</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory" class="btn btn-sm">Resource Inventory</a>
+    <a href="/admin/financial" class="btn btn-sm">Financial Overview</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+    <!-- MONEY FLOW -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>&#128184; Money Flow by Case Category</h3>
+        <span style="font-size:.78rem;color:var(--text-light);">Allocated donations by destination category</span>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_moneyFlow.Any())
+        {
+          <div style="padding:32px;text-align:center;color:var(--text-light);">No allocation data.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>Category</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Requests</th><th style="width:150px;">Share</th></tr></thead>
+            <tbody>
+              @foreach (var row in _moneyFlow.OrderByDescending(r => r.Amount))
+              {
+                <tr>
+                  <td style="font-size:.84rem;font-weight:600;">@row.Category</td>
+                  <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@row.Amount.ToString("C0")</td>
+                  <td style="text-align:right;font-size:.78rem;color:var(--text-mid);">@row.RequestCount</td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <div style="flex:1;background:var(--bg);border-radius:4px;height:8px;overflow:hidden;">
+                        <div style="height:100%;width:@(row.Percentage.ToString("F1"))%;background:var(--green);opacity:.7;border-radius:4px;"></div>
+                      </div>
+                      <span style="font-size:.72rem;color:var(--text-light);width:34px;text-align:right;">@row.Percentage.ToString("F0")%</span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--bg);font-weight:700;">
+                <td style="padding:10px 14px;font-size:.82rem;">Total</td>
+                <td style="padding:10px 14px;text-align:right;font-size:.84rem;color:var(--green);">@_moneyFlow.Sum(r => r.Amount).ToString("C0")</td>
+                <td style="padding:10px 14px;text-align:right;font-size:.78rem;color:var(--text-mid);">@_moneyFlow.Sum(r => r.RequestCount)</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        }
+      </div>
+    </div>
+
+    <!-- RESOURCE FLOW -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>&#128230; Physical Resource Flow</h3>
+        <span style="font-size:.78rem;color:var(--text-light);">Items fulfilled by resource type</span>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_resourceFlow.Any())
+        {
+          <div style="padding:32px;text-align:center;color:var(--text-light);">No resource allocation data.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>Resource Type</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Requests</th><th style="width:150px;">Share</th></tr></thead>
+            <tbody>
+              @foreach (var row in _resourceFlow.OrderByDescending(r => r.Percentage))
+              {
+                <tr>
+                  <td>
+                    <div style="font-size:.84rem;font-weight:600;">@row.ResourceType</div>
+                    <div style="font-size:.72rem;color:var(--text-light);">@row.Unit</div>
+                  </td>
+                  <td style="text-align:right;font-size:.84rem;color:var(--navy);font-weight:600;">@row.Quantity</td>
+                  <td style="text-align:right;font-size:.78rem;color:var(--text-mid);">@row.RequestCount</td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <div style="flex:1;background:var(--bg);border-radius:4px;height:8px;overflow:hidden;">
+                        <div style="height:100%;width:@(row.Percentage.ToString("F1"))%;background:var(--navy);opacity:.5;border-radius:4px;"></div>
+                      </div>
+                      <span style="font-size:.72rem;color:var(--text-light);width:34px;text-align:right;">@row.Percentage.ToString("F0")%</span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TIMELINE PANEL -->
+  @if (_timeline.Any())
+  {
+    <div class="panel" style="margin-top:20px;">
+      <div class="panel-head"><h3>&#128200; Activity Timeline</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Period</th><th style="text-align:right;">Donations</th><th style="text-align:right;">Fulfilled</th><th style="text-align:right;">New Requests</th></tr></thead>
+          <tbody>
+            @foreach (var t in _timeline)
+            {
+              <tr>
+                <td style="font-size:.84rem;font-weight:600;">@t.Period</td>
+                <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@t.Donations.ToString("C0")</td>
+                <td style="text-align:right;font-size:.84rem;color:var(--navy);">@t.RequestsFulfilled</td>
+                <td style="text-align:right;font-size:.78rem;color:var(--text-mid);">@t.NewRequests</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<MoneyFlowCategoryDto> _moneyFlow = [];
+  private List<ResourceFlowTypeDto> _resourceFlow = [];
+  private List<TimelinePointDto> _timeline = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var t1 = Api.GetMoneyFlowAsync();
+    var t2 = Api.GetResourceFlowAsync();
+    var t3 = Api.GetTimelineAsync();
+    await Task.WhenAll(t1, t2, t3);
+    _moneyFlow   = await t1;
+    _resourceFlow = await t2;
+    _timeline    = await t3;
+    _loading = false;
+  }
+}

@@ -1,0 +1,176 @@
+@page "/admin/families/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Family — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Family Profile</h2><p>Update contact and address information for Family #@Id</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/families/@Id" class="btn btn-sm">← Family Profile</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_family is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Family #@Id not found.</div></div>
+}
+else
+{
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;">
+
+    <div class="panel">
+      <div class="panel-head"><h3>Contact Information</h3></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="form-label">Parent 1 First Name *</label>
+            <input class="form-input" @bind="_form.FirstName" />
+          </div>
+          <div>
+            <label class="form-label">Last Name *</label>
+            <input class="form-input" @bind="_form.LastName" />
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" @bind="_form.Email" />
+        </div>
+
+        <div>
+          <label class="form-label">Phone</label>
+          <input class="form-input" type="tel" @bind="_form.Phone" placeholder="(555) 000-0000" />
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:4px 0;" />
+        <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;color:var(--text-light);">Mailing Address</div>
+
+        <div>
+          <label class="form-label">Street Address *</label>
+          <input class="form-input" @bind="_form.Street" />
+        </div>
+
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">
+          <div>
+            <label class="form-label">City *</label>
+            <input class="form-input" @bind="_form.City" />
+          </div>
+          <div>
+            <label class="form-label">State *</label>
+            <input class="form-input" @bind="_form.State" maxlength="2" placeholder="OH" />
+          </div>
+          <div>
+            <label class="form-label">ZIP *</label>
+            <input class="form-input" @bind="_form.Zip" placeholder="12345" />
+          </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+        @if (!string.IsNullOrEmpty(_successMsg)) { <div class="alert alert-success">@_successMsg</div> }
+
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save Changes")</button>
+          <button class="btn" @onclick='() => Nav.NavigateTo($"/admin/families/{Id}")'>Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR: read-only context -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel">
+        <div class="panel-head"><h3>Family #@Id</h3></div>
+        <div class="panel-body" style="font-size:.82rem;display:flex;flex-direction:column;gap:6px;">
+          <div><span style="color:var(--text-light);">Reason</span><br/><strong>@_family.Reason.ToDisplayName()</strong></div>
+          <div><span style="color:var(--text-light);">Status</span><br/><span class="badge badge-@(_family.Status == FamilyStatus.Active ? "fulfilled" : "onhold")" style="font-size:.62rem;">@_family.Status</span></div>
+          @if (!string.IsNullOrEmpty(_family.ParishName))
+          {
+            <div><span style="color:var(--text-light);">Parish</span><br/>@_family.ParishName</div>
+          }
+          @if (!string.IsNullOrEmpty(_family.DioceseName))
+          {
+            <div><span style="color:var(--text-light);">Diocese</span><br/>@_family.DioceseName</div>
+          }
+          <div><span style="color:var(--text-light);">Joined</span><br/>@_family.CreatedAt.ToString("MMM d, yyyy")</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="font-size:.78rem;color:var(--text-mid);line-height:1.6;">
+          <strong>Note:</strong> Only contact and address fields are editable here. To update reason, faith tradition,
+          or parish info, use the Family Detail page or coordinate with the family directly.
+        </div>
+      </div>
+    </div>
+
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Family? _family;
+  private bool _loading = true, _saving;
+  private string _err = "", _successMsg = "";
+
+  private class FamilyForm
+  {
+    public string FirstName { get; set; } = "";
+    public string LastName { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public string Street { get; set; } = "";
+    public string City { get; set; } = "";
+    public string State { get; set; } = "";
+    public string Zip { get; set; } = "";
+  }
+  private FamilyForm _form = new();
+
+  protected override async Task OnInitializedAsync()
+  {
+    _family = await Api.GetFamilyAsync(Id);
+    if (_family is not null)
+    {
+      _form = new FamilyForm
+      {
+        FirstName = _family.Parent1FirstName,
+        LastName  = _family.Parent1LastName,
+        Email     = _family.Email,
+        Phone     = _family.Phone ?? "",
+        Street    = _family.StreetAddress,
+        City      = _family.City,
+        State     = _family.State,
+        Zip       = _family.Zip
+      };
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    if (string.IsNullOrWhiteSpace(_form.FirstName) || string.IsNullOrWhiteSpace(_form.LastName) ||
+        string.IsNullOrWhiteSpace(_form.Email) || string.IsNullOrWhiteSpace(_form.Street) ||
+        string.IsNullOrWhiteSpace(_form.City) || string.IsNullOrWhiteSpace(_form.State) ||
+        string.IsNullOrWhiteSpace(_form.Zip))
+    {
+      _err = "All required fields must be filled in."; return;
+    }
+    _saving = true; _err = ""; _successMsg = "";
+    var ok = await Api.UpdateFamilyProfileAsync(Id,
+      _form.FirstName, _form.LastName, _form.Email, _form.Phone,
+      _form.Street, _form.City, _form.State, _form.Zip);
+    _saving = false;
+    if (ok)
+    {
+      _successMsg = "Family profile updated successfully.";
+      _family = await Api.GetFamilyAsync(Id);
+    }
+    else _err = "Save failed. Please try again.";
+  }
+}

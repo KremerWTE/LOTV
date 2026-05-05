@@ -61,6 +61,9 @@
         <NavLink class="sidebar-link" href="/admin/cases/new">
           <span class="icon">&#43;</span> New Case
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/cases/overdue">
+          <span class="icon">&#128680;</span> Overdue Cases
+        </NavLink>
       }
     </div>
 
@@ -98,6 +101,9 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/year-end">
           <span class="icon">&#128190;</span> Year-End Giving
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/donors/retention">
+          <span class="icon">&#128260;</span> Donor Retention
         </NavLink>
       </div>
     }
@@ -243,6 +249,12 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/api-keys">
           <span class="icon">&#128272;</span> API Keys
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/resources/flow">
+          <span class="icon">&#128200;</span> Resource Flow
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/reports/history">
+          <span class="icon">&#128203;</span> Report History
         </NavLink>
       }
     </div>
@@ -654,6 +666,12 @@
       var u when u.EndsWith("/admin/api-keys")          => "API Key Management",
       var u when u.EndsWith("/admin/cases/new")         => "New Case Intake",
       var u when u.EndsWith("/admin/budget")            => "Budget Summary",
+      var u when u.EndsWith("/admin/cases/overdue")     => "Overdue Cases",
+      var u when u.Contains("/admin/cases/") && u.EndsWith("/assign") => "Assign Volunteer",
+      var u when u.Contains("/admin/families/") && u.EndsWith("/edit") => "Edit Family Profile",
+      var u when u.EndsWith("/admin/reports/history")   => "Report Run History",
+      var u when u.EndsWith("/admin/donors/retention")  => "Donor Retention Analysis",
+      var u when u.EndsWith("/admin/resources/flow")    => "Resource Flow Dashboard",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

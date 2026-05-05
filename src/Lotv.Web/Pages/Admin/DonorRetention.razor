@@ -1,0 +1,188 @@
+@page "/admin/donors/retention"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donor Retention — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Retention Analysis</h2><p>LYBUNT &amp; SYBUNT — identify lapsed donors and retention opportunities</p></div>
+  <div class="page-hd-actions">
+    <select class="form-input" style="font-size:.82rem;padding:5px 12px;width:100px;" @bind="_year" @bind:after="Analyze">
+      @for (var y = DateTime.Today.Year; y >= DateTime.Today.Year - 4; y--)
+      { <option value="@y">@y</option> }
+    </select>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Active (@_year)</div>
+    <div class="kpi-value" style="color:var(--green)">@_active.Count</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">LYBUNT</div>
+    <div class="kpi-value" style="color:var(--amber)">@_lybunt.Count</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">&#128683;</div>
+    <div class="kpi-label">SYBUNT</div>
+    <div class="kpi-value" style="color:var(--red)">@_sybunt.Count</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-label">Retention Rate</div>
+    <div class="kpi-value" style="color:var(--navy)">
+      @(_priorYearDonors > 0 ? $"{(double)_active.Count / _priorYearDonors * 100:F0}%" : "—")
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="filter-bar" style="margin-bottom:16px;">
+  <button class="filter-chip @(_tab == "lybunt" ? "active" : "")" @onclick='() => _tab = "lybunt"'>
+    LYBUNT · @_lybunt.Count
+  </button>
+  <button class="filter-chip @(_tab == "sybunt" ? "active" : "")" @onclick='() => _tab = "sybunt"'>
+    SYBUNT · @_sybunt.Count
+  </button>
+  <button class="filter-chip @(_tab == "active" ? "active" : "")" @onclick='() => _tab = "active"'>
+    Active @_year · @_active.Count
+  </button>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Analyzing…</div></div>
+}
+else
+{
+  <!-- EXPLANATION BANNER -->
+  <div class="panel" style="margin-bottom:14px;border-left:4px solid var(--amber);">
+    <div class="panel-body" style="font-size:.8rem;color:var(--text-mid);line-height:1.7;">
+      @if (_tab == "lybunt")
+      {
+        <span><strong>LYBUNT</strong> &mdash; Last Year But Unfortunately Not This Year.
+        These @_lybunt.Count donors gave in @(_year - 1) but have not yet given in @_year.
+        Prime outreach targets to re-engage before year end.</span>
+      }
+      else if (_tab == "sybunt")
+      {
+        <span><strong>SYBUNT</strong> &mdash; Some Year But Unfortunately Not This Year.
+        These @_sybunt.Count donors gave prior to @(_year - 1) but not in @_year or @(_year - 1).
+        Longer-lapsed &mdash; may need personal outreach or relationship re-establishment.</span>
+      }
+      else
+      {
+        <span><strong>Active @_year</strong> &mdash; @_active.Count donors who have already given in @_year.
+        Retention rate vs. @(_year - 1): <strong>@(_priorYearDonors > 0 ? $"{(double)_active.Count / _priorYearDonors * 100:F0}%" : "—")</strong>.</span>
+      }
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      @{
+        var rows = _tab switch {
+          "lybunt" => _lybunt,
+          "sybunt" => _sybunt,
+          _ => _active
+        };
+      }
+      @if (!rows.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No donors in this segment.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Donor</th>
+              <th>Email</th>
+              <th style="text-align:right;">@(_tab == "active" ? $"{_year} Giving" : $"Last Gift")</th>
+              <th style="text-align:right;">Lifetime Total</th>
+              <th>Last Gift Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var row in rows.OrderByDescending(r => r.Lifetime))
+            {
+              <tr>
+                <td style="font-size:.84rem;font-weight:600;">@row.Name</td>
+                <td style="font-size:.78rem;color:var(--text-mid);">@(row.Email ?? "—")</td>
+                <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@row.PeriodAmount.ToString("C0")</td>
+                <td style="text-align:right;font-size:.78rem;color:var(--text-mid);">@row.Lifetime.ToString("C0")</td>
+                <td style="font-size:.76rem;color:var(--text-light);">@(row.LastGift?.ToString("MMM d, yyyy") ?? "—")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private int _year = DateTime.Today.Year;
+  private string _tab = "lybunt";
+  private bool _loading = true;
+  private int _priorYearDonors;
+
+  private record RetentionRow(int DonorId, string Name, string? Email, decimal PeriodAmount, decimal Lifetime, DateTime? LastGift);
+
+  private List<RetentionRow> _active = [], _lybunt = [], _sybunt = [];
+
+  protected override async Task OnInitializedAsync() => await Analyze();
+
+  private async Task Analyze()
+  {
+    _loading = true;
+    var donors = await Api.GetDonorsAsync();
+    var donations = await Api.GetDonationsAsync();
+
+    var byDonor = donations.GroupBy(d => d.DonorId).ToDictionary(g => g.Key, g => g.ToList());
+
+    var thisYearDonors = new HashSet<int>(donations.Where(d => d.Date.Year == _year).Select(d => d.DonorId));
+    var priorYearDonors = new HashSet<int>(donations.Where(d => d.Date.Year == _year - 1).Select(d => d.DonorId));
+    var olderDonors = new HashSet<int>(donations.Where(d => d.Date.Year < _year - 1).Select(d => d.DonorId));
+
+    _priorYearDonors = priorYearDonors.Count;
+
+    RetentionRow BuildRow(Donor d, int donorId, decimal periodAmt)
+    {
+      var gifts = byDonor.GetValueOrDefault(donorId) ?? [];
+      return new RetentionRow(donorId, d.FullName, d.Email,
+        periodAmt,
+        gifts.Sum(g => g.Amount),
+        gifts.Any() ? gifts.Max(g => g.Date) : null);
+    }
+
+    var donorMap = donors.ToDictionary(d => d.Id);
+
+    _active = thisYearDonors
+      .Where(id => donorMap.ContainsKey(id))
+      .Select(id => BuildRow(donorMap[id], id, byDonor.GetValueOrDefault(id, []).Where(d => d.Date.Year == _year).Sum(d => d.Amount)))
+      .ToList();
+
+    _lybunt = priorYearDonors
+      .Where(id => !thisYearDonors.Contains(id) && donorMap.ContainsKey(id))
+      .Select(id => BuildRow(donorMap[id], id, byDonor.GetValueOrDefault(id, []).Where(d => d.Date.Year == _year - 1).Sum(d => d.Amount)))
+      .ToList();
+
+    _sybunt = olderDonors
+      .Where(id => !thisYearDonors.Contains(id) && !priorYearDonors.Contains(id) && donorMap.ContainsKey(id))
+      .Select(id =>
+      {
+        var gifts = byDonor.GetValueOrDefault(id, []);
+        var lastYear = gifts.Any() ? gifts.Max(g => g.Date.Year) : 0;
+        return BuildRow(donorMap[id], id, gifts.Where(d => d.Date.Year == lastYear).Sum(d => d.Amount));
+      })
+      .ToList();
+
+    _loading = false;
+  }
+}

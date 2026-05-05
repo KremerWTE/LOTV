@@ -1,0 +1,144 @@
+@page "/admin/cases/{Id:int}/assign"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+@using Lotv.Core.Reporting
+
+<PageTitle>Assign Case — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Volunteer Assignment</h2>
+    <p>Case #@Id — scored volunteer candidates ranked by proximity, workload, and loyalty</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Back to Case</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading candidates…</div></div>
+}
+else if (_case is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Case #@Id not found.</div></div>
+}
+else
+{
+  <!-- CASE SUMMARY -->
+  <div class="panel" style="margin-bottom:18px;border-left:4px solid var(--navy);">
+    <div class="panel-body">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:.84rem;">
+        <div><span style="color:var(--text-light);">Family</span><br/><strong>@(_case.Family?.FullName ?? $"#{_case.FamilyId}")</strong></div>
+        <div><span style="color:var(--text-light);">Category</span><br/><span class="badge badge-new">@_case.Category</span></div>
+        <div><span style="color:var(--text-light);">Priority</span><br/>
+          @if (_case.Priority == RequestPriority.Urgent) { <span class="badge badge-cancelled">Urgent</span> }
+          else { <span class="badge badge-onhold">@_case.Priority</span> }
+        </div>
+        <div><span style="color:var(--text-light);">Status</span><br/><span class="badge badge-onhold">@_case.Status</span></div>
+        <div><span style="color:var(--text-light);">Currently Assigned</span><br/>
+          <strong>@(_case.AssignedTo ?? (_case.AssignedToId.HasValue ? $"Vol #{_case.AssignedToId}" : "Unassigned"))</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (!string.IsNullOrEmpty(_msg))
+  {
+    <div class="alert @(_success ? "alert-success" : "alert-danger")" style="margin-bottom:14px;">@_msg</div>
+  }
+
+  <!-- CANDIDATE TABLE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Ranked Candidates (@_candidates.Count)</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">Higher composite score = better match</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_candidates.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No scored volunteers found for this case.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Volunteer</th>
+              <th style="text-align:right;">Proximity</th>
+              <th style="text-align:right;">Workload</th>
+              <th style="text-align:right;">Loyalty</th>
+              <th style="text-align:right;">Score</th>
+              <th style="text-align:right;">Distance</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var v in _candidates.OrderByDescending(v => v.CompositeScore))
+            {
+              <tr style="@(v.Recommended ? "background:var(--green-faint,rgba(26,133,77,.04));" : "")">
+                <td style="font-size:.84rem;font-weight:600;">
+                  @v.Name
+                  @if (v.Recommended) { <span class="badge badge-fulfilled" style="font-size:.58rem;margin-left:6px;">Recommended</span> }
+                </td>
+                <td style="text-align:right;font-size:.8rem;">@v.ProximityScore.ToString("F1")</td>
+                <td style="text-align:right;font-size:.8rem;">@v.WorkloadScore.ToString("F1")</td>
+                <td style="text-align:right;font-size:.8rem;">@v.LoyaltyScore.ToString("F1")</td>
+                <td style="text-align:right;font-size:.84rem;font-weight:700;color:var(--navy);">@v.CompositeScore.ToString("F2")</td>
+                <td style="text-align:right;font-size:.78rem;color:var(--text-light);">
+                  @(v.DistanceMiles > 0 ? $"{v.DistanceMiles:F1} mi" : "—")
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-primary" style="font-size:.7rem;" @onclick="() => Assign(v)" disabled="@_assigning">
+                    @(_assigning && _assigningId == v.VolunteerId ? "Assigning…" : "Assign")
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private PackageRequest? _case;
+  private List<VolunteerScoreResult> _candidates = [];
+  private bool _loading = true, _assigning;
+  private int _assigningId;
+  private string _msg = "";
+  private bool _success;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var caseTask = Api.GetRequestAsync(Id);
+    var candTask = Api.GetVolunteerCandidatesAsync(Id);
+    await Task.WhenAll(caseTask, candTask);
+    _case = await caseTask;
+    _candidates = await candTask;
+    _loading = false;
+  }
+
+  private async Task Assign(VolunteerScoreResult v)
+  {
+    _assigning = true; _assigningId = v.VolunteerId; _msg = "";
+    var ok = await Api.AssignRequestAsync(Id, v.VolunteerId);
+    _assigning = false;
+    if (ok)
+    {
+      _success = true;
+      _msg = $"Case #{Id} assigned to {v.Name}.";
+      _case = await Api.GetRequestAsync(Id);
+    }
+    else
+    {
+      _success = false;
+      _msg = "Assignment failed. Please try again.";
+    }
+  }
+}

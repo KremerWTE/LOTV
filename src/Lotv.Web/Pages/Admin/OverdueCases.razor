@@ -1,0 +1,119 @@
+@page "/admin/cases/overdue"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Overdue Cases — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Overdue Cases</h2><p>Open requests past 7 days with no resolution — requires immediate attention</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">&#128680;</div>
+    <div class="kpi-label">Overdue Cases</div>
+    <div class="kpi-value" style="color:var(--red)">@_cases.Count</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-label">Unassigned</div>
+    <div class="kpi-value" style="color:var(--amber)">@_cases.Count(c => c.AssignedToId is null)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-label">Avg Days Open</div>
+    <div class="kpi-value" style="color:var(--amber)">@(_cases.Any() ? _cases.Average(c => (DateTime.UtcNow - c.CreatedAt).Days).ToString("F0") : "—")</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128680;</div>
+    <div class="kpi-label">Urgent Priority</div>
+    <div class="kpi-value" style="color:var(--navy)">@_cases.Count(c => c.Priority == RequestPriority.Urgent)</div>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="text-align:center;padding:40px;color:var(--text-light);">Loading…</div></div>
+}
+else if (!_cases.Any())
+{
+  <div class="panel">
+    <div class="panel-body" style="text-align:center;padding:48px;color:var(--text-light);">
+      <div style="font-size:2rem;margin-bottom:12px;">&#10003;</div>
+      <div style="font-weight:600;font-size:.96rem;">No overdue cases right now</div>
+      <div style="font-size:.84rem;margin-top:6px;">All open cases are within the 7-day window.</div>
+    </div>
+  </div>
+}
+else
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Case #</th>
+            <th>Family</th>
+            <th>Category</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Days Open</th>
+            <th>Assigned To</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var c in _cases.OrderByDescending(c => c.Priority).ThenByDescending(c => (DateTime.UtcNow - c.CreatedAt).Days))
+          {
+            var days = (int)(DateTime.UtcNow - c.CreatedAt).TotalDays;
+            var dayColor = days >= 21 ? "var(--red)" : days >= 14 ? "var(--amber)" : "var(--text-mid)";
+            <tr>
+              <td style="font-size:.82rem;font-weight:600;color:var(--navy);">
+                <a href="/admin/cases/@c.Id" style="color:inherit;text-decoration:none;">#@c.Id</a>
+              </td>
+              <td style="font-size:.84rem;">@(c.Family?.FullName ?? $"Family #{c.FamilyId}")</td>
+              <td><span class="badge badge-new" style="font-size:.62rem;">@c.Category</span></td>
+              <td>
+                @if (c.Priority == RequestPriority.Urgent)
+                { <span class="badge badge-cancelled" style="font-size:.62rem;">Urgent</span> }
+                else if (c.Priority == RequestPriority.High)
+                { <span class="badge badge-onhold" style="font-size:.62rem;">High</span> }
+                else
+                { <span class="badge badge-new" style="font-size:.62rem;">@c.Priority</span> }
+              </td>
+              <td><span class="badge badge-onhold" style="font-size:.62rem;">@c.Status</span></td>
+              <td style="font-size:.84rem;font-weight:700;color:@dayColor;">@days d</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">
+                @(c.AssignedTo ?? (c.AssignedToId.HasValue ? $"Vol #{c.AssignedToId}" : "—"))
+              </td>
+              <td style="display:flex;gap:4px;">
+                <button class="btn btn-sm" style="font-size:.7rem;" @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")'>View</button>
+                @if (c.AssignedToId is null)
+                {
+                  <button class="btn btn-sm" style="font-size:.7rem;color:var(--navy);" @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}/assign")'>Assign</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<PackageRequest> _cases = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _cases = await Api.GetOverdueRequestsAsync();
+    _loading = false;
+  }
+}

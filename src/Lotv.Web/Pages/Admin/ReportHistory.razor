@@ -1,0 +1,128 @@
+@page "/admin/reports/history"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Report History — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Report Run History</h2><p>Log of all automated report deliveries and their status</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/reports/schedule" class="btn btn-sm">&#8592; Scheduled Reports</a>
+    <select class="form-input" style="font-size:.82rem;padding:5px 12px;width:140px;" @bind="_take" @bind:after="Reload">
+      <option value="50">Last 50</option>
+      <option value="100">Last 100</option>
+      <option value="250">Last 250</option>
+    </select>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-label">Total Runs</div>
+    <div class="kpi-value" style="color:var(--navy)">@_logs.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Successful</div>
+    <div class="kpi-value" style="color:var(--green)">@_logs.Count(l => l.Success)</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">&#10005;</div>
+    <div class="kpi-label">Failed</div>
+    <div class="kpi-value" style="color:var(--red)">@_logs.Count(l => !l.Success)</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128203;</div>
+    <div class="kpi-label">Success Rate</div>
+    <div class="kpi-value" style="color:var(--amber)">@(_logs.Any() ? $"{(double)_logs.Count(l => l.Success) / _logs.Count * 100:F0}%" : "—")</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
+         placeholder="&#128269; Filter by type or email…" @bind="_search" @bind:event="oninput" />
+  @foreach (var type in new[] { "All" }.Concat(_types))
+  {
+    <button class="filter-chip @(_typeFilter == type ? "active" : "")" @onclick="() => _typeFilter = type">
+      @type @(type == "All" ? _logs.Count : _logs.Count(l => l.ReportType == type))
+    </button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (_loading)
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div>
+    }
+    else if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No report runs found.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Sent At</th>
+            <th>Report Type</th>
+            <th>Chapter</th>
+            <th>Recipient</th>
+            <th>Records</th>
+            <th>Status</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var log in Filtered)
+          {
+            <tr>
+              <td style="font-size:.76rem;color:var(--text-light);white-space:nowrap;">@log.SentAt.ToString("MMM d, yyyy h:mm tt")</td>
+              <td><span class="badge badge-new" style="font-size:.62rem;">@log.ReportType</span></td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@(log.ChapterName ?? "HQ")</td>
+              <td style="font-size:.78rem;color:var(--text-mid);max-width:180px;overflow:hidden;text-overflow:ellipsis;">@log.RecipientEmail</td>
+              <td style="font-size:.78rem;text-align:right;color:var(--text-mid);">@(log.RecordsIncluded?.ToString() ?? "—")</td>
+              <td>
+                @if (log.Success)
+                { <span class="badge badge-fulfilled" style="font-size:.6rem;">Delivered</span> }
+                else
+                { <span class="badge badge-cancelled" style="font-size:.6rem;">Failed</span> }
+              </td>
+              <td style="font-size:.72rem;color:var(--red);max-width:200px;overflow:hidden;text-overflow:ellipsis;">
+                @(log.ErrorMessage ?? "—")
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@code {
+  private List<ReportRunLogDto> _logs = [];
+  private List<string> _types = [];
+  private string _search = "", _typeFilter = "All";
+  private int _take = 50;
+  private bool _loading = true;
+
+  private IEnumerable<ReportRunLogDto> Filtered => _logs.Where(l =>
+    (_typeFilter == "All" || l.ReportType == _typeFilter) &&
+    (string.IsNullOrEmpty(_search) ||
+     l.ReportType.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+     l.RecipientEmail.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+     (l.ChapterName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+  protected override async Task OnInitializedAsync() => await Reload();
+
+  private async Task Reload()
+  {
+    _loading = true;
+    _logs = await Api.GetReportRunLogsAsync(_take);
+    _types = _logs.Select(l => l.ReportType).Distinct().OrderBy(t => t).ToList();
+    _loading = false;
+  }
+}
