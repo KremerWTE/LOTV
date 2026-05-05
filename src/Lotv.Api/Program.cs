@@ -2320,6 +2320,41 @@ publicApi.MapGet("/donors/{donorId:int}/donations", async (int donorId, LotvDbCo
     return Results.Ok(rows);
 }).AllowAnonymous();
 
+// ── Volunteer magic-link self-service auth ───────────────────────────────────
+publicApi.MapPost("/volunteer/magic-link", async (DonorMagicLinkRequest body,
+    LotvDbContext db, INotificationService notify) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Email)) return Results.BadRequest(new { error = "Email is required." });
+    var vol = await db.Volunteers.FirstOrDefaultAsync(v => v.Email == body.Email);
+    if (vol is null) return Results.Ok(new { sent = true });
+
+    var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+    db.VolunteerMagicLinks.Add(new VolunteerMagicLink
+    {
+        VolunteerId = vol.Id,
+        Token = token,
+        ExpiresAt = DateTime.UtcNow.AddMinutes(20),
+    });
+    await db.SaveChangesAsync();
+
+    var link = $"/volunteer/login?token={token}";
+    await notify.SendEmailAsync(vol.Email!, vol.FullName,
+        "Your LOTV volunteer portal sign-in link",
+        $"<p>Click below to access your volunteer portal. This link expires in 20 minutes.</p><p><a href=\"{link}\">{link}</a></p>");
+    return Results.Ok(new { sent = true });
+}).AllowAnonymous();
+
+publicApi.MapPost("/volunteer/verify-link", async (DonorMagicLinkVerifyRequest body, LotvDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Token)) return Results.BadRequest();
+    var link = await db.VolunteerMagicLinks.FirstOrDefaultAsync(l => l.Token == body.Token);
+    if (link is null || link.UsedAt is not null || link.ExpiresAt < DateTime.UtcNow)
+        return Results.Unauthorized();
+    link.UsedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { volunteerId = link.VolunteerId, expiresAt = link.ExpiresAt });
+}).AllowAnonymous();
+
 // ── Donor magic-link self-service auth ───────────────────────────────────────
 publicApi.MapPost("/donor/magic-link", async (DonorMagicLinkRequest body,
     LotvDbContext db, INotificationService notify) =>

@@ -87,10 +87,22 @@
   private ElementReference _input;
   private DotNetObjectReference<CommandPalette>? _ref;
 
-  private IEnumerable<Cmd> Filtered =>
-    string.IsNullOrWhiteSpace(_query) ? All :
-    All.Where(c => c.Title.Contains(_query, StringComparison.OrdinalIgnoreCase) ||
-                   c.Path.Contains(_query, StringComparison.OrdinalIgnoreCase));
+  private List<string> _recent = new();
+
+  private IEnumerable<Cmd> Filtered
+  {
+    get
+    {
+      if (string.IsNullOrWhiteSpace(_query))
+      {
+        var recent = _recent.Select(p => All.FirstOrDefault(c => c.Path == p)).Where(c => c is not null).Cast<Cmd>().ToList();
+        var rest   = All.Where(c => !_recent.Contains(c.Path));
+        return recent.Concat(rest);
+      }
+      return All.Where(c => c.Title.Contains(_query, StringComparison.OrdinalIgnoreCase) ||
+                            c.Path.Contains(_query, StringComparison.OrdinalIgnoreCase));
+    }
+  }
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
@@ -98,6 +110,13 @@
     {
       _ref = DotNetObjectReference.Create(this);
       try { await JS.InvokeVoidAsync("lotvCmdK.attach", _ref); } catch { }
+      try
+      {
+        var json = await JS.InvokeAsync<string?>("localStorage.getItem", "lotv.cmdkRecent");
+        if (!string.IsNullOrEmpty(json))
+          _recent = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new();
+      }
+      catch { }
     }
     if (_open)
       try { await _input.FocusAsync(); } catch { }
@@ -118,11 +137,14 @@
     }
   }
 
-  private Task Go(string path)
+  private async Task Go(string path)
   {
     _open = false;
+    _recent.Remove(path);
+    _recent.Insert(0, path);
+    if (_recent.Count > 5) _recent = _recent.Take(5).ToList();
+    try { await JS.InvokeVoidAsync("localStorage.setItem", "lotv.cmdkRecent", System.Text.Json.JsonSerializer.Serialize(_recent)); } catch { }
     Nav.NavigateTo(path);
-    return Task.CompletedTask;
   }
 
   public async ValueTask DisposeAsync()

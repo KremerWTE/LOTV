@@ -72,6 +72,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     // ─── Push subscriptions, donor magic links, FX rates ──────────────────────
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<DonorMagicLink> DonorMagicLinks => Set<DonorMagicLink>();
+    public DbSet<VolunteerMagicLink> VolunteerMagicLinks => Set<VolunteerMagicLink>();
     public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
     public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
 
@@ -374,6 +375,14 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(d => d.Token).IsUnique();
             e.HasIndex(d => d.DonorId);
             e.Property(d => d.Token).HasMaxLength(64);
+        });
+
+        // ── VolunteerMagicLink ───────────────────────────────────────────────
+        builder.Entity<VolunteerMagicLink>(e =>
+        {
+            e.HasIndex(v => v.Token).IsUnique();
+            e.HasIndex(v => v.VolunteerId);
+            e.Property(v => v.Token).HasMaxLength(64);
         });
 
         // ── ExchangeRate ─────────────────────────────────────────────────────

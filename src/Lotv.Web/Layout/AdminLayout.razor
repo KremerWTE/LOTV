@@ -319,6 +319,11 @@
           }
         </div>
 
+        <button type="button" @onclick="OpenCmdK" aria-label="Open command palette"
+                title="Open command palette (Ctrl+K)"
+                style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:.74rem;color:var(--text-mid);margin-right:8px;font-family:monospace;">
+          ⌘K
+        </button>
         <button type="button" @onclick="ToggleSidebarCollapse"
                 aria-label="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
                 style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:.95rem;color:var(--text-mid);margin-right:8px;">
@@ -375,7 +380,7 @@
 </div>
 
 <ToastNotification />
-<CommandPalette />
+<CommandPalette @ref="_cmdK" />
 
 @inject IJSRuntime JS
 
@@ -463,6 +468,9 @@
     _dark = !_dark;
     try { await JS.InvokeVoidAsync("lotvTheme.set", _dark ? "dark" : "light"); } catch { }
   }
+
+  private CommandPalette? _cmdK;
+  private void OpenCmdK() => _cmdK?.Open();
 
   private async Task ToggleSidebarCollapse()
   {

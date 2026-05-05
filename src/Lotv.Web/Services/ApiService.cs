@@ -453,6 +453,25 @@ public class ApiService
     }
     private record AvatarResp(string? AvatarUrl);
 
+    // ── Volunteer magic-link auth ─────────────────────────────────────────
+    public async Task<bool> RequestVolunteerMagicLinkAsync(string email)
+    {
+        try { return (await _http.PostAsJsonAsync("/api/public/v1/volunteer/magic-link", new { Email = email })).IsSuccessStatusCode; }
+        catch { return false; }
+    }
+    public async Task<int?> VerifyVolunteerMagicLinkAsync(string token)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/public/v1/volunteer/verify-link", new { Token = token });
+            if (!resp.IsSuccessStatusCode) return null;
+            var doc = await resp.Content.ReadFromJsonAsync<VolMagicLinkResp>();
+            return doc?.VolunteerId;
+        }
+        catch { return null; }
+    }
+    private record VolMagicLinkResp(int VolunteerId, DateTime ExpiresAt);
+
     // ── Donor magic-link auth ─────────────────────────────────────────────
     public async Task<bool> RequestDonorMagicLinkAsync(string email)
     {
