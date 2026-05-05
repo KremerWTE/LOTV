@@ -2250,6 +2250,23 @@ publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRe
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
+// Stripe Customer Portal session for donor self-service (cards, subscriptions, invoices).
+publicApi.MapPost("/donors/{donorId:int}/billing-portal", async (int donorId, LotvDbContext db, IConfiguration cfg) =>
+{
+    var donor = await db.Donors.FindAsync(donorId);
+    if (donor is null) return Results.NotFound();
+    var key = cfg["Stripe:SecretKey"];
+    if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(donor.StripeCustomerId))
+        return Results.BadRequest(new { error = "Stripe billing not configured for this donor." });
+    Stripe.StripeConfiguration.ApiKey = key;
+    var session = await new Stripe.BillingPortal.SessionService().CreateAsync(new Stripe.BillingPortal.SessionCreateOptions
+    {
+        Customer  = donor.StripeCustomerId,
+        ReturnUrl = "/donor/portal",
+    });
+    return Results.Ok(new { url = session.Url });
+}).AllowAnonymous();
+
 // Donor avatar update (self-service via magic-link query param)
 publicApi.MapPut("/donors/{donorId:int}/avatar", async (int donorId, AvatarUpdateRequest body, LotvDbContext db) =>
 {
@@ -2486,6 +2503,29 @@ push.MapPost("/subscribe", async (PushSubscriptionRequest body, IChapterContextS
     await db.SaveChangesAsync();
     return Results.Ok(new { ok = true });
 });
+// Admin-triggered donor portal magic-link (no email-existence check; admins already have donor record)
+app.MapPost("/api/v1/donors/{donorId:int}/send-portal-link", async (int donorId, LotvDbContext db, INotificationService notify) =>
+{
+    var donor = await db.Donors.FindAsync(donorId);
+    if (donor is null) return Results.NotFound();
+    if (string.IsNullOrEmpty(donor.Email)) return Results.BadRequest(new { error = "Donor has no email on file." });
+
+    var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+    db.DonorMagicLinks.Add(new DonorMagicLink
+    {
+        DonorId   = donor.Id,
+        Token     = token,
+        ExpiresAt = DateTime.UtcNow.AddDays(7),
+    });
+    await db.SaveChangesAsync();
+
+    var link = $"/donor/login?token={token}";
+    await notify.SendEmailAsync(donor.Email!, donor.FullName ?? "Donor",
+        "Access your LOTV donor portal",
+        $"<p>Hello {donor.FirstName},</p><p>You can access your donor portal here (link valid 7 days):</p><p><a href=\"{link}\">{link}</a></p>");
+    return Results.Ok(new { sent = true });
+}).RequireAuthorization("ChapterAdmin");
+
 // EF migration introspection (admin diagnostics)
 app.MapGet("/api/v1/admin/migrations", async (LotvDbContext db) =>
 {
@@ -2527,6 +2567,7 @@ app.MapGet("/api/v1/admin/diagnostics", async (LotvDbContext db) =>
     var lastMigration = (await db.Database.GetAppliedMigrationsAsync()).LastOrDefault();
     var pending       = (await db.Database.GetPendingMigrationsAsync()).Count();
     var webhookCount  = await db.WebhookEvents.CountAsync(w => w.ReceivedAt >= DateTime.UtcNow.AddDays(-7));
+    var webhook24h    = await db.WebhookEvents.CountAsync(w => w.ReceivedAt >= DateTime.UtcNow.AddHours(-24));
     var stripeCustomers = await db.Donors.CountAsync(d => d.StripeCustomerId != null);
     return Results.Ok(new
     {
@@ -2536,6 +2577,7 @@ app.MapGet("/api/v1/admin/diagnostics", async (LotvDbContext db) =>
         lastMigration,
         pendingMigrations = pending,
         webhookEvents7d = webhookCount,
+        webhookEvents24h = webhook24h,
         donorsWithStripeCustomer = stripeCustomers,
     });
 }).RequireAuthorization("ChapterAdmin");
@@ -2562,6 +2604,13 @@ push.MapDelete("/subscriptions/{id:int}", async (int id, LotvDbContext db) =>
     db.PushSubscriptions.Remove(s);
     await db.SaveChangesAsync();
     return Results.Ok();
+}).RequireAuthorization("ChapterAdmin");
+
+push.MapPost("/test/{userId}", async (string userId, IPushSender sender) =>
+{
+    await sender.SendToUserAsync(userId, "LOTV admin test",
+        "An admin sent you a test notification.", "/admin/dashboard");
+    return Results.Ok(new { sent = true });
 }).RequireAuthorization("ChapterAdmin");
 
 push.MapPost("/test", async (IPushSender sender, IChapterContextService ctx) =>

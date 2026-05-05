@@ -220,6 +220,25 @@ public class ApiService
     public Task<List<PublicDonationRow>> GetPublicDonorDonationsAsync(int donorId) =>
         GetListAsync<PublicDonationRow>($"/api/public/v1/donors/{donorId}/donations");
 
+    public async Task<string?> CreateBillingPortalUrlAsync(int donorId)
+    {
+        try
+        {
+            var resp = await _http.PostAsync($"/api/public/v1/donors/{donorId}/billing-portal", null);
+            if (!resp.IsSuccessStatusCode) return null;
+            var doc = await resp.Content.ReadFromJsonAsync<BillingPortalDto>();
+            return doc?.Url;
+        }
+        catch { return null; }
+    }
+    private record BillingPortalDto(string Url);
+
+    public async Task<bool> SendDonorPortalLinkAsync(int donorId)
+    {
+        try { var r = await _http.PostAsync($"/api/v1/donors/{donorId}/send-portal-link", null); return r.IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
     public async Task<bool> UpdateDonorAvatarAsync(int donorId, string? avatarUrl)
     {
         try
@@ -454,7 +473,8 @@ public class ApiService
     public Task<DiagnosticsDto?> GetDiagnosticsAsync() =>
         GetAsync<DiagnosticsDto>("/api/v1/admin/diagnostics");
     public record DiagnosticsDto(int PushSubscriptionCount, DateTime? FxLatest, double? FxAgeHours,
-        string? LastMigration, int PendingMigrations, int WebhookEvents7d, int DonorsWithStripeCustomer);
+        string? LastMigration, int PendingMigrations, int WebhookEvents7d, int DonorsWithStripeCustomer,
+        int WebhookEvents24h);
 
     public Task<List<PushSubRow>> GetPushSubscriptionsAsync() =>
         GetListAsync<PushSubRow>("/api/v1/push/subscriptions");
@@ -465,6 +485,12 @@ public class ApiService
         catch { return false; }
     }
     public record PushSubRow(int Id, string UserId, string? UserName, string? UserEmail, string Endpoint, DateTime CreatedAt);
+
+    public async Task<bool> SendTestPushToUserAsync(string userId)
+    {
+        try { var r = await _http.PostAsync($"/api/v1/push/test/{userId}", null); return r.IsSuccessStatusCode; }
+        catch { return false; }
+    }
 
     public async Task<bool> SendTestPushAsync()
     {

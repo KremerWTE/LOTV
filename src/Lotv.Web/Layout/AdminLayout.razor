@@ -179,6 +179,7 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/webhooks">
           <span class="icon">&#128231;</span> Webhook Events
+          @if (_webhook24h > 0) { <span class="sidebar-badge">@_webhook24h</span> }
         </NavLink>
       }
     </div>
@@ -376,6 +377,7 @@
   private string _pageTitle = "Dashboard Overview";
   private bool _dark;
   private int _pendingMigrations;
+  private int _webhook24h;
 
   private bool _showDemoBanner = false;
 
@@ -434,7 +436,11 @@
       try
       {
         var diag = await Api.GetDiagnosticsAsync();
-        if (diag is not null) _pendingMigrations = diag.PendingMigrations;
+        if (diag is not null)
+        {
+          _pendingMigrations = diag.PendingMigrations;
+          _webhook24h        = diag.WebhookEvents24h;
+        }
       }
       catch { }
     }

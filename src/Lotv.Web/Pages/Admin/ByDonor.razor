@@ -7,6 +7,10 @@
 <div class="page-hd">
   <div><h2>Donations by Donor</h2><p>Giving summary per individual donor</p></div>
 </div>
+@if (_toast is not null)
+{
+  <div role="status" style="background:var(--green-pale);border:1px solid var(--green);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.84rem;color:var(--green-dark);">@_toast</div>
+}
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
@@ -74,10 +78,14 @@
             </td>
             <td style="font-size:.76rem;color:var(--text-light);">@d.Donor.LastGiftDate.ToString("MMM d, yyyy")</td>
             <td style="font-size:.76rem;color:var(--text-mid);">@(d.Donor.ParishName ?? "—")</td>
-            <td>
+            <td style="display:flex;gap:6px;">
               <button class="btn btn-sm" @onclick="() => ToggleExpand(d.Donor.Id)">
                 @(_expanded == d.Donor.Id ? "&#9650;" : "Gifts")
               </button>
+              @if (!string.IsNullOrEmpty(d.Donor.Email))
+              {
+                <button class="btn btn-sm" title="Email portal sign-in link" @onclick="() => SendPortalLink(d.Donor)">&#128231;</button>
+              }
             </td>
           </tr>
           @if (_expanded == d.Donor.Id)
@@ -116,6 +124,15 @@
 
 @code {
   [Parameter, SupplyParameterFromQuery] public string? City { get; set; }
+  [Parameter, SupplyParameterFromQuery] public string? Diocese { get; set; }
+  private string? _toast;
+  private async Task SendPortalLink(Donor donor)
+  {
+    var ok = await Api.SendDonorPortalLinkAsync(donor.Id);
+    _toast = ok ? $"Portal link emailed to {donor.Email}" : "Could not send portal link.";
+    StateHasChanged();
+    _ = Task.Delay(3000).ContinueWith(_ => { _toast = null; InvokeAsync(StateHasChanged); });
+  }
 
   private record DonorRow(Donor Donor, int GiftCount, decimal Total);
   private List<DonorRow> _rows = [];
@@ -127,9 +144,11 @@
   {
     get
     {
-      var src = string.IsNullOrWhiteSpace(City)
-        ? _rows
-        : _rows.Where(r => string.Equals(r.Donor.City, City, StringComparison.OrdinalIgnoreCase));
+      var src = (IEnumerable<DonorRow>)_rows;
+      if (!string.IsNullOrWhiteSpace(City))
+        src = src.Where(r => string.Equals(r.Donor.City, City, StringComparison.OrdinalIgnoreCase));
+      if (!string.IsNullOrWhiteSpace(Diocese))
+        src = src.Where(r => string.Equals(r.Donor.DioceseName, Diocese, StringComparison.OrdinalIgnoreCase));
       return string.IsNullOrWhiteSpace(_search)
         ? src
         : src.Where(r => r.Donor.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||

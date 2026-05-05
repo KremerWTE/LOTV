@@ -78,6 +78,13 @@
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Continue supporting families in their hardest moments.</p>
         </div>
       </a>
+      <button type="button" class="panel" style="text-align:left;border:1px solid var(--border);background:white;cursor:pointer;" @onclick="OpenBillingPortal">
+        <div class="panel-body">
+          <div style="font-size:1.4rem;margin-bottom:8px;">&#128179;</div>
+          <strong style="font-family:var(--ff-head);color:var(--navy);">Manage Card &amp; Billing</strong>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Update your card or view Stripe invoices.</p>
+        </div>
+      </button>
     </div>
   }
 </div>
@@ -109,6 +116,13 @@
   {
     if (DonorId is null) return;
     if (await Api.UpdateDonorAvatarAsync(DonorId.Value, null)) _avatarUrl = null;
+  }
+
+  private async Task OpenBillingPortal()
+  {
+    if (DonorId is null) return;
+    var url = await Api.CreateBillingPortalUrlAsync(DonorId.Value);
+    if (!string.IsNullOrEmpty(url)) Nav.NavigateTo(url, forceLoad: true);
   }
 
   protected override async Task OnInitializedAsync()

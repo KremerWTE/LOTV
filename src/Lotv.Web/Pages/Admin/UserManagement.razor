@@ -50,6 +50,7 @@
               @if (!isMe)
               {
                 <button class="btn btn-sm" @onclick="() => OpenEdit(u)">Edit Role</button>
+                <button class="btn btn-sm" title="Send test push" @onclick="() => PushTest(u)">&#128276;</button>
                 @if (!string.IsNullOrEmpty(u.AvatarUrl))
                 {
                   <button class="btn btn-sm" title="Clear avatar" @onclick="() => ClearAvatar(u)">Clear &#128247;</button>
@@ -142,6 +143,12 @@
   }
 
   private void CloseDrawer() { _drawerOpen = false; _formError = ""; }
+
+  private async Task PushTest(StaffUserDto u)
+  {
+    var ok = await Api.SendTestPushToUserAsync(u.Id);
+    await ShowToast(ok ? $"Test push sent to {u.FullName ?? u.Email}" : "Could not send test push");
+  }
 
   private async Task ClearAvatar(StaffUserDto u)
   {
