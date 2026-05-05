@@ -2320,6 +2320,15 @@ publicApi.MapGet("/donors/{donorId:int}/donations", async (int donorId, LotvDbCo
     return Results.Ok(rows);
 }).AllowAnonymous();
 
+// Public volunteer assignment count (for portal badge)
+publicApi.MapGet("/volunteers/{id:int}/assignment-count", async (int id, LotvDbContext db) =>
+{
+    var count = await db.Requests.CountAsync(r =>
+        r.AssignedToId == id &&
+        (r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress || r.Status == CaseStatus.AwaitingShipment));
+    return Results.Ok(new { count });
+}).AllowAnonymous();
+
 // ── Volunteer magic-link self-service auth ───────────────────────────────────
 publicApi.MapPost("/volunteer/magic-link", async (DonorMagicLinkRequest body,
     LotvDbContext db, INotificationService notify) =>

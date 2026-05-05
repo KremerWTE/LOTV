@@ -146,7 +146,8 @@
   {
     var sb = new System.Text.StringBuilder();
     sb.AppendLine("Timestamp,User,Action,Entity,EntityId,IpAddress,Details");
-    foreach (var e in Filtered)
+    // Export only the currently rendered slice — matches what the user sees.
+    foreach (var e in Filtered.Take(_visible))
     {
       string Esc(string? s) => s is null ? "" : "\"" + s.Replace("\"", "\"\"") + "\"";
       sb.AppendLine($"{e.Timestamp:O},{Esc(e.UserName)},{Esc(e.Action)},{Esc(e.Entity)},{Esc(e.EntityId)},{Esc(e.IpAddress)},{Esc(e.Details)}");

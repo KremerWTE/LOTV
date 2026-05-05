@@ -21,7 +21,11 @@
   {
     <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 24px;">Welcome back.</h1>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;">
-      <a href="@($"/volunteer/my-assignments?VolunteerId={VolunteerId}")" class="panel" style="text-decoration:none;">
+      <a href="@($"/volunteer/my-assignments?VolunteerId={VolunteerId}")" class="panel" style="text-decoration:none;position:relative;">
+        @if (_activeCount > 0)
+        {
+          <span style="position:absolute;top:14px;right:14px;background:var(--blush);color:white;font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:11px;">@_activeCount</span>
+        }
         <div class="panel-body">
           <div style="font-size:1.4rem;margin-bottom:8px;">&#128203;</div>
           <strong style="font-family:var(--ff-head);color:var(--navy);">My Assignments</strong>
@@ -55,4 +59,11 @@
 
 @code {
   [Parameter, SupplyParameterFromQuery] public int? VolunteerId { get; set; }
+  private int _activeCount;
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (VolunteerId is int id && id > 0)
+      _activeCount = await Api.GetVolunteerAssignmentCountAsync(id);
+  }
 }

@@ -472,6 +472,17 @@ public class ApiService
     }
     private record VolMagicLinkResp(int VolunteerId, DateTime ExpiresAt);
 
+    public async Task<int> GetVolunteerAssignmentCountAsync(int volunteerId)
+    {
+        try
+        {
+            var resp = await _http.GetFromJsonAsync<VolCountDto>($"/api/public/v1/volunteers/{volunteerId}/assignment-count");
+            return resp?.Count ?? 0;
+        }
+        catch { return 0; }
+    }
+    private record VolCountDto(int Count);
+
     // ── Donor magic-link auth ─────────────────────────────────────────────
     public async Task<bool> RequestDonorMagicLinkAsync(string email)
     {

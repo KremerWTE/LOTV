@@ -64,7 +64,11 @@
       }
       <thead>
         <tr>
-          <th style="width:24px;"><input type="checkbox" checked="@(_selected.Count > 0 && _selected.Count == Filtered.Take(_visible).Count())" @onchange="@(e => ToggleAll((bool)e.Value!))" /></th>
+          <th style="width:24px;" title="Select all visible rows (does not include hidden rows beyond the current page)">
+            <input type="checkbox" aria-label="Select all visible rows"
+                   checked="@(_selected.Count > 0 && _selected.Count == Filtered.Take(_visible).Count())"
+                   @onchange="@(e => ToggleAll((bool)e.Value!))" />
+          </th>
           <th>#</th>
           <th>Donor</th>
           <th style="cursor:pointer;user-select:none;" @onclick='() => Sort("Amount")'>

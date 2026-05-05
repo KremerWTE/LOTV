@@ -16,14 +16,18 @@ public class MagicLinkCleanupService(IServiceScopeFactory scopes, ILogger<MagicL
                 await using var scope = scopes.CreateAsyncScope();
                 var db  = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
                 var cut = DateTime.UtcNow.AddDays(-1);
-                var stale = await db.DonorMagicLinks
+                var staleD = await db.DonorMagicLinks
                     .Where(l => l.UsedAt != null || l.ExpiresAt < cut)
                     .ToListAsync(stoppingToken);
-                if (stale.Count > 0)
+                var staleV = await db.VolunteerMagicLinks
+                    .Where(l => l.UsedAt != null || l.ExpiresAt < cut)
+                    .ToListAsync(stoppingToken);
+                if (staleD.Count > 0) db.DonorMagicLinks.RemoveRange(staleD);
+                if (staleV.Count > 0) db.VolunteerMagicLinks.RemoveRange(staleV);
+                if (staleD.Count + staleV.Count > 0)
                 {
-                    db.DonorMagicLinks.RemoveRange(stale);
                     await db.SaveChangesAsync(stoppingToken);
-                    log.LogDebug("Pruned {Count} magic links", stale.Count);
+                    log.LogDebug("Pruned {D} donor + {V} volunteer magic links", staleD.Count, staleV.Count);
                 }
             }
             catch (Exception ex) { log.LogWarning(ex, "Magic-link cleanup failed"); }
