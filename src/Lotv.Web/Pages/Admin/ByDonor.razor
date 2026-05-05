@@ -50,7 +50,16 @@
   <div class="panel-body" style="padding:0;">
     <table class="data-table">
       <thead>
-        <tr><th>Donor</th><th>Tier</th><th>Gifts</th><th>Total Given</th><th>Recurring</th><th>Last Gift</th><th>Parish</th><th></th></tr>
+        <tr>
+          <th>Donor</th>
+          <th>Tier</th>
+          <th style="cursor:pointer;" @onclick='() => SortBy("Gifts")'>Gifts @SortIcon("Gifts")</th>
+          <th style="cursor:pointer;" @onclick='() => SortBy("Total")'>Total Given @SortIcon("Total")</th>
+          <th>Recurring</th>
+          <th style="cursor:pointer;" @onclick='() => SortBy("Last")'>Last Gift @SortIcon("Last")</th>
+          <th>Parish</th>
+          <th></th>
+        </tr>
       </thead>
       <tbody>
         @foreach (var d in Filtered)
@@ -158,6 +167,18 @@
   private string _search = "";
   private int _expanded;
 
+  private string _sort = "Total";
+  private bool _sortDesc = true;
+
+  private void SortBy(string col)
+  {
+    if (_sort == col) _sortDesc = !_sortDesc;
+    else { _sort = col; _sortDesc = true; }
+  }
+
+  private MarkupString SortIcon(string col) =>
+    new MarkupString(_sort == col ? (_sortDesc ? "&#9662;" : "&#9652;") : "");
+
   private IEnumerable<DonorRow> Filtered
   {
     get
@@ -167,10 +188,16 @@
         src = src.Where(r => string.Equals(r.Donor.City, City, StringComparison.OrdinalIgnoreCase));
       if (!string.IsNullOrWhiteSpace(Diocese))
         src = src.Where(r => string.Equals(r.Donor.DioceseName, Diocese, StringComparison.OrdinalIgnoreCase));
-      return string.IsNullOrWhiteSpace(_search)
-        ? src
-        : src.Where(r => r.Donor.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-                         r.Donor.Email.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      if (!string.IsNullOrWhiteSpace(_search))
+        src = src.Where(r => r.Donor.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                             r.Donor.Email.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      Func<DonorRow, IComparable> key = _sort switch
+      {
+        "Gifts" => r => r.GiftCount,
+        "Last"  => r => r.Donor.LastGiftDate,
+        _       => r => r.Total,
+      };
+      return _sortDesc ? src.OrderByDescending(key) : src.OrderBy(key);
     }
   }
 

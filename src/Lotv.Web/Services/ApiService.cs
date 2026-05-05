@@ -220,6 +220,10 @@ public class ApiService
     public Task<List<PublicDonationRow>> GetPublicDonorDonationsAsync(int donorId) =>
         GetListAsync<PublicDonationRow>($"/api/public/v1/donors/{donorId}/donations");
 
+    public Task<DonorPortalStatusDto?> GetDonorPortalStatusAsync(int donorId) =>
+        GetAsync<DonorPortalStatusDto>($"/api/public/v1/donors/{donorId}/portal-status");
+    public record DonorPortalStatusDto(bool HasStripeCustomer, bool HasActiveRecurring);
+
     public async Task<string?> CreateBillingPortalUrlAsync(int donorId, string token)
     {
         try
@@ -482,6 +486,19 @@ public class ApiService
 
     public Task<WebhookEventDetail?> GetWebhookEventAsync(int id) =>
         GetAsync<WebhookEventDetail>($"/api/v1/admin/webhooks/{id}");
+
+    public async Task<int?> PruneWebhooksAsync(int days = 90)
+    {
+        try
+        {
+            var resp = await _http.DeleteAsync($"/api/v1/admin/webhooks/old?days={days}");
+            if (!resp.IsSuccessStatusCode) return null;
+            var doc = await resp.Content.ReadFromJsonAsync<PruneResp>();
+            return doc?.Deleted;
+        }
+        catch { return null; }
+    }
+    private record PruneResp(int Deleted);
     public record WebhookEventDetail(int Id, string Source, string ExternalId, string EventType, DateTime ReceivedAt, string? Payload);
 
     public async Task<VapidKeyPair?> GenerateVapidKeysAsync()

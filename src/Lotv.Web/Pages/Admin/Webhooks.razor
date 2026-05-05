@@ -11,6 +11,7 @@
     <button class="btn btn-sm @(_filter == "stripe" ? "btn-primary" : "")" @onclick='() => Apply("stripe")'>Stripe</button>
     <button class="btn btn-sm @(_filter == "givebutter" ? "btn-primary" : "")" @onclick='() => Apply("givebutter")'>GiveButter</button>
     <button class="btn btn-sm" @onclick="Load">&#8635; Refresh</button>
+    <button class="btn btn-sm" @onclick="Prune">🗑 Prune &gt;90d</button>
   </div>
 </div>
 
@@ -92,4 +93,10 @@
   }
 
   private async Task Load() => _rows = await Api.GetWebhookEventsAsync(_filter);
+
+  private async Task Prune()
+  {
+    var deleted = await Api.PruneWebhooksAsync(90);
+    if (deleted is not null) await Load();
+  }
 }

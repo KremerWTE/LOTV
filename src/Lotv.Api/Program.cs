@@ -2274,6 +2274,19 @@ publicApi.MapPost("/donors/{donorId:int}/billing-portal", async (int donorId, Bi
     return Results.Ok(new { url = session.Url });
 }).AllowAnonymous();
 
+// Lightweight donor capability check for the portal — does this donor have a Stripe customer + recurring?
+publicApi.MapGet("/donors/{id:int}/portal-status", async (int id, LotvDbContext db) =>
+{
+    var donor = await db.Donors.FindAsync(id);
+    if (donor is null) return Results.NotFound();
+    var hasRecurring = await db.RecurringDonations.AnyAsync(r => r.DonorId == id && r.Status == RecurringStatus.Active);
+    return Results.Ok(new
+    {
+        hasStripeCustomer = !string.IsNullOrEmpty(donor.StripeCustomerId),
+        hasActiveRecurring = hasRecurring,
+    });
+}).AllowAnonymous();
+
 // Donor avatar update (self-service via magic-link query param)
 publicApi.MapPut("/donors/{donorId:int}/avatar", async (int donorId, AvatarUpdateRequest body, LotvDbContext db) =>
 {
@@ -2647,6 +2660,17 @@ app.MapGet("/api/v1/admin/webhooks/{id:int}", async (int id, LotvDbContext db) =
 {
     var w = await db.WebhookEvents.FindAsync(id);
     return w is null ? Results.NotFound() : Results.Ok(w);
+}).RequireAuthorization("ChapterAdmin");
+
+app.MapDelete("/api/v1/admin/webhooks/old", async (int? days, LotvDbContext db) =>
+{
+    var d = days ?? 90;
+    var cutoff = DateTime.UtcNow.AddDays(-d);
+    var stale = db.WebhookEvents.Where(w => w.ReceivedAt < cutoff);
+    var count = await stale.CountAsync();
+    db.WebhookEvents.RemoveRange(stale);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { deleted = count });
 }).RequireAuthorization("ChapterAdmin");
 
 // VAPID keypair generator — HQAdmin-only diagnostic helper that emits a key pair

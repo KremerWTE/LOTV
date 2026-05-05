@@ -14,6 +14,17 @@
 }
 else
 {
+  @if (_data.Applied.Count == 0 && _data.Pending.Count > 0)
+  {
+    <div class="panel" style="margin-bottom:18px;background:#fef3c7;border:1px solid #fde68a;">
+      <div class="panel-body" style="font-size:.86rem;color:#92400e;">
+        <strong>⚠ First run detected.</strong> The schema has @_data.Pending.Count pending migration(s) and 0 applied.
+        Run the following to bring the database up to date:
+        <pre style="background:white;padding:8px 12px;border-radius:6px;margin-top:8px;font-size:.78rem;">dotnet ef database update --project src/Lotv.Api</pre>
+      </div>
+    </div>
+  }
+
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
 
     <div class="panel">
