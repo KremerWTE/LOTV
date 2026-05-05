@@ -14,6 +14,23 @@ window.lotvTheme = {
   }
 };
 
+// Detect when a .sticky-filter element becomes stuck (top:0) using a sentinel.
+window.lotvStickyFilter = {
+  attach: function () {
+    document.querySelectorAll('.sticky-filter').forEach(function (el) {
+      if (el.dataset.stickyAttached) return;
+      el.dataset.stickyAttached = '1';
+      var sentinel = document.createElement('div');
+      sentinel.style.cssText = 'position:absolute;top:0;height:1px;width:1px;';
+      el.parentNode.insertBefore(sentinel, el);
+      var io = new IntersectionObserver(function (entries) {
+        el.classList.toggle('is-stuck', !entries[0].isIntersecting);
+      }, { rootMargin: '0px', threshold: 0 });
+      io.observe(sentinel);
+    });
+  }
+};
+
 // Toggle .scrolled on .topbar when its sibling .lotv-content scrolls. Reattaches each route nav.
 window.lotvScrollShadow = {
   attach: function () {

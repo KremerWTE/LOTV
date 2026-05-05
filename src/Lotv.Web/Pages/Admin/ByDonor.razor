@@ -46,6 +46,12 @@
   <input class="form-input" style="width:260px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search donor name or email..." @bind="_search" @bind:event="oninput" />
 </div>
 
+@if (_kebabOpen != 0)
+{
+  <div @onclick="() => _kebabOpen = 0"
+       style="position:fixed;inset:0;z-index:40;"></div>
+}
+
 <div class="panel">
   <div class="panel-body" style="padding:0;">
     <table class="data-table">
@@ -62,7 +68,7 @@
         </tr>
       </thead>
       <tbody>
-        @foreach (var d in Filtered)
+        @foreach (var d in Filtered.Take(_visible))
         {
           <tr>
             <td>
@@ -140,6 +146,12 @@
         {
           <tr><td colspan="8"><div class="empty-state"><div class="icon">&#128100;</div><p>No donors match your search.</p></div></td></tr>
         }
+        @if (Filtered.Count() > _visible)
+        {
+          <tr><td colspan="8" style="text-align:center;padding:14px;border-top:1px solid var(--border);">
+            <button class="btn btn-sm" @onclick="() => _visible += 100">Load 100 more (@(Filtered.Count() - _visible) hidden)</button>
+          </td></tr>
+        }
       </tbody>
     </table>
   </div>
@@ -153,6 +165,7 @@
   private string? _toast;
   private bool _bulkBusy;
   private int _kebabOpen;
+  private int _visible = 100;
   private async Task BulkSendPortalLinks()
   {
     _bulkBusy = true;

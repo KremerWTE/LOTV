@@ -56,7 +56,7 @@
         <tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>ID</th><th>Details</th></tr>
       </thead>
       <tbody>
-        @foreach (var e in Filtered)
+        @foreach (var e in Filtered.Take(_visible))
         {
           <tr style="cursor:pointer;" @onclick="() => _selected = e">
             <td style="font-size:.74rem;color:var(--text-light);white-space:nowrap;">
@@ -75,6 +75,12 @@
     @if (!Filtered.Any())
     {
       <div style="text-align:center;padding:32px;color:var(--text-light);font-size:.88rem;">No matching audit entries.</div>
+    }
+    else if (_visible < Filtered.Count())
+    {
+      <div style="text-align:center;padding:14px;border-top:1px solid var(--border);">
+        <button class="btn btn-sm" @onclick="() => _visible += 100">Load 100 more (@(Filtered.Count() - _visible) hidden)</button>
+      </div>
     }
   </div>
 </div>
@@ -106,6 +112,7 @@
   private string _dateFilter   = "All Time";
   private string _search       = "";
   private bool _mineOnly;
+  private int _visible = 100;
 
   private IEnumerable<AuditEntry> Filtered => _log.Where(e =>
   {

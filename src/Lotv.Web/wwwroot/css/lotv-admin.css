@@ -435,6 +435,9 @@ body.theme-dark .sidebar { background: #14201a; }
 .lotv-app.sidebar-collapsed .sidebar-footer { display: none !important; }
 .lotv-app.sidebar-collapsed .sidebar-link { justify-content: center; padding: 9px 8px; }
 
+/* ── STICKY FILTER SHADOW (intersection-observer-driven) ─────── */
+.sticky-filter.is-stuck { box-shadow: 0 4px 14px rgba(0,0,0,.06); border-bottom: 1px solid var(--border); }
+
 /* ── KEBAB MENU HOVER ────────────────────────────────────────── */
 .kebab-item:hover { background: var(--bg); }
 

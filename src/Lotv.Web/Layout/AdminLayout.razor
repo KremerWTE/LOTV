@@ -319,7 +319,7 @@
           }
         </div>
 
-        <button type="button" @onclick="() => _sidebarCollapsed = !_sidebarCollapsed"
+        <button type="button" @onclick="ToggleSidebarCollapse"
                 aria-label="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
                 style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:.95rem;color:var(--text-mid);margin-right:8px;">
           @(_sidebarCollapsed ? "»" : "«")
@@ -437,6 +437,7 @@
     UpdateTitle();
 
     try { _dark = (await JS.InvokeAsync<string>("lotvTheme.get")) == "dark"; } catch { }
+    try { _sidebarCollapsed = (await JS.InvokeAsync<string?>("localStorage.getItem", "lotv.sidebar")) == "collapsed"; } catch { }
     try { await JS.InvokeVoidAsync("lotvScrollShadow.attach"); } catch { }
     _ = Auth.RefreshAvatarAsync();
 
@@ -459,6 +460,12 @@
   {
     _dark = !_dark;
     try { await JS.InvokeVoidAsync("lotvTheme.set", _dark ? "dark" : "light"); } catch { }
+  }
+
+  private async Task ToggleSidebarCollapse()
+  {
+    _sidebarCollapsed = !_sidebarCollapsed;
+    try { await JS.InvokeVoidAsync("localStorage.setItem", "lotv.sidebar", _sidebarCollapsed ? "collapsed" : "expanded"); } catch { }
   }
 
   private async Task LoadNotificationsAsync()
