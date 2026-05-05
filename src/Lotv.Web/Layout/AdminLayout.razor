@@ -431,6 +431,7 @@
     UpdateTitle();
 
     try { _dark = (await JS.InvokeAsync<string>("lotvTheme.get")) == "dark"; } catch { }
+    try { await JS.InvokeVoidAsync("lotvScrollShadow.attach"); } catch { }
     _ = Auth.RefreshAvatarAsync();
 
     if (_isAdmin)

@@ -14,6 +14,21 @@ window.lotvTheme = {
   }
 };
 
+// Toggle .scrolled on .topbar when its sibling .lotv-content scrolls. Reattaches each route nav.
+window.lotvScrollShadow = {
+  attach: function () {
+    document.querySelectorAll('.lotv-content').forEach(function (c) {
+      if (c.dataset.shadowAttached) return;
+      c.dataset.shadowAttached = '1';
+      var topbar = document.querySelector('.topbar');
+      if (!topbar) return;
+      c.addEventListener('scroll', function () {
+        topbar.classList.toggle('scrolled', c.scrollTop > 4);
+      });
+    });
+  }
+};
+
 window.lotvUpload = {
   click: function (inputElement) { try { inputElement.click(); } catch { } },
   // Returns base64 data-URL of the first selected file in inputElement.

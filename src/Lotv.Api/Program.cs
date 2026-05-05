@@ -128,6 +128,7 @@ builder.Services.AddSingleton<IPushSender, PushSenderService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<FxRefreshService>();
 builder.Services.AddHostedService<MagicLinkCleanupService>();
+builder.Services.AddHostedService<WebhookCleanupService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddSingleton<IMockDataService, MockDataService>();      // legacy mock service
 builder.Services.AddHostedService<ScheduledReportBackgroundService>();

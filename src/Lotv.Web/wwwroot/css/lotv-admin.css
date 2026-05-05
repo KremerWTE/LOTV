@@ -426,6 +426,24 @@ body.theme-dark {
 body.theme-dark { background: var(--bg-page); color: var(--text-dark); }
 body.theme-dark .sidebar { background: #14201a; }
 
+/* ── TOPBAR SCROLL SHADOW ────────────────────────────────────── */
+.lotv-content { scroll-padding-top: 1px; }
+.topbar.scrolled { box-shadow: 0 4px 14px rgba(0,0,0,.08); border-bottom-color: transparent; }
+
+/* ── WEBHOOK SOURCE BADGES ───────────────────────────────────── */
+.badge-stripe     { background:#635bff; color:white; }
+.badge-givebutter { background:#3aa55b; color:white; }
+
+/* ── PRINT (donor portal tax records) ────────────────────────── */
+@media print {
+  .pub-desktop-nav, .pub-mobile-nav, .pub-mobile-backdrop, .pub-hamburger,
+  header, footer, .lotv-app .sidebar, .lotv-app .topbar, .drawer-overlay { display: none !important; }
+  .lotv-app, .lotv-main, .lotv-content { display: block; height: auto; overflow: visible; }
+  body, .lotv-app { background: white !important; color: black !important; }
+  .panel { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
+  a { color: black !important; text-decoration: none !important; }
+}
+
 /* ── ACCESSIBILITY: focus-visible ────────────────────────────── */
 :focus-visible {
   outline: 2.5px solid var(--green);

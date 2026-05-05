@@ -139,6 +139,8 @@
 @code {
   [Parameter, SupplyParameterFromQuery] public string? City { get; set; }
   [Parameter, SupplyParameterFromQuery] public string? Diocese { get; set; }
+  [Parameter, SupplyParameterFromQuery(Name = "sort")] public string? SortParam { get; set; }
+  [Parameter, SupplyParameterFromQuery(Name = "asc")]  public bool? AscParam { get; set; }
   private string? _toast;
   private bool _bulkBusy;
   private async Task BulkSendPortalLinks()
@@ -169,6 +171,12 @@
 
   private string _sort = "Total";
   private bool _sortDesc = true;
+
+  protected override void OnParametersSet()
+  {
+    if (!string.IsNullOrEmpty(SortParam)) _sort = SortParam;
+    if (AscParam is true) _sortDesc = false;
+  }
 
   private void SortBy(string col)
   {

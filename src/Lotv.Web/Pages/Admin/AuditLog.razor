@@ -2,6 +2,7 @@
 @layout AdminLayout
 @inject ApiService Api
 @inject IJSRuntime JS
+@inject AuthService Auth
 
 <PageTitle>Audit Log — LOTV Staff Portal</PageTitle>
 
@@ -44,6 +45,7 @@
   <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
   @foreach (var d in new[]{"All Time","Today","This Week","This Month"})
   { <button class="filter-chip @(_dateFilter == d ? "active" : "")" aria-pressed="@(_dateFilter == d)" @onclick="() => _dateFilter = d">@d</button> }
+  <button class="filter-chip @(_mineOnly ? "active" : "")" aria-pressed="@_mineOnly" @onclick="() => _mineOnly = !_mineOnly">My actions</button>
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search entries..." @bind="_search" @bind:event="oninput" />
 </div>
 
@@ -103,6 +105,7 @@
   private string _actionFilter = "All";
   private string _dateFilter   = "All Time";
   private string _search       = "";
+  private bool _mineOnly;
 
   private IEnumerable<AuditEntry> Filtered => _log.Where(e =>
   {
@@ -119,7 +122,9 @@
       e.UserName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
       e.Entity.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
       (e.Details?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
-    return matchAction && matchDate && matchSearch;
+    var matchMine = !_mineOnly || string.Equals(e.UserName, Auth.UserName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(e.UserName, Auth.UserEmail, StringComparison.OrdinalIgnoreCase);
+    return matchAction && matchDate && matchSearch && matchMine;
   }).OrderByDescending(e => e.Timestamp);
 
   protected override async Task OnInitializedAsync() => _log = await Api.GetAuditLogAsync();

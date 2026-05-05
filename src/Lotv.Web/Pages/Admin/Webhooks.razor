@@ -41,7 +41,7 @@
         {
           <tr style="cursor:pointer;" @onclick="() => OpenDetail(r.Id)">
             <td style="font-size:.78rem;color:var(--text-light);">@r.ReceivedAt.ToLocalTime().ToString("MMM d, h:mm:ss tt")</td>
-            <td><span class="badge">@r.Source</span></td>
+            <td><span class="badge @($"badge-{r.Source}")">@r.Source</span></td>
             <td style="font-family:monospace;font-size:.78rem;">@r.EventType</td>
             <td style="font-family:monospace;font-size:.72rem;color:var(--text-light);">@r.ExternalId</td>
           </tr>
