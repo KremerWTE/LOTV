@@ -54,7 +54,7 @@
       <tbody>
         @foreach (var e in Filtered)
         {
-          <tr>
+          <tr style="cursor:pointer;" @onclick="() => _selected = e">
             <td style="font-size:.74rem;color:var(--text-light);white-space:nowrap;">
               @e.Timestamp.ToString("MMM d, yyyy")<br />
               <span style="font-size:.68rem;">@e.Timestamp.ToString("h:mm tt")</span>
@@ -63,7 +63,7 @@
             <td><span class="badge @ActionBadge(e.Action)" style="font-size:.66rem;">@e.Action</span></td>
             <td style="font-size:.78rem;color:var(--text-mid);">@e.Entity</td>
             <td style="font-size:.72rem;color:var(--text-light);">@(e.EntityId ?? "—")</td>
-            <td style="font-size:.78rem;color:var(--text-mid);max-width:300px;">@(e.Details ?? "—")</td>
+            <td style="font-size:.78rem;color:var(--text-mid);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(e.Details ?? "—")</td>
           </tr>
         }
       </tbody>
@@ -75,7 +75,28 @@
   </div>
 </div>
 
+@if (_selected is not null)
+{
+  <div class="drawer-overlay" @onclick="() => _selected = null"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>@_selected.Action — @_selected.Entity</h3>
+      <button class="drawer-close" @onclick="() => _selected = null">&#10005;</button>
+    </div>
+    <div class="drawer-body">
+      <div style="font-size:.78rem;color:var(--text-light);margin-bottom:14px;">
+        @_selected.Timestamp.ToLocalTime().ToString("MMM d, yyyy h:mm:ss tt") · @_selected.UserName
+        @if (!string.IsNullOrEmpty(_selected.IpAddress)) { <span> · @_selected.IpAddress</span> }
+      </div>
+      <div style="margin-bottom:10px;"><strong>Entity ID:</strong> @(_selected.EntityId ?? "—")</div>
+      <div><strong>Details:</strong></div>
+      <pre style="background:var(--bg);border-radius:6px;padding:12px;font-size:.78rem;overflow:auto;max-height:60vh;white-space:pre-wrap;word-break:break-all;margin-top:6px;">@(_selected.Details ?? "(none)")</pre>
+    </div>
+  </div>
+}
+
 @code {
+  private AuditEntry? _selected;
   private List<AuditEntry> _log = [];
   private string _actionFilter = "All";
   private string _dateFilter   = "All Time";

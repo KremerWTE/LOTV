@@ -14,6 +14,17 @@
   </div>
 </div>
 
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+  <input class="form-input" style="max-width:280px;font-size:.84rem;" placeholder="🔎 Search ID or event type…"
+         @bind="_search" @bind:event="oninput" />
+  @foreach (var (type, count) in _typeCounts.OrderByDescending(kv => kv.Value).Take(6))
+  {
+    <span style="font-size:.74rem;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:4px 12px;color:var(--text-mid);">
+      <strong style="font-family:monospace;">@type</strong> · @count
+    </span>
+  }
+</div>
+
 <div class="panel">
   <div class="panel-body" style="padding:0;">
     <table class="data-table">
@@ -21,11 +32,11 @@
         <tr><th>Received</th><th>Source</th><th>Event Type</th><th>External ID</th></tr>
       </thead>
       <tbody>
-        @if (_rows.Count == 0)
+        @if (Filtered.Count == 0)
         {
           <tr><td colspan="4" style="padding:32px;text-align:center;color:var(--text-light);">No webhook events match this filter.</td></tr>
         }
-        @foreach (var r in _rows)
+        @foreach (var r in Filtered)
         {
           <tr style="cursor:pointer;" @onclick="() => OpenDetail(r.Id)">
             <td style="font-size:.78rem;color:var(--text-light);">@r.ReceivedAt.ToLocalTime().ToString("MMM d, h:mm:ss tt")</td>
@@ -59,8 +70,18 @@
 @code {
   private List<ApiService.WebhookEventRow> _rows = new();
   private string? _filter;
+  private string _search = "";
   private ApiService.WebhookEventDetail? _detail;
   private async Task OpenDetail(int id) => _detail = await Api.GetWebhookEventAsync(id);
+
+  private IReadOnlyDictionary<string, int> _typeCounts =>
+    _rows.GroupBy(r => r.EventType).ToDictionary(g => g.Key, g => g.Count());
+
+  private List<ApiService.WebhookEventRow> Filtered => string.IsNullOrWhiteSpace(_search)
+    ? _rows
+    : _rows.Where(r =>
+        (r.ExternalId?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        r.EventType.Contains(_search, StringComparison.OrdinalIgnoreCase)).ToList();
 
   protected override async Task OnInitializedAsync() => await Load();
 

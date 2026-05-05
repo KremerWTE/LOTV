@@ -58,6 +58,25 @@
       <div class="kpi"><div class="kpi-label">Last Gift</div><div class="kpi-value" style="font-size:1.05rem;">@(_last?.ToString("MMM d, yyyy") ?? "—")</div></div>
     </div>
 
+    @if (_recurring.Any(r => r.Status == "Active"))
+    {
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">Active Monthly Gifts</div>
+        <div class="panel-body" style="padding:0;">
+          @foreach (var r in _recurring.Where(r => r.Status == "Active"))
+          {
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--border);">
+              <div>
+                <strong style="color:var(--green-dark);"><Money Amount="@r.Amount" /></strong>
+                <span style="color:var(--text-light);font-size:.82rem;margin-left:8px;">@r.Frequency · next @r.NextChargeDate.ToString("MMM d")</span>
+              </div>
+              <button class="btn btn-sm" type="button" @onclick="() => CancelRecurring(r.Id)">Cancel</button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;">
       <a href="/donor/impact?DonorId=@DonorId" class="panel" style="text-decoration:none;">
         <div class="panel-body">
@@ -80,6 +99,14 @@
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Download receipts and year-end giving statements.</p>
         </div>
       </a>
+      <a href="@($"/my-profile?DonorId={DonorId}")" class="panel" style="text-decoration:none;">
+        <div class="panel-body">
+          <div style="font-size:1.4rem;margin-bottom:8px;">&#9881;</div>
+          <strong style="font-family:var(--ff-head);color:var(--navy);">Update Profile</strong>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Edit your name, email, address, and contact preferences.</p>
+        </div>
+      </a>
+
       <a href="/give" class="panel" style="text-decoration:none;">
         <div class="panel-body">
           <div style="font-size:1.4rem;margin-bottom:8px;">&#128149;</div>
@@ -115,6 +142,15 @@
   private string? _avatarUrl;
   private ElementReference _fileInput;
   private string? _sessionExpiresIn;
+  private List<RecurringScheduleDto> _recurring = new();
+
+  private async Task CancelRecurring(int id)
+  {
+    if (await Api.CancelDonorRecurringAsync(id))
+    {
+      _recurring = await Api.GetDonorRecurringAsync(DonorId!.Value);
+    }
+  }
 
   private async Task PickAvatar() => await JS.InvokeVoidAsync("lotvUpload.click", _fileInput);
 
@@ -149,6 +185,7 @@
   protected override async Task OnInitializedAsync()
   {
     if (DonorId is null or 0) return;
+    _recurring = await Api.GetDonorRecurringAsync(DonorId.Value);
     var impact = await Api.GetPublicDonorImpactAsync(DonorId.Value);
     if (impact is not null)
     {
