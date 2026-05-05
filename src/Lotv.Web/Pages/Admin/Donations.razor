@@ -87,7 +87,8 @@
         @foreach (var d in Filtered.Take(_visible))
         {
           <tr>
-            <td style="width:24px;"><input type="checkbox" checked="@_selected.Contains(d.Id)" @onchange="@(e => Toggle(d.Id, (bool)e.Value!))" /></td>
+            <td style="width:24px;"><input type="checkbox" checked="@_selected.Contains(d.Id)"
+                @onclick="@((MouseEventArgs e) => ToggleClick(d.Id, e))" /></td>
             <td style="font-size:.74rem;color:var(--text-light);">#@d.Id</td>
             <td><strong>@(d.Donor?.FullName ?? "—")</strong></td>
             <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Amount" /></td>
@@ -225,9 +226,26 @@
   private string _addError = "";
   private int _visible = 50;
   private HashSet<int> _selected = new();
-  private void Toggle(int id, bool on)
+  private int _lastSelectedId;
+
+  private void ToggleClick(int id, MouseEventArgs e)
   {
-    if (on) _selected.Add(id); else _selected.Remove(id);
+    var visible = Filtered.Take(_visible).Select(d => d.Id).ToList();
+    if (e.ShiftKey && _lastSelectedId != 0 && visible.Contains(_lastSelectedId))
+    {
+      var i1 = visible.IndexOf(_lastSelectedId);
+      var i2 = visible.IndexOf(id);
+      if (i1 >= 0 && i2 >= 0)
+      {
+        var (lo, hi) = i1 <= i2 ? (i1, i2) : (i2, i1);
+        for (var k = lo; k <= hi; k++) _selected.Add(visible[k]);
+      }
+    }
+    else
+    {
+      if (_selected.Contains(id)) _selected.Remove(id); else _selected.Add(id);
+    }
+    _lastSelectedId = id;
   }
   private void ToggleAll(bool on)
   {

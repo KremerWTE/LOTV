@@ -11,6 +11,7 @@
   <div class="page-hd-actions">
     <button class="btn btn-sm" @onclick="() => Refresh()">&#8635; Refresh</button>
     <button class="btn btn-sm" @onclick="ExportCsv">&darr; Export CSV</button>
+    <button class="btn btn-sm" @onclick="ExportJson">&darr; Export JSON</button>
   </div>
 </div>
 
@@ -153,6 +154,16 @@
       sb.AppendLine($"{e.Timestamp:O},{Esc(e.UserName)},{Esc(e.Action)},{Esc(e.Entity)},{Esc(e.EntityId)},{Esc(e.IpAddress)},{Esc(e.Details)}");
     }
     await JS.InvokeVoidAsync("downloadCsv", $"lotv-audit-{DateTime.UtcNow:yyyyMMdd-HHmm}.csv", sb.ToString());
+  }
+
+  private async Task ExportJson()
+  {
+    var rows = Filtered.Take(_visible).Select(e => new
+    {
+      e.Timestamp, e.UserName, e.Action, e.Entity, e.EntityId, e.IpAddress, e.Details,
+    });
+    var json = System.Text.Json.JsonSerializer.Serialize(rows, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    await JS.InvokeVoidAsync("downloadCsv", $"lotv-audit-{DateTime.UtcNow:yyyyMMdd-HHmm}.json", json);
   }
 
   private static string ActionBadge(string action) => action.ToLower() switch

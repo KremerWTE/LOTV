@@ -200,6 +200,16 @@
     }
     try
     {
+      // Refresh session if we have a token (sliding-window).
+      var token = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorToken");
+      if (!string.IsNullOrEmpty(token))
+      {
+        var newExp = await Api.RefreshDonorSessionAsync(token);
+        if (newExp is not null)
+        {
+          await JS.InvokeVoidAsync("sessionStorage.setItem", "lotv.donorTokenExpires", newExp.Value.ToString("O"));
+        }
+      }
       var iso = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorTokenExpires");
       if (DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var exp))
       {

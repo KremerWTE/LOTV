@@ -2,6 +2,7 @@
 @layout PublicLayout
 @inject ApiService Api
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Volunteer Sign In — LOTV Ministry</PageTitle>
 
@@ -54,11 +55,17 @@
     if (!string.IsNullOrWhiteSpace(token))
     {
       _state = State.Verifying;
-      var volId = await Api.VerifyVolunteerMagicLinkAsync(token!);
-      if (volId is not null)
+      var resp = await Api.VerifyVolunteerMagicLinkAsync(token!);
+      if (resp is not null)
       {
         _state = State.Verified;
-        Nav.NavigateTo($"/volunteer/portal?VolunteerId={volId.Value}");
+        try
+        {
+          await JS.InvokeVoidAsync("sessionStorage.setItem", "lotv.volunteerToken", token);
+          await JS.InvokeVoidAsync("sessionStorage.setItem", "lotv.volunteerTokenExpires", resp.ExpiresAt.ToString("O"));
+        }
+        catch { }
+        Nav.NavigateTo($"/volunteer/portal?VolunteerId={resp.VolunteerId}");
       }
       else _state = State.Failed;
     }

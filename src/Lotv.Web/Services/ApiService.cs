@@ -459,18 +459,17 @@ public class ApiService
         try { return (await _http.PostAsJsonAsync("/api/public/v1/volunteer/magic-link", new { Email = email })).IsSuccessStatusCode; }
         catch { return false; }
     }
-    public async Task<int?> VerifyVolunteerMagicLinkAsync(string token)
+    public async Task<VolMagicLinkResp?> VerifyVolunteerMagicLinkAsync(string token)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/api/public/v1/volunteer/verify-link", new { Token = token });
             if (!resp.IsSuccessStatusCode) return null;
-            var doc = await resp.Content.ReadFromJsonAsync<VolMagicLinkResp>();
-            return doc?.VolunteerId;
+            return await resp.Content.ReadFromJsonAsync<VolMagicLinkResp>();
         }
         catch { return null; }
     }
-    private record VolMagicLinkResp(int VolunteerId, DateTime ExpiresAt);
+    public record VolMagicLinkResp(int VolunteerId, DateTime ExpiresAt);
 
     public async Task<int> GetVolunteerAssignmentCountAsync(int volunteerId)
     {
@@ -493,6 +492,18 @@ public class ApiService
         }
         catch { return false; }
     }
+    public async Task<DateTime?> RefreshDonorSessionAsync(string token)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/public/v1/donor/refresh-session", new { Token = token });
+            if (!resp.IsSuccessStatusCode) return null;
+            var doc = await resp.Content.ReadFromJsonAsync<MagicLinkResp>();
+            return doc?.ExpiresAt;
+        }
+        catch { return null; }
+    }
+
     public async Task<MagicLinkResp?> VerifyDonorMagicLinkAsync(string token)
     {
         try

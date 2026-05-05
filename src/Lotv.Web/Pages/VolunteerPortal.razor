@@ -2,6 +2,7 @@
 @layout PublicLayout
 @inject ApiService Api
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Volunteer Portal — LOTV Ministry</PageTitle>
 
@@ -19,7 +20,16 @@
   }
   else
   {
-    <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 24px;">Welcome back.</h1>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:24px;">
+      <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0;">Welcome back.</h1>
+      @if (_sessionExpiresIn is not null)
+      {
+        <span title="Magic-link session expiry"
+              style="font-size:.74rem;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:3px 10px;color:var(--text-light);">
+          ⏱ @_sessionExpiresIn
+        </span>
+      }
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;">
       <a href="@($"/volunteer/my-assignments?VolunteerId={VolunteerId}")" class="panel" style="text-decoration:none;position:relative;">
         @if (_activeCount > 0)
@@ -60,10 +70,25 @@
 @code {
   [Parameter, SupplyParameterFromQuery] public int? VolunteerId { get; set; }
   private int _activeCount;
+  private string? _sessionExpiresIn;
 
   protected override async Task OnInitializedAsync()
   {
     if (VolunteerId is int id && id > 0)
       _activeCount = await Api.GetVolunteerAssignmentCountAsync(id);
+    try
+    {
+      var iso = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.volunteerTokenExpires");
+      if (DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var exp))
+      {
+        var rem = exp - DateTime.UtcNow;
+        _sessionExpiresIn = rem.TotalDays >= 1
+          ? $"{(int)rem.TotalDays}d remaining"
+          : rem.TotalHours >= 1
+            ? $"{(int)rem.TotalHours}h remaining"
+            : $"{Math.Max(0, (int)rem.TotalMinutes)}m remaining";
+      }
+    }
+    catch { }
   }
 }

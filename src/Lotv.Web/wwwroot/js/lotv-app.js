@@ -14,6 +14,23 @@ window.lotvTheme = {
   }
 };
 
+// "/" focuses the global search if user isn't typing in another input.
+window.lotvSlashSearch = (function () {
+  var attached = false;
+  return {
+    attach: function () {
+      if (attached) return; attached = true;
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+        var search = document.querySelector('.topbar-search');
+        if (search) { e.preventDefault(); search.focus(); }
+      });
+    }
+  };
+})();
+
 // Cmd/Ctrl+K opens the Blazor command palette.
 window.lotvCmdK = {
   _ref: null, _handler: null,

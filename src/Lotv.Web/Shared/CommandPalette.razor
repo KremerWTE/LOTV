@@ -14,13 +14,21 @@
                style="border:none;outline:none;font-size:1rem;width:100%;padding:0;" />
       </div>
       <ul role="listbox" style="list-style:none;margin:0;padding:6px 0;max-height:60vh;overflow-y:auto;">
-        @{ var matches = Filtered.ToList(); }
+        @{ var matches = Filtered.ToList(); var showRecents = string.IsNullOrWhiteSpace(_query) && _recent.Count > 0; }
         @if (matches.Count == 0)
         {
           <li style="padding:14px;color:var(--text-light);text-align:center;font-size:.86rem;">No matches.</li>
         }
+        @if (showRecents)
+        {
+          <li style="padding:6px 18px;font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);">Recents</li>
+        }
         @for (var i = 0; i < matches.Count; i++)
         {
+          if (showRecents && i == _recent.Count)
+          {
+            <li style="padding:6px 18px 6px;margin-top:4px;border-top:1px solid var(--border);font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);">All pages</li>
+          }
           var idx = i;
           var m = matches[idx];
           <li role="option" aria-selected="@(idx == _highlight)"

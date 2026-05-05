@@ -2389,6 +2389,20 @@ publicApi.MapPost("/donor/magic-link", async (DonorMagicLinkRequest body,
     return Results.Ok(new { sent = true });
 }).AllowAnonymous();
 
+// Refresh the donor magic-link expiry on activity (sliding-window auth).
+publicApi.MapPost("/donor/refresh-session", async (DonorMagicLinkVerifyRequest body, LotvDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Token)) return Results.Unauthorized();
+    var link = await db.DonorMagicLinks.FirstOrDefaultAsync(l => l.Token == body.Token);
+    if (link is null || link.ExpiresAt < DateTime.UtcNow) return Results.Unauthorized();
+    // Extend by 24 hours, capped at 30 days from issue
+    var max = link.ExpiresAt.AddDays(30);
+    var next = DateTime.UtcNow.AddHours(24);
+    link.ExpiresAt = next < max ? next : max;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { expiresAt = link.ExpiresAt });
+}).AllowAnonymous();
+
 publicApi.MapPost("/donor/verify-link", async (DonorMagicLinkVerifyRequest body, LotvDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(body.Token)) return Results.BadRequest();
