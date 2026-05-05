@@ -220,6 +220,17 @@ public class ApiService
     public Task<List<PublicDonationRow>> GetPublicDonorDonationsAsync(int donorId) =>
         GetListAsync<PublicDonationRow>($"/api/public/v1/donors/{donorId}/donations");
 
+    public async Task<bool> UpdateDonorAvatarAsync(int donorId, string? avatarUrl)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync($"/api/public/v1/donors/{donorId}/avatar",
+                new { AvatarUrl = avatarUrl });
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     public Task<List<PublicFamilyRequestDto>> GetPublicFamilyRequestsAsync(int familyId) =>
         GetListAsync<PublicFamilyRequestDto>($"/api/public/v1/families/{familyId}/requests");
 
@@ -423,6 +434,11 @@ public class ApiService
     public Task<MigrationsDto?> GetMigrationsAsync() =>
         GetAsync<MigrationsDto>("/api/v1/admin/migrations");
     public record MigrationsDto(List<string> Applied, List<string> Pending);
+
+    public Task<DiagnosticsDto?> GetDiagnosticsAsync() =>
+        GetAsync<DiagnosticsDto>("/api/v1/admin/diagnostics");
+    public record DiagnosticsDto(int PushSubscriptionCount, DateTime? FxLatest, double? FxAgeHours,
+        string? LastMigration, int PendingMigrations, int WebhookEvents7d, int DonorsWithStripeCustomer);
 
     public Task<List<PushSubRow>> GetPushSubscriptionsAsync() =>
         GetListAsync<PushSubRow>("/api/v1/push/subscriptions");

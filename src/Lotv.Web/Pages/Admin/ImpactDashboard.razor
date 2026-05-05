@@ -32,7 +32,7 @@ else
     <div class="kpi-card kpi-gold">
       <div class="kpi-icon">&#128184;</div>
       <div class="kpi-label">Total Donated</div>
-      <div class="kpi-value" style="color:var(--gold)">@_stats?.DonationsThisMonth.ToString("C0")</div>
+      <div class="kpi-value" style="color:var(--gold)"><Money Amount="@(_stats?.DonationsThisMonth ?? 0m)" /></div>
     </div>
     <div class="kpi-card kpi-green">
       <div class="kpi-icon">&#128230;</div>
@@ -70,7 +70,7 @@ else
                     Orientation="horizontal" Color="var(--gold)" ShowPercent="true" />
           <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px;display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;">
             <span>Total Allocated</span>
-            <span>@_moneyFlow.Sum(m => m.Amount).ToString("C0")</span>
+            <span><Money Amount="@_moneyFlow.Sum(m => m.Amount)" /></span>
           </div>
         }
       </div>
@@ -134,7 +134,7 @@ else
             {
               <tr>
                 <td style="font-weight:600;">@pt.Period</td>
-                <td style="text-align:right;color:var(--gold);font-weight:600;">@pt.Donations.ToString("C0")</td>
+                <td style="text-align:right;color:var(--gold);font-weight:600;"><Money Amount="@pt.Donations" /></td>
                 <td style="text-align:right;color:var(--green);font-weight:600;">@pt.RequestsFulfilled</td>
                 <td style="text-align:right;">@pt.NewRequests</td>
               </tr>
@@ -177,7 +177,7 @@ else
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div class="kpi-card kpi-gold" style="padding:14px;">
             <div class="kpi-label">Total Allocated</div>
-            <div class="kpi-value" style="color:var(--gold);font-size:1.4rem;">@_moneyFlow.Sum(m => m.Amount).ToString("C0")</div>
+            <div class="kpi-value" style="color:var(--gold);font-size:1.4rem;"><Money Amount="@_moneyFlow.Sum(m => m.Amount)" /></div>
           </div>
           <div class="kpi-card kpi-green" style="padding:14px;">
             <div class="kpi-label">Resource Items</div>

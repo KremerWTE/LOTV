@@ -73,6 +73,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<DonorMagicLink> DonorMagicLinks => Set<DonorMagicLink>();
     public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
+    public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -381,6 +382,15 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(x => new { x.CurrencyCode, x.AsOf });
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
             e.Property(x => x.RateToUsd).HasPrecision(18, 8);
+        });
+
+        // ── WebhookEvent (idempotency ledger) ─────────────────────────────────
+        builder.Entity<WebhookEvent>(e =>
+        {
+            e.HasIndex(w => new { w.Source, w.ExternalId }).IsUnique();
+            e.Property(w => w.Source).HasMaxLength(30);
+            e.Property(w => w.ExternalId).HasMaxLength(80);
+            e.Property(w => w.EventType).HasMaxLength(100);
         });
 
         // ── Sponsor ──────────────────────────────────────────────────────────

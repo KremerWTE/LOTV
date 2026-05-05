@@ -18,12 +18,12 @@
   <div class="kpi-card kpi-green">
     <div class="kpi-icon">&#128184;</div>
     <div class="kpi-label">Total Raised</div>
-    <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.Total).ToString("C0")</div>
+    <div class="kpi-value" style="color:var(--green)"><Money Amount="@_rows.Sum(r => r.Total)" /></div>
   </div>
   <div class="kpi-card kpi-amber">
     <div class="kpi-icon">&#128200;</div>
     <div class="kpi-label">Avg Gift Size</div>
-    <div class="kpi-value" style="color:var(--amber)">@(_rows.Sum(r => r.GiftCount) > 0 ? (_rows.Sum(r => r.Total) / _rows.Sum(r => r.GiftCount)).ToString("C0") : "—")</div>
+    <div class="kpi-value" style="color:var(--amber)">@if (_rows.Sum(r => r.GiftCount) > 0) { <Money Amount="@(_rows.Sum(r => r.Total) / _rows.Sum(r => r.GiftCount))" /> } else { <text>—</text> }</div>
   </div>
   <div class="kpi-card kpi-gold">
     <div class="kpi-icon">&#128260;</div>
@@ -53,10 +53,10 @@
             </td>
             <td><span class="badge @TierBadge(d.Donor.Tier)">@d.Donor.Tier</span></td>
             <td style="font-weight:600;">@d.GiftCount</td>
-            <td style="font-weight:700;color:var(--green);">@d.Total.ToString("C0")</td>
+            <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Total" /></td>
             <td style="font-size:.8rem;">
               @if (d.Donor.IsRecurring)
-              { <span style="color:var(--green);font-weight:700;">&#10003; @d.Donor.RecurringAmount?.ToString("C0")/mo</span> }
+              { <span style="color:var(--green);font-weight:700;">&#10003; <Money Amount="@(d.Donor.RecurringAmount ?? 0m)" />/mo</span> }
               else
               { <span style="color:var(--text-light);">One-time</span> }
             </td>
@@ -78,7 +78,7 @@
                   {
                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;padding:6px 10px;background:white;border-radius:7px;border:1px solid var(--border);">
                       <div>
-                        <span style="font-weight:700;color:var(--green);">@g.Amount.ToString("C0")</span>
+                        <span style="font-weight:700;color:var(--green);"><Money Amount="@g.Amount" /></span>
                         <span style="color:var(--text-light);margin-left:8px;">@g.Date.ToString("MMM d, yyyy")</span>
                         @if (!string.IsNullOrEmpty(g.Campaign))
                         { <span style="color:var(--text-mid);margin-left:6px;">&bull; @g.Campaign</span> }

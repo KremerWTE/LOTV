@@ -109,6 +109,27 @@ else
         </table>
       </div>
     </div>
+    @if (_diag is not null)
+    {
+      <div class="panel">
+        <div class="panel-header">Runtime Diagnostics</div>
+        <div class="panel-body" style="font-size:.85rem;line-height:1.9;">
+          <div><strong>Push subscriptions:</strong> @_diag.PushSubscriptionCount</div>
+          <div><strong>FX rate updated:</strong>
+            @if (_diag.FxLatest is null) { <span style="color:var(--amber);">never</span> }
+            else { <span>@_diag.FxLatest.Value.ToLocalTime().ToString("MMM d, h:mm tt") (@(_diag.FxAgeHours?.ToString("F0") ?? "?") h ago)</span> }
+          </div>
+          <div><strong>Last migration:</strong> <span style="font-family:monospace;font-size:.78rem;">@(_diag.LastMigration ?? "—")</span></div>
+          <div><strong>Pending migrations:</strong>
+            @if (_diag.PendingMigrations > 0) { <span style="color:var(--amber);">@_diag.PendingMigrations</span> }
+            else { <span style="color:var(--green-dark);">none</span> }
+          </div>
+          <div><strong>Webhook events (7d):</strong> @_diag.WebhookEvents7d</div>
+          <div><strong>Donors w/ Stripe Customer:</strong> @_diag.DonorsWithStripeCustomer</div>
+        </div>
+      </div>
+    }
+
     <div class="panel">
       <div class="panel-header">Quick Actions</div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
@@ -132,6 +153,7 @@ else
     : _hasDegraded ? "&#9888; Some services are degraded"
     : "&#10004; All systems operational";
   private DateTime _lastChecked;
+  private ApiService.DiagnosticsDto? _diag;
   private long _apiLatencyMs;
   private List<HealthCheckItem> _checks = [];
 
@@ -152,6 +174,7 @@ else
   {
     _checking = true;
     _checks = [];
+    _diag = await Api.GetDiagnosticsAsync();
 
     var sw = System.Diagnostics.Stopwatch.StartNew();
 

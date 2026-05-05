@@ -315,7 +315,7 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
 });
 
 // Donation intake: creates Donor + Donation records
-publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db) =>
+publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db, IConfiguration cfg) =>
 {
     if (string.IsNullOrWhiteSpace(body.Donor.FirstName) ||
         string.IsNullOrWhiteSpace(body.Donor.LastName) ||
@@ -324,17 +324,43 @@ publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db) =
     if (body.Donation.Amount <= 0)
         return Results.BadRequest(new { error = "Donation amount must be greater than zero." });
 
-    body.Donor.CreatedAt = DateTime.UtcNow;
-    db.Donors.Add(body.Donor);
-    await db.SaveChangesAsync();
+    // Reuse existing donor record by email so we don't create duplicates on repeat gifts.
+    var donor = await db.Donors.FirstOrDefaultAsync(d => d.Email == body.Donor.Email);
+    if (donor is null)
+    {
+        body.Donor.CreatedAt = DateTime.UtcNow;
+        db.Donors.Add(body.Donor);
+        await db.SaveChangesAsync();
+        donor = body.Donor;
+    }
 
-    body.Donation.DonorId = body.Donor.Id;
-    body.Donation.ChapterId = body.Donor.ChapterId;
+    // Create a Stripe Customer if configured and we don't already have one — lets webhook
+    // events linked to this customer-id flow back to the right donor.
+    var secretKey = cfg["Stripe:SecretKey"];
+    if (!string.IsNullOrEmpty(secretKey) && string.IsNullOrEmpty(donor.StripeCustomerId))
+    {
+        try
+        {
+            Stripe.StripeConfiguration.ApiKey = secretKey;
+            var cust = await new Stripe.CustomerService().CreateAsync(new Stripe.CustomerCreateOptions
+            {
+                Email = donor.Email,
+                Name  = donor.FullName,
+                Metadata = new Dictionary<string, string> { ["donorId"] = donor.Id.ToString() },
+            });
+            donor.StripeCustomerId = cust.Id;
+            await db.SaveChangesAsync();
+        }
+        catch { /* non-fatal — donation still records without Stripe link */ }
+    }
+
+    body.Donation.DonorId = donor.Id;
+    body.Donation.ChapterId = donor.ChapterId;
     body.Donation.Date = DateTime.UtcNow;
     db.Donations.Add(body.Donation);
     await db.SaveChangesAsync();
 
-    return Results.Created($"/api/v1/donations/{body.Donation.Id}", new { donorId = body.Donor.Id, donationId = body.Donation.Id });
+    return Results.Created($"/api/v1/donations/{body.Donation.Id}", new { donorId = donor.Id, donationId = body.Donation.Id });
 });
 
 // Volunteer signup: creates a Volunteer record in Onboarding status
@@ -2468,6 +2494,27 @@ app.MapGet("/api/v1/admin/migrations", async (LotvDbContext db) =>
     return Results.Ok(new { applied, pending });
 }).RequireAuthorization("ChapterAdmin");
 
+// Health diagnostics — extended runtime stats for /admin/health
+app.MapGet("/api/v1/admin/diagnostics", async (LotvDbContext db) =>
+{
+    var pushCount     = await db.PushSubscriptions.CountAsync();
+    var fxLatest      = await db.ExchangeRates.OrderByDescending(r => r.AsOf).Select(r => r.AsOf).FirstOrDefaultAsync();
+    var lastMigration = (await db.Database.GetAppliedMigrationsAsync()).LastOrDefault();
+    var pending       = (await db.Database.GetPendingMigrationsAsync()).Count();
+    var webhookCount  = await db.WebhookEvents.CountAsync(w => w.ReceivedAt >= DateTime.UtcNow.AddDays(-7));
+    var stripeCustomers = await db.Donors.CountAsync(d => d.StripeCustomerId != null);
+    return Results.Ok(new
+    {
+        pushSubscriptionCount = pushCount,
+        fxLatest,
+        fxAgeHours = fxLatest == default ? (double?)null : (DateTime.UtcNow - fxLatest).TotalHours,
+        lastMigration,
+        pendingMigrations = pending,
+        webhookEvents7d = webhookCount,
+        donorsWithStripeCustomer = stripeCustomers,
+    });
+}).RequireAuthorization("ChapterAdmin");
+
 push.MapGet("/subscriptions", async (LotvDbContext db, UserManager<LotvIdentityUser> userMgr) =>
 {
     var subs = await db.PushSubscriptions.OrderByDescending(s => s.CreatedAt).ToListAsync();
@@ -2691,6 +2738,12 @@ app.MapPost("/api/v1/payments/webhook", async (HttpRequest request, LotvDbContex
             : Stripe.EventUtility.ConstructEvent(json, sig, sigSecret);
     }
     catch (Exception ex) { log.LogWarning(ex, "Stripe webhook signature failed"); return Results.BadRequest(); }
+
+    // Idempotency: skip if already processed
+    if (await db.WebhookEvents.AnyAsync(w => w.Source == "stripe" && w.ExternalId == ev.Id))
+        return Results.Ok(new { duplicate = true });
+    db.WebhookEvents.Add(new WebhookEvent { Source = "stripe", ExternalId = ev.Id, EventType = ev.Type });
+    await db.SaveChangesAsync();
 
     Stripe.StripeConfiguration.ApiKey = secretKey;
 
