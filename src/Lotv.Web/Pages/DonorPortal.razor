@@ -33,7 +33,16 @@
         }
       </div>
       <div style="flex:1;">
-        <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0;">Welcome back.</h1>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0;">Welcome back.</h1>
+          @if (_sessionExpiresIn is not null)
+          {
+            <span title="Magic-link session expiry"
+                  style="font-size:.74rem;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:3px 10px;color:var(--text-light);">
+              ⏱ @_sessionExpiresIn
+            </span>
+          }
+        </div>
         <input type="file" @ref="_fileInput" accept="image/*" style="display:none;" @onchange="OnAvatarSelected" />
         <button class="btn btn-sm" type="button" @onclick="PickAvatar" style="margin-top:6px;">@(_avatarUrl is null ? "Add photo" : "Change photo")</button>
         @if (_avatarUrl is not null)
@@ -78,6 +87,14 @@
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Continue supporting families in their hardest moments.</p>
         </div>
       </a>
+      <a href="@($"/api/public/v1/donations/year-end/{DonorId}/{DateTime.UtcNow.Year}?format=pdf")" target="_blank" rel="noopener" class="panel" style="text-decoration:none;">
+        <div class="panel-body">
+          <div style="font-size:1.4rem;margin-bottom:8px;">&#129303;</div>
+          <strong style="font-family:var(--ff-head);color:var(--navy);">Year-End Statement (@DateTime.UtcNow.Year)</strong>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Download a PDF tax statement for this year's giving.</p>
+        </div>
+      </a>
+
       <button type="button" class="panel" style="text-align:left;border:1px solid var(--border);background:white;cursor:pointer;" @onclick="OpenBillingPortal">
         <div class="panel-body">
           <div style="font-size:1.4rem;margin-bottom:8px;">&#128179;</div>
@@ -97,6 +114,7 @@
   private DateTime? _last;
   private string? _avatarUrl;
   private ElementReference _fileInput;
+  private string? _sessionExpiresIn;
 
   private async Task PickAvatar() => await JS.InvokeVoidAsync("lotvUpload.click", _fileInput);
 
@@ -138,5 +156,19 @@
       _count = impact.GiftCount;
       _last  = impact.DonationHistory.OrderByDescending(d => d.Date).FirstOrDefault()?.Date;
     }
+    try
+    {
+      var iso = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorTokenExpires");
+      if (DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var exp))
+      {
+        var remaining = exp - DateTime.UtcNow;
+        _sessionExpiresIn = remaining.TotalDays >= 1
+          ? $"{(int)remaining.TotalDays}d remaining"
+          : remaining.TotalHours >= 1
+            ? $"{(int)remaining.TotalHours}h remaining"
+            : $"{Math.Max(0, (int)remaining.TotalMinutes)}m remaining";
+      }
+    }
+    catch { }
   }
 }

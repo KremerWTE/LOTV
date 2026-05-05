@@ -330,6 +330,7 @@
                 style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:.95rem;color:var(--text-mid);margin-right:8px;">
           @(_dark ? "☀" : "🌙")
         </button>
+        <span style="margin-right:8px;"><LanguageSwitcher /></span>
 
         <div class="user-pill" style="gap:8px;">
           @if (!string.IsNullOrEmpty(Auth.UserAvatarUrl))

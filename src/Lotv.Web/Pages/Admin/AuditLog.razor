@@ -37,8 +37,8 @@
 
 <!-- FILTER BAR -->
 <div class="filter-bar">
-  @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged","Deleted"})
-  { <button class="filter-chip @(_actionFilter == f ? "active" : "")" aria-pressed="@(_actionFilter == f)" @onclick="() => _actionFilter = f">@f</button> }
+  @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged","Deleted","SignatureFailed"})
+  { <button class="filter-chip @(_actionFilter == f ? "active" : "")" aria-pressed="@(_actionFilter == f)" @onclick="() => _actionFilter = f">@(f == "SignatureFailed" ? "⚠ Webhook fails" : f)</button> }
   <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
   @foreach (var d in new[]{"All Time","Today","This Week","This Month"})
   { <button class="filter-chip @(_dateFilter == d ? "active" : "")" aria-pressed="@(_dateFilter == d)" @onclick="() => _dateFilter = d">@d</button> }

@@ -65,12 +65,17 @@
     if (!string.IsNullOrWhiteSpace(token))
     {
       _state = State.Verifying;
-      var donorId = await Api.VerifyDonorMagicLinkAsync(token!);
-      if (donorId is not null)
+      var resp = await Api.VerifyDonorMagicLinkAsync(token!);
+      if (resp is not null)
       {
         _state = State.Verified;
-        try { await JS.InvokeVoidAsync("sessionStorage.setItem", "lotv.donorToken", token); } catch { }
-        Nav.NavigateTo($"/donor/portal?DonorId={donorId.Value}");
+        try
+        {
+          await JS.InvokeVoidAsync("sessionStorage.setItem", "lotv.donorToken", token);
+          await JS.InvokeVoidAsync("sessionStorage.setItem", "lotv.donorTokenExpires", resp.ExpiresAt.ToString("O"));
+        }
+        catch { }
+        Nav.NavigateTo($"/donor/portal?DonorId={resp.DonorId}");
       }
       else
       {

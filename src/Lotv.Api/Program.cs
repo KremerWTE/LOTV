@@ -2339,7 +2339,7 @@ publicApi.MapPost("/donor/verify-link", async (DonorMagicLinkVerifyRequest body,
         return Results.Unauthorized();
     link.UsedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
-    return Results.Ok(new { donorId = link.DonorId });
+    return Results.Ok(new { donorId = link.DonorId, expiresAt = link.ExpiresAt });
 }).AllowAnonymous();
 
 // ── Push subscriptions / VAPID ───────────────────────────────────────────────
@@ -2362,6 +2362,21 @@ publicApi.MapGet("/currencies", async (LotvDbContext db) =>
             name = c.Name,
             rateToUsd = rates.TryGetValue(c.Code, out var rate) ? rate : (c.Code == "USD" ? 1m : 0m)
         }));
+}).AllowAnonymous();
+
+// GET /api/public/v1/donations/year-end/{donorId}/{year}?format=pdf — public year-end statement
+publicApi.MapGet("/donations/year-end/{donorId:int}/{year:int}", async (int donorId, int year, string? format,
+    IReceiptService receipts, PdfReceiptService pdf) =>
+{
+    if (string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
+    {
+        var bytes = await pdf.RenderYearEndAsync(donorId, year);
+        return bytes is null
+            ? Results.NotFound()
+            : Results.File(bytes, "application/pdf", $"LOTV-{year}-statement.pdf");
+    }
+    var (found, html) = await receipts.GetYearEndHtmlAsync(donorId, year);
+    return found ? Results.Content(html!, "text/html") : Results.NotFound();
 }).AllowAnonymous();
 
 // GET /api/public/v1/donations/{id}/receipt — donor self-service receipt (HTML or PDF via ?format=pdf)
@@ -2510,6 +2525,45 @@ push.MapPost("/subscribe", async (PushSubscriptionRequest body, IChapterContextS
     await db.SaveChangesAsync();
     return Results.Ok(new { ok = true });
 });
+// Bulk: send portal links to all donors of a specific diocese.
+app.MapPost("/api/v1/donors/send-portal-link/bulk-diocese", async (string diocese, LotvDbContext db, INotificationService notify, IChapterContextService ctx) =>
+{
+    if (string.IsNullOrWhiteSpace(diocese)) return Results.BadRequest();
+    var donors = await db.Donors
+        .Where(d => d.ChapterId == ctx.ChapterId
+            && !string.IsNullOrEmpty(d.Email)
+            && !d.IsAnonymous
+            && d.DioceseName == diocese)
+        .ToListAsync();
+
+    var recent = (await db.DonorMagicLinks
+        .Where(l => l.ExpiresAt > DateTime.UtcNow && l.UsedAt == null)
+        .Select(l => l.DonorId)
+        .ToListAsync()).ToHashSet();
+
+    var sent = 0;
+    foreach (var donor in donors)
+    {
+        if (recent.Contains(donor.Id)) continue;
+        var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        db.DonorMagicLinks.Add(new DonorMagicLink
+        {
+            DonorId = donor.Id, Token = token, ExpiresAt = DateTime.UtcNow.AddDays(7),
+        });
+        var link = $"/donor/login?token={token}";
+        try
+        {
+            await notify.SendEmailAsync(donor.Email!, donor.FullName ?? "Donor",
+                "Access your LOTV donor portal",
+                $"<p>Hello {donor.FirstName},</p><p>You can access your donor portal here (link valid 7 days):</p><p><a href=\"{link}\">{link}</a></p>");
+            sent++;
+        }
+        catch { }
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok(new { sent, skipped = donors.Count - sent, diocese });
+}).RequireAuthorization("ChapterAdmin");
+
 // Bulk: send portal links to all chapter donors with email + no active link in past 24h.
 app.MapPost("/api/v1/donors/send-portal-link/bulk", async (LotvDbContext db, INotificationService notify, IChapterContextService ctx) =>
 {
@@ -2582,8 +2636,17 @@ app.MapGet("/api/v1/admin/webhooks", async (LotvDbContext db, string? source, in
 {
     var q = db.WebhookEvents.AsQueryable();
     if (!string.IsNullOrEmpty(source)) q = q.Where(w => w.Source == source);
-    var rows = await q.OrderByDescending(w => w.ReceivedAt).Take(Math.Min(take, 500)).ToListAsync();
+    // Don't ship payload in list view; use detail endpoint
+    var rows = await q.OrderByDescending(w => w.ReceivedAt).Take(Math.Min(take, 500))
+        .Select(w => new { w.Id, w.Source, w.ExternalId, w.EventType, w.ReceivedAt })
+        .ToListAsync();
     return Results.Ok(rows);
+}).RequireAuthorization("ChapterAdmin");
+
+app.MapGet("/api/v1/admin/webhooks/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var w = await db.WebhookEvents.FindAsync(id);
+    return w is null ? Results.NotFound() : Results.Ok(w);
 }).RequireAuthorization("ChapterAdmin");
 
 // VAPID keypair generator — HQAdmin-only diagnostic helper that emits a key pair
@@ -2873,7 +2936,11 @@ app.MapPost("/api/v1/payments/webhook", async (HttpRequest request, LotvDbContex
     // Idempotency: skip if already processed
     if (await db.WebhookEvents.AnyAsync(w => w.Source == "stripe" && w.ExternalId == ev.Id))
         return Results.Ok(new { duplicate = true });
-    db.WebhookEvents.Add(new WebhookEvent { Source = "stripe", ExternalId = ev.Id, EventType = ev.Type });
+    db.WebhookEvents.Add(new WebhookEvent
+    {
+        Source = "stripe", ExternalId = ev.Id, EventType = ev.Type,
+        Payload = json.Length > 32_000 ? json[..32_000] : json,
+    });
     await db.SaveChangesAsync();
 
     Stripe.StripeConfiguration.ApiKey = secretKey;
@@ -2992,7 +3059,11 @@ app.MapPost("/api/v1/payments/givebutter/webhook", async (
     {
         if (await db.WebhookEvents.AnyAsync(w => w.Source == "givebutter" && w.ExternalId == tx.Id))
             return Results.Ok(new { duplicate = true });
-        db.WebhookEvents.Add(new WebhookEvent { Source = "givebutter", ExternalId = tx.Id, EventType = envelope.Event });
+        db.WebhookEvents.Add(new WebhookEvent
+        {
+            Source = "givebutter", ExternalId = tx.Id, EventType = envelope.Event,
+            Payload = rawBody.Length > 32_000 ? rawBody[..32_000] : rawBody,
+        });
         await db.SaveChangesAsync();
     }
 

@@ -244,6 +244,16 @@ public class ApiService
         }
         catch { return null; }
     }
+    public async Task<BulkLinkResult?> SendBulkPortalLinksByDioceseAsync(string diocese)
+    {
+        try
+        {
+            var resp = await _http.PostAsync($"/api/v1/donors/send-portal-link/bulk-diocese?diocese={Uri.EscapeDataString(diocese)}", null);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<BulkLinkResult>();
+        }
+        catch { return null; }
+    }
     public record BulkLinkResult(int Sent, int Skipped);
 
     public async Task<bool> SendDonorPortalLinkAsync(int donorId, int days = 7)
@@ -449,18 +459,17 @@ public class ApiService
         }
         catch { return false; }
     }
-    public async Task<int?> VerifyDonorMagicLinkAsync(string token)
+    public async Task<MagicLinkResp?> VerifyDonorMagicLinkAsync(string token)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/api/public/v1/donor/verify-link", new { Token = token });
             if (!resp.IsSuccessStatusCode) return null;
-            var doc = await resp.Content.ReadFromJsonAsync<MagicLinkResp>();
-            return doc?.DonorId;
+            return await resp.Content.ReadFromJsonAsync<MagicLinkResp>();
         }
         catch { return null; }
     }
-    private record MagicLinkResp(int DonorId);
+    public record MagicLinkResp(int DonorId, DateTime ExpiresAt);
 
     // ── Push subscription ─────────────────────────────────────────────────
     public Task<MigrationsDto?> GetMigrationsAsync() =>
@@ -470,6 +479,10 @@ public class ApiService
     public Task<List<WebhookEventRow>> GetWebhookEventsAsync(string? source = null) =>
         GetListAsync<WebhookEventRow>($"/api/v1/admin/webhooks{(source is null ? "" : $"?source={source}")}");
     public record WebhookEventRow(int Id, string Source, string ExternalId, string EventType, DateTime ReceivedAt);
+
+    public Task<WebhookEventDetail?> GetWebhookEventAsync(int id) =>
+        GetAsync<WebhookEventDetail>($"/api/v1/admin/webhooks/{id}");
+    public record WebhookEventDetail(int Id, string Source, string ExternalId, string EventType, DateTime ReceivedAt, string? Payload);
 
     public async Task<VapidKeyPair?> GenerateVapidKeysAsync()
     {

@@ -8,4 +8,5 @@ public class WebhookEvent
     public string ExternalId { get; set; } = "";   // Stripe Event.Id
     public string EventType { get; set; } = "";
     public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
+    public string? Payload { get; set; }   // raw JSON, capped at ~32KB
 }

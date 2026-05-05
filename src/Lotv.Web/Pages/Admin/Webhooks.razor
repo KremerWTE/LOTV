@@ -27,7 +27,7 @@
         }
         @foreach (var r in _rows)
         {
-          <tr>
+          <tr style="cursor:pointer;" @onclick="() => OpenDetail(r.Id)">
             <td style="font-size:.78rem;color:var(--text-light);">@r.ReceivedAt.ToLocalTime().ToString("MMM d, h:mm:ss tt")</td>
             <td><span class="badge">@r.Source</span></td>
             <td style="font-family:monospace;font-size:.78rem;">@r.EventType</td>
@@ -39,9 +39,28 @@
   </div>
 </div>
 
+@if (_detail is not null)
+{
+  <div class="drawer-overlay" @onclick="() => _detail = null"></div>
+  <div class="drawer">
+    <div class="drawer-head">
+      <h3>@_detail.Source — @_detail.EventType</h3>
+      <button class="drawer-close" @onclick="() => _detail = null">&#10005;</button>
+    </div>
+    <div class="drawer-body">
+      <div style="font-size:.78rem;color:var(--text-light);margin-bottom:8px;">
+        @_detail.ReceivedAt.ToLocalTime().ToString("MMM d, yyyy h:mm:ss tt") · @_detail.ExternalId
+      </div>
+      <pre style="background:var(--bg);border-radius:6px;padding:12px;font-size:.72rem;overflow:auto;max-height:60vh;white-space:pre-wrap;word-break:break-all;">@(_detail.Payload ?? "(payload not stored)")</pre>
+    </div>
+  </div>
+}
+
 @code {
   private List<ApiService.WebhookEventRow> _rows = new();
   private string? _filter;
+  private ApiService.WebhookEventDetail? _detail;
+  private async Task OpenDetail(int id) => _detail = await Api.GetWebhookEventAsync(id);
 
   protected override async Task OnInitializedAsync() => await Load();
 
