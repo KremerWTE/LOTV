@@ -41,7 +41,11 @@
 <!-- FILTER BAR -->
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Created","Updated","Approved","Exported","Flagged","Deleted","SignatureFailed"})
-  { <button class="filter-chip @(_actionFilter == f ? "active" : "")" aria-pressed="@(_actionFilter == f)" @onclick="() => _actionFilter = f">@(f == "SignatureFailed" ? "⚠ Webhook fails" : f)</button> }
+  {
+    var n = f == "All" ? _log.Count : _log.Count(e => e.Action.Equals(f, StringComparison.OrdinalIgnoreCase));
+    var label = f == "SignatureFailed" ? "⚠ Webhook fails" : f;
+    <button class="filter-chip @(_actionFilter == f ? "active" : "")" aria-pressed="@(_actionFilter == f)" @onclick="() => _actionFilter = f">@label · @n</button>
+  }
   <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
   @foreach (var d in new[]{"All Time","Last 24h","Today","This Week","This Month"})
   { <button class="filter-chip @(_dateFilter == d ? "active" : "")" aria-pressed="@(_dateFilter == d)" @onclick="() => _dateFilter = d">@d</button> }
@@ -79,7 +83,7 @@
     else if (_visible < Filtered.Count())
     {
       <div style="text-align:center;padding:14px;border-top:1px solid var(--border);">
-        <button class="btn btn-sm" @onclick="() => _visible += 100">Load 100 more (@(Filtered.Count() - _visible) hidden)</button>
+        <button class="btn btn-sm" data-autoload @onclick="() => _visible += 100">Load 100 more (@(Filtered.Count() - _visible) hidden)</button>
       </div>
     }
   </div>

@@ -487,6 +487,19 @@ public class ApiService
     public Task<WebhookEventDetail?> GetWebhookEventAsync(int id) =>
         GetAsync<WebhookEventDetail>($"/api/v1/admin/webhooks/{id}");
 
+    public async Task<int> BulkAllocateAsync(int[] ids, string status)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/v1/donations/bulk-allocate", new { Ids = ids, Status = status });
+            if (!resp.IsSuccessStatusCode) return 0;
+            var doc = await resp.Content.ReadFromJsonAsync<BulkAllocateResp>();
+            return doc?.Updated ?? 0;
+        }
+        catch { return 0; }
+    }
+    private record BulkAllocateResp(int Updated);
+
     public async Task<int?> PruneWebhooksAsync(int days = 90)
     {
         try

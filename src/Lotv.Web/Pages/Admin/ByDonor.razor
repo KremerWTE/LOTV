@@ -149,7 +149,7 @@
         @if (Filtered.Count() > _visible)
         {
           <tr><td colspan="8" style="text-align:center;padding:14px;border-top:1px solid var(--border);">
-            <button class="btn btn-sm" @onclick="() => _visible += 100">Load 100 more (@(Filtered.Count() - _visible) hidden)</button>
+            <button class="btn btn-sm" data-autoload @onclick="() => _visible += 100">Load 100 more (@(Filtered.Count() - _visible) hidden)</button>
           </td></tr>
         }
       </tbody>

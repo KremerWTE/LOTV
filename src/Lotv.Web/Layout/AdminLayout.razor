@@ -375,6 +375,7 @@
 </div>
 
 <ToastNotification />
+<CommandPalette />
 
 @inject IJSRuntime JS
 
@@ -439,6 +440,7 @@
     try { _dark = (await JS.InvokeAsync<string>("lotvTheme.get")) == "dark"; } catch { }
     try { _sidebarCollapsed = (await JS.InvokeAsync<string?>("localStorage.getItem", "lotv.sidebar")) == "collapsed"; } catch { }
     try { await JS.InvokeVoidAsync("lotvScrollShadow.attach"); } catch { }
+    Nav.LocationChanged += async (_, _) => { try { await JS.InvokeVoidAsync("lotvAutoLoad.attach"); } catch { } };
     _ = Auth.RefreshAvatarAsync();
 
     if (_isAdmin)

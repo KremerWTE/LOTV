@@ -53,8 +53,18 @@
 <div class="panel">
   <div class="panel-body" style="padding:0;">
     <table class="data-table">
+      @if (_selected.Count > 0)
+      {
+        <caption style="caption-side:top;text-align:left;background:var(--green-pale);border:1px solid var(--green);padding:8px 14px;border-radius:8px;margin-bottom:8px;">
+          <span style="font-size:.84rem;">@_selected.Count selected</span>
+          <button class="btn btn-sm" style="margin-left:10px;" @onclick='() => BulkSet("Allocated")'>Mark Allocated</button>
+          <button class="btn btn-sm" @onclick='() => BulkSet("Unallocated")'>Mark Unallocated</button>
+          <button class="btn btn-sm" @onclick="() => _selected.Clear()">Clear</button>
+        </caption>
+      }
       <thead>
         <tr>
+          <th style="width:24px;"><input type="checkbox" checked="@(_selected.Count > 0 && _selected.Count == Filtered.Take(_visible).Count())" @onchange="@(e => ToggleAll((bool)e.Value!))" /></th>
           <th>#</th>
           <th>Donor</th>
           <th style="cursor:pointer;user-select:none;" @onclick='() => Sort("Amount")'>
@@ -70,9 +80,10 @@
         </tr>
       </thead>
       <tbody>
-        @foreach (var d in Filtered)
+        @foreach (var d in Filtered.Take(_visible))
         {
           <tr>
+            <td style="width:24px;"><input type="checkbox" checked="@_selected.Contains(d.Id)" @onchange="@(e => Toggle(d.Id, (bool)e.Value!))" /></td>
             <td style="font-size:.74rem;color:var(--text-light);">#@d.Id</td>
             <td><strong>@(d.Donor?.FullName ?? "—")</strong></td>
             <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Amount" /></td>
@@ -98,6 +109,12 @@
               { <button class="btn btn-sm btn-navy" @onclick="() => Allocate(d)">Allocate</button> }
             </td>
           </tr>
+        }
+        @if (Filtered.Count() > _visible)
+        {
+          <tr><td colspan="9" style="text-align:center;padding:14px;border-top:1px solid var(--border);">
+            <button class="btn btn-sm" data-autoload @onclick="() => _visible += 50">Load 50 more (@(Filtered.Count() - _visible) hidden)</button>
+          </td></tr>
         }
       </tbody>
     </table>
@@ -202,6 +219,22 @@
   private bool _dIsRecurring;
   private string _dNotes = "";
   private string _addError = "";
+  private int _visible = 50;
+  private HashSet<int> _selected = new();
+  private void Toggle(int id, bool on)
+  {
+    if (on) _selected.Add(id); else _selected.Remove(id);
+  }
+  private void ToggleAll(bool on)
+  {
+    _selected.Clear();
+    if (on) foreach (var d in Filtered.Take(_visible)) _selected.Add(d.Id);
+  }
+  private async Task BulkSet(string status)
+  {
+    var n = await Api.BulkAllocateAsync(_selected.ToArray(), status);
+    if (n > 0) { _selected.Clear(); _all = await Api.GetDonationsAsync(); }
+  }
 
   private readonly string[] _filters = ["All", "This Month", "Online", "Check", "Gala", "Unallocated", "Recurring", "One-time"];
 

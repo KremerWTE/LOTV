@@ -31,7 +31,12 @@
   <div class="panel-body" style="padding:0;">
     <table class="data-table">
       <thead>
-        <tr><th>Received</th><th>Source</th><th>Event Type</th><th>External ID</th></tr>
+        <tr>
+          <th style="cursor:pointer;" @onclick='() => Sort("Received")'>Received @Arrow("Received")</th>
+          <th style="cursor:pointer;" @onclick='() => Sort("Source")'>Source @Arrow("Source")</th>
+          <th style="cursor:pointer;" @onclick='() => Sort("Type")'>Event Type @Arrow("Type")</th>
+          <th>External ID</th>
+        </tr>
       </thead>
       <tbody>
         @if (Filtered.Count == 0)
@@ -79,11 +84,29 @@
   private IReadOnlyDictionary<string, int> _typeCounts =>
     _rows.GroupBy(r => r.EventType).ToDictionary(g => g.Key, g => g.Count());
 
-  private List<ApiService.WebhookEventRow> Filtered => string.IsNullOrWhiteSpace(_search)
-    ? _rows
-    : _rows.Where(r =>
-        (r.ExternalId?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
-        r.EventType.Contains(_search, StringComparison.OrdinalIgnoreCase)).ToList();
+  private string _sort = "Received";
+  private bool _sortDesc = true;
+  private void Sort(string col) { if (_sort == col) _sortDesc = !_sortDesc; else { _sort = col; _sortDesc = true; } }
+  private MarkupString Arrow(string col) =>
+    new(_sort == col ? (_sortDesc ? "&#9662;" : "&#9652;") : "");
+
+  private List<ApiService.WebhookEventRow> Filtered
+  {
+    get
+    {
+      IEnumerable<ApiService.WebhookEventRow> q = _rows;
+      if (!string.IsNullOrWhiteSpace(_search))
+        q = q.Where(r => (r.ExternalId?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                          r.EventType.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      Func<ApiService.WebhookEventRow, IComparable> key = _sort switch
+      {
+        "Source" => r => r.Source,
+        "Type"   => r => r.EventType,
+        _        => r => r.ReceivedAt,
+      };
+      return (_sortDesc ? q.OrderByDescending(key) : q.OrderBy(key)).ToList();
+    }
+  }
 
   protected override async Task OnInitializedAsync() => await Load();
 

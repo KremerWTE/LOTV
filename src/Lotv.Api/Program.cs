@@ -2645,6 +2645,17 @@ app.MapGet("/api/v1/admin/migrations", async (LotvDbContext db) =>
     return Results.Ok(new { applied, pending });
 }).RequireAuthorization("ChapterAdmin");
 
+// Bulk allocation status update for donations
+app.MapPost("/api/v1/donations/bulk-allocate", async (BulkAllocateRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    if (body.Ids is null || body.Ids.Length == 0) return Results.BadRequest();
+    if (!Enum.TryParse<AllocationStatus>(body.Status, true, out var status)) return Results.BadRequest(new { error = "Invalid status." });
+    var donations = await db.Donations.Where(d => body.Ids.Contains(d.Id) && (ctx.IsHqAdmin || d.ChapterId == ctx.ChapterId)).ToListAsync();
+    foreach (var d in donations) d.AllocationStatus = status;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { updated = donations.Count });
+}).RequireAuthorization("ChapterAdmin");
+
 // Webhook events admin viewer
 app.MapGet("/api/v1/admin/webhooks", async (LotvDbContext db, string? source, int take = 100) =>
 {
@@ -3614,6 +3625,7 @@ record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,
 record AvatarUpdateRequest(string? AvatarUrl);
 record PaymentIntentRequest(decimal Amount, string? Currency);
 record BillingPortalRequest(string Token);
+record BulkAllocateRequest(int[] Ids, string Status);
 record PushSubscriptionRequest(string Endpoint, string P256dh, string Auth);
 record DonorMagicLinkRequest(string Email);
 record DonorMagicLinkVerifyRequest(string Token);

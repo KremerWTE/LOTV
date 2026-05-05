@@ -14,6 +14,40 @@ window.lotvTheme = {
   }
 };
 
+// Cmd/Ctrl+K opens the Blazor command palette.
+window.lotvCmdK = {
+  _ref: null, _handler: null,
+  attach: function (dotnetRef) {
+    this._ref = dotnetRef;
+    var self = this;
+    this._handler = function (e) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        self._ref && self._ref.invokeMethodAsync('Open');
+      }
+    };
+    document.addEventListener('keydown', this._handler);
+  },
+  detach: function () {
+    if (this._handler) document.removeEventListener('keydown', this._handler);
+    this._handler = null; this._ref = null;
+  }
+};
+
+// Auto-click a "Load more" button when its sentinel scrolls into view.
+window.lotvAutoLoad = {
+  attach: function () {
+    document.querySelectorAll('[data-autoload]').forEach(function (el) {
+      if (el.dataset.autoloadAttached) return;
+      el.dataset.autoloadAttached = '1';
+      var io = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) el.click();
+      }, { rootMargin: '200px' });
+      io.observe(el);
+    });
+  }
+};
+
 // Detect when a .sticky-filter element becomes stuck (top:0) using a sentinel.
 window.lotvStickyFilter = {
   attach: function () {
