@@ -1,0 +1,121 @@
+@page "/admin/year-end"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Year-End Giving — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Year-End Giving Summary</h2><p>Generate donor tax receipt summaries for year-end giving statements</p></div>
+</div>
+
+<!-- LOOKUP FORM -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-head"><h3>Lookup Donor</h3></div>
+  <div class="panel-body">
+    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+      <div>
+        <label class="form-label">Donor ID *</label>
+        <input class="form-input" type="number" style="width:140px;" @bind="_donorId" placeholder="e.g. 42" />
+      </div>
+      <div>
+        <label class="form-label">Tax Year *</label>
+        <select class="form-input" style="width:120px;" @bind="_year">
+          @for (var y = DateTime.Today.Year; y >= DateTime.Today.Year - 5; y--)
+          {
+            <option value="@y">@y</option>
+          }
+        </select>
+      </div>
+      <button class="btn btn-primary" @onclick="Load" disabled="@_loading">
+        @(_loading ? "Loading…" : "Generate Summary")
+      </button>
+      @if (_summary is not null)
+      {
+        <button class="btn" @onclick="Clear">Clear</button>
+      }
+    </div>
+    @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger" style="margin-top:10px;">@_err</div> }
+  </div>
+</div>
+
+@if (_summary is not null)
+{
+  <!-- SUMMARY HEADER -->
+  <div class="panel" style="margin-bottom:18px;border-left:4px solid var(--green);">
+    <div class="panel-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div style="font-size:1.1rem;font-weight:700;margin-bottom:4px;">@_summary.DonorName</div>
+          <div style="font-size:.84rem;color:var(--text-mid);">Tax Year @_summary.Year · Donor ID #@_summary.DonorId</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Total Charitable Giving</div>
+          <div style="font-size:1.8rem;font-weight:800;color:var(--green);">@_summary.TotalGiven.ToString("C2")</div>
+          <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@_summary.GiftCount gift@(_summary.GiftCount == 1 ? "" : "s")</div>
+        </div>
+      </div>
+
+      <!-- LEGAL NOTICE -->
+      <div style="background:var(--bg);border-radius:8px;padding:12px 14px;font-size:.76rem;color:var(--text-mid);line-height:1.6;border:1px solid var(--border);">
+        <strong>Tax Receipt Notice:</strong> Lily of the Valley is a registered 501(c)(3) charitable organization.
+        No goods or services were provided in exchange for these contributions unless otherwise noted.
+        Please retain this statement for your tax records.
+        Total deductible contributions for @_summary.Year: <strong>@_summary.TotalGiven.ToString("C2")</strong>.
+      </div>
+    </div>
+  </div>
+
+  <!-- GIFT LOG -->
+  <div class="panel">
+    <div class="panel-head"><h3>Gift Log — @_summary.Year</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Amount</th><th>Channel</th><th>Campaign</th></tr></thead>
+        <tbody>
+          @foreach (var g in _summary.Gifts.OrderBy(g => g.Date))
+          {
+            <tr>
+              <td style="font-size:.82rem;">@g.Date.ToString("MMM d, yyyy")</td>
+              <td style="font-size:.84rem;font-weight:600;color:var(--green);">@g.Amount.ToString("C2")</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@g.Channel</td>
+              <td style="font-size:.78rem;color:var(--text-light);">@(g.Campaign ?? "General")</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg);font-weight:700;">
+            <td style="padding:10px 14px;font-size:.82rem;">Total</td>
+            <td style="padding:10px 14px;font-size:.84rem;color:var(--green);">@_summary.TotalGiven.ToString("C2")</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+}
+else if (!_loading && _searched)
+{
+  <div class="panel">
+    <div class="panel-body" style="text-align:center;padding:40px;color:var(--text-light);">
+      No giving records found for Donor #@_donorId in @_year.
+    </div>
+  </div>
+}
+
+@code {
+  private int _donorId;
+  private int _year = DateTime.Today.Year - 1;
+  private bool _loading, _searched;
+  private string _err = "";
+  private YearEndSummaryDto? _summary;
+
+  private async Task Load()
+  {
+    if (_donorId <= 0) { _err = "Please enter a valid Donor ID."; return; }
+    _loading = true; _err = ""; _searched = true;
+    _summary = await Api.GetYearEndSummaryAsync(_donorId, _year);
+    _loading = false;
+  }
+
+  private void Clear() { _summary = null; _searched = false; }
+}

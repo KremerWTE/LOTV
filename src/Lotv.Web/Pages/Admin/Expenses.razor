@@ -1,0 +1,205 @@
+@page "/admin/expenses"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Expenses — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Expenses</h2><p>Track chapter operating costs and disbursements</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ Log Expense</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🧾</div>
+    <div class="kpi-label">Total Logged</div>
+    <div class="kpi-value" style="color:var(--navy)">@_expenses.Count</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">💸</div>
+    <div class="kpi-label">Total Amount</div>
+    <div class="kpi-value" style="color:var(--red)">@_expenses.Sum(e => e.Amount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">📅</div>
+    <div class="kpi-label">This Month</div>
+    <div class="kpi-value" style="color:var(--amber)">@_expenses.Where(e => e.PaidAt >= new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1)).Sum(e => e.Amount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">📊</div>
+    <div class="kpi-label">Avg per Entry</div>
+    <div class="kpi-value" style="color:var(--gold)">@(_expenses.Count > 0 ? (_expenses.Sum(e => e.Amount) / _expenses.Count).ToString("C0") : "—")</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+         placeholder="🔍 Search expenses…" @bind="_search" @bind:event="oninput" />
+  @foreach (var cat in new[] { "All" }.Concat(_allCategories))
+  {
+    var n = cat == "All" ? _expenses.Count : _expenses.Count(e => e.Category == cat);
+    <button class="filter-chip @(_catFilter == cat ? "active" : "")" @onclick="() => _catFilter = cat">@cat · @n</button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No expenses logged.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Paid By</th><th>Notes</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var e in Filtered.OrderByDescending(e => e.PaidAt))
+          {
+            <tr>
+              <td style="font-size:.76rem;color:var(--text-light);white-space:nowrap;">@e.PaidAt.ToString("MMM d, yyyy")</td>
+              <td style="font-size:.84rem;font-weight:600;">@e.Description</td>
+              <td><span class="badge badge-new" style="font-size:.62rem;">@e.Category</span></td>
+              <td style="font-size:.84rem;color:var(--red);font-weight:600;">@e.Amount.ToString("C2")</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@(e.PaidBy is not null ? e.PaidBy[..Math.Min(e.PaidBy.Length, 12)] : "—")</td>
+              <td style="font-size:.74rem;color:var(--text-light);max-width:180px;overflow:hidden;text-overflow:ellipsis;">@(e.Notes ?? "—")</td>
+              <td style="display:flex;gap:4px;">
+                <button class="btn btn-sm" style="font-size:.7rem;" @onclick="() => OpenDrawer(e)">Edit</button>
+                <button class="btn btn-sm" style="font-size:.7rem;color:var(--red);" @onclick="() => Delete(e.Id)">✕</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg);font-weight:700;">
+            <td colspan="3" style="padding:10px 14px;font-size:.82rem;">Filtered Total</td>
+            <td style="padding:10px 14px;font-size:.84rem;color:var(--red);">@Filtered.Sum(e => e.Amount).ToString("C2")</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    }
+  </div>
+</div>
+
+@if (_editing)
+{
+  <div class="drawer-overlay" @onclick="Close"></div>
+  <div class="drawer" style="width:460px;">
+    <div class="drawer-head">
+      <h3>@(_form.Id == 0 ? "Log Expense" : "Edit Expense")</h3>
+      <button class="drawer-close" @onclick="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Description *</label>
+      <input class="form-input" style="margin-bottom:10px;" @bind="_form.Description" />
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label class="form-label">Amount *</label>
+          <input class="form-input" type="number" min="0" step="0.01" @bind="_form.Amount" />
+        </div>
+        <div>
+          <label class="form-label">Date Paid *</label>
+          <input class="form-input" type="date" @bind="_form.PaidAt" />
+        </div>
+        <div>
+          <label class="form-label">Category</label>
+          <select class="form-input" @bind="_form.Category">
+            @foreach (var c in new[] { "Supplies", "Printing", "Shipping", "Staffing", "Facility", "Technology", "Marketing", "Event", "Travel", "Other" })
+            { <option value="@c">@c</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Paid By</label>
+          <input class="form-input" @bind="_form.PaidBy" placeholder="Staff name or ID" />
+        </div>
+      </div>
+
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" rows="2" style="margin-bottom:14px;" @bind="_form.Notes"></textarea>
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+        <button class="btn" @onclick="Close">Cancel</button>
+        @if (_form.Id != 0)
+        { <button class="btn" style="margin-left:auto;color:var(--red);" @onclick="() => Delete(_form.Id)">Delete</button> }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<Expense> _expenses = [];
+  private string _search = "", _catFilter = "All";
+  private bool _editing, _saving;
+  private string _err = "";
+  private List<string> _allCategories = [];
+
+  private class ExpenseForm
+  {
+    public int Id { get; set; }
+    public string Description { get; set; } = "";
+    public decimal Amount { get; set; }
+    public DateTime PaidAt { get; set; } = DateTime.Today;
+    public string Category { get; set; } = "Supplies";
+    public string PaidBy { get; set; } = "";
+    public string? Notes { get; set; }
+    public Expense ToModel() => new()
+    {
+      Id = Id, Description = Description, Amount = Amount, PaidAt = PaidAt,
+      Category = Category, PaidBy = PaidBy, Notes = Notes
+    };
+  }
+  private ExpenseForm _form = new();
+
+  private IEnumerable<Expense> Filtered => _expenses.Where(e =>
+    (_catFilter == "All" || e.Category == _catFilter) &&
+    (string.IsNullOrEmpty(_search) ||
+     e.Description.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+     (e.Notes?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _expenses = await Api.GetExpensesAsync();
+    _allCategories = _expenses.Select(e => e.Category).Distinct().OrderBy(c => c).ToList();
+  }
+
+  private void OpenDrawer(Expense? e)
+  {
+    _form = e is null ? new ExpenseForm() : new ExpenseForm
+    {
+      Id = e.Id, Description = e.Description, Amount = e.Amount, PaidAt = e.PaidAt,
+      Category = e.Category, PaidBy = e.PaidBy, Notes = e.Notes
+    };
+    _err = ""; _editing = true;
+  }
+
+  private void Close() => _editing = false;
+
+  private async Task Save()
+  {
+    if (string.IsNullOrWhiteSpace(_form.Description) || _form.Amount <= 0)
+    { _err = "Description and amount are required."; return; }
+    _saving = true; _err = "";
+    var model = _form.ToModel();
+    bool ok;
+    if (_form.Id == 0) { var c = await Api.CreateExpenseAsync(model); ok = c is not null; }
+    else ok = await Api.UpdateExpenseAsync(_form.Id, model);
+    _saving = false;
+    if (ok) { _editing = false; _expenses = await Api.GetExpensesAsync(); _allCategories = _expenses.Select(e => e.Category).Distinct().OrderBy(c => c).ToList(); }
+    else _err = "Save failed.";
+  }
+
+  private async Task Delete(int id)
+  {
+    await Api.DeleteExpenseAsync(id);
+    _editing = false;
+    _expenses = await Api.GetExpensesAsync();
+  }
+}

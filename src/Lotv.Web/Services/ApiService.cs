@@ -1295,6 +1295,52 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    // ── Chapter Expenses ──────────────────────────────────────────────────────
+    public Task<List<Expense>> GetExpensesAsync(string? category = null)
+    {
+        var url = "/api/v1/expenses" + (category is not null ? $"?category={category}" : "");
+        return GetListAsync<Expense>(url);
+    }
+
+    public async Task<Expense?> CreateExpenseAsync(Expense body)
+    {
+        var resp = await AuthedPostAsync("/api/v1/expenses", body);
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Expense>() : null;
+    }
+
+    public async Task<bool> UpdateExpenseAsync(int id, Expense body)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/expenses/{id}", body);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteExpenseAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/expenses/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Year-end giving ───────────────────────────────────────────────────────
+    public Task<YearEndSummaryDto?> GetYearEndSummaryAsync(int donorId, int year) =>
+        GetAsync<YearEndSummaryDto>($"/api/v1/donations/year-end/{donorId}/{year}");
+
+    // ── API Key management ────────────────────────────────────────────────────
+    public Task<List<ApiKeyDto>> GetApiKeysAsync() =>
+        GetListAsync<ApiKeyDto>("/api/v1/apikeys");
+
+    public async Task<ApiKeyCreateResult?> CreateApiKeyAsync(string partnerName, string contactEmail, string scope, DateTime? expiresAt)
+    {
+        var resp = await AuthedPostAsync("/api/v1/apikeys",
+            new { PartnerName = partnerName, ContactEmail = contactEmail, Scope = scope, ExpiresAt = expiresAt });
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<ApiKeyCreateResult>() : null;
+    }
+
+    public async Task<bool> RevokeApiKeyAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/apikeys/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     // ── Announcements ─────────────────────────────────────────────────────────
     public Task<List<AnnouncementDto>> GetAnnouncementsAsync() =>
         GetListAsync<AnnouncementDto>("/api/v1/announcements");
@@ -1480,3 +1526,13 @@ public record AnnouncementDto(int Id, int? ChapterId, string Title, string Body,
 public record SmsLogDto(int Id, string ToPhoneNumber, string MessageType, int? CaseId,
     string? UserId, string Body, bool Success, string? ProviderMessageId,
     string? ErrorMessage, DateTime SentAt);
+
+public record YearEndSummaryDto(int DonorId, string DonorName, int Year, decimal TotalGiven,
+    int GiftCount, List<YearEndGiftRow> Gifts);
+
+public record YearEndGiftRow(DateTime Date, decimal Amount, string Channel, string? Campaign);
+
+public record ApiKeyDto(int Id, string PartnerName, string ContactEmail, int? ChapterId,
+    string Scope, bool IsActive, DateTime CreatedAt, DateTime? ExpiresAt, DateTime? LastUsedAt);
+
+public record ApiKeyCreateResult(int Id, string PartnerName, string RawKey, string Note);

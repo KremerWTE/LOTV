@@ -58,6 +58,9 @@
         <NavLink class="sidebar-link" href="/admin/workload">
           <span class="icon">&#128101;</span> Workload View
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/cases/new">
+          <span class="icon">&#43;</span> New Case
+        </NavLink>
       }
     </div>
 
@@ -93,6 +96,9 @@
         <NavLink class="sidebar-link" href="/admin/allocate/resources">
           <span class="icon">&#128230;</span> Allocate Resources
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/year-end">
+          <span class="icon">&#128190;</span> Year-End Giving
+        </NavLink>
       </div>
     }
 
@@ -111,6 +117,9 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteer-skills">
           <span class="icon">&#127979;</span> Skill Directory
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/volunteers/pending">
+          <span class="icon">&#9203;</span> Pending Onboarding
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/sponsorships">
           <span class="icon">&#127970;</span> Sponsorships
@@ -225,6 +234,15 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/sms-log">
           <span class="icon">&#128241;</span> SMS Log
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/expenses">
+          <span class="icon">&#129534;</span> Expenses
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/budget">
+          <span class="icon">&#128176;</span> Budget Summary
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/api-keys">
+          <span class="icon">&#128272;</span> API Keys
         </NavLink>
       }
     </div>
@@ -630,6 +648,12 @@
       var u when u.EndsWith("/admin/inventory")         => "Resource Inventory",
       var u when u.EndsWith("/admin/sms-log")           => "SMS Communication Log",
       var u when u.EndsWith("/admin/financial")         => "Financial Overview",
+      var u when u.EndsWith("/admin/expenses")          => "Chapter Expenses",
+      var u when u.EndsWith("/admin/volunteers/pending") => "Volunteer Onboarding Queue",
+      var u when u.EndsWith("/admin/year-end")          => "Year-End Giving Summary",
+      var u when u.EndsWith("/admin/api-keys")          => "API Key Management",
+      var u when u.EndsWith("/admin/cases/new")         => "New Case Intake",
+      var u when u.EndsWith("/admin/budget")            => "Budget Summary",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

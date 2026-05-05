@@ -1,0 +1,149 @@
+@page "/admin/api-keys"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>API Keys — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>API Key Management</h2><p>Manage integration keys for external partner systems</p></div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" @onclick="() => _creating = true">+ New API Key</button>
+  </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_newKey))
+{
+  <div class="panel" style="margin-bottom:16px;border:2px solid var(--amber);">
+    <div class="panel-body">
+      <div style="font-weight:700;margin-bottom:8px;color:var(--amber);">⚠ Copy this API key now — it will not be shown again</div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:.84rem;word-break:break-all;margin-bottom:10px;">@_newKey</div>
+      <button class="btn btn-sm" @onclick='() => _newKey = ""'>Dismiss</button>
+    </div>
+  </div>
+}
+
+<!-- KEY TABLE -->
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (!_keys.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No API keys configured.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead><tr><th>Partner</th><th>Contact</th><th>Scope</th><th>Status</th><th>Created</th><th>Expires</th><th>Last Used</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var k in _keys.OrderByDescending(k => k.CreatedAt))
+          {
+            <tr>
+              <td style="font-weight:600;font-size:.84rem;">@k.PartnerName</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@k.ContactEmail</td>
+              <td><span class="badge badge-new" style="font-size:.62rem;">@k.Scope</span></td>
+              <td>
+                @if (k.IsActive && (k.ExpiresAt is null || k.ExpiresAt > DateTime.Now))
+                { <span class="badge badge-fulfilled" style="font-size:.62rem;">Active</span> }
+                else if (!k.IsActive)
+                { <span class="badge badge-cancelled" style="font-size:.62rem;">Revoked</span> }
+                else
+                { <span class="badge badge-onhold" style="font-size:.62rem;">Expired</span> }
+              </td>
+              <td style="font-size:.76rem;color:var(--text-light);">@k.CreatedAt.ToString("MMM d, yyyy")</td>
+              <td style="font-size:.76rem;color:@(k.ExpiresAt.HasValue && k.ExpiresAt < DateTime.Today.AddDays(30) ? "var(--amber)" : "var(--text-light)");">
+                @(k.ExpiresAt?.ToString("MMM d, yyyy") ?? "Never")
+              </td>
+              <td style="font-size:.76rem;color:var(--text-light);">
+                @(k.LastUsedAt?.ToString("MMM d, yyyy") ?? "—")
+              </td>
+              <td>
+                @if (k.IsActive)
+                {
+                  <button class="btn btn-sm" style="font-size:.7rem;color:var(--red);" @onclick="() => Revoke(k.Id)">Revoke</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (_creating)
+{
+  <div class="drawer-overlay" @onclick="() => _creating = false"></div>
+  <div class="drawer" style="width:460px;">
+    <div class="drawer-head">
+      <h3>Create API Key</h3>
+      <button class="drawer-close" @onclick="() => _creating = false">✕</button>
+    </div>
+    <div class="drawer-body">
+      <label class="form-label">Partner Name *</label>
+      <input class="form-input" style="margin-bottom:10px;" @bind="_newForm.PartnerName" placeholder="e.g. GiveButter Integration" />
+
+      <label class="form-label">Contact Email *</label>
+      <input class="form-input" type="email" style="margin-bottom:10px;" @bind="_newForm.ContactEmail" />
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div>
+          <label class="form-label">Scope</label>
+          <select class="form-input" @bind="_newForm.Scope">
+            <option value="Read">Read Only</option>
+            <option value="Write">Read + Write</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Expires At <span style="color:var(--text-light);font-size:.74rem;">(optional)</span></label>
+          <input class="form-input" type="date" @bind="_newForm.ExpiresAt" />
+        </div>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_createErr)) { <div class="alert alert-danger">@_createErr</div> }
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="CreateKey" disabled="@_saving">@(_saving ? "Creating…" : "Create Key")</button>
+        <button class="btn" @onclick="() => _creating = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<ApiKeyDto> _keys = [];
+  private bool _creating, _saving;
+  private string _createErr = "", _newKey = "";
+  private NewKeyForm _newForm = new();
+
+  private class NewKeyForm
+  {
+    public string PartnerName { get; set; } = "";
+    public string ContactEmail { get; set; } = "";
+    public string Scope { get; set; } = "Read";
+    public DateTime? ExpiresAt { get; set; }
+  }
+
+  protected override async Task OnInitializedAsync() => _keys = await Api.GetApiKeysAsync();
+
+  private async Task CreateKey()
+  {
+    if (string.IsNullOrWhiteSpace(_newForm.PartnerName) || string.IsNullOrWhiteSpace(_newForm.ContactEmail))
+    { _createErr = "Partner name and contact email are required."; return; }
+    _saving = true; _createErr = "";
+    var result = await Api.CreateApiKeyAsync(_newForm.PartnerName, _newForm.ContactEmail, _newForm.Scope, _newForm.ExpiresAt);
+    _saving = false;
+    if (result is not null)
+    {
+      _newKey = result.RawKey;
+      _creating = false;
+      _newForm = new();
+      _keys = await Api.GetApiKeysAsync();
+    }
+    else _createErr = "Failed to create key.";
+  }
+
+  private async Task Revoke(int id)
+  {
+    await Api.RevokeApiKeyAsync(id);
+    _keys = await Api.GetApiKeysAsync();
+  }
+}

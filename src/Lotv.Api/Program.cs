@@ -2946,6 +2946,50 @@ notify.MapPost("/marketing-email", async (MarketingEmailRequest body, LotvDbCont
     return Results.Ok(new { queued = true, estimatedRecipients = count });
 }).RequireAuthorization("ChapterAdmin");
 
+// ── Chapter Expenses ─────────────────────────────────────────────────────────
+var expenses = app.MapGroup("/api/v1/expenses").WithTags("Expenses").RequireAuthorization("Staff");
+
+expenses.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, string? category) =>
+{
+    var q = db.Expenses.AsQueryable();
+    if (ctx.ChapterId.HasValue) q = q.Where(e => e.ChapterId == ctx.ChapterId.Value);
+    if (!string.IsNullOrEmpty(category)) q = q.Where(e => e.Category == category);
+    return Results.Ok(await q.OrderByDescending(e => e.PaidAt).ToListAsync());
+});
+
+expenses.MapPost("/", async (Expense body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    body.Id = 0;
+    body.CreatedAt = DateTime.UtcNow;
+    if (ctx.ChapterId.HasValue) body.ChapterId = ctx.ChapterId.Value;
+    db.Expenses.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/expenses/{body.Id}", body);
+});
+
+expenses.MapPut("/{id:int}", async (int id, Expense body, LotvDbContext db) =>
+{
+    var existing = await db.Expenses.FindAsync(id);
+    if (existing is null) return Results.NotFound();
+    existing.Description = body.Description;
+    existing.Amount      = body.Amount;
+    existing.Category    = body.Category;
+    existing.PaidAt      = body.PaidAt;
+    existing.PaidBy      = body.PaidBy;
+    existing.Notes       = body.Notes;
+    await db.SaveChangesAsync();
+    return Results.Ok(existing);
+});
+
+expenses.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var e = await db.Expenses.FindAsync(id);
+    if (e is null) return Results.NotFound();
+    db.Expenses.Remove(e);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
 // ── API Key Management (HQAdmin) ──────────────────────────────────────────────
 var apiKeys = app.MapGroup("/api/v1/apikeys").WithTags("API Keys").RequireAuthorization("HQAdmin");
 

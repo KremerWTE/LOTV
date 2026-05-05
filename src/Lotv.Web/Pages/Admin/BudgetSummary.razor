@@ -1,0 +1,193 @@
+@page "/admin/budget"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Budget Summary — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Budget Summary</h2><p>Monthly income vs. expenses — chapter financial health at a glance</p></div>
+  <div class="page-hd-actions">
+    <select class="form-input" style="font-size:.82rem;padding:5px 12px;width:100px;" @bind="_year" @bind:after="Reload">
+      @for (var y = DateTime.Today.Year; y >= DateTime.Today.Year - 4; y--)
+      { <option value="@y">@y</option> }
+    </select>
+    <a href="/admin/financial" class="btn btn-sm">Financial Overview</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Income @_year</div>
+    <div class="kpi-value" style="color:var(--green)">@_totalIncome.ToString("C0")</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">&#128424;</div>
+    <div class="kpi-label">Total Expenses @_year</div>
+    <div class="kpi-value" style="color:var(--red)">@_totalExpenses.ToString("C0")</div>
+  </div>
+  <div class="kpi-card @(_netBalance >= 0 ? "kpi-green" : "") " style="@(_netBalance < 0 ? "background:#fff1f2;" : "")">
+    <div class="kpi-icon">&#9878;</div>
+    <div class="kpi-label">Net Balance</div>
+    <div class="kpi-value" style="color:@(_netBalance >= 0 ? "var(--green)" : "var(--red)")">@_netBalance.ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-label">Avg Monthly Income</div>
+    <div class="kpi-value" style="color:var(--navy)">@(_monthsWithData > 0 ? (_totalIncome / _monthsWithData).ToString("C0") : "—")</div>
+  </div>
+</div>
+
+<!-- MONTHLY TABLE -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-head"><h3>Month-by-Month Breakdown — @_year</h3></div>
+  <div class="panel-body" style="padding:0;">
+    @if (_loading)
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th style="text-align:right;">Income</th>
+            <th style="text-align:right;">Expenses</th>
+            <th style="text-align:right;">Net</th>
+            <th style="width:200px;">Balance Bar</th>
+          </tr>
+        </thead>
+        <tbody>
+          @{
+            decimal running = 0;
+          }
+          @foreach (var row in _rows)
+          {
+            running += row.Net;
+            var barPct = row.Income > 0 ? Math.Min((double)(row.Expenses / row.Income) * 100, 100) : (row.Expenses > 0 ? 100 : 0);
+            <tr>
+              <td style="font-size:.84rem;font-weight:600;">@row.MonthLabel</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@row.Income.ToString("C0")</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--red);">@row.Expenses.ToString("C0")</td>
+              <td style="text-align:right;font-size:.84rem;font-weight:600;color:@(row.Net >= 0 ? "var(--green)" : "var(--red)");">
+                @(row.Net >= 0 ? "+" : "")@row.Net.ToString("C0")
+              </td>
+              <td>
+                <div style="background:var(--bg);border-radius:4px;height:10px;overflow:hidden;position:relative;">
+                  @if (row.Income > 0)
+                  {
+                    <div style="position:absolute;left:0;top:0;height:100%;width:100%;background:var(--green);opacity:.25;border-radius:4px;"></div>
+                    <div style="position:absolute;left:0;top:0;height:100%;width:@(barPct.ToString("F1"))%;background:var(--red);opacity:.7;border-radius:4px;"></div>
+                  }
+                  else if (row.Expenses > 0)
+                  {
+                    <div style="position:absolute;left:0;top:0;height:100%;width:100%;background:var(--red);opacity:.5;border-radius:4px;"></div>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg);font-weight:700;">
+            <td style="padding:10px 14px;font-size:.82rem;">Total</td>
+            <td style="padding:10px 14px;font-size:.84rem;text-align:right;color:var(--green);">@_totalIncome.ToString("C0")</td>
+            <td style="padding:10px 14px;font-size:.84rem;text-align:right;color:var(--red);">@_totalExpenses.ToString("C0")</td>
+            <td style="padding:10px 14px;font-size:.84rem;text-align:right;color:@(_netBalance >= 0 ? "var(--green)" : "var(--red)");">
+              @(_netBalance >= 0 ? "+" : "")@_netBalance.ToString("C0")
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    }
+  </div>
+</div>
+
+<!-- EXPENSE BREAKDOWN BY CATEGORY -->
+@if (_catBreakdown.Any())
+{
+  <div class="panel">
+    <div class="panel-head"><h3>Expenses by Category — @_year</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Category</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Entries</th><th style="width:180px;">Share</th></tr></thead>
+        <tbody>
+          @foreach (var (cat, amount, count) in _catBreakdown.OrderByDescending(x => x.Amount))
+          {
+            var pct = _totalExpenses > 0 ? (double)(amount / _totalExpenses) * 100 : 0;
+            <tr>
+              <td><span class="badge badge-new" style="font-size:.62rem;">@cat</span></td>
+              <td style="text-align:right;font-size:.84rem;color:var(--red);font-weight:600;">@amount.ToString("C0")</td>
+              <td style="text-align:right;font-size:.78rem;color:var(--text-mid);">@count</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="flex:1;background:var(--bg);border-radius:4px;height:8px;overflow:hidden;">
+                    <div style="height:100%;width:@(pct.ToString("F1"))%;background:var(--red);opacity:.6;border-radius:4px;"></div>
+                  </div>
+                  <span style="font-size:.72rem;color:var(--text-light);width:38px;text-align:right;">@pct.ToString("F0")%</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private int _year = DateTime.Today.Year;
+  private bool _loading = true;
+  private decimal _totalIncome, _totalExpenses, _netBalance;
+  private int _monthsWithData;
+  private List<BudgetRow> _rows = [];
+  private List<(string Category, decimal Amount, int Count)> _catBreakdown = [];
+
+  private record BudgetRow(string MonthLabel, decimal Income, decimal Expenses)
+  {
+    public decimal Net => Income - Expenses;
+  }
+
+  protected override async Task OnInitializedAsync() => await Reload();
+
+  private async Task Reload()
+  {
+    _loading = true;
+    var donations = await Api.GetDonationsAsync();
+    var expenses = await Api.GetExpensesAsync();
+
+    var yearDonations = donations.Where(d => d.Date.Year == _year).ToList();
+    var yearExpenses = expenses.Where(e => e.PaidAt.Year == _year).ToList();
+
+    _totalIncome = yearDonations.Sum(d => d.Amount);
+    _totalExpenses = yearExpenses.Sum(e => e.Amount);
+    _netBalance = _totalIncome - _totalExpenses;
+
+    var months = Enumerable.Range(1, 12)
+      .Select(m =>
+      {
+        var inc = yearDonations.Where(d => d.Date.Month == m).Sum(d => d.Amount);
+        var exp = yearExpenses.Where(e => e.PaidAt.Month == m).Sum(e => e.Amount);
+        return new BudgetRow(new DateTime(_year, m, 1).ToString("MMMM"), inc, exp);
+      })
+      .ToList();
+
+    // Only show months up to current month for current year
+    if (_year == DateTime.Today.Year)
+      months = months.Take(DateTime.Today.Month).ToList();
+
+    _rows = months;
+    _monthsWithData = months.Count(r => r.Income > 0 || r.Expenses > 0);
+
+    _catBreakdown = yearExpenses
+      .GroupBy(e => e.Category)
+      .Select(g => (g.Key, g.Sum(e => e.Amount), g.Count()))
+      .ToList();
+
+    _loading = false;
+  }
+}

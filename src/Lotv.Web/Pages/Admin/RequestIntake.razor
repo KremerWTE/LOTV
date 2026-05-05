@@ -1,0 +1,228 @@
+@page "/admin/cases/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Case — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>New Case Intake</h2><p>Create a new support case for a registered family</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;">
+
+  <!-- MAIN FORM -->
+  <div class="panel">
+    <div class="panel-head"><h3>Case Details</h3></div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+
+      <!-- Family search -->
+      <div>
+        <label class="form-label">Family *</label>
+        <div style="position:relative;">
+          <input class="form-input" placeholder="Search by name…"
+                 value="@_familySearch"
+                 @oninput="OnFamilySearch"
+                 @onfocus="() => _showFamilyDrop = true"
+                 @onblur="HideFamilyDrop" />
+          @if (_showFamilyDrop && _familyMatches.Any())
+          {
+            <div style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);z-index:200;max-height:220px;overflow-y:auto;">
+              @foreach (var f in _familyMatches.Take(8))
+              {
+                <div style="padding:9px 14px;cursor:pointer;font-size:.84rem;border-bottom:1px solid var(--border);"
+                     @onmousedown='() => SelectFamily(f)'>
+                  <strong>@f.FullName</strong>
+                  <span style="font-size:.74rem;color:var(--text-light);margin-left:6px;">@f.City, @f.State · @f.Reason.ToDisplayName()</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+        @if (_form.FamilyId > 0)
+        {
+          <div style="margin-top:6px;font-size:.8rem;color:var(--green);font-weight:600;">
+            ✓ @_selectedFamily — Family #@_form.FamilyId selected
+          </div>
+        }
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label class="form-label">Category *</label>
+          <select class="form-input" @bind="_form.Category">
+            @foreach (var cat in Enum.GetValues<RequestCategory>())
+            { <option value="@cat">@CategoryLabel(cat)</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Priority</label>
+          <select class="form-input" @bind="_form.Priority">
+            @foreach (var p in Enum.GetValues<RequestPriority>())
+            { <option value="@p">@p</option> }
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Due Date <span style="color:var(--text-light);font-size:.74rem;">(optional)</span></label>
+          <input class="form-input" type="date" @bind="_form.DueDate" />
+        </div>
+        <div>
+          <label class="form-label">Children's Initials</label>
+          <input class="form-input" @bind="_form.ChildrenInitials" placeholder="e.g. A.B., C.D." />
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Referrer Name <span style="color:var(--text-light);font-size:.74rem;">(if not self-referred)</span></label>
+        <input class="form-input" @bind="_form.ReferrerName" placeholder="Referring party name" />
+      </div>
+      <div>
+        <label class="form-label">Referrer Email</label>
+        <input class="form-input" type="email" @bind="_form.ReferrerEmail" />
+      </div>
+
+      <div>
+        <label class="form-label">Internal Notes</label>
+        <textarea class="form-input" rows="3" @bind="_form.InternalNotes" placeholder="Staff-only notes, context, special considerations…"></textarea>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="outreach" @bind="_form.StaffOutreachRequested" style="width:16px;height:16px;" />
+        <label for="outreach" style="font-size:.84rem;cursor:pointer;">Request staff outreach / follow-up call</label>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }
+
+      <div style="display:flex;gap:10px;padding-top:4px;">
+        <button class="btn btn-primary" @onclick="Submit" disabled="@_saving">
+          @(_saving ? "Creating…" : "Create Case")
+        </button>
+        <button class="btn" @onclick='() => Nav.NavigateTo("/admin/cases")'>Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <!-- Priority guide -->
+    <div class="panel">
+      <div class="panel-head"><h3>Priority Guide</h3></div>
+      <div class="panel-body" style="font-size:.8rem;display:flex;flex-direction:column;gap:8px;">
+        <div><span class="badge badge-cancelled" style="font-size:.6rem;">Urgent</span> <span style="margin-left:6px;color:var(--text-mid);">Life-limiting diagnosis, acute crisis</span></div>
+        <div><span class="badge badge-onhold" style="font-size:.6rem;">High</span> <span style="margin-left:6px;color:var(--text-mid);">Recent loss, time-sensitive request</span></div>
+        <div><span class="badge badge-new" style="font-size:.6rem;">Normal</span> <span style="margin-left:6px;color:var(--text-mid);">Standard intake, standard timeline</span></div>
+        <div><span class="badge badge-fulfilled" style="font-size:.6rem;">Low</span> <span style="margin-left:6px;color:var(--text-mid);">Advance planning, low urgency</span></div>
+      </div>
+    </div>
+
+    <!-- Category reference -->
+    <div class="panel">
+      <div class="panel-head"><h3>Categories</h3></div>
+      <div class="panel-body" style="font-size:.79rem;color:var(--text-mid);display:flex;flex-direction:column;gap:5px;">
+        <div><strong>Package Delivery</strong> — Physical items shipped to family</div>
+        <div><strong>Prayer Support</strong> — Coordinated prayer chain</div>
+        <div><strong>Counseling Referral</strong> — Connect to grief counselor</div>
+        <div><strong>Hospital Visit</strong> — Bedside ministry visit</div>
+        <div><strong>Memorial</strong> — Memorial service coordination</div>
+        <div><strong>Resource Provision</strong> — Local resource provision</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+@code {
+  private List<Family> _allFamilies = [];
+  private List<Family> _familyMatches = [];
+  private string _familySearch = "";
+  private string _selectedFamily = "";
+  private bool _showFamilyDrop, _saving;
+  private string _err = "";
+
+  private class IntakeForm
+  {
+    public int FamilyId { get; set; }
+    public RequestCategory Category { get; set; } = RequestCategory.PackageDelivery;
+    public RequestPriority Priority { get; set; } = RequestPriority.Normal;
+    public DateTime? DueDate { get; set; }
+    public string? ChildrenInitials { get; set; }
+    public string? ReferrerName { get; set; }
+    public string? ReferrerEmail { get; set; }
+    public string? InternalNotes { get; set; }
+    public bool StaffOutreachRequested { get; set; } = true;
+    public bool IsForSelf { get; set; } = true;
+  }
+  private IntakeForm _form = new();
+
+  protected override async Task OnInitializedAsync()
+  {
+    _allFamilies = await Api.GetFamiliesAsync();
+  }
+
+  private void OnFamilySearch(ChangeEventArgs e)
+  {
+    _familySearch = e.Value?.ToString() ?? "";
+    _form.FamilyId = 0;
+    _familyMatches = string.IsNullOrWhiteSpace(_familySearch)
+      ? []
+      : _allFamilies.Where(f => f.FullName.Contains(_familySearch, StringComparison.OrdinalIgnoreCase)
+                              || f.Email.Contains(_familySearch, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+  }
+
+  private void SelectFamily(Family f)
+  {
+    _form.FamilyId = f.Id;
+    _selectedFamily = f.FullName;
+    _familySearch = f.FullName;
+    _form.ChildrenInitials ??= f.ChildrenInitials;
+    _familyMatches = [];
+    _showFamilyDrop = false;
+  }
+
+  private async Task HideFamilyDrop()
+  {
+    await Task.Delay(150);
+    _showFamilyDrop = false;
+  }
+
+  private static string CategoryLabel(RequestCategory c) => c switch
+  {
+    RequestCategory.PackageDelivery    => "Package Delivery",
+    RequestCategory.PrayerSupport      => "Prayer Support",
+    RequestCategory.CounselingReferral => "Counseling Referral",
+    RequestCategory.HospitalVisit      => "Hospital Visit",
+    RequestCategory.ResourceProvision  => "Resource Provision",
+    _                                  => c.ToString()
+  };
+
+  private async Task Submit()
+  {
+    if (_form.FamilyId <= 0) { _err = "Please select a family."; return; }
+    _saving = true; _err = "";
+    var req = new PackageRequest
+    {
+      FamilyId = _form.FamilyId,
+      Category = _form.Category,
+      Priority = _form.Priority,
+      DueDate = _form.DueDate,
+      ChildrenInitials = _form.ChildrenInitials,
+      ReferrerName = _form.ReferrerName,
+      ReferrerEmail = _form.ReferrerEmail,
+      InternalNotes = _form.InternalNotes,
+      StaffOutreachRequested = _form.StaffOutreachRequested,
+      IsForSelf = _form.IsForSelf,
+      Status = CaseStatus.New
+    };
+    var created = await Api.CreateRequestAsync(req);
+    _saving = false;
+    if (created is not null)
+      Nav.NavigateTo($"/admin/cases/{created.Id}");
+    else
+      _err = "Failed to create case. Please try again.";
+  }
+}
