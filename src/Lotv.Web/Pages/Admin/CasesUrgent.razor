@@ -1,0 +1,120 @@
+@page "/admin/cases/urgent"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Urgent Cases — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Urgent Cases</h2><p>Cases flagged as urgent priority requiring immediate attention</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+    <a href="/admin/cases/overdue" class="btn btn-sm">Overdue</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (!_urgent.Any())
+{
+  <div class="panel" style="border-left:4px solid var(--green);">
+    <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+      ✓ No urgent cases at this time.
+    </div>
+  </div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-label">Urgent</div>
+      <div class="kpi-value" style="color:var(--red)">@_urgent.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Unassigned</div>
+      <div class="kpi-value" style="color:var(--amber)">@_urgent.Count(c => !c.AssignedToId.HasValue)</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#9201;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--navy)">@_urgent.Count(c => c.IsOverdue)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Urgent Cases (@_urgent.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Case</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Family</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Assigned To</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Due Date</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Created</th>
+            <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var c in _urgent.OrderBy(c => c.DueDate ?? DateTime.MaxValue).ThenBy(c => c.CreatedAt))
+          {
+            <tr style="border-top:1px solid var(--border);@(c.IsOverdue ? "background:#fef2f2;" : !c.AssignedToId.HasValue ? "background:#fffbeb;" : "")">
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:700;color:var(--navy);">
+                <a href="/admin/cases/@c.Id" style="color:var(--navy);">Case #@c.Id</a>
+              </td>
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                @((c.Family?.Parent1FirstName + " " + c.Family?.Parent1LastName).Trim())
+              </td>
+              <td style="padding:10px 16px;">
+                <span class="badge badge-@StatusClass(c.Status)" style="font-size:.68rem;">@c.Status</span>
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:@(c.AssignedToId.HasValue ? "inherit" : "var(--red)");">
+                @(c.AssignedTo ?? "⚠ Unassigned")
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:@(c.DueDate.HasValue && c.DueDate.Value < DateTime.Today ? "var(--red)" : "var(--text-light)");">
+                @(c.DueDate?.ToString("MMM d, yyyy") ?? "—")
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@c.CreatedAt.ToString("MMM d")</td>
+              <td style="padding:10px 16px;text-align:center;white-space:nowrap;">
+                <a href="/admin/cases/@c.Id/assign" style="font-size:.78rem;color:var(--navy);margin-right:8px;">Assign</a>
+                <a href="/admin/cases/@c.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<PackageRequest> _urgent = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetRequestsAsync();
+    _urgent = all.Where(c =>
+        c.Priority == RequestPriority.Urgent &&
+        c.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled))
+      .ToList();
+    _loading = false;
+  }
+
+  private static string StatusClass(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "new",
+    CaseStatus.InProgress       => "new",
+    CaseStatus.AwaitingShipment => "onhold",
+    CaseStatus.Shipped          => "onhold",
+    CaseStatus.Fulfilled        => "fulfilled",
+    CaseStatus.OnHold           => "onhold",
+    CaseStatus.Cancelled        => "cancelled",
+    _                           => "new"
+  };
+}

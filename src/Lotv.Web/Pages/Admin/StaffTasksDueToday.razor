@@ -1,0 +1,110 @@
+@page "/admin/staff-tasks/today"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Tasks Due Today — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Due Today</h2><p>Staff tasks with a due date of @DateTime.Today.ToString("MMMM d, yyyy")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/staff-tasks" class="btn btn-sm">← All Tasks</a>
+    <a href="/admin/staff-tasks/overdue" class="btn btn-sm">Overdue</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (!_today.Any())
+{
+  <div class="panel" style="border-left:4px solid var(--green);">
+    <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+      ✓ No tasks due today.
+    </div>
+  </div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Due Today</div>
+      <div class="kpi-value" style="color:var(--navy)">@_today.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-label">High/Critical</div>
+      <div class="kpi-value" style="color:var(--amber)">@_today.Count(t => t.Priority is "Critical" or "High")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Completed</div>
+      <div class="kpi-value" style="color:var(--green)">@_today.Count(t => t.Status == "Completed")</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Tasks Due Today (@_today.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Task</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Assigned To</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Priority</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+            <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var t in _today.OrderBy(t => t.Priority switch { "Critical" => 0, "High" => 1, "Medium" => 2, _ => 3 }))
+          {
+            <tr style="border-top:1px solid var(--border);@(t.Status == "Completed" ? "opacity:0.5;" : "")">
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                @t.Title
+                @if (!string.IsNullOrEmpty(t.Description))
+                {
+                  <div style="font-size:.74rem;color:var(--text-light);">@(t.Description.Length > 80 ? t.Description[..80] + "…" : t.Description)</div>
+                }
+                @if (t.LinkedCaseId.HasValue)
+                {
+                  <div style="font-size:.74rem;"><a href="/admin/cases/@t.LinkedCaseId" style="color:var(--navy);">Case #@t.LinkedCaseId</a></div>
+                }
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@t.AssignedToName</td>
+              <td style="padding:10px 16px;">
+                <span class="badge badge-@PriorityClass(t.Priority)" style="font-size:.68rem;">@t.Priority</span>
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@t.Status</td>
+              <td style="padding:10px 16px;text-align:center;">
+                <a href="/admin/staff-tasks/@t.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<StaffTaskDto> _today = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetStaffTasksAsync();
+    _today = all.Where(t => t.DueDate?.Date == DateTime.Today).ToList();
+    _loading = false;
+  }
+
+  private static string PriorityClass(string priority) => priority switch
+  {
+    "Critical" => "cancelled",
+    "High"     => "onhold",
+    "Medium"   => "new",
+    "Low"      => "fulfilled",
+    _          => "new"
+  };
+}

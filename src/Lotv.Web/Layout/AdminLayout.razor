@@ -836,6 +836,11 @@
       var u when u.Contains("/admin/chapters/") && u.EndsWith("/grants")                                                     => "Chapter Grants",
       var u when u == "/admin/pledges/lapsed"                                                                                => "Lapsed Pledges",
       var u when u == "/admin/staff-tasks/overdue"                                                                           => "Overdue Staff Tasks",
+      var u when u == "/admin/cases/urgent"                                                                                  => "Urgent Cases",
+      var u when u == "/admin/donors/lapsed"                                                                                 => "Lapsed Donors",
+      var u when u == "/admin/staff-tasks/today"                                                                             => "Tasks Due Today",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/staff-tasks")                                               => "Chapter Staff Tasks",
+      var u when u.Contains("/admin/campaigns/") && u.EndsWith("/donors")                                                   => "Campaign Donors",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

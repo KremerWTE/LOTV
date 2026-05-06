@@ -1,0 +1,131 @@
+@page "/admin/donors/lapsed"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Lapsed Donors — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Lapsed Donors</h2><p>Donors who haven't given in the selected number of days</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors" class="btn btn-sm">← All Donors</a>
+    <a href="/admin/donors/outreach" class="btn btn-sm">Outreach Queue</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+      <span style="font-size:.84rem;font-weight:600;">Lapse threshold:</span>
+      @foreach (var d in new[] { 90, 180, 365 })
+      {
+        <button class="btn btn-sm @(_days == d ? "btn-primary" : "")" @onclick="() => SetDays(d)">@d days</button>
+      }
+    </div>
+  </div>
+
+  @if (!Lapsed.Any())
+  {
+    <div class="panel" style="border-left:4px solid var(--green);">
+      <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+        ✓ No lapsed donors in the last @_days days.
+      </div>
+    </div>
+  }
+  else
+  {
+    <div class="kpi-grid" style="margin-bottom:20px;">
+      <div class="kpi-card" style="border-top:3px solid var(--amber);">
+        <div class="kpi-icon">&#128100;</div>
+        <div class="kpi-label">Lapsed (@_days d)</div>
+        <div class="kpi-value" style="color:var(--amber)">@Lapsed.Count()</div>
+      </div>
+      <div class="kpi-card kpi-navy">
+        <div class="kpi-icon">&#128176;</div>
+        <div class="kpi-label">Value at Risk</div>
+        <div class="kpi-value" style="color:var(--navy)">@Lapsed.Sum(d => d.TotalGiven).ToString("C0")</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">&#128260;</div>
+        <div class="kpi-label">Were Recurring</div>
+        <div class="kpi-value" style="color:var(--green)">@Lapsed.Count(d => d.IsRecurring)</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Lapsed Donors — @_days+ days (@Lapsed.Count())</h3>
+        <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 10px;"
+               placeholder="Search…" @bind="_search" @bind:event="oninput" />
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total Given</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Gifts</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Last Gift</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Days Lapsed</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Tier</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var d in Filtered)
+            {
+              var daysLapsed = (int)(DateTime.Today - d.LastGiftDate.Date).TotalDays;
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@d.Id" style="color:var(--navy);">@d.FullName</a>
+                  @if (!string.IsNullOrEmpty(d.Email))
+                  {
+                    <div style="font-size:.74rem;color:var(--text-light);">@d.Email</div>
+                  }
+                </td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.TotalGiven.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@d.GiftCount</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.LastGiftDate.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.84rem;text-align:right;font-weight:700;color:var(--amber);">@daysLapsed d</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.Tier</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/donors/@d.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<Donor> _donors = [];
+  private int _days = 90;
+  private string _search = "";
+  private bool _loading = true;
+
+  private IEnumerable<Donor> Lapsed => _donors.Where(d =>
+    (DateTime.Today - d.LastGiftDate.Date).TotalDays >= _days &&
+    d.GiftCount > 0);
+
+  private IEnumerable<Donor> Filtered => Lapsed.Where(d =>
+    string.IsNullOrEmpty(_search) ||
+    d.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+    (d.Email ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase))
+    .OrderByDescending(d => d.TotalGiven);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donors = await Api.GetDonorsAsync();
+    _loading = false;
+  }
+
+  private void SetDays(int days) => _days = days;
+}
