@@ -1,0 +1,103 @@
+@page "/admin/volunteers/{Id:int}/certifications"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Certifications — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Certifications</h2><p>@(_vol?.FullName ?? $"Volunteer #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers/@Id" class="btn btn-sm">← Volunteer Profile</a>
+    <a href="/admin/volunteers/@Id/certifications/new" class="btn btn-sm btn-primary">+ Add Certification</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Certifications (@_certs.Count)</h3>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_certs.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">
+          No certifications on file.
+          <a href="/admin/volunteers/@Id/certifications/new" style="color:var(--navy);">Add one →</a>
+        </div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Certification</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Issued</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Expires</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);">Verified</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var c in _certs.OrderByDescending(c => c.IssuedDate))
+            {
+              var isExpired = c.ExpiresDate.HasValue && c.ExpiresDate.Value < DateTime.Today;
+              var expiresColor = isExpired ? "var(--red)" : c.ExpiresDate.HasValue && c.ExpiresDate.Value < DateTime.Today.AddDays(60) ? "var(--amber)" : "inherit";
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.86rem;font-weight:600;">@c.CertType</td>
+                <td style="padding:10px 16px;font-size:.84rem;">@c.IssuedDate.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.84rem;color:@expiresColor;">
+                  @if (c.ExpiresDate.HasValue)
+                  {
+                    @c.ExpiresDate.Value.ToString("MMM d, yyyy")
+                    @if (isExpired) { <span style="font-size:.72rem;"> — EXPIRED</span> }
+                  }
+                  else
+                  {
+                    <span style="color:var(--text-light);">No expiry</span>
+                  }
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                  @if (c.IsVerified)
+                  {
+                    <span style="color:var(--green);font-size:1rem;">✓</span>
+                  }
+                  else
+                  {
+                    <span style="color:var(--text-light);font-size:.78rem;">Pending</span>
+                  }
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/volunteers/@Id/certifications/@c.Id/edit" style="font-size:.78rem;color:var(--navy);">Edit</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Volunteer? _vol;
+  private List<VolCertDto> _certs = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var volTask  = Api.GetVolunteerByIdAsync(Id);
+    var certTask = Api.GetVolunteerCertificationsAsync(Id);
+    await Task.WhenAll(volTask, certTask);
+    _vol   = await volTask;
+    _certs = await certTask;
+    _loading = false;
+  }
+}

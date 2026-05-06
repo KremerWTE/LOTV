@@ -772,6 +772,12 @@
       var u when u.Contains("/admin/pledges/") && u.EndsWith("/edit")           => "Edit Pledge",
       var u when u.Contains("/admin/donors/") && u.EndsWith("/contributions")   => "Donor Contributions",
       var u when u.Contains("/admin/donations/") && !u.EndsWith("/edit") && !u.EndsWith("/new") && !u.EndsWith("/bulk-channel") => "Donation Detail",
+      var u when u.Contains("/admin/inventory/") && u.EndsWith("/edit")                                                         => "Edit Inventory Item",
+      var u when u.Contains("/admin/events/") && u.EndsWith("/revenue")                                                         => "Event Revenue",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/year-end")                                                        => "Year-End Summary",
+      var u when u.Contains("/admin/cases/") && u.EndsWith("/sms")                                                              => "Case SMS Log",
+      var u when u.Contains("/admin/retreats/") && u.EndsWith("/sync")                                                          => "GiveButter Sync",
+      var u when u.Contains("/admin/volunteers/") && u.EndsWith("/certifications")                                              => "Volunteer Certifications",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

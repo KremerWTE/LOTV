@@ -1,0 +1,78 @@
+@page "/admin/cases/{Id:int}/sms"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Case SMS Log — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>SMS Log</h2><p>Case #@Id — text message history</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+    <a href="/admin/sms-log" class="btn btn-sm">All SMS</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Messages (@_messages.Count)</h3>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_messages.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No SMS messages for this case.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date &amp; Time</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">To</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Type</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);">Sent</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var m in _messages.OrderByDescending(m => m.SentAt))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;">@m.SentAt.ToString("MMM d, yyyy h:mm tt")</td>
+                <td style="padding:10px 16px;font-size:.84rem;font-family:monospace;">@m.ToPhoneNumber</td>
+                <td style="padding:10px 16px;font-size:.84rem;">@m.MessageType</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  @if (m.Success)
+                  {
+                    <span style="color:var(--green);font-size:.86rem;">✓</span>
+                  }
+                  else
+                  {
+                    <span class="badge badge-cancelled" style="font-size:.6rem;" title="@m.ErrorMessage">Failed</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private List<SmsLogDto> _messages = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _messages = await Api.GetSmsLogAsync(caseId: Id);
+    _loading = false;
+  }
+}
