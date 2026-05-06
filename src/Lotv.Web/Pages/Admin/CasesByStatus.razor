@@ -1,0 +1,160 @@
+@page "/admin/cases/by-status"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Cases by Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Cases by Status</h2><p>Request pipeline status at a glance</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+    <a href="/admin/kanban" class="btn btn-sm">Kanban</a>
+    <a href="/admin/cases/by-priority" class="btn btn-sm">By Priority</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Total Cases</div>
+      <div class="kpi-value" style="color:var(--navy)">@_cases.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128282;</div>
+      <div class="kpi-label">In Progress</div>
+      <div class="kpi-value" style="color:var(--amber)">@_cases.Count(c => c.Status == CaseStatus.InProgress)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_cases.Count(c => c.Status == CaseStatus.Fulfilled)</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-label">New</div>
+      <div class="kpi-value" style="color:var(--red)">@_cases.Count(c => c.Status == CaseStatus.New)</div>
+    </div>
+  </div>
+
+  <!-- Overall progress bar -->
+  @if (_cases.Any())
+  {
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-body" style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:.82rem;font-weight:600;">Overall Fulfillment Rate</span>
+          <span style="font-size:.82rem;color:var(--green);font-weight:700;">@FulfilledPct.ToString("F1")%</span>
+        </div>
+        <div style="background:var(--border);border-radius:6px;height:10px;overflow:hidden;">
+          <div style="background:var(--green);height:10px;width:@FulfilledPct.ToString("F1")%;"></div>
+        </div>
+        <div style="font-size:.74rem;color:var(--text-light);margin-top:6px;">@_cases.Count(c => c.Status == CaseStatus.Fulfilled) of @_cases.Count cases fulfilled</div>
+      </div>
+    </div>
+  }
+
+  @foreach (var status in new[] { CaseStatus.New, CaseStatus.InProgress, CaseStatus.AwaitingShipment, CaseStatus.Shipped, CaseStatus.OnHold, CaseStatus.Fulfilled, CaseStatus.Cancelled })
+  {
+    var group = _cases.Where(c => c.Status == status).OrderBy(c => c.DueDate ?? DateTime.MaxValue).ToList();
+    @if (group.Any())
+    {
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head">
+          <h3>
+            <span class="badge badge-@StatusClass(status)" style="font-size:.72rem;margin-right:8px;">@status</span>
+            <span style="font-size:.84rem;font-weight:600;">@group.Count cases</span>
+          </h3>
+          @if (status != CaseStatus.Fulfilled && status != CaseStatus.Cancelled)
+          {
+            <a href="/admin/cases" style="font-size:.8rem;color:var(--navy);">View all →</a>
+          }
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:var(--bg);">
+                <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">#</th>
+                <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Family</th>
+                <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Priority</th>
+                <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Assigned</th>
+                <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Due</th>
+                <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var c in group.Take(15))
+              {
+                var isOverdue = c.DueDate.HasValue && c.DueDate.Value.Date < DateTime.Today && status != CaseStatus.Fulfilled && status != CaseStatus.Cancelled && status != CaseStatus.OnHold;
+                <tr style="border-top:1px solid var(--border);@(isOverdue ? "background:#fef2f2;" : "")">
+                  <td style="padding:10px 16px;font-size:.78rem;color:var(--text-light);">#@c.Id</td>
+                  <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                    <a href="/admin/cases/@c.Id" style="color:var(--navy);">@(c.Family?.FullName ?? $"Family #{c.FamilyId}")</a>
+                  </td>
+                  <td style="padding:10px 16px;">
+                    <span class="badge badge-@PriorityClass(c.Priority)" style="font-size:.68rem;">@c.Priority</span>
+                  </td>
+                  <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(c.AssignedTo ?? "—")</td>
+                  <td style="padding:10px 16px;font-size:.82rem;color:@(isOverdue ? "var(--red)" : "var(--text-light)");">@(c.DueDate?.ToString("MMM d") ?? "—")</td>
+                  <td style="padding:10px 16px;text-align:center;">
+                    <a href="/admin/cases/@c.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                  </td>
+                </tr>
+              }
+              @if (group.Count > 15)
+              {
+                <tr style="border-top:1px solid var(--border);">
+                  <td colspan="6" style="padding:10px 16px;font-size:.78rem;color:var(--text-light);text-align:center;">
+                    + @(group.Count - 15) more cases
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+}
+
+@code {
+  private List<PackageRequest> _cases = [];
+  private bool _loading = true;
+
+  private decimal FulfilledPct => _cases.Count > 0
+    ? _cases.Count(c => c.Status == CaseStatus.Fulfilled) * 100m / _cases.Count
+    : 0m;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _cases   = await Api.GetRequestsAsync(status: null, overdue: null, familyId: null);
+    _loading = false;
+  }
+
+  private static string StatusClass(CaseStatus status) => status switch
+  {
+    CaseStatus.New              => "new",
+    CaseStatus.InProgress       => "onhold",
+    CaseStatus.AwaitingShipment => "onhold",
+    CaseStatus.Shipped          => "onhold",
+    CaseStatus.OnHold           => "cancelled",
+    CaseStatus.Fulfilled  => "fulfilled",
+    CaseStatus.Cancelled  => "cancelled",
+    _                     => "new"
+  };
+
+  private static string PriorityClass(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "cancelled",
+    RequestPriority.High   => "onhold",
+    RequestPriority.Normal => "new",
+    RequestPriority.Low    => "fulfilled",
+    _                      => "new"
+  };
+}

@@ -1,0 +1,101 @@
+@page "/admin/money-flow"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Money Flow Dashboard — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Money Flow</h2><p>Donation revenue breakdown by category</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/financial" class="btn btn-sm">← Financial Overview</a>
+    <a href="/admin/donations" class="btn btn-sm">All Donations</a>
+    <a href="/admin/impact" class="btn btn-sm">Impact Dashboard</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (!_flow.Any())
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No money flow data available.</div>
+  </div>
+}
+else
+{
+  var grandTotal = _flow.Sum(f => f.Amount);
+
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Flow</div>
+      <div class="kpi-value" style="color:var(--green)">@grandTotal.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-label">Categories</div>
+      <div class="kpi-value" style="color:var(--navy)">@_flow.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Largest Category</div>
+      <div class="kpi-value" style="font-size:.85rem;color:var(--amber)">@(_flow.MaxBy(f => f.Amount)?.Category ?? "—")</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Revenue by Category</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:12px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Category</th>
+            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
+            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Count</th>
+            <th style="padding:12px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var f in _flow.OrderByDescending(f => f.Amount))
+          {
+            var pct = grandTotal > 0 ? f.Amount / grandTotal * 100m : 0m;
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:12px 16px;font-size:.84rem;font-weight:600;">@f.Category</td>
+              <td style="padding:12px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@f.Amount.ToString("C0")</td>
+              <td style="padding:12px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@f.RequestCount</td>
+              <td style="padding:12px 16px;min-width:200px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+                    <div style="background:var(--green);height:8px;width:@pct.ToString("F1")%;"></div>
+                  </div>
+                  <span style="font-size:.74rem;color:var(--text-light);width:40px;text-align:right;">@pct.ToString("F1")%</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
+            <td style="padding:12px 16px;font-size:.84rem;">Total</td>
+            <td style="padding:12px 16px;font-size:.92rem;text-align:right;color:var(--green);">@grandTotal.ToString("C0")</td>
+            <td style="padding:12px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@_flow.Sum(f => f.RequestCount)</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<MoneyFlowCategoryDto> _flow = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _flow    = await Api.GetMoneyFlowAsync();
+    _loading = false;
+  }
+}

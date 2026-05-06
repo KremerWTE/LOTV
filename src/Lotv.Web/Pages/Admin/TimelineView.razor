@@ -1,0 +1,109 @@
+@page "/admin/timeline"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Ministry Timeline — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Ministry Timeline</h2><p>Periodic activity summary across the ministry</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/dashboard" class="btn btn-sm">← Dashboard</a>
+    <a href="/admin/impact" class="btn btn-sm">Impact Dashboard</a>
+    <a href="/admin/money-flow" class="btn btn-sm">Money Flow</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (!_points.Any())
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No timeline data available.</div>
+  </div>
+}
+else
+{
+  var totalDonations = _points.Sum(p => p.Donations);
+  var totalFulfilled = _points.Sum(p => p.RequestsFulfilled);
+  var totalNew       = _points.Sum(p => p.NewRequests);
+  var maxDonations   = _points.Max(p => p.Donations);
+
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--green)">@totalDonations.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Cases Fulfilled</div>
+      <div class="kpi-value" style="color:var(--navy)">@totalFulfilled</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">New Requests</div>
+      <div class="kpi-value" style="color:var(--amber)">@totalNew</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Periods</div>
+      <div class="kpi-value" style="color:var(--navy)">@_points.Count</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Activity by Period</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:12px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Period</th>
+            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Donations</th>
+            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">New Requests</th>
+            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Fulfilled</th>
+            <th style="padding:12px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Giving Trend</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var p in _points)
+          {
+            var barPct = maxDonations > 0 ? p.Donations / maxDonations * 100m : 0m;
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:12px 16px;font-size:.84rem;font-weight:600;">@p.Period</td>
+              <td style="padding:12px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@p.Donations.ToString("C0")</td>
+              <td style="padding:12px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@p.NewRequests</td>
+              <td style="padding:12px 16px;font-size:.82rem;text-align:right;color:var(--navy);">@p.RequestsFulfilled</td>
+              <td style="padding:12px 16px;min-width:160px;">
+                <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+                  <div style="background:var(--green);height:8px;width:@barPct.ToString("F1")%;"></div>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
+            <td style="padding:12px 16px;font-size:.84rem;">Total</td>
+            <td style="padding:12px 16px;font-size:.92rem;text-align:right;color:var(--green);">@totalDonations.ToString("C0")</td>
+            <td style="padding:12px 16px;font-size:.84rem;text-align:right;color:var(--text-light);">@totalNew</td>
+            <td style="padding:12px 16px;font-size:.84rem;text-align:right;color:var(--navy);">@totalFulfilled</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<TimelinePointDto> _points = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _points  = await Api.GetTimelineAsync();
+    _loading = false;
+  }
+}

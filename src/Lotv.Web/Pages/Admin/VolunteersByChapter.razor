@@ -1,0 +1,124 @@
+@page "/admin/volunteers/by-chapter"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Volunteers by Chapter — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteers by Chapter</h2><p>Volunteer distribution across ministry chapters</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← All Volunteers</a>
+    <a href="/admin/volunteers/by-role" class="btn btn-sm">By Role</a>
+    <a href="/admin/volunteers/geography" class="btn btn-sm">Geography</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Total Volunteers</div>
+      <div class="kpi-value" style="color:var(--navy)">@_volunteers.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--green)">@_volunteers.Count(v => v.Status == VolunteerStatus.Active)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Chapters w/ Volunteers</div>
+      <div class="kpi-value" style="color:var(--amber)">@_volunteers.Select(v => v.ChapterId).Distinct().Count()</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg per Chapter</div>
+      <div class="kpi-value" style="color:var(--navy)">@(ChapterGroups.Any() ? (ChapterGroups.Average(g => g.Count())).ToString("F1") : "—")</div>
+    </div>
+  </div>
+
+  @foreach (var g in ChapterGroups)
+  {
+    var chapterName = _chapterMap.TryGetValue(g.Key, out var n) ? n : $"Chapter #{g.Key}";
+    var active = g.Count(v => v.Status == VolunteerStatus.Active);
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>
+          <a href="/admin/chapters/@g.Key/volunteers" style="color:inherit;text-decoration:none;">@chapterName</a>
+          <span style="font-size:.78rem;font-weight:400;color:var(--text-light);"> — @g.Count() volunteers · @active active</span>
+        </h3>
+        <a href="/admin/chapters/@g.Key/volunteers" style="font-size:.8rem;color:var(--navy);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Name</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Role</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Active Cases</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:8px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var v in g.OrderBy(v => v.FullName).Take(10))
+            {
+              <tr style="border-top:1px solid var(--border);@(v.Status != VolunteerStatus.Active ? "opacity:0.6;" : "")">
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@v.FullName</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@v.Role</td>
+                <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@v.ActiveCases</td>
+                <td style="padding:8px 16px;">
+                  <span class="badge badge-@(v.Status == VolunteerStatus.Active ? "fulfilled" : "cancelled")" style="font-size:.68rem;">@v.Status</span>
+                </td>
+                <td style="padding:8px 16px;text-align:center;">
+                  <a href="/admin/volunteers/@v.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+            @if (g.Count() > 10)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td colspan="5" style="padding:8px 16px;font-size:.78rem;color:var(--text-light);text-align:center;">
+                  <a href="/admin/chapters/@g.Key/volunteers" style="color:var(--navy);">+ @(g.Count() - 10) more volunteers →</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_volunteers.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No volunteers found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<Volunteer> _volunteers = [];
+  private Dictionary<int, string> _chapterMap = [];
+  private bool _loading = true;
+
+  private IEnumerable<IGrouping<int, Volunteer>> ChapterGroups =>
+    _volunteers.GroupBy(v => v.ChapterId).OrderByDescending(g => g.Count());
+
+  protected override async Task OnInitializedAsync()
+  {
+    var volTask  = Api.GetVolunteersAsync();
+    var chapTask = Api.GetChaptersAdminAsync();
+    await Task.WhenAll(volTask, chapTask);
+    _volunteers  = await volTask;
+    var chapters = await chapTask;
+    _chapterMap  = chapters.ToDictionary(c => c.Id, c => c.Name);
+    _loading = false;
+  }
+}

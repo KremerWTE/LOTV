@@ -1,0 +1,114 @@
+@page "/admin/inventory/by-category"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Inventory by Category — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Inventory by Category</h2><p>Resource items grouped by category</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory" class="btn btn-sm">← All Inventory</a>
+    <a href="/admin/inventory/new" class="btn btn-sm btn-primary">+ Add Item</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-label">Item Types</div>
+      <div class="kpi-value" style="color:var(--navy)">@_items.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Categories</div>
+      <div class="kpi-value" style="color:var(--green)">@_items.Select(i => i.Category).Distinct().Count()</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128282;</div>
+      <div class="kpi-label">Total On Hand</div>
+      <div class="kpi-value" style="color:var(--amber)">@_items.Sum(i => i.QuantityAvailable)</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Low Stock</div>
+      <div class="kpi-value" style="color:var(--red)">@_items.Count(i => i.QuantityAvailable <= 2)</div>
+    </div>
+  </div>
+
+  @foreach (var catGroup in _items.GroupBy(i => i.Category).OrderBy(g => g.Key))
+  {
+    var lowCount = catGroup.Count(i => i.QuantityAvailable <= 2);
+    <div class="panel" style="margin-bottom:16px;@(lowCount > 0 ? "border-left:4px solid var(--amber);" : "")">
+      <div class="panel-head">
+        <h3>@catGroup.Key
+          <span style="font-size:.78rem;font-weight:400;color:var(--text-light);">(@catGroup.Count() items · @catGroup.Sum(i => i.QuantityAvailable) on hand)</span>
+          @if (lowCount > 0)
+          {
+            <span class="badge badge-onhold" style="font-size:.68rem;margin-left:8px;">@lowCount low stock</span>
+          }
+        </h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Item</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">On Hand</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Reserved</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Available</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Chapter</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var i in catGroup.OrderBy(i => i.Name))
+            {
+              var isLow = i.QuantityAvailable <= 2;
+              <tr style="border-top:1px solid var(--border);@(isLow ? "background:#fffbeb;" : "")">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  @i.Name
+                  @if (isLow)
+                  {
+                    <span style="font-size:.68rem;color:var(--amber);margin-left:6px;">⚠ Low</span>
+                  }
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@i.QuantityOnHand</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@i.QuantityReserved</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:@(isLow ? "var(--red)" : "var(--navy)");">@i.QuantityAvailable</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(i.ChapterId > 0 ? $"Chapter #{i.ChapterId}" : "—")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/inventory/@i.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_items.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No inventory items found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<ResourceItem> _items = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _items   = await Api.GetInventoryAsync();
+    _loading = false;
+  }
+}
