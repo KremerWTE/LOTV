@@ -1,0 +1,121 @@
+@page "/admin/cases/{Id:int}/due-date"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Case Due Date — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Set Due Date</h2><p>@(_case is null ? $"Case #{Id}" : (_case.Family?.Parent1FirstName + " " + _case.Family?.Parent1LastName).Trim())</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_case is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Case #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">
+        ✓ Due date set to @_dueDate.ToString("MMM d, yyyy").
+        <a href="/admin/cases/@Id" style="color:var(--green);margin-left:8px;">Back to case →</a>
+      </div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Current Due Date</div>
+        <div style="font-size:.88rem;font-weight:600;color:@(_case.DueDate.HasValue && _case.DueDate.Value < DateTime.Today ? "var(--red)" : "inherit");">
+          @(_case.DueDate?.ToString("MMM d, yyyy") ?? "Not set")
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Priority</div>
+        <span class="badge badge-@PriorityClass(_case.Priority)" style="font-size:.72rem;">@_case.Priority</span>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Status</div>
+        <span class="badge badge-new" style="font-size:.72rem;">@_case.Status</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:400px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Set Due Date</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input type="date" class="form-input" @bind="_dueDate" @bind:format="yyyy-MM-dd" />
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn btn-sm" @onclick="() => _dueDate = DateTime.Today.AddDays(3)">+3 days</button>
+          <button class="btn btn-sm" @onclick="() => _dueDate = DateTime.Today.AddDays(7)">+1 week</button>
+          <button class="btn btn-sm" @onclick="() => _dueDate = DateTime.Today.AddDays(14)">+2 weeks</button>
+          <button class="btn btn-sm" @onclick="() => _dueDate = DateTime.Today.AddMonths(1)">+1 month</button>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <a href="/admin/cases/@Id" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Save" disabled="@(_busy || _dueDate == default)">
+            @(_busy ? "Saving…" : "Set Due Date")
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private PackageRequest? _case;
+  private DateTime _dueDate;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _case = await Api.GetRequestAsync(Id);
+    _dueDate = _case?.DueDate ?? DateTime.Today.AddDays(7);
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    if (_case is null) return;
+    _error = ""; _saved = false; _busy = true;
+    var ok = await Api.UpdateRequestDueDateAsync(Id, _dueDate);
+    _busy = false;
+    if (ok) { _case.DueDate = _dueDate; _saved = true; }
+    else _error = "Failed to update due date. Please try again.";
+  }
+
+  private static string PriorityClass(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "cancelled",
+    RequestPriority.High   => "onhold",
+    RequestPriority.Normal => "new",
+    RequestPriority.Low    => "fulfilled",
+    _                      => "new"
+  };
+}

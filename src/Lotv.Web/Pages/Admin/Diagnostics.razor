@@ -1,0 +1,130 @@
+@page "/admin/diagnostics"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Platform Diagnostics — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Platform Diagnostics</h2><p>Real-time system health and integration metrics</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/health" class="btn btn-sm">Health Check</a>
+    <button class="btn btn-sm btn-primary" @onclick="Refresh" disabled="@_loading">
+      @(_loading ? "Loading…" : "↺ Refresh")
+    </button>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading diagnostics…</div></div>
+}
+else if (_diag is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Failed to load diagnostics.</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128276;</div>
+      <div class="kpi-label">Push Subscriptions</div>
+      <div class="kpi-value" style="color:var(--navy)">@_diag.PushSubscriptionCount</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128179;</div>
+      <div class="kpi-label">Donors w/ Stripe</div>
+      <div class="kpi-value" style="color:var(--green)">@_diag.DonorsWithStripeCustomer</div>
+    </div>
+    <div class="kpi-card @(_diag.WebhookEvents24h > 0 ? "kpi-green" : "")">
+      <div class="kpi-icon">&#128268;</div>
+      <div class="kpi-label">Webhooks (24h)</div>
+      <div class="kpi-value">@_diag.WebhookEvents24h</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128268;</div>
+      <div class="kpi-label">Webhooks (7d)</div>
+      <div class="kpi-value">@_diag.WebhookEvents7d</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <!-- FX Rates -->
+    <div class="panel">
+      <div class="panel-head"><h3>Exchange Rates</h3></div>
+      <div class="panel-body">
+        @if (_diag.FxLatest is null)
+        {
+          <div style="color:var(--red);font-size:.84rem;">&#9888; No FX data available</div>
+        }
+        else
+        {
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:.82rem;color:var(--text-light);">Last Updated</span>
+              <span style="font-size:.84rem;font-weight:600;">@_diag.FxLatest.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:.82rem;color:var(--text-light);">Data Age</span>
+              <span class="badge badge-@(_diag.FxAgeHours < 2 ? "fulfilled" : _diag.FxAgeHours < 24 ? "onhold" : "cancelled")" style="font-size:.72rem;">
+                @(_diag.FxAgeHours.HasValue ? $"{_diag.FxAgeHours:F1}h old" : "Unknown")
+              </span>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Migrations -->
+    <div class="panel">
+      <div class="panel-head"><h3>Database Migrations</h3></div>
+      <div class="panel-body">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:.82rem;color:var(--text-light);">Pending</span>
+            <span class="badge badge-@(_diag.PendingMigrations == 0 ? "fulfilled" : "cancelled")" style="font-size:.72rem;">
+              @_diag.PendingMigrations pending
+            </span>
+          </div>
+          @if (!string.IsNullOrEmpty(_diag.LastMigration))
+          {
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:.82rem;color:var(--text-light);">Last Applied</span>
+              <span style="font-size:.78rem;font-family:monospace;color:var(--navy);">@_diag.LastMigration</span>
+            </div>
+          }
+          <div style="margin-top:4px;">
+            <a href="/admin/migrations" style="font-size:.78rem;color:var(--navy);">View all migrations →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Quick Links</h3></div>
+    <div class="panel-body" style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="/admin/push-subscriptions" class="btn btn-sm">Push Subscriptions</a>
+      <a href="/admin/webhooks" class="btn btn-sm">Webhook Events</a>
+      <a href="/admin/webhooks/prune" class="btn btn-sm">Prune Old Webhooks</a>
+      <a href="/admin/vapid/generate" class="btn btn-sm">VAPID Keys</a>
+      <a href="/admin/push/test" class="btn btn-sm">Test Push</a>
+      <a href="/admin/currencies" class="btn btn-sm">Exchange Rates</a>
+    </div>
+  </div>
+}
+
+@code {
+  private ApiService.DiagnosticsDto? _diag;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync() => await Load();
+
+  private async Task Refresh() => await Load();
+
+  private async Task Load()
+  {
+    _loading = true;
+    _diag = await Api.GetDiagnosticsAsync();
+    _loading = false;
+  }
+}

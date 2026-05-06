@@ -1,0 +1,132 @@
+@page "/admin/cases/{Id:int}/priority"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Case Priority — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Update Priority</h2><p>@(_case is null ? $"Case #{Id}" : (_case.Family?.Parent1FirstName + " " + _case.Family?.Parent1LastName).Trim())</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_case is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Case #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">
+        ✓ Priority updated to @_newPriority.
+        <a href="/admin/cases/@Id" style="color:var(--green);margin-left:8px;">Back to case →</a>
+      </div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Current Priority</div>
+        <span class="badge badge-@PriorityClass(_case.Priority)" style="font-size:.72rem;">@_case.Priority</span>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Status</div>
+        <span class="badge badge-@StatusClass(_case.Status)" style="font-size:.72rem;">@_case.Status</span>
+      </div>
+      @if (_case.DueDate.HasValue)
+      {
+        <div>
+          <div style="font-size:.78rem;color:var(--text-light);">Due Date</div>
+          <div style="font-size:.84rem;">@_case.DueDate.Value.ToString("MMM d, yyyy")</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div style="max-width:400px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Change Priority</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">New Priority</label>
+          <select class="form-input" @bind="_newPriority">
+            <option value="@RequestPriority.Urgent">🔴 Urgent</option>
+            <option value="@RequestPriority.High">🟠 High</option>
+            <option value="@RequestPriority.Normal">🟡 Normal</option>
+            <option value="@RequestPriority.Low">🟢 Low</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/cases/@Id" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Save" disabled="@(_busy || _newPriority == _case.Priority)">
+            @(_busy ? "Saving…" : "Update Priority")
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private PackageRequest? _case;
+  private RequestPriority _newPriority;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _case = await Api.GetRequestAsync(Id);
+    if (_case is not null) _newPriority = _case.Priority;
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    if (_case is null) return;
+    _error = ""; _saved = false; _busy = true;
+    var ok = await Api.UpdateRequestPriorityAsync(Id, _newPriority);
+    _busy = false;
+    if (ok) { _case.Priority = _newPriority; _saved = true; }
+    else _error = "Failed to update priority. Please try again.";
+  }
+
+  private static string PriorityClass(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "cancelled",
+    RequestPriority.High   => "onhold",
+    RequestPriority.Normal => "new",
+    RequestPriority.Low    => "fulfilled",
+    _                      => "new"
+  };
+
+  private static string StatusClass(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "new",
+    CaseStatus.InProgress       => "new",
+    CaseStatus.AwaitingShipment => "onhold",
+    CaseStatus.Shipped          => "onhold",
+    CaseStatus.Fulfilled        => "fulfilled",
+    CaseStatus.OnHold           => "onhold",
+    CaseStatus.Cancelled        => "cancelled",
+    _                           => "new"
+  };
+}

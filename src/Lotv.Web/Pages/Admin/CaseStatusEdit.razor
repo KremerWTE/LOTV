@@ -1,0 +1,147 @@
+@page "/admin/cases/{Id:int}/status"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Case Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Update Status</h2><p>@(_case is null ? $"Case #{Id}" : (_case.Family?.Parent1FirstName + " " + _case.Family?.Parent1LastName).Trim())</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_case is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Case #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">
+        ✓ Status updated to @_newStatus.
+        <a href="/admin/cases/@Id" style="color:var(--green);margin-left:8px;">Back to case →</a>
+      </div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Current Status</div>
+        <span class="badge badge-@StatusClass(_case.Status)" style="font-size:.72rem;">@_case.Status</span>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Priority</div>
+        <span class="badge badge-@PriorityClass(_case.Priority)" style="font-size:.72rem;">@_case.Priority</span>
+      </div>
+      @if (_case.DueDate.HasValue)
+      {
+        <div>
+          <div style="font-size:.78rem;color:var(--text-light);">Due Date</div>
+          <div style="font-size:.84rem;color:@(_case.DueDate.Value < DateTime.Today ? "var(--red)" : "inherit");">
+            @_case.DueDate.Value.ToString("MMM d, yyyy")
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (_newStatus == CaseStatus.Shipped && _case.Status != CaseStatus.Shipped)
+  {
+    <div class="panel" style="border-left:4px solid var(--amber);margin-bottom:16px;">
+      <div class="panel-body" style="font-size:.84rem;color:#92400e;">
+        ⚠ Marking as Shipped — consider also adding a tracking number via
+        <a href="/admin/cases/@Id/tracking" style="color:#92400e;">Case Tracking</a>.
+      </div>
+    </div>
+  }
+
+  <div style="max-width:440px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Change Status</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">New Status</label>
+          <select class="form-input" @bind="_newStatus">
+            <option value="@CaseStatus.New">New</option>
+            <option value="@CaseStatus.InProgress">In Progress</option>
+            <option value="@CaseStatus.AwaitingShipment">Awaiting Shipment</option>
+            <option value="@CaseStatus.Shipped">Shipped</option>
+            <option value="@CaseStatus.Fulfilled">Fulfilled</option>
+            <option value="@CaseStatus.OnHold">On Hold</option>
+            <option value="@CaseStatus.Cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/cases/@Id" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Save" disabled="@(_busy || _newStatus == _case.Status)">
+            @(_busy ? "Saving…" : "Update Status")
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private PackageRequest? _case;
+  private CaseStatus _newStatus;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _case = await Api.GetRequestAsync(Id);
+    if (_case is not null) _newStatus = _case.Status;
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    if (_case is null) return;
+    _error = ""; _saved = false; _busy = true;
+    var ok = await Api.UpdateRequestStatusAsync(Id, _newStatus);
+    _busy = false;
+    if (ok) { _case.Status = _newStatus; _saved = true; }
+    else _error = "Failed to update status. Please try again.";
+  }
+
+  private static string StatusClass(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "new",
+    CaseStatus.InProgress       => "new",
+    CaseStatus.AwaitingShipment => "onhold",
+    CaseStatus.Shipped          => "onhold",
+    CaseStatus.Fulfilled        => "fulfilled",
+    CaseStatus.OnHold           => "onhold",
+    CaseStatus.Cancelled        => "cancelled",
+    _                           => "new"
+  };
+
+  private static string PriorityClass(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "cancelled",
+    RequestPriority.High   => "onhold",
+    RequestPriority.Normal => "new",
+    RequestPriority.Low    => "fulfilled",
+    _                      => "new"
+  };
+}

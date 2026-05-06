@@ -820,6 +820,12 @@
       var u when u.Contains("/admin/cases/") && u.EndsWith("/candidates")                                                     => "Volunteer Candidates",
       var u when u.Contains("/admin/donors/") && u.EndsWith("/portal-status")                                                 => "Donor Portal Status",
       var u when u.Contains("/admin/volunteers/") && u.EndsWith("/role")                                                      => "Volunteer Role",
+      var u when u == "/admin/diagnostics"                                                                                    => "Platform Diagnostics",
+      var u when u.Contains("/admin/cases/") && u.EndsWith("/priority")                                                      => "Case Priority",
+      var u when u.Contains("/admin/cases/") && u.EndsWith("/due-date")                                                      => "Case Due Date",
+      var u when u == "/admin/currencies"                                                                                     => "Exchange Rates",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/staff")                                                      => "Chapter Staff",
+      var u when u.Contains("/admin/cases/") && u.EndsWith("/status")                                                        => "Case Status",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

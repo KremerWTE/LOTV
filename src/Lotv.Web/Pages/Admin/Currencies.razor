@@ -1,0 +1,92 @@
+@page "/admin/currencies"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Exchange Rates — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Exchange Rates</h2><p>Supported currencies and current rates vs. USD</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/diagnostics" class="btn btn-sm">← Diagnostics</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_currencies is null || !_currencies.Any())
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No currency data available.</div>
+  </div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127758;</div>
+      <div class="kpi-label">Currencies</div>
+      <div class="kpi-value" style="color:var(--navy)">@_currencies.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128178;</div>
+      <div class="kpi-label">Base Currency</div>
+      <div class="kpi-value" style="font-size:1rem;">USD</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Currencies (@_currencies.Count)</h3>
+      <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 10px;"
+             placeholder="Search…" @bind="_search" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Code</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Symbol</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Name</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Rate to USD</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">1 USD =</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var c in Filtered)
+          {
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:700;font-family:monospace;color:var(--navy);">@c.Code</td>
+              <td style="padding:10px 16px;font-size:.88rem;font-weight:600;color:var(--text-light);">@c.Symbol</td>
+              <td style="padding:10px 16px;font-size:.84rem;">@c.Name</td>
+              <td style="padding:10px 16px;font-size:.84rem;text-align:right;font-family:monospace;">@c.RateToUsd.ToString("F4")</td>
+              <td style="padding:10px 16px;font-size:.84rem;text-align:right;font-family:monospace;color:var(--text-light);">
+                @c.Symbol @(c.RateToUsd == 0 ? "—" : (1 / c.RateToUsd).ToString("F4"))
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<ApiService.CurrencyDto>? _currencies;
+  private string _search = "";
+  private bool _loading = true;
+
+  private IEnumerable<ApiService.CurrencyDto> Filtered =>
+    (_currencies ?? []).Where(c =>
+      string.IsNullOrEmpty(_search) ||
+      c.Code.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+      c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase))
+    .OrderBy(c => c.Code);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _currencies = await Api.GetCurrenciesAsync();
+    _loading = false;
+  }
+}
