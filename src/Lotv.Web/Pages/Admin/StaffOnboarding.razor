@@ -1,0 +1,125 @@
+@page "/admin/staff/onboarding"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Staff Onboarding — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Staff Onboarding</h2><p>Complete your staff profile to activate your account</p></div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  @if (_done)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">
+        ✓ Profile complete! Welcome to LOTV.
+        <a href="/admin" style="color:var(--green);margin-left:8px;">Go to dashboard →</a>
+      </div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  @if (!_done)
+  {
+    <div style="max-width:560px;">
+      <div class="panel">
+        <div class="panel-head"><h3>Your Information</h3></div>
+        <div class="panel-body">
+          <p style="font-size:.82rem;color:var(--text-light);margin-bottom:16px;">
+            This information will appear on case assignments and internal communications.
+          </p>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input class="form-input" @bind="_firstName" placeholder="First name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name *</label>
+              <input class="form-input" @bind="_lastName" placeholder="Last name" />
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">Title / Role</label>
+            <input class="form-input" @bind="_title" placeholder="e.g. Chapter Director, Volunteer Coordinator, Case Manager" />
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">Phone *</label>
+            <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 555-5555" />
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">Chapter *</label>
+            <select class="form-input" @bind="_chapterId">
+              <option value="0">— Select chapter —</option>
+              @foreach (var ch in _chapters)
+              {
+                <option value="@ch.Id">@ch.Name (@ch.City, @ch.State)</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">Notification Preference</label>
+            <select class="form-input" @bind="_notifyPref">
+              <option value="Email">Email only</option>
+              <option value="Push">Push notifications only</option>
+              <option value="Both">Email + Push</option>
+              <option value="None">None</option>
+            </select>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Complete Onboarding")</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<Chapter> _chapters = [];
+  private string _firstName = "", _lastName = "", _title = "", _phone = "", _notifyPref = "Email";
+  private int _chapterId;
+  private bool _loading = true, _busy, _done;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+    _loading = false;
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_firstName)) { _error = "First name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_lastName))  { _error = "Last name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_phone))     { _error = "Phone is required."; return; }
+    if (_chapterId == 0)                       { _error = "Please select a chapter."; return; }
+    _busy = true;
+    var ok = await Api.CompleteStaffOnboardingAsync(
+      _firstName.Trim(), _lastName.Trim(),
+      _title.Trim(), _phone.Trim(),
+      _notifyPref, _chapterId);
+    _busy = false;
+    if (ok) _done = true;
+    else _error = "Failed to complete onboarding. Please try again.";
+  }
+}

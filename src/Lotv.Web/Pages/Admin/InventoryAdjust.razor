@@ -1,0 +1,135 @@
+@page "/admin/inventory/{Id:int}/adjust"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Adjust Inventory — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Adjust Inventory</h2><p>@(_item?.Name ?? $"Item #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory" class="btn btn-sm">← Inventory</a>
+    @if (_item is not null)
+    {
+      <a href="/admin/inventory/@Id/edit" class="btn btn-sm">Edit Item</a>
+    }
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_item is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Item #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">✓ Inventory adjusted. New quantity on hand: @_item.QuantityOnHand</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <!-- Item summary -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Category</div>
+        <div style="font-size:.84rem;">@_item.Category</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">On Hand</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--navy);">@_item.QuantityOnHand <span style="font-size:.78rem;color:var(--text-light);">@_item.Unit</span></div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Reserved</div>
+        <div style="font-size:.88rem;">@_item.QuantityReserved @_item.Unit</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Available</div>
+        <div style="font-size:.88rem;font-weight:600;color:@(_item.QuantityOnHand - _item.QuantityReserved > 0 ? "var(--green)" : "var(--red)");">
+          @(_item.QuantityOnHand - _item.QuantityReserved) @_item.Unit
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:480px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Record Adjustment</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Adjustment Type</label>
+          <select class="form-input" @bind="_adjType">
+            <option value="add">Add (received / donation)</option>
+            <option value="remove">Remove (used / lost / damaged)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Quantity *</label>
+          <input class="form-input" type="number" min="1" step="1" @bind="_qty" />
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">
+            Preview: @(_adjType == "add" ? _item.QuantityOnHand + _qty : _item.QuantityOnHand - _qty) on hand after adjustment
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Reason *</label>
+          <input class="form-input" @bind="_reason" placeholder="e.g. Donation received, used for case #42, damaged in storage…" />
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/inventory" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Apply Adjustment")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private ResourceItem? _item;
+  private string _adjType = "add", _reason = "";
+  private int _qty = 1;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _item = await Api.GetInventoryItemAsync(Id);
+    _loading = false;
+  }
+
+  private async Task Submit()
+  {
+    _error = ""; _saved = false;
+    if (_qty <= 0) { _error = "Quantity must be at least 1."; return; }
+    if (string.IsNullOrWhiteSpace(_reason)) { _error = "Please enter a reason."; return; }
+    int delta = _adjType == "add" ? _qty : -_qty;
+    if (_item is not null && _item.QuantityOnHand + delta < 0)
+    { _error = "Cannot remove more than current quantity on hand."; return; }
+    _busy = true;
+    var ok = await Api.AdjustInventoryAsync(Id, delta, _reason.Trim());
+    _busy = false;
+    if (ok)
+    {
+      _saved = true;
+      if (_item is not null) _item.QuantityOnHand += delta;
+      _qty = 1; _reason = "";
+    }
+    else _error = "Failed to apply adjustment. Please try again.";
+  }
+}

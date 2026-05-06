@@ -1,0 +1,132 @@
+@page "/admin/cases/{Id:int}/tracking"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Case Tracking — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Shipment Tracking</h2><p>@(_case?.Family is not null ? $"{_case.Family.Parent1FirstName} {_case.Family.Parent1LastName}" : $"Case #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_case is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Case #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">✓ Tracking info updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <!-- Case summary -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Family</div>
+        <div style="font-weight:700;">@(_case.Family is not null ? $"{_case.Family.Parent1FirstName} {_case.Family.Parent1LastName}" : $"Family #{_case.FamilyId}")</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Status</div>
+        <span class="badge badge-@StatusBadge(_case.Status)" style="font-size:.68rem;">@_case.Status</span>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Priority</div>
+        <div style="font-size:.84rem;">@_case.Priority</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:560px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Tracking &amp; Shipment</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Tracking Number</label>
+          <input class="form-input" @bind="_trackingNumber" placeholder="e.g. 1Z999AA10123456784" />
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Shipped Date</label>
+          <input class="form-input" type="date" @bind="_shippedDate" />
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Internal Notes</label>
+          <textarea class="form-input" rows="3" @bind="_internalNotes"
+                    placeholder="Shipping carrier, special instructions, delivery notes…"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/cases/@Id" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Tracking")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private PackageRequest? _case;
+  private string _trackingNumber = "", _internalNotes = "";
+  private DateTime? _shippedDate;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _case = await Api.GetRequestAsync(Id);
+    if (_case is not null)
+    {
+      _trackingNumber  = _case.TrackingNumber ?? "";
+      _shippedDate     = _case.ShippedDate;
+      _internalNotes   = _case.InternalNotes ?? "";
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    _busy = true;
+    var ok = await Api.PatchRequestAsync(
+      Id,
+      string.IsNullOrWhiteSpace(_trackingNumber) ? null : _trackingNumber.Trim(),
+      _shippedDate,
+      string.IsNullOrWhiteSpace(_internalNotes) ? null : _internalNotes.Trim());
+    _busy = false;
+    if (ok) _saved = true;
+    else _error = "Failed to update tracking. Please try again.";
+  }
+
+  private static string StatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "new",
+    CaseStatus.InProgress       => "onhold",
+    CaseStatus.AwaitingShipment => "pending",
+    CaseStatus.Shipped          => "onhold",
+    CaseStatus.Fulfilled        => "fulfilled",
+    CaseStatus.OnHold           => "cancelled",
+    CaseStatus.Cancelled        => "cancelled",
+    _                           => "new"
+  };
+}

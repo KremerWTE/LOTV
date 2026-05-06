@@ -1,0 +1,166 @@
+@page "/admin/recurring/{Id:int}/manage"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Manage Recurring — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Manage Recurring Gift</h2><p>@(_rec?.Donor?.FullName ?? $"Recurring #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/recurring" class="btn btn-sm">← Recurring Gifts</a>
+    @if (_rec is not null)
+    {
+      <a href="/admin/recurring/@Id/edit" class="btn btn-sm">Edit Amount</a>
+    }
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_rec is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Recurring gift #@Id not found.</div></div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_msg))
+  {
+    <div class="panel" style="border-left:4px solid @(_msgOk ? "var(--green)" : "var(--red)");margin-bottom:16px;">
+      <div class="panel-body" style="color:@(_msgOk ? "var(--green)" : "var(--red)");font-weight:600;">@_msg</div>
+    </div>
+  }
+
+  <!-- Summary -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Donor</div>
+        <div style="font-weight:700;"><a href="/admin/donors/@_rec.DonorId" style="color:var(--navy);">@(_rec.Donor?.FullName ?? $"Donor #{_rec.DonorId}")</a></div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Amount</div>
+        <div style="font-weight:700;color:var(--green);">@_rec.Amount.ToString("C0") / @_rec.Frequency.ToDisplayName()</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Status</div>
+        <span class="badge badge-@StatusBadge(_rec.Status)" style="font-size:.68rem;">@_rec.Status</span>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Next Charge</div>
+        <div style="font-size:.84rem;">@_rec.NextChargeDate.ToString("MMM d, yyyy")</div>
+      </div>
+      @if (!string.IsNullOrEmpty(_rec.Campaign))
+      {
+        <div>
+          <div style="font-size:.78rem;color:var(--text-light);">Campaign</div>
+          <div style="font-size:.84rem;">@_rec.Campaign</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div style="max-width:480px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Actions</h3></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+
+        @if (_rec.Status == RecurringStatus.Active)
+        {
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg);border-radius:6px;">
+            <div>
+              <div style="font-weight:600;font-size:.88rem;">Pause</div>
+              <div style="font-size:.78rem;color:var(--text-light);">Temporarily suspend future charges without cancelling.</div>
+            </div>
+            <button class="btn btn-sm" @onclick="Pause" disabled="@_busy">@(_busy ? "…" : "Pause")</button>
+          </div>
+        }
+
+        @if (_rec.Status == RecurringStatus.Paused)
+        {
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg);border-radius:6px;">
+            <div>
+              <div style="font-weight:600;font-size:.88rem;">Resume</div>
+              <div style="font-size:.78rem;color:var(--text-light);">Reactivate charges on the existing schedule.</div>
+            </div>
+            <button class="btn btn-sm btn-primary" @onclick="Resume" disabled="@_busy">@(_busy ? "…" : "Resume")</button>
+          </div>
+        }
+
+        @if (_rec.Status is RecurringStatus.Active or RecurringStatus.Paused or RecurringStatus.PastDue)
+        {
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fff5f5;border-radius:6px;border:1px solid #fecaca;">
+            <div>
+              <div style="font-weight:600;font-size:.88rem;color:var(--red);">Cancel</div>
+              <div style="font-size:.78rem;color:var(--text-light);">Permanently stop this recurring gift.</div>
+            </div>
+            <button class="btn btn-sm" style="background:var(--red);color:#fff;" @onclick="Cancel" disabled="@_busy">@(_busy ? "…" : "Cancel Gift")</button>
+          </div>
+        }
+
+        @if (_rec.Status is RecurringStatus.Cancelled or RecurringStatus.Completed)
+        {
+          <div style="padding:16px;text-align:center;color:var(--text-light);font-size:.84rem;">
+            This recurring gift is @_rec.Status.ToString().ToLower() and cannot be modified.
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private RecurringDonation? _rec;
+  private bool _loading = true, _busy, _msgOk;
+  private string _msg = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetAllRecurringAsync();
+    _rec = all.FirstOrDefault(r => r.Id == Id);
+    _loading = false;
+  }
+
+  private async Task Pause()
+  {
+    _msg = ""; _busy = true;
+    var ok = await Api.PauseRecurringAdminAsync(Id);
+    _busy = false;
+    if (ok) { _msgOk = true; _msg = "Gift paused."; if (_rec is not null) _rec.Status = RecurringStatus.Paused; }
+    else { _msgOk = false; _msg = "Failed to pause. Please try again."; }
+  }
+
+  private async Task Resume()
+  {
+    _msg = ""; _busy = true;
+    var ok = await Api.ResumeRecurringAdminAsync(Id);
+    _busy = false;
+    if (ok) { _msgOk = true; _msg = "Gift resumed."; if (_rec is not null) _rec.Status = RecurringStatus.Active; }
+    else { _msgOk = false; _msg = "Failed to resume. Please try again."; }
+  }
+
+  private async Task Cancel()
+  {
+    _msg = ""; _busy = true;
+    var ok = await Api.CancelRecurringAdminAsync(Id);
+    _busy = false;
+    if (ok) { _msgOk = true; _msg = "Gift cancelled."; if (_rec is not null) _rec.Status = RecurringStatus.Cancelled; }
+    else { _msgOk = false; _msg = "Failed to cancel. Please try again."; }
+  }
+
+  private static string StatusBadge(RecurringStatus s) => s switch
+  {
+    RecurringStatus.Active    => "fulfilled",
+    RecurringStatus.Paused    => "onhold",
+    RecurringStatus.PastDue   => "pending",
+    RecurringStatus.Cancelled => "cancelled",
+    RecurringStatus.Completed => "cancelled",
+    _                         => "new"
+  };
+}

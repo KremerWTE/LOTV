@@ -1,0 +1,131 @@
+@page "/admin/events/{EventId:int}/auction/close"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Close Auction — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Close Auction</h2><p>Event #@EventId</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events/@EventId/auction" class="btn btn-sm">← Auction</a>
+    <a href="/admin/events/@EventId" class="btn btn-sm">Event</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  @if (_closed)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">
+        ✓ Auction closed. Winning bids recorded.
+        <a href="/admin/events/@EventId/auction" style="color:var(--green);margin-left:8px;">View auction →</a>
+      </div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  @if (_event is not null)
+  {
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:.78rem;color:var(--text-light);">Event</div>
+          <div style="font-weight:700;">@_event.Title</div>
+        </div>
+        <div>
+          <div style="font-size:.78rem;color:var(--text-light);">Date</div>
+          <div style="font-size:.84rem;">@_event.Date.ToString("MMM d, yyyy")</div>
+        </div>
+        <div>
+          <div style="font-size:.78rem;color:var(--text-light);">Items</div>
+          <div style="font-weight:700;color:var(--navy);">@_items.Count</div>
+        </div>
+        <div>
+          <div style="font-size:.78rem;color:var(--text-light);">Open Bids</div>
+          <div style="font-weight:700;color:@(_openItems > 0 ? "var(--amber)" : "var(--green)");">@_openItems</div>
+        </div>
+        @if (_totalBids > 0)
+        {
+          <div>
+            <div style="font-size:.78rem;color:var(--text-light);">Total Bids Value</div>
+            <div style="font-weight:700;color:var(--green);">@_totalBids.ToString("C0")</div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @if (!_closed)
+  {
+    <div style="max-width:520px;">
+      <div class="panel">
+        <div class="panel-head"><h3>Close &amp; Finalize Auction</h3></div>
+        <div class="panel-body">
+          <p style="font-size:.84rem;color:var(--text-mid);margin-bottom:16px;">
+            Closing the auction will finalize all winning bids. Items with active bids will be marked Sold;
+            items without any bids will be marked Unsold. This action cannot be undone.
+          </p>
+
+          @if (_openItems > 0)
+          {
+            <div style="margin-bottom:16px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:.82rem;color:#92400e;">
+              ⚠ @_openItems item(s) still marked Available. Closing will mark any item without a winning bid as Unsold.
+            </div>
+          }
+
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <a href="/admin/events/@EventId/auction" class="btn btn-sm">Cancel</a>
+            <button class="btn btn-primary" style="background:var(--navy);" @onclick="CloseAuction" disabled="@_busy">
+              @(_busy ? "Closing…" : "Close Auction")
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int EventId { get; set; }
+
+  private MinistryEvent? _event;
+  private List<SilentAuctionItem> _items = [];
+  private int _openItems;
+  private decimal _totalBids;
+  private bool _loading = true, _busy, _closed;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var evtTask   = Api.GetEventAsync(EventId);
+    var itemsTask = Api.GetAuctionItemsAsync(EventId);
+    await Task.WhenAll(evtTask, itemsTask);
+    _event = await evtTask;
+    _items = await itemsTask;
+    _openItems  = _items.Count(i => i.Status == AuctionItemStatus.Available);
+    _totalBids  = _items.Where(i => i.WinningBid.HasValue).Sum(i => i.WinningBid!.Value);
+    _loading = false;
+  }
+
+  private async Task CloseAuction()
+  {
+    _error = "";
+    _busy = true;
+    var ok = await Api.CloseAuctionAsync(EventId);
+    _busy = false;
+    if (ok) _closed = true;
+    else _error = "Failed to close auction. Please try again.";
+  }
+}
