@@ -1,0 +1,134 @@
+@page "/admin/campaigns/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>New Campaign — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Create Campaign</h2><p>Launch a new fundraising or awareness campaign</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/campaigns" class="btn btn-sm">← Campaigns</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Campaign created. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Campaign Details</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Name *</label>
+          <input class="form-input" @bind="_name" placeholder="Campaign name" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Description</label>
+          <textarea class="form-input" rows="4" @bind="_description" placeholder="What is this campaign raising funds for?" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Goal Amount *</label>
+          <input class="form-input" type="number" step="500" min="0" @bind="_goalAmount" placeholder="0.00" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">External Code</label>
+          <input class="form-input" @bind="_externalCode" placeholder="GiveButter slug or Stripe metadata key (optional)" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Schedule</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Start Date *</label>
+          <input class="form-input" type="date" @bind="_startDate" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">End Date</label>
+          <input class="form-input" type="date" @bind="_endDate" />
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">Leave blank for open-ended.</div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_status">
+            <option value="Active">Active</option>
+            <option value="Paused">Paused</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+  <a href="/admin/campaigns" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Creating…" : "Create Campaign")</button>
+</div>
+
+@code {
+  private string _name = "", _description = "", _externalCode = "", _status = "Active";
+  private decimal _goalAmount;
+  private DateTime _startDate = DateTime.Today;
+  private DateTime? _endDate;
+  private int _chapterId;
+  private bool _busy, _saved;
+  private string _error = "";
+  private List<Chapter> _chapters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_name)) { _error = "Name is required."; return; }
+    if (_goalAmount <= 0) { _error = "Goal amount must be greater than 0."; return; }
+    if (_chapterId == 0) { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var dto = new CampaignDto(
+      Id: 0, ChapterId: _chapterId,
+      Name: _name,
+      Description: string.IsNullOrWhiteSpace(_description) ? null : _description,
+      GoalAmount: _goalAmount, StartDate: _startDate, EndDate: _endDate,
+      Status: _status,
+      ExternalCode: string.IsNullOrWhiteSpace(_externalCode) ? null : _externalCode,
+      Raised: 0m, GiftCount: 0);
+    var ok = await Api.CreateCampaignAsync(dto);
+    _busy = false;
+    if (ok)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/campaigns");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

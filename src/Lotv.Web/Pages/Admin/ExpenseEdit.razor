@@ -1,0 +1,138 @@
+@page "/admin/expenses/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Expense — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Expense</h2><p>@(_expense?.Description ?? $"Expense #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/expenses" class="btn btn-sm">← Expenses</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_expense is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Expense #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Expense updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="max-width:640px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Expense Details</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Description *</label>
+          <input class="form-input" @bind="_description" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Amount *</label>
+          <input class="form-input" type="number" step="0.01" min="0" @bind="_amount" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Category</label>
+          <select class="form-input" @bind="_category">
+            <option value="Supplies">Supplies</option>
+            <option value="Printing">Printing</option>
+            <option value="Shipping">Shipping</option>
+            <option value="Staffing">Staffing</option>
+            <option value="Venue">Venue / Rental</option>
+            <option value="Food">Food &amp; Beverage</option>
+            <option value="Technology">Technology</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Date Paid *</label>
+          <input class="form-input" type="date" @bind="_paidAt" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Paid By *</label>
+          <input class="form-input" @bind="_paidBy" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="3" @bind="_notes"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/expenses" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Expense? _expense;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+  private string _description = "", _category = "Supplies", _paidBy = "", _notes = "";
+  private decimal _amount;
+  private DateTime _paidAt;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetExpensesAsync();
+    _expense = all.FirstOrDefault(e => e.Id == Id);
+    if (_expense is not null)
+    {
+      _description = _expense.Description;
+      _amount      = _expense.Amount;
+      _category    = _expense.Category;
+      _paidAt      = _expense.PaidAt;
+      _paidBy      = _expense.PaidBy;
+      _notes       = _expense.Notes ?? "";
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_description)) { _error = "Description is required."; return; }
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+    if (string.IsNullOrWhiteSpace(_paidBy)) { _error = "Paid By is required."; return; }
+
+    _busy = true;
+    var updated = new Expense
+    {
+      Id          = Id,
+      ChapterId   = _expense!.ChapterId,
+      Description = _description,
+      Amount      = _amount,
+      Category    = _category,
+      PaidAt      = _paidAt,
+      PaidBy      = _paidBy,
+      Notes       = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+      CreatedAt   = _expense.CreatedAt,
+    };
+    var ok = await Api.UpdateExpenseAsync(Id, updated);
+    _busy = false;
+    if (ok) { _saved = true; _expense = updated; }
+    else _error = "Save failed. Please try again.";
+  }
+}

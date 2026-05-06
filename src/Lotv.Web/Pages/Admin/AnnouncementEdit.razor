@@ -1,0 +1,141 @@
+@page "/admin/announcements/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Edit Announcement — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Announcement</h2><p>@(_ann?.Title ?? $"Announcement #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/announcements" class="btn btn-sm">← Announcements</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_ann is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Announcement #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Announcement updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Content</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Title *</label>
+            <input class="form-input" @bind="_title" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Body *</label>
+            <textarea class="form-input" rows="8" @bind="_body"></textarea>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Author Name</label>
+            <input class="form-input" @bind="_authorName" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Settings</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Audience</label>
+            <select class="form-input" @bind="_audience">
+              <option value="All">All</option>
+              <option value="Staff">Staff only</option>
+              <option value="Volunteers">Volunteers only</option>
+              <option value="Donors">Donors only</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" @bind="_isPinned" style="width:16px;height:16px;" />
+              <span>📌 Pinned</span>
+            </label>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Expires At</label>
+            <input class="form-input" type="date" @bind="_expiresAt" />
+          </div>
+
+          <div style="margin-top:14px;font-size:.76rem;color:var(--text-light);">
+            Originally published @_ann.CreatedAt.ToString("MMM d, yyyy")
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+    <a href="/admin/announcements" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private AnnouncementDto? _ann;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+  private string _title = "", _body = "", _authorName = "", _audience = "All";
+  private bool _isPinned;
+  private DateTime? _expiresAt;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetAnnouncementsAsync();
+    _ann = all.FirstOrDefault(a => a.Id == Id);
+    if (_ann is not null)
+    {
+      _title      = _ann.Title;
+      _body       = _ann.Body;
+      _authorName = _ann.AuthorName;
+      _audience   = _ann.Audience;
+      _isPinned   = _ann.IsPinned;
+      _expiresAt  = _ann.ExpiresAt;
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_title)) { _error = "Title is required."; return; }
+    if (string.IsNullOrWhiteSpace(_body))  { _error = "Body is required."; return; }
+
+    _busy = true;
+    var dto = new AnnouncementDto(
+      Id: Id, ChapterId: _ann!.ChapterId,
+      Title: _title, Body: _body, Audience: _audience,
+      IsPinned: _isPinned, ExpiresAt: _expiresAt,
+      AuthorName: string.IsNullOrWhiteSpace(_authorName) ? _ann.AuthorName : _authorName,
+      CreatedAt: _ann.CreatedAt);
+    var ok = await Api.UpdateAnnouncementAsync(Id, dto);
+    _busy = false;
+    if (ok) { _saved = true; _ann = dto; }
+    else _error = "Save failed. Please try again.";
+  }
+}

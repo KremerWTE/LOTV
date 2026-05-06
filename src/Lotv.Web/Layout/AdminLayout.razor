@@ -720,14 +720,17 @@
       var u when u.EndsWith("/admin/allocations/bulk")    => "Bulk Allocation",
       var u when u.EndsWith("/admin/donations/bulk-channel") => "Bulk Channel Update",
       var u when u.Contains("/admin/campaigns/") && u.EndsWith("/edit") => "Edit Campaign",
-      var u when u.Contains("/admin/campaigns/")          => "Campaign Detail",
+      var u when u.EndsWith("/admin/campaigns/new")        => "Create Campaign",
+      var u when u.Contains("/admin/campaigns/")           => "Campaign Detail",
       var u when u.EndsWith("/admin/volunteers/new")       => "Register Volunteer",
       var u when u.Contains("/admin/donors/") && u.EndsWith("/edit") => "Edit Donor",
       var u when u.Contains("/admin/families/") && u.EndsWith("/notes") => "Family Notes",
       var u when u.EndsWith("/admin/staff-tasks/new")      => "New Staff Task",
+      var u when u.Contains("/admin/staff-tasks/")          => "Staff Task Detail",
       var u when u.EndsWith("/admin/announcements/new")    => "New Announcement",
       var u when u.EndsWith("/admin/donors/new")            => "Register Donor",
       var u when u.Contains("/admin/recurring/")            => "Recurring Donation Detail",
+      var u when u.EndsWith("/admin/pledges/new")            => "Create Pledge",
       var u when u.Contains("/admin/pledges/")              => "Pledge Detail",
       var u when u.Contains("/admin/webhooks/") && !u.EndsWith("/admin/webhooks") => "Webhook Event Detail",
       var u when u.Contains("/certifications/new")          => "Add Certification",
@@ -736,6 +739,9 @@
       var u when u.EndsWith("/admin/events/new")             => "Create Event",
       var u when u.EndsWith("/admin/grants/new")             => "Add Grant",
       var u when u.Contains("/admin/events/") && u.EndsWith("/edit") => "Edit Event",
+      var u when u.Contains("/admin/grants/") && u.EndsWith("/edit")         => "Edit Grant",
+      var u when u.Contains("/admin/expenses/") && u.EndsWith("/edit")       => "Edit Expense",
+      var u when u.Contains("/admin/announcements/") && u.EndsWith("/edit")  => "Edit Announcement",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

@@ -1,0 +1,160 @@
+@page "/admin/grants/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Edit Grant — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Grant</h2><p>@(_grant?.GrantorName ?? $"Grant #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/grants" class="btn btn-sm">← Grants</a>
+    <a href="/admin/grants/calendar" class="btn btn-sm">Calendar</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_grant is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Grant #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Grant updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Grant Information</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Grantor Name *</label>
+            <input class="form-input" @bind="_grantorName" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Purpose *</label>
+            <input class="form-input" @bind="_purpose" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Amount *</label>
+            <input class="form-input" type="number" step="500" min="0" @bind="_amount" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Award Date *</label>
+            <input class="form-input" type="date" @bind="_awardedDate" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Report Due Date</label>
+            <input class="form-input" type="date" @bind="_reportDueDate" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Status</label>
+            <select class="form-input" @bind="_status">
+              <option value="Active">Active</option>
+              <option value="Pending">Pending</option>
+              <option value="Closed">Closed</option>
+              <option value="Declined">Declined</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Notes</label>
+            <textarea class="form-input" rows="3" @bind="_notes"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Summary</h3></div>
+        <div class="panel-body">
+          <div style="font-size:.78rem;color:var(--text-light);">Chapter</div>
+          <div style="font-size:.9rem;font-weight:600;margin-bottom:12px;">Chapter #@_grant.ChapterId</div>
+          <div style="font-size:.78rem;color:var(--text-light);">Current Amount</div>
+          <div style="font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:12px;">@_grant.Amount.ToString("C0")</div>
+          @if (_grant.ReportDueDate.HasValue)
+          {
+            var daysLeft = (_grant.ReportDueDate.Value - DateTime.Today).Days;
+            <div style="font-size:.78rem;color:var(--text-light);">Report Due</div>
+            <div style="font-size:.9rem;color:@(daysLeft < 0 ? "var(--red)" : daysLeft <= 7 ? "var(--amber)" : "inherit");">
+              @_grant.ReportDueDate.Value.ToString("MMM d, yyyy")
+              @if (daysLeft < 0)
+              { <span style="font-size:.74rem;"> (OVERDUE @Math.Abs(daysLeft) days)</span> }
+              else if (daysLeft <= 30)
+              { <span style="font-size:.74rem;"> (@daysLeft d remaining)</span> }
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+    <a href="/admin/grants" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private GrantDto? _grant;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private string _grantorName = "", _purpose = "", _notes = "", _status = "Active";
+  private decimal _amount;
+  private DateTime _awardedDate;
+  private DateTime? _reportDueDate;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetGrantsAsync();
+    _grant = all.FirstOrDefault(g => g.Id == Id);
+    if (_grant is not null)
+    {
+      _grantorName   = _grant.GrantorName;
+      _purpose       = _grant.Purpose;
+      _amount        = _grant.Amount;
+      _awardedDate   = _grant.AwardedDate;
+      _reportDueDate = _grant.ReportDueDate;
+      _status        = _grant.Status;
+      _notes         = _grant.Notes ?? "";
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_grantorName)) { _error = "Grantor name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_purpose)) { _error = "Purpose is required."; return; }
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+
+    _busy = true;
+    var dto = new GrantDto(
+      Id: Id, ChapterId: _grant!.ChapterId,
+      GrantorName: _grantorName, Purpose: _purpose,
+      Amount: _amount, AwardedDate: _awardedDate,
+      ReportDueDate: _reportDueDate, Status: _status,
+      Notes: string.IsNullOrWhiteSpace(_notes) ? null : _notes);
+    var ok = await Api.UpdateGrantAsync(Id, dto);
+    _busy = false;
+    if (ok) { _saved = true; _grant = dto; }
+    else _error = "Save failed. Please try again.";
+  }
+}

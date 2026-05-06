@@ -1,0 +1,206 @@
+@page "/admin/staff-tasks/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Staff Task — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Staff Task</h2>
+    <p>@(_task?.Title ?? $"Task #{Id}")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/staff-tasks" class="btn btn-sm">← Staff Tasks</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_task is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Task #@Id not found.</div></div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_resultMsg))
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">@_resultMsg</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <!-- TASK INFO -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head">
+          <h3>@_task.Title</h3>
+          <span class="badge badge-@PriorityBadge(_task.Priority)" style="font-size:.68rem;">@_task.Priority</span>
+        </div>
+        <div class="panel-body">
+          @if (!string.IsNullOrEmpty(_task.Description))
+          {
+            <div style="font-size:.86rem;line-height:1.6;color:var(--text-mid);white-space:pre-wrap;margin-bottom:14px;">@_task.Description</div>
+          }
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:35%;">Assigned To</td>
+                <td style="padding:8px 0;font-size:.86rem;font-weight:600;">@_task.AssignedToName</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Created By</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_task.CreatedByName</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Status</td>
+                <td style="padding:8px 0;">
+                  <span class="badge badge-@StatusBadge(_task.Status)" style="font-size:.68rem;">@_task.Status</span>
+                </td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Due Date</td>
+                <td style="padding:8px 0;font-size:.86rem;color:@(IsOverdue ? "var(--red)" : "inherit");">
+                  @(_task.DueDate?.ToString("MMM d, yyyy") ?? "No deadline")
+                  @if (IsOverdue)
+                  {
+                    <span style="font-size:.72rem;"> — OVERDUE</span>
+                  }
+                </td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Created</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_task.CreatedAt.ToString("MMM d, yyyy h:mm tt")</td>
+              </tr>
+              @if (_task.CompletedAt.HasValue)
+              {
+                <tr>
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Completed</td>
+                  <td style="padding:8px 0;font-size:.86rem;color:var(--green);">@_task.CompletedAt.Value.ToString("MMM d, yyyy h:mm tt")</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          @if (_task.LinkedCaseId.HasValue)
+          {
+            <div style="margin-top:12px;">
+              <a href="/admin/cases/@_task.LinkedCaseId" style="font-size:.82rem;color:var(--navy);">→ View Linked Case #@_task.LinkedCaseId</a>
+            </div>
+          }
+          @if (_task.LinkedDonorId.HasValue)
+          {
+            <div style="margin-top:4px;">
+              <a href="/admin/donors/@_task.LinkedDonorId" style="font-size:.82rem;color:var(--navy);">→ View Linked Donor #@_task.LinkedDonorId</a>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Update Status</h3></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          @if (_task.Status != "Completed")
+          {
+            <button class="btn btn-sm btn-primary" @onclick='() => UpdateStatus("In Progress")' disabled="@_busy">
+              ▶ Mark In Progress
+            </button>
+            <button class="btn btn-sm" style="background:var(--green);color:white;border:none;" @onclick='() => UpdateStatus("Completed")' disabled="@_busy">
+              ✓ Mark Completed
+            </button>
+          }
+          @if (_task.Status != "Open")
+          {
+            <button class="btn btn-sm" style="background:transparent;color:var(--navy);border:1px solid var(--border);" @onclick='() => UpdateStatus("Open")' disabled="@_busy">
+              ↩ Reopen
+            </button>
+          }
+          <button class="btn btn-sm" style="background:var(--red);color:white;border:none;" @onclick='() => UpdateStatus("Cancelled")' disabled="@_busy">
+            ✕ Cancel Task
+          </button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Change Priority</h3></div>
+        <div class="panel-body">
+          <select class="form-input" @bind="_newPriority" style="font-size:.84rem;">
+            <option value="Low">Low</option>
+            <option value="Normal">Normal</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+          <button class="btn btn-sm" style="margin-top:10px;width:100%;" @onclick="UpdatePriority" disabled="@_busy">
+            Update Priority
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private StaffTaskDto? _task;
+  private bool _loading = true, _busy;
+  private string _resultMsg = "";
+  private string _newPriority = "Normal";
+
+  private bool IsOverdue => _task?.DueDate.HasValue == true &&
+    _task.DueDate!.Value < DateTime.Today && _task.Status != "Completed";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetStaffTasksAsync();
+    _task = all.FirstOrDefault(t => t.Id == Id);
+    if (_task is not null) _newPriority = _task.Priority;
+    _loading = false;
+  }
+
+  private async Task UpdateStatus(string status)
+  {
+    if (_task is null) return;
+    _busy = true;
+    var updated = _task with
+    {
+      Status = status,
+      CompletedAt = status == "Completed" ? DateTime.Now : null
+    };
+    var ok = await Api.UpdateStaffTaskAsync(Id, updated);
+    if (ok) { _task = updated; _resultMsg = $"Task marked {status}."; }
+    _busy = false;
+  }
+
+  private async Task UpdatePriority()
+  {
+    if (_task is null) return;
+    _busy = true;
+    var updated = _task with { Priority = _newPriority };
+    var ok = await Api.UpdateStaffTaskAsync(Id, updated);
+    if (ok) { _task = updated; _resultMsg = $"Priority set to {_newPriority}."; }
+    _busy = false;
+  }
+
+  private static string StatusBadge(string s) => s switch
+  {
+    "Completed"   => "fulfilled",
+    "Cancelled"   => "cancelled",
+    "In Progress" => "onhold",
+    _             => "new"
+  };
+
+  private static string PriorityBadge(string p) => p switch
+  {
+    "Urgent" => "cancelled",
+    "High"   => "onhold",
+    "Normal" => "new",
+    _        => "new"
+  };
+}

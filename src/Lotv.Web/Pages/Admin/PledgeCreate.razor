@@ -1,0 +1,189 @@
+@page "/admin/pledges/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Pledge — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Create Pledge</h2><p>Record a new donor pledge commitment</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/pledges" class="btn btn-sm">← Pledges</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Pledge created. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Pledge Details</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Donor *</label>
+          <div style="position:relative;">
+            <input class="form-input" value="@_donorSearch"
+                   @oninput='e => { _donorSearch = e.Value?.ToString() ?? ""; FilterDonors(); }'
+                   placeholder="Search by name or email…" autocomplete="off" />
+            @if (_donorSuggestions.Any())
+            {
+              <ul style="position:absolute;z-index:50;background:white;border:1px solid var(--border);border-radius:6px;width:100%;list-style:none;margin:2px 0 0;padding:4px 0;box-shadow:0 4px 12px rgba(0,0,0,.1);">
+                @foreach (var d in _donorSuggestions)
+                {
+                  var dCopy = d;
+                  <li @onmousedown='() => SelectDonor(dCopy)'
+                      style="padding:8px 14px;cursor:pointer;font-size:.84rem;">
+                    @d.FullName <span style="color:var(--text-light);font-size:.76rem;">— @d.Email</span>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+          @if (_selectedDonorId.HasValue)
+          {
+            <div style="margin-top:5px;font-size:.78rem;color:var(--green);">✓ @_selectedDonorName</div>
+          }
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Pledged Amount *</label>
+          <input class="form-input" type="number" step="100" min="0" @bind="_pledgedAmount" placeholder="0.00" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Target Date *</label>
+          <input class="form-input" type="date" @bind="_targetDate" />
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">Date by which the donor expects to fulfill.</div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Campaign / Fund</label>
+          <input class="form-input" @bind="_campaign" placeholder="General, Building Fund, etc." />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="3" @bind="_notes" placeholder="Conditions, payment schedule, context…"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Assignment</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name</option>
+            }
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_status">
+            <option value="@PledgeStatus.Active">Active</option>
+            <option value="@PledgeStatus.Fulfilled">Fulfilled</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="background:#f0fff4;border-left:3px solid var(--green);">
+      <div class="panel-body" style="font-size:.82rem;color:var(--text-mid);line-height:1.6;">
+        <strong>Fulfillment:</strong> As payments come in, navigate to the pledge detail page to record each payment.
+        Pledges are automatically marked fulfilled when the full amount is received.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+  <a href="/admin/pledges" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Create Pledge")</button>
+</div>
+
+@code {
+  private string _donorSearch = "", _selectedDonorName = "", _campaign = "", _notes = "";
+  private PledgeStatus _status = PledgeStatus.Active;
+  private decimal _pledgedAmount;
+  private DateTime _targetDate = DateTime.Today.AddMonths(12);
+  private int _chapterId;
+  private int? _selectedDonorId;
+  private bool _busy, _saved;
+  private string _error = "";
+
+  private List<Chapter> _chapters = [];
+  private List<Donor> _allDonors = [];
+  private List<Donor> _donorSuggestions = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var chapTask  = Api.GetChaptersAdminAsync();
+    var donorTask = Api.GetDonorsAsync();
+    await Task.WhenAll(chapTask, donorTask);
+    _chapters   = await chapTask;
+    _allDonors  = await donorTask;
+  }
+
+  private void FilterDonors()
+  {
+    if (string.IsNullOrWhiteSpace(_donorSearch) || _donorSearch.Length < 2)
+    { _donorSuggestions = []; return; }
+    _donorSuggestions = _allDonors
+      .Where(d => d.FullName.Contains(_donorSearch, StringComparison.OrdinalIgnoreCase) ||
+                  d.Email.Contains(_donorSearch, StringComparison.OrdinalIgnoreCase))
+      .Take(6).ToList();
+  }
+
+  private void SelectDonor(Donor d)
+  {
+    _selectedDonorId   = d.Id;
+    _selectedDonorName = d.FullName;
+    _donorSearch       = d.FullName;
+    _donorSuggestions  = [];
+    if (_chapterId == 0) _chapterId = d.ChapterId;
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (!_selectedDonorId.HasValue) { _error = "Please select a donor."; return; }
+    if (_pledgedAmount <= 0) { _error = "Pledged amount must be greater than 0."; return; }
+    if (_chapterId == 0) { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var pledge = new DonorPledge
+    {
+      DonorId        = _selectedDonorId.Value,
+      ChapterId      = _chapterId,
+      PledgedAmount  = _pledgedAmount,
+      FulfilledAmount = 0,
+      TargetDate     = _targetDate,
+      Status         = _status,
+      Campaign       = string.IsNullOrWhiteSpace(_campaign) ? null : _campaign,
+      Notes          = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+    };
+    var result = await Api.CreatePledgeAsync(pledge);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/pledges");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}
