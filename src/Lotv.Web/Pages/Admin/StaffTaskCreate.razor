@@ -1,0 +1,155 @@
+@page "/admin/staff-tasks/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>New Staff Task — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Create Staff Task</h2><p>Assign a new internal task to a team member</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/staff-tasks" class="btn btn-sm">← Staff Tasks</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Task created. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Task Details</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input class="form-input" @bind="_title" placeholder="Brief task description" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Description</label>
+          <textarea class="form-input" rows="5" @bind="_description" placeholder="Detailed instructions, context, or acceptance criteria…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Linked Records (optional)</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Linked Case ID</label>
+            <input class="form-input" type="number" @bind="_linkedCaseId" placeholder="Case #" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Linked Donor ID</label>
+            <input class="form-input" type="number" @bind="_linkedDonorId" placeholder="Donor #" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Assignment</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Assigned To *</label>
+          <input class="form-input" @bind="_assignedToName" placeholder="Staff member name" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Created By *</label>
+          <input class="form-input" @bind="_createdByName" placeholder="Your name" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Priority & Due Date</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-input" @bind="_priority">
+            <option value="Low">Low</option>
+            <option value="Normal">Normal</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Due Date</label>
+          <input class="form-input" type="date" @bind="_dueDate" />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+  <a href="/admin/staff-tasks" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Create Task")</button>
+</div>
+
+@code {
+  private string _title = "", _description = "", _assignedToName = "", _createdByName = "";
+  private string _priority = "Normal";
+  private int _chapterId;
+  private DateTime? _dueDate;
+  private int? _linkedCaseId, _linkedDonorId;
+  private bool _busy, _saved;
+  private string _error = "";
+  private List<Chapter> _chapters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_title)) { _error = "Title is required."; return; }
+    if (string.IsNullOrWhiteSpace(_assignedToName)) { _error = "Assigned to is required."; return; }
+    if (string.IsNullOrWhiteSpace(_createdByName)) { _error = "Created by is required."; return; }
+    if (_chapterId == 0) { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var dto = new StaffTaskDto(
+      Id: 0, ChapterId: _chapterId,
+      Title: _title,
+      Description: string.IsNullOrWhiteSpace(_description) ? null : _description,
+      AssignedToName: _assignedToName, CreatedByName: _createdByName,
+      DueDate: _dueDate, Priority: _priority, Status: "Open",
+      LinkedCaseId: _linkedCaseId == 0 ? null : _linkedCaseId,
+      LinkedDonorId: _linkedDonorId == 0 ? null : _linkedDonorId,
+      CreatedAt: DateTime.Now, CompletedAt: null);
+    var ok = await Api.CreateStaffTaskAsync(dto);
+    _busy = false;
+    if (ok)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/staff-tasks");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

@@ -1,0 +1,247 @@
+@page "/admin/donors/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Donor — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Donor</h2><p>@(_donor?.FullName ?? $"Donor #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/by-donor" class="btn btn-sm">← Donors</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_donor is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Donor #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Changes saved.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Contact Information</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input class="form-input" @bind="_f.FirstName" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name *</label>
+              <input class="form-input" @bind="_f.LastName" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Email *</label>
+            <input class="form-input" type="email" @bind="_f.Email" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Phone</label>
+            <input class="form-input" @bind="_f.Phone" placeholder="(555) 555-5555" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Address</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Street Address</label>
+            <input class="form-input" @bind="_f.StreetAddress" placeholder="123 Main St" />
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:10px;">
+            <div class="form-group">
+              <label class="form-label">City</label>
+              <input class="form-input" @bind="_f.City" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">State</label>
+              <input class="form-input" @bind="_f.State" placeholder="IL" maxlength="2" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Zip</label>
+              <input class="form-input" @bind="_f.Zip" placeholder="60601" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Notes</h3></div>
+        <div class="panel-body">
+          <textarea class="form-input" rows="4" @bind="_f.Notes" placeholder="Internal notes about this donor…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Ministry Connection</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Parish Name</label>
+            <input class="form-input" @bind="_f.ParishName" placeholder="St. Mary's Parish" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Diocese</label>
+            <input class="form-input" @bind="_f.DioceseName" placeholder="Diocese of Chicago" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" @bind="_f.IsAnonymous" style="width:16px;height:16px;" />
+              <span>Anonymous donor (hide name on public materials)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Read-only giving stats -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Giving History (read-only)</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Total Given</div>
+              <div style="font-size:1.2rem;font-weight:800;color:var(--green);">@_donor.TotalGiven.ToString("C0")</div>
+            </div>
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Gift Count</div>
+              <div style="font-size:1.2rem;font-weight:800;color:var(--navy);">@_donor.GiftCount</div>
+            </div>
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Tier</div>
+              <div style="font-size:.9rem;font-weight:600;">@_donor.Tier</div>
+            </div>
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Recurring</div>
+              <div style="font-size:.9rem;">@(_donor.IsRecurring ? $"Yes — {@_donor.RecurringAmount?.ToString("C0")}/mo" : "No")</div>
+            </div>
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">First Gift</div>
+              <div style="font-size:.82rem;color:var(--text-mid);">@_donor.FirstGiftDate.ToString("MMM d, yyyy")</div>
+            </div>
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Last Gift</div>
+              <div style="font-size:.82rem;color:var(--text-mid);">@_donor.LastGiftDate.ToString("MMM d, yyyy")</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+    <a href="/admin/by-donor" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Donor? _donor;
+  private DonorForm _f = new();
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private class DonorForm
+  {
+    public string FirstName { get; set; } = "";
+    public string LastName  { get; set; } = "";
+    public string Email     { get; set; } = "";
+    public string? Phone    { get; set; }
+    public string? StreetAddress { get; set; }
+    public string? City  { get; set; }
+    public string? State { get; set; }
+    public string? Zip   { get; set; }
+    public string? ParishName  { get; set; }
+    public string? DioceseName { get; set; }
+    public bool IsAnonymous { get; set; }
+    public string? Notes { get; set; }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donor = await Api.GetDonorAsync(Id);
+    if (_donor is not null)
+    {
+      _f = new DonorForm
+      {
+        FirstName    = _donor.FirstName,
+        LastName     = _donor.LastName,
+        Email        = _donor.Email,
+        Phone        = _donor.Phone,
+        StreetAddress = _donor.StreetAddress,
+        City         = _donor.City,
+        State        = _donor.State,
+        Zip          = _donor.Zip,
+        ParishName   = _donor.ParishName,
+        DioceseName  = _donor.DioceseName,
+        IsAnonymous  = _donor.IsAnonymous,
+        Notes        = _donor.Notes,
+      };
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_f.FirstName) || string.IsNullOrWhiteSpace(_f.LastName))
+    { _error = "First and last name are required."; return; }
+    if (string.IsNullOrWhiteSpace(_f.Email))
+    { _error = "Email is required."; return; }
+
+    _busy = true;
+    var updated = new Donor
+    {
+      Id             = Id,
+      FirstName      = _f.FirstName,
+      LastName       = _f.LastName,
+      Email          = _f.Email,
+      Phone          = _f.Phone,
+      StreetAddress  = _f.StreetAddress,
+      City           = _f.City,
+      State          = _f.State,
+      Zip            = _f.Zip,
+      ParishName     = _f.ParishName,
+      DioceseName    = _f.DioceseName,
+      IsAnonymous    = _f.IsAnonymous,
+      Notes          = _f.Notes,
+      ChapterId      = _donor!.ChapterId,
+      DioceseId      = _donor.DioceseId,
+      IsRecurring    = _donor.IsRecurring,
+      RecurringAmount = _donor.RecurringAmount,
+      TotalGiven     = _donor.TotalGiven,
+      GiftCount      = _donor.GiftCount,
+      Tier           = _donor.Tier,
+      FirstGiftDate  = _donor.FirstGiftDate,
+      LastGiftDate   = _donor.LastGiftDate,
+      CreatedAt      = _donor.CreatedAt,
+    };
+    var result = await Api.UpdateDonorAsync(Id, updated);
+    _busy = false;
+    if (result is not null) { _saved = true; _donor = updated; }
+    else _error = "Save failed. Please try again.";
+  }
+}

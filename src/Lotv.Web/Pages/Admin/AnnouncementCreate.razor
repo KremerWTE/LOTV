@@ -1,0 +1,138 @@
+@page "/admin/announcements/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>New Announcement — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Create Announcement</h2><p>Post a message to staff, volunteers, or donors</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/announcements" class="btn btn-sm">← Announcements</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Announcement published. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Content</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input class="form-input" @bind="_title" placeholder="Announcement headline" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Body *</label>
+          <textarea class="form-input" rows="8" @bind="_body" placeholder="Full announcement text…"></textarea>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Author Name *</label>
+          <input class="form-input" @bind="_authorName" placeholder="Your name or role" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Audience & Settings</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Audience</label>
+          <select class="form-input" @bind="_audience">
+            <option value="All">All — Staff, Volunteers, Donors</option>
+            <option value="Staff">Staff only</option>
+            <option value="Volunteers">Volunteers only</option>
+            <option value="Donors">Donors only</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Chapter</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="@((int?)null)">All chapters (global)</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" @bind="_isPinned" style="width:16px;height:16px;" />
+            <span>📌 Pin this announcement</span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Expires At (optional)</label>
+          <input class="form-input" type="date" @bind="_expiresAt" />
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:4px;">Leave blank to never expire.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="background:#f0f9ff;border-left:3px solid var(--navy);">
+      <div class="panel-body" style="font-size:.82rem;color:var(--text-mid);line-height:1.6;">
+        <strong>Tip:</strong> Pinned announcements appear at the top of the announcements list for all matching audience members until unpinned or expired.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+  <a href="/admin/announcements" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Publishing…" : "Publish Announcement")</button>
+</div>
+
+@code {
+  private string _title = "", _body = "", _authorName = "", _audience = "All";
+  private int? _chapterId;
+  private bool _isPinned, _busy, _saved;
+  private DateTime? _expiresAt;
+  private string _error = "";
+  private List<Chapter> _chapters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_title))   { _error = "Title is required."; return; }
+    if (string.IsNullOrWhiteSpace(_body))    { _error = "Body is required."; return; }
+    if (string.IsNullOrWhiteSpace(_authorName)) { _error = "Author name is required."; return; }
+
+    _busy = true;
+    var dto = new AnnouncementDto(
+      Id: 0, ChapterId: _chapterId,
+      Title: _title, Body: _body, Audience: _audience,
+      IsPinned: _isPinned, ExpiresAt: _expiresAt,
+      AuthorName: _authorName, CreatedAt: DateTime.Now);
+    var ok = await Api.CreateAnnouncementAsync(dto);
+    _busy = false;
+    if (ok)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/announcements");
+    }
+    else _error = "Publish failed. Please try again.";
+  }
+}

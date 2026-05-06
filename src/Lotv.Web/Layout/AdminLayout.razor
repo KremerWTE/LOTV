@@ -719,7 +719,13 @@
       var u when u.EndsWith("/admin/wishlist/new")        => "Add Wish List Item",
       var u when u.EndsWith("/admin/allocations/bulk")    => "Bulk Allocation",
       var u when u.EndsWith("/admin/donations/bulk-channel") => "Bulk Channel Update",
+      var u when u.Contains("/admin/campaigns/") && u.EndsWith("/edit") => "Edit Campaign",
       var u when u.Contains("/admin/campaigns/")          => "Campaign Detail",
+      var u when u.EndsWith("/admin/volunteers/new")       => "Register Volunteer",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/edit") => "Edit Donor",
+      var u when u.Contains("/admin/families/") && u.EndsWith("/notes") => "Family Notes",
+      var u when u.EndsWith("/admin/staff-tasks/new")      => "New Staff Task",
+      var u when u.EndsWith("/admin/announcements/new")    => "New Announcement",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

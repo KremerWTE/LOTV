@@ -1,0 +1,196 @@
+@page "/admin/volunteers/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Volunteer — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Register Volunteer</h2><p>Add a new volunteer to the ministry</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← Volunteers</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Volunteer registered. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Personal Information</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input class="form-input" @bind="_firstName" placeholder="First name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name *</label>
+            <input class="form-input" @bind="_lastName" placeholder="Last name" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" @bind="_email" placeholder="email@example.com" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Phone</label>
+          <input class="form-input" @bind="_phone" placeholder="(555) 555-5555" />
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Parish & Diocese</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Parish Name</label>
+          <input class="form-input" @bind="_parishName" placeholder="St. Mary's Parish" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Diocese</label>
+          <input class="form-input" @bind="_dioceseName" placeholder="Diocese of Chicago" />
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Notes</h3></div>
+      <div class="panel-body">
+        <textarea class="form-input" rows="3" @bind="_notes" placeholder="Internal staff notes…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Role & Chapter</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select class="form-input" @bind="_role">
+            @foreach (var r in Enum.GetValues<VolunteerRole>())
+            {
+              <option value="@r">@r.ToDisplayName()</option>
+            }
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name — @c.City, @c.State</option>
+            }
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_status">
+            <option value="@VolunteerStatus.Onboarding">Onboarding</option>
+            <option value="@VolunteerStatus.Active">Active</option>
+            <option value="@VolunteerStatus.Inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Service Area</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Latitude</label>
+            <input class="form-input" type="number" step="any" @bind="_latitude" placeholder="41.8781" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Longitude</label>
+            <input class="form-input" type="number" step="any" @bind="_longitude" placeholder="-87.6298" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Service Radius (miles)</label>
+          <input class="form-input" type="number" step="1" @bind="_radiusMiles" />
+        </div>
+        <div style="margin-top:10px;font-size:.76rem;color:var(--text-light);">
+          Coordinates are used for smart case matching. Leave blank if location not known.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+  <a href="/admin/volunteers" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Register Volunteer")</button>
+</div>
+
+@code {
+  private string _firstName = "", _lastName = "", _email = "", _phone = "",
+                 _parishName = "", _dioceseName = "", _notes = "";
+  private VolunteerRole _role;
+  private VolunteerStatus _status = VolunteerStatus.Onboarding;
+  private int _chapterId;
+  private double? _latitude, _longitude;
+  private double _radiusMiles = 25;
+  private bool _busy, _saved;
+  private string _error = "";
+  private List<Chapter> _chapters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
+    { _error = "First and last name are required."; return; }
+    if (string.IsNullOrWhiteSpace(_email))
+    { _error = "Email is required."; return; }
+    if (_chapterId == 0)
+    { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var vol = new Volunteer
+    {
+      FirstName         = _firstName,
+      LastName          = _lastName,
+      Email             = _email,
+      Phone             = string.IsNullOrWhiteSpace(_phone) ? null : _phone,
+      Role              = _role,
+      Status            = _status,
+      ParishName        = string.IsNullOrWhiteSpace(_parishName) ? null : _parishName,
+      DioceseName       = string.IsNullOrWhiteSpace(_dioceseName) ? null : _dioceseName,
+      ChapterId         = _chapterId,
+      Latitude          = _latitude,
+      Longitude         = _longitude,
+      ServiceRadiusMiles = _radiusMiles,
+      Notes             = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+      JoinedDate        = DateTime.Today,
+    };
+    var result = await Api.CreateVolunteerAsync(vol);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/volunteers");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

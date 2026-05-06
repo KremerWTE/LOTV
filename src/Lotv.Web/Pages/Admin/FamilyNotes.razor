@@ -1,0 +1,170 @@
+@page "/admin/families/{Id:int}/notes"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Family Notes — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Family Notes</h2>
+    <p>@(_family?.FullName ?? $"Family #{Id}")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/families/@Id/timeline" class="btn btn-sm">Timeline</a>
+    <a href="/admin/families" class="btn btn-sm">← Families</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <!-- ADD NOTE -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>Add Note</h3></div>
+    <div class="panel-body">
+      @if (!string.IsNullOrEmpty(_addError))
+      {
+        <div style="color:var(--red);font-size:.82rem;margin-bottom:10px;">@_addError</div>
+      }
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+        <div class="form-group">
+          <label class="form-label">Note Type</label>
+          <select class="form-input" @bind="_newType">
+            <option value="General">General</option>
+            <option value="Contact">Contact Attempt</option>
+            <option value="Milestone">Milestone</option>
+            <option value="Concern">Concern</option>
+            <option value="FollowUp">Follow-Up</option>
+            <option value="Prayer">Prayer Request</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Milestone Date (optional)</label>
+          <input class="form-input" type="date" @bind="_milestoneDate" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Content *</label>
+        <textarea class="form-input" rows="4" @bind="_newContent" placeholder="Enter note content…"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label class="form-label">Your Name *</label>
+        <input class="form-input" @bind="_staffName" placeholder="Staff member name" />
+      </div>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" @onclick="AddNote" disabled="@_addBusy">@(_addBusy ? "Saving…" : "Add Note")</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTES LIST -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Notes (@_notes.Count)</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select class="form-input" style="font-size:.82rem;padding:5px 10px;width:160px;" @bind="_typeFilter">
+          <option value="">All types</option>
+          <option value="General">General</option>
+          <option value="Contact">Contact</option>
+          <option value="Milestone">Milestone</option>
+          <option value="Concern">Concern</option>
+          <option value="FollowUp">Follow-Up</option>
+          <option value="Prayer">Prayer</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No notes yet.</div>
+      }
+      else
+      {
+        @foreach (var n in Filtered.OrderByDescending(n => n.CreatedAt))
+        {
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <span class="badge badge-@TypeBadge(n.NoteType)" style="font-size:.6rem;">@n.NoteType</span>
+              @if (n.IsPinned)
+              {
+                <span style="font-size:.72rem;color:var(--amber);">📌 Pinned</span>
+              }
+              <span style="font-size:.74rem;color:var(--text-light);margin-left:auto;">@n.StaffName — @n.CreatedAt.ToString("MMM d, yyyy h:mm tt")</span>
+              <button class="btn btn-sm" style="font-size:.68rem;padding:2px 8px;background:transparent;color:var(--red);border:1px solid var(--red);"
+                      @onclick="() => DeleteNote(n)" disabled="@_deleteBusy">✕</button>
+            </div>
+            @if (n.MilestoneDate.HasValue)
+            {
+              <div style="font-size:.74rem;color:var(--text-mid);margin-bottom:4px;">Milestone: @n.MilestoneDate.Value.ToString("MMM d, yyyy")</div>
+            }
+            <div style="font-size:.86rem;line-height:1.5;white-space:pre-wrap;">@n.Content</div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Family? _family;
+  private List<FamilyNoteDto> _notes = [];
+  private bool _loading = true, _addBusy, _deleteBusy;
+  private string _newContent = "", _newType = "General", _staffName = "", _addError = "", _typeFilter = "";
+  private DateTime? _milestoneDate;
+
+  private IEnumerable<FamilyNoteDto> Filtered => _notes.Where(n =>
+    string.IsNullOrEmpty(_typeFilter) || n.NoteType == _typeFilter);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var famTask   = Api.GetFamilyAsync(Id);
+    var noteTask  = Api.GetFamilyNotesAsync(Id);
+    await Task.WhenAll(famTask, noteTask);
+    _family = await famTask;
+    _notes  = await noteTask;
+    _loading = false;
+  }
+
+  private async Task AddNote()
+  {
+    _addError = "";
+    if (string.IsNullOrWhiteSpace(_newContent)) { _addError = "Content is required."; return; }
+    if (string.IsNullOrWhiteSpace(_staffName))  { _addError = "Staff name is required."; return; }
+
+    _addBusy = true;
+    var dto = new FamilyNoteDto(
+      Id: 0, FamilyId: Id, NoteType: _newType, Content: _newContent,
+      MilestoneDate: _milestoneDate, StaffName: _staffName, IsPinned: false,
+      CreatedAt: DateTime.Now);
+    var ok = await Api.CreateFamilyNoteAsync(Id, dto);
+    if (ok)
+    {
+      _notes = await Api.GetFamilyNotesAsync(Id);
+      _newContent = ""; _milestoneDate = null;
+    }
+    else _addError = "Failed to save note. Please try again.";
+    _addBusy = false;
+  }
+
+  private async Task DeleteNote(FamilyNoteDto n)
+  {
+    _deleteBusy = true;
+    var ok = await Api.DeleteFamilyNoteAsync(Id, n.Id);
+    if (ok) _notes.Remove(n);
+    _deleteBusy = false;
+  }
+
+  private static string TypeBadge(string t) => t switch
+  {
+    "Concern"  => "cancelled",
+    "Milestone" => "fulfilled",
+    "FollowUp" => "onhold",
+    _          => "new"
+  };
+}

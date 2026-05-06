@@ -1,0 +1,174 @@
+@page "/admin/campaigns/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Edit Campaign — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Campaign</h2><p>@(_campaign?.Name ?? $"Campaign #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/campaigns/@Id" class="btn btn-sm">← Campaign Detail</a>
+    <a href="/admin/campaigns" class="btn btn-sm">All Campaigns</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_campaign is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Campaign #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Campaign updated successfully.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Campaign Details</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Name *</label>
+            <input class="form-input" @bind="_name" placeholder="Campaign name" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Description</label>
+            <textarea class="form-input" rows="3" @bind="_description" placeholder="What is this campaign for?"></textarea>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Goal Amount *</label>
+            <input class="form-input" type="number" step="100" min="0" @bind="_goalAmount" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">External Code</label>
+            <input class="form-input" @bind="_externalCode" placeholder="GiveButter slug or Stripe metadata key" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Schedule & Status</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Start Date *</label>
+            <input class="form-input" type="date" @bind="_startDate" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">End Date</label>
+            <input class="form-input" type="date" @bind="_endDate" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Status</label>
+            <select class="form-input" @bind="_status">
+              <option value="Active">Active</option>
+              <option value="Paused">Paused</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance summary (read-only) -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Performance (read-only)</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Raised</div>
+              <div style="font-size:1.2rem;font-weight:800;color:var(--green);">@_campaign.Raised.ToString("C0")</div>
+            </div>
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Gift Count</div>
+              <div style="font-size:1.2rem;font-weight:800;color:var(--navy);">@_campaign.GiftCount</div>
+            </div>
+          </div>
+          @{
+            var pct = _campaign.GoalAmount > 0 ? (double)_campaign.Raised / (double)_campaign.GoalAmount * 100 : 0;
+          }
+          <div style="margin-top:12px;background:var(--bg);border-radius:6px;height:10px;overflow:hidden;">
+            <div style="height:100%;width:@Math.Min(pct, 100).ToString("F0")%;background:var(--green);border-radius:6px;"></div>
+          </div>
+          <div style="margin-top:4px;font-size:.74rem;color:var(--text-light);">@pct.ToString("F0")% of goal</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+    <a href="/admin/campaigns/@Id" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private CampaignDto? _campaign;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private string _name = "", _description = "", _status = "Active", _externalCode = "";
+  private decimal _goalAmount;
+  private DateTime _startDate = DateTime.Today;
+  private DateTime? _endDate;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var campaigns = await Api.GetCampaignsAsync();
+    _campaign = campaigns.FirstOrDefault(c => c.Id == Id);
+    if (_campaign is not null)
+    {
+      _name        = _campaign.Name;
+      _description = _campaign.Description ?? "";
+      _goalAmount  = _campaign.GoalAmount;
+      _startDate   = _campaign.StartDate;
+      _endDate     = _campaign.EndDate;
+      _status      = _campaign.Status;
+      _externalCode = _campaign.ExternalCode ?? "";
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_name)) { _error = "Name is required."; return; }
+    if (_goalAmount <= 0) { _error = "Goal amount must be greater than 0."; return; }
+
+    _busy = true;
+    var dto = new CampaignDto(
+      Id:           Id,
+      ChapterId:    _campaign!.ChapterId,
+      Name:         _name,
+      Description:  string.IsNullOrWhiteSpace(_description) ? null : _description,
+      GoalAmount:   _goalAmount,
+      StartDate:    _startDate,
+      EndDate:      _endDate,
+      Status:       _status,
+      ExternalCode: string.IsNullOrWhiteSpace(_externalCode) ? null : _externalCode,
+      Raised:       _campaign.Raised,
+      GiftCount:    _campaign.GiftCount
+    );
+    var ok = await Api.UpdateCampaignAsync(Id, dto);
+    _busy = false;
+    if (ok) { _saved = true; _campaign = dto; }
+    else _error = "Save failed. Please try again.";
+  }
+}
