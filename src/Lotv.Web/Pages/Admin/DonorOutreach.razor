@@ -1,0 +1,160 @@
+@page "/admin/donors/outreach"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Donor Outreach Queue — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Outreach Queue</h2><p>LYBNT donors prioritized for re-engagement — gave last year, not yet this year</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/retention" class="btn btn-sm">Retention Analysis</a>
+    <a href="/admin/donors" class="btn btn-sm">← Donors</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-label">LYBNT Donors</div>
+    <div class="kpi-value" style="color:var(--amber)">@_lybnt.Count</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">At-Risk Revenue</div>
+    <div class="kpi-value" style="color:var(--navy)">@_lybnt.Sum(r => r.LastYearGiving).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128260;</div>
+    <div class="kpi-label">Recurring Among LYBNT</div>
+    <div class="kpi-value" style="color:var(--green)">@_lybnt.Count(r => r.IsRecurring)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#127942;</div>
+    <div class="kpi-label">Major Donors (Benefactor)</div>
+    <div class="kpi-value" style="color:var(--gold)">@_lybnt.Count(r => r.Tier == DonorTier.Benefactor)</div>
+  </div>
+</div>
+
+<!-- PRIORITY FILTER -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
+         placeholder="&#128269; Search by name or email…" @bind="_search" @bind:event="oninput" />
+  @foreach (var tier in new[] { "All" }.Concat(Enum.GetValues<DonorTier>().Reverse().Select(t => t.ToString())))
+  {
+    var count = tier == "All" ? _lybnt.Count : _lybnt.Count(r => r.Tier.ToString() == tier);
+    <button class="filter-chip @(_tierFilter == tier ? "active" : "")" @onclick="() => _tierFilter = tier">
+      @tier · @count
+    </button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (_loading)
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">Analyzing…</div>
+    }
+    else if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No donors in this outreach queue.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Donor</th>
+            <th>Email</th>
+            <th>Tier</th>
+            <th style="text-align:right;">Last Year Giving</th>
+            <th style="text-align:right;">Lifetime</th>
+            <th>Last Gift</th>
+            <th>Type</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var r in Filtered.OrderByDescending(r => r.LastYearGiving))
+          {
+            <tr>
+              <td style="font-size:.84rem;font-weight:600;">@(r.IsAnonymous ? "Anonymous" : r.Name)</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@(r.Email ?? "—")</td>
+              <td><span class="badge badge-new" style="font-size:.6rem;">@r.Tier</span></td>
+              <td style="text-align:right;font-size:.84rem;color:var(--amber);font-weight:600;">@r.LastYearGiving.ToString("C0")</td>
+              <td style="text-align:right;font-size:.78rem;color:var(--text-mid);">@r.Lifetime.ToString("C0")</td>
+              <td style="font-size:.76rem;color:var(--text-light);">@(r.LastGift?.ToString("MMM d, yyyy") ?? "—")</td>
+              <td>
+                @if (r.IsRecurring) { <span class="badge badge-fulfilled" style="font-size:.6rem;">Recurring</span> }
+                else { <span class="badge badge-new" style="font-size:.6rem;">One-Time</span> }
+              </td>
+              <td style="display:flex;gap:4px;">
+                @if (!string.IsNullOrEmpty(r.Email))
+                {
+                  <a href="mailto:@r.Email?subject=We%20miss%20you%20at%20LOTV&body=Dear%20@r.Name,%0A%0AWe%20wanted%20to%20reach%20out%20and%20share%20an%20update%20on%20how%20your%20generous%20support%20has%20made%20a%20difference..."
+                     class="btn btn-sm" style="font-size:.7rem;">&#9993; Email</a>
+                }
+                <button class="btn btn-sm" style="font-size:.7rem;" @onclick='() => Nav.NavigateTo($"/admin/donors/{r.DonorId}")'>View</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg);font-weight:700;">
+            <td colspan="3" style="padding:10px 14px;font-size:.82rem;">Filtered Total</td>
+            <td style="padding:10px 14px;text-align:right;font-size:.84rem;color:var(--amber);">@Filtered.Sum(r => r.LastYearGiving).ToString("C0")</td>
+            <td colspan="4"></td>
+          </tr>
+        </tfoot>
+      </table>
+    }
+  </div>
+</div>
+
+@code {
+  private record OutreachRow(int DonorId, string Name, string? Email, DonorTier Tier, bool IsRecurring, bool IsAnonymous, decimal LastYearGiving, decimal Lifetime, DateTime? LastGift);
+
+  private List<OutreachRow> _lybnt = [];
+  private string _search = "", _tierFilter = "All";
+  private bool _loading = true;
+  private int _currentYear = DateTime.Today.Year;
+
+  private IEnumerable<OutreachRow> Filtered => _lybnt.Where(r =>
+    (_tierFilter == "All" || r.Tier.ToString() == _tierFilter) &&
+    (string.IsNullOrEmpty(_search) ||
+     r.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+     (r.Email?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorsTask   = Api.GetDonorsAsync();
+    var donationsTask = Api.GetDonationsAsync();
+    await Task.WhenAll(donorsTask, donationsTask);
+    var donors    = await donorsTask;
+    var donations = await donationsTask;
+
+    var thisYearIds = new HashSet<int>(donations.Where(d => d.Date.Year == _currentYear).Select(d => d.DonorId));
+    var lastYearGifts = donations.Where(d => d.Date.Year == _currentYear - 1)
+                                  .GroupBy(d => d.DonorId)
+                                  .ToDictionary(g => g.Key, g => g.Sum(d => d.Amount));
+    var allGifts = donations.GroupBy(d => d.DonorId)
+                             .ToDictionary(g => g.Key, g => g.ToList());
+
+    _lybnt = donors
+      .Where(d => lastYearGifts.ContainsKey(d.Id) && !thisYearIds.Contains(d.Id))
+      .Select(d =>
+      {
+        var gifts = allGifts.GetValueOrDefault(d.Id, []);
+        return new OutreachRow(
+          d.Id, d.FullName, d.Email, d.Tier, d.IsRecurring, d.IsAnonymous,
+          lastYearGifts[d.Id],
+          gifts.Sum(g => g.Amount),
+          gifts.Any() ? gifts.Max(g => g.Date) : null);
+      })
+      .ToList();
+
+    _loading = false;
+  }
+}

@@ -96,6 +96,9 @@
           <span class="icon">&#128203;</span> Fund Allocations
           <span class="sidebar-badge">@_pendingAlloc</span>
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/allocations/review">
+          <span class="icon">&#9989;</span> Allocation Review
+        </NavLink>
         <NavLink class="sidebar-link" href="/admin/allocate/money">
           <span class="icon">&#128184;</span> Allocate Funds
         </NavLink>
@@ -110,6 +113,9 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/segments">
           <span class="icon">&#127942;</span> Donor Segments
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/donors/outreach">
+          <span class="icon">&#128140;</span> Outreach Queue
         </NavLink>
       </div>
     }
@@ -132,6 +138,9 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteers/pending">
           <span class="icon">&#9203;</span> Pending Onboarding
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/volunteers/reactivation">
+          <span class="icon">&#9654;</span> Reactivation Queue
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/sponsorships">
           <span class="icon">&#127970;</span> Sponsorships
@@ -270,6 +279,12 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/reports/history">
           <span class="icon">&#128203;</span> Report History
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/chapters/health">
+          <span class="icon">&#128200;</span> Chapter Health
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/grants/calendar">
+          <span class="icon">&#128197;</span> Grants Calendar
         </NavLink>
       }
     </div>
@@ -693,6 +708,12 @@
       var u when u.EndsWith("/admin/events/summary")    => "Event Summary",
       var u when u.EndsWith("/admin/sponsors/report")   => "Sponsors Report",
       var u when u.EndsWith("/admin/cases/bulk")        => "Bulk Case Update",
+      var u when u.EndsWith("/admin/volunteers/reactivation") => "Volunteer Reactivation",
+      var u when u.EndsWith("/admin/donors/outreach")   => "Donor Outreach Queue",
+      var u when u.EndsWith("/admin/allocations/review") => "Allocation Review Queue",
+      var u when u.EndsWith("/admin/chapters/health")   => "Chapter Health Scores",
+      var u when u.Contains("/admin/events/") && u.EndsWith("/attendees") => "Event Attendees",
+      var u when u.EndsWith("/admin/grants/calendar")   => "Grants Calendar",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

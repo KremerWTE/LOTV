@@ -1,0 +1,120 @@
+@page "/admin/volunteers/reactivation"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Reactivation — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Reactivation</h2><p>Inactive volunteers who may be ready to re-engage with the chapter</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← All Volunteers</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128683;</div>
+    <div class="kpi-label">Inactive Volunteers</div>
+    <div class="kpi-value" style="color:var(--amber)">@_inactive.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Reactivated This Session</div>
+    <div class="kpi-value" style="color:var(--green)">@_reactivatedCount</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-label">Avg Cases Fulfilled</div>
+    <div class="kpi-value" style="color:var(--navy)">@(_inactive.Any() ? _inactive.Average(v => v.TotalCasesFulfilled).ToString("F0") : "—")</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">&#127942;</div>
+    <div class="kpi-label">High Performers (5+ cases)</div>
+    <div class="kpi-value" style="color:var(--gold)">@_inactive.Count(v => v.TotalCasesFulfilled >= 5)</div>
+  </div>
+</div>
+
+@if (!_inactive.Any())
+{
+  <div class="panel">
+    <div class="panel-body" style="text-align:center;padding:48px;color:var(--text-light);">
+      <div style="font-size:2rem;margin-bottom:12px;">&#128518;</div>
+      <div style="font-weight:600;font-size:.96rem;">No inactive volunteers</div>
+      <div style="font-size:.84rem;margin-top:6px;">All volunteers are currently active or in onboarding.</div>
+    </div>
+  </div>
+}
+else
+{
+  <!-- FILTER / SORT -->
+  <div class="filter-bar" style="margin-bottom:12px;">
+    <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
+           placeholder="&#128269; Search by name…" @bind="_search" @bind:event="oninput" />
+    @foreach (var role in new[] { "All" }.Concat(Enum.GetValues<VolunteerRole>().Select(r => r.ToDisplayName())))
+    {
+      <button class="filter-chip @(_roleFilter == role ? "active" : "")" @onclick="() => _roleFilter = role">@role</button>
+    }
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    @foreach (var v in Filtered.OrderByDescending(v => v.TotalCasesFulfilled))
+    {
+      <div class="panel" style="border-left:4px solid var(--text-light);">
+        <div class="panel-body">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <div style="font-size:1rem;font-weight:700;">@v.FullName</div>
+                @if (v.TotalCasesFulfilled >= 5) { <span class="badge badge-fulfilled" style="font-size:.6rem;">High Performer</span> }
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:.78rem;color:var(--text-mid);margin-bottom:6px;">
+                <span>&#9993; @v.Email</span>
+                @if (!string.IsNullOrEmpty(v.Phone)) { <span>&#128222; @v.Phone</span> }
+                <span>&#127963; @v.Role.ToDisplayName()</span>
+                <span>&#128467; Joined @v.JoinedDate.ToString("MMM yyyy")</span>
+                <span style="color:var(--green);font-weight:600;">&#10003; @v.TotalCasesFulfilled cases fulfilled</span>
+              </div>
+              @if (!string.IsNullOrEmpty(v.ParishName))
+              { <div style="font-size:.76rem;color:var(--text-light);">&#9962; @v.ParishName @(!string.IsNullOrEmpty(v.DioceseName) ? $"· {v.DioceseName}" : "")</div> }
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+              <button class="btn btn-primary btn-sm" @onclick="() => Reactivate(v)" disabled="@_busy">
+                &#9654; Reactivate
+              </button>
+              <a href="mailto:@v.Email" class="btn btn-sm" style="font-size:.72rem;text-align:center;">&#9993; Email</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+}
+
+@code {
+  private List<Volunteer> _inactive = [];
+  private int _reactivatedCount;
+  private bool _busy;
+  private string _search = "", _roleFilter = "All";
+
+  private IEnumerable<Volunteer> Filtered => _inactive.Where(v =>
+    (_roleFilter == "All" || v.Role.ToDisplayName() == _roleFilter) &&
+    (string.IsNullOrEmpty(_search) ||
+     v.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+     v.Email.Contains(_search, StringComparison.OrdinalIgnoreCase)));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _inactive = await Api.GetVolunteersAsync("Inactive");
+  }
+
+  private async Task Reactivate(Volunteer v)
+  {
+    _busy = true;
+    v.Status = VolunteerStatus.Active;
+    var updated = await Api.UpdateVolunteerAsync(v.Id, v);
+    if (updated is not null) { _inactive.Remove(v); _reactivatedCount++; }
+    _busy = false;
+  }
+}

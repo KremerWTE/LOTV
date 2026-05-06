@@ -1,0 +1,170 @@
+@page "/admin/grants/calendar"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Grants Calendar — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Grants Calendar</h2><p>Grant report deadlines, status tracking, and upcoming obligations</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/grants" class="btn btn-sm">← Grants</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128179;</div>
+    <div class="kpi-label">Active Grants</div>
+    <div class="kpi-value" style="color:var(--navy)">@_grants.Count(g => g.Status == "Active")</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-label">Total Awarded</div>
+    <div class="kpi-value" style="color:var(--green)">@_grants.Sum(g => g.Amount).ToString("C0")</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-label">Reports Due (30d)</div>
+    <div class="kpi-value" style="color:var(--amber)">@_dueSoon.Count</div>
+  </div>
+  <div class="kpi-card" style="background:#fff1f2;">
+    <div class="kpi-icon">&#128680;</div>
+    <div class="kpi-label">Overdue Reports</div>
+    <div class="kpi-value" style="color:var(--red)">@_overdue.Count</div>
+  </div>
+</div>
+
+@if (_overdue.Any())
+{
+  <div class="panel" style="margin-bottom:16px;border-left:4px solid var(--red);">
+    <div class="panel-head"><h3 style="color:var(--red);">&#128680; Overdue Grant Reports</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Grantor</th><th>Purpose</th><th>Amount</th><th>Report Was Due</th><th>Days Overdue</th></tr></thead>
+        <tbody>
+          @foreach (var g in _overdue.OrderBy(g => g.ReportDueDate))
+          {
+            var daysOver = g.ReportDueDate.HasValue ? (DateTime.Today - g.ReportDueDate.Value).Days : 0;
+            <tr style="background:rgba(220,38,38,.04);">
+              <td style="font-size:.84rem;font-weight:600;">@g.GrantorName</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@g.Purpose</td>
+              <td style="font-size:.84rem;color:var(--green);font-weight:600;">@g.Amount.ToString("C0")</td>
+              <td style="font-size:.76rem;color:var(--red);">@(g.ReportDueDate?.ToString("MMM d, yyyy") ?? "—")</td>
+              <td style="font-size:.84rem;font-weight:700;color:var(--red);">@daysOver d</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@if (_dueSoon.Any())
+{
+  <div class="panel" style="margin-bottom:16px;border-left:4px solid var(--amber);">
+    <div class="panel-head"><h3>&#9888; Reports Due Within 30 Days</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Grantor</th><th>Purpose</th><th>Amount</th><th>Report Due</th><th>Days Remaining</th></tr></thead>
+        <tbody>
+          @foreach (var g in _dueSoon.OrderBy(g => g.ReportDueDate))
+          {
+            var daysLeft = g.ReportDueDate.HasValue ? (g.ReportDueDate.Value - DateTime.Today).Days : 0;
+            <tr>
+              <td style="font-size:.84rem;font-weight:600;">@g.GrantorName</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@g.Purpose</td>
+              <td style="font-size:.84rem;color:var(--green);font-weight:600;">@g.Amount.ToString("C0")</td>
+              <td style="font-size:.76rem;color:var(--amber);">@(g.ReportDueDate?.ToString("MMM d, yyyy") ?? "—")</td>
+              <td style="font-size:.84rem;font-weight:700;color:@(daysLeft <= 7 ? "var(--red)" : "var(--amber)");">@daysLeft d</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+<!-- ALL GRANTS TABLE -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  @foreach (var status in new[] { "All", "Active", "Pending", "Closed", "Declined" })
+  {
+    var count = status == "All" ? _grants.Count : _grants.Count(g => g.Status == status);
+    <button class="filter-chip @(_statusFilter == status ? "active" : "")" @onclick="() => _statusFilter = status">@status · @count</button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (_loading)
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div>
+    }
+    else if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No grants in this category.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Grantor</th>
+            <th>Purpose</th>
+            <th>Status</th>
+            <th style="text-align:right;">Amount</th>
+            <th>Awarded</th>
+            <th>Report Due</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var g in Filtered.OrderBy(g => g.ReportDueDate ?? DateTime.MaxValue))
+          {
+            var isPastDue = g.ReportDueDate.HasValue && g.ReportDueDate.Value < DateTime.Today && g.Status == "Active";
+            <tr style="@(isPastDue ? "background:rgba(220,38,38,.04);" : "")">
+              <td style="font-size:.84rem;font-weight:600;">@g.GrantorName</td>
+              <td style="font-size:.78rem;color:var(--text-mid);max-width:160px;overflow:hidden;text-overflow:ellipsis;">@g.Purpose</td>
+              <td><span class="badge badge-@StatusBadge(g.Status)" style="font-size:.62rem;">@g.Status</span></td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@g.Amount.ToString("C0")</td>
+              <td style="font-size:.76rem;color:var(--text-light);">@g.AwardedDate.ToString("MMM d, yyyy")</td>
+              <td style="font-size:.76rem;color:@(isPastDue ? "var(--red)" : "var(--text-light)");">
+                @(g.ReportDueDate?.ToString("MMM d, yyyy") ?? "—")
+                @if (isPastDue) { <span style="font-size:.68rem;font-weight:700;"> (OVERDUE)</span> }
+              </td>
+              <td style="font-size:.74rem;color:var(--text-light);max-width:140px;overflow:hidden;text-overflow:ellipsis;">@(g.Notes ?? "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@code {
+  private List<GrantDto> _grants = [];
+  private List<GrantDto> _dueSoon = [], _overdue = [];
+  private string _statusFilter = "All";
+  private bool _loading = true;
+
+  private IEnumerable<GrantDto> Filtered => _grants.Where(g =>
+    _statusFilter == "All" || g.Status == _statusFilter);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _grants = await Api.GetGrantsAsync();
+    var today = DateTime.Today;
+    _overdue  = _grants.Where(g => g.ReportDueDate.HasValue && g.ReportDueDate.Value < today && g.Status == "Active").ToList();
+    _dueSoon  = _grants.Where(g => g.ReportDueDate.HasValue && g.ReportDueDate.Value >= today && g.ReportDueDate.Value <= today.AddDays(30) && g.Status == "Active").ToList();
+    _loading = false;
+  }
+
+  private static string StatusBadge(string s) => s switch
+  {
+    "Active"   => "fulfilled",
+    "Closed"   => "onhold",
+    "Declined" => "cancelled",
+    _          => "new"
+  };
+}

@@ -1,0 +1,145 @@
+@page "/admin/events/{Id:int}/attendees"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Event Attendees — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Attendee List</h2>
+    <p>@(_event?.Title ?? $"Event #{Id}") — @(_event?.Date.ToString("MMM d, yyyy") ?? "")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/events/@Id" class="btn btn-sm">← Event Detail</a>
+    <a href="/admin/events/summary" class="btn btn-sm">Event Summary</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_event is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Event #@Id not found.</div></div>
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Registered</div>
+      <div class="kpi-value" style="color:var(--navy)">@_attendees.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#10003;</div>
+      <div class="kpi-label">Checked In</div>
+      <div class="kpi-value" style="color:var(--green)">@_attendees.Count(a => a.CheckedIn)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Not Yet Checked In</div>
+      <div class="kpi-value" style="color:var(--amber)">@_attendees.Count(a => !a.CheckedIn)</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#128202;</div>
+      <div class="kpi-label">Check-In Rate</div>
+      <div class="kpi-value" style="color:var(--gold)">@(_attendees.Any() ? $"{(double)_attendees.Count(a => a.CheckedIn) / _attendees.Count * 100:F0}%" : "—")</div>
+    </div>
+  </div>
+
+  <!-- FILTER -->
+  <div class="filter-bar" style="margin-bottom:12px;">
+    <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+           placeholder="&#128269; Search by name or email…" @bind="_search" @bind:event="oninput" />
+    <button class="filter-chip @(_checkinFilter == "all" ? "active" : "")" @onclick='() => _checkinFilter = "all"'>All · @_attendees.Count</button>
+    <button class="filter-chip @(_checkinFilter == "in" ? "active" : "")" @onclick='() => _checkinFilter = "in"'>Checked In · @_attendees.Count(a => a.CheckedIn)</button>
+    <button class="filter-chip @(_checkinFilter == "out" ? "active" : "")" @onclick='() => _checkinFilter = "out"'>Not In · @_attendees.Count(a => !a.CheckedIn)</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No attendees match this filter.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Tickets</th>
+              <th>Check-In Status</th>
+              <th>Checked In At</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var a in Filtered.OrderBy(a => a.CheckedIn).ThenBy(a => a.Donor?.FullName ?? ""))
+            {
+              <tr style="@(a.CheckedIn ? "opacity:.7;" : "")">
+                <td style="font-size:.84rem;font-weight:600;">@(a.Donor?.FullName ?? "Unknown")</td>
+                <td style="font-size:.78rem;color:var(--text-mid);">@(a.Donor?.Email ?? "—")</td>
+                <td style="font-size:.78rem;text-align:center;">@a.TicketCount</td>
+                <td>
+                  @if (a.CheckedIn)
+                  { <span class="badge badge-fulfilled" style="font-size:.6rem;">Checked In</span> }
+                  else
+                  { <span class="badge badge-new" style="font-size:.6rem;">Registered</span> }
+                </td>
+                <td style="font-size:.76rem;color:var(--text-light);">@(a.CheckedInAt?.ToString("h:mm tt") ?? "—")</td>
+                <td>
+                  @if (!a.CheckedIn)
+                  {
+                    <button class="btn btn-sm btn-primary" style="font-size:.7rem;" @onclick="() => CheckIn(a)" disabled="@_busy">&#10003; Check In</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private MinistryEvent? _event;
+  private List<EventAttendee> _attendees = [];
+  private bool _loading = true, _busy;
+  private string _search = "", _checkinFilter = "all";
+
+  private IEnumerable<EventAttendee> Filtered => _attendees.Where(a =>
+    (_checkinFilter == "all" || (_checkinFilter == "in" && a.CheckedIn) || (_checkinFilter == "out" && !a.CheckedIn)) &&
+    (string.IsNullOrEmpty(_search) ||
+     (a.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+     (a.Donor?.Email.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+  protected override async Task OnInitializedAsync()
+  {
+    var evtTask  = Api.GetEventAsync(Id);
+    var attTask  = Api.GetAttendeesAsync(Id);
+    await Task.WhenAll(evtTask, attTask);
+    _event     = await evtTask;
+    _attendees = await attTask;
+    _loading = false;
+  }
+
+  private async Task CheckIn(EventAttendee a)
+  {
+    _busy = true;
+    var ok = await Api.CheckInAttendeeAsync(Id, a.Id);
+    if (ok)
+    {
+      a.CheckedIn = true;
+      a.CheckedInAt = DateTime.Now;
+    }
+    _busy = false;
+  }
+}

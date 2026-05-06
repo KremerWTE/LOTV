@@ -1,0 +1,135 @@
+@page "/admin/chapters/health"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Chapter Health — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Health Scores</h2><p>Composite performance index across cases, donations, volunteers, and pledges</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapter-analytics" class="btn btn-sm">Chapter Analytics</a>
+    <a href="/admin/hq" class="btn btn-sm">HQ Dashboard</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Calculating health scores…</div></div>
+}
+else
+{
+  <!-- TOP SUMMARY -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg Health Score</div>
+      <div class="kpi-value" style="color:var(--green)">@(_scored.Any() ? _scored.Average(s => s.Score).ToString("F0") : "—")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-label">Healthy Chapters (70+)</div>
+      <div class="kpi-value" style="color:var(--green)">@_scored.Count(s => s.Score >= 70)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">At Risk (40–69)</div>
+      <div class="kpi-value" style="color:var(--amber)">@_scored.Count(s => s.Score is >= 40 and < 70)</div>
+    </div>
+    <div class="kpi-card" style="background:#fff1f2;">
+      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-label">Critical (&lt;40)</div>
+      <div class="kpi-value" style="color:var(--red)">@_scored.Count(s => s.Score < 40)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Chapter</th>
+            <th style="text-align:right;">Health Score</th>
+            <th style="width:160px;">Rating</th>
+            <th style="text-align:right;">Open Cases</th>
+            <th style="text-align:right;">Overdue</th>
+            <th style="text-align:right;">Fulfilled MTD</th>
+            <th style="text-align:right;">Donations</th>
+            <th style="text-align:right;">Volunteers</th>
+            <th style="text-align:right;">Pledges</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var s in _scored.OrderByDescending(s => s.Score))
+          {
+            var scoreColor = s.Score >= 70 ? "var(--green)" : s.Score >= 40 ? "var(--amber)" : "var(--red)";
+            var barPct = s.Score;
+            <tr>
+              <td style="font-size:.84rem;font-weight:600;">@s.Name<br/><span style="font-size:.72rem;font-weight:400;color:var(--text-light);">@s.City, @s.State</span></td>
+              <td style="text-align:right;font-size:1.1rem;font-weight:800;color:@scoreColor;">@s.Score.ToString("F0")</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <div style="flex:1;background:var(--bg);border-radius:6px;height:10px;overflow:hidden;">
+                    <div style="height:100%;width:@barPct.ToString("F0")%;background:@scoreColor;opacity:.75;border-radius:6px;transition:width .3s;"></div>
+                  </div>
+                  <span class="badge badge-@(s.Score >= 70 ? "fulfilled" : s.Score >= 40 ? "onhold" : "cancelled")" style="font-size:.6rem;">
+                    @(s.Score >= 70 ? "Healthy" : s.Score >= 40 ? "At Risk" : "Critical")
+                  </span>
+                </div>
+              </td>
+              <td style="text-align:right;font-size:.84rem;">@s.OpenCases</td>
+              <td style="text-align:right;font-size:.84rem;color:@(s.OverdueCases > 0 ? "var(--red)" : "var(--text-mid)");">@s.OverdueCases</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green);">@s.FulfilledMtd</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green);">@s.TotalDonations.ToString("C0")</td>
+              <td style="text-align:right;font-size:.84rem;">@s.ActiveVols</td>
+              <td style="text-align:right;font-size:.84rem;">@s.ActivePledges</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- METHODOLOGY NOTE -->
+  <div style="margin-top:14px;font-size:.76rem;color:var(--text-light);line-height:1.7;">
+    <strong>Score methodology:</strong>
+    Fulfillment rate (35%) + Volunteer capacity (25%) + Donation health (25%) + Overdue penalty (15%).
+    Score of 70+ = Healthy · 40–69 = At Risk · &lt;40 = Critical.
+  </div>
+}
+
+@code {
+  private record ScoredChapter(int Id, string Name, string City, string State,
+    int OpenCases, int OverdueCases, int FulfilledMtd, decimal TotalDonations,
+    int ActiveVols, int ActivePledges, double Score);
+
+  private List<ScoredChapter> _scored = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var analytics = await Api.GetChapterAnalyticsAsync();
+
+    _scored = analytics.Select(a =>
+    {
+      // Fulfillment rate: fulfilled / (fulfilled + open) * 35
+      var total = a.OpenCases + a.FulfilledMtd;
+      var fulfillScore = total > 0 ? (double)a.FulfilledMtd / total * 35 : 17.5;
+
+      // Volunteer capacity: vols > 0 means some coverage, cap at 25
+      var volScore = a.ActiveVols >= 5 ? 25 : a.ActiveVols >= 2 ? 15 : a.ActiveVols == 1 ? 8 : 0;
+
+      // Donation health: any donations this period = 25, none = 0, partial based on amount
+      var donScore = a.TotalDonations >= 1000 ? 25 : a.TotalDonations >= 100 ? 15 : a.TotalDonations > 0 ? 8 : 0;
+
+      // Overdue penalty: each overdue case costs points, capped at 15
+      var overduePenalty = Math.Min(a.OverdueCases * 3, 15);
+
+      var score = Math.Max(0, Math.Min(100, fulfillScore + volScore + donScore - overduePenalty));
+      return new ScoredChapter(a.Id, a.Name, a.City, a.State,
+        a.OpenCases, a.OverdueCases, a.FulfilledMtd, a.TotalDonations,
+        a.ActiveVols, a.ActivePledges, score);
+    }).ToList();
+
+    _loading = false;
+  }
+}
