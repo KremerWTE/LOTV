@@ -1,0 +1,143 @@
+@page "/admin/grants/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>New Grant — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Add Grant</h2><p>Record a new grant award or application</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/grants" class="btn btn-sm">← Grants</a>
+    <a href="/admin/grants/calendar" class="btn btn-sm">Calendar</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Grant added. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Grant Information</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Grantor Name *</label>
+          <input class="form-input" @bind="_grantorName" placeholder="Foundation or organization name" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Purpose *</label>
+          <input class="form-input" @bind="_purpose" placeholder="What is this grant for?" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Amount *</label>
+          <input class="form-input" type="number" step="500" min="0" @bind="_amount" placeholder="0.00" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Award Date *</label>
+          <input class="form-input" type="date" @bind="_awardedDate" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Report Due Date</label>
+          <input class="form-input" type="date" @bind="_reportDueDate" />
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">Leave blank if no report is required.</div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="3" @bind="_notes" placeholder="Restrictions, conditions, contact info…"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Assignment & Status</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name — @c.City, @c.State</option>
+            }
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_status">
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Closed">Closed</option>
+            <option value="Declined">Declined</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="background:#f0fff4;border-left:3px solid var(--green);">
+      <div class="panel-body" style="font-size:.82rem;color:var(--text-mid);line-height:1.6;">
+        <strong>Tip:</strong> Once added, this grant will appear on the Grants Calendar if a report due date is set.
+        Active grants with overdue reports are highlighted in red.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+  <a href="/admin/grants" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Add Grant")</button>
+</div>
+
+@code {
+  private string _grantorName = "", _purpose = "", _notes = "", _status = "Active";
+  private decimal _amount;
+  private DateTime _awardedDate = DateTime.Today;
+  private DateTime? _reportDueDate;
+  private int _chapterId;
+  private bool _busy, _saved;
+  private string _error = "";
+  private List<Chapter> _chapters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_grantorName)) { _error = "Grantor name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_purpose)) { _error = "Purpose is required."; return; }
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+    if (_chapterId == 0) { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var dto = new GrantDto(
+      Id: 0, ChapterId: _chapterId,
+      GrantorName: _grantorName, Purpose: _purpose,
+      Amount: _amount, AwardedDate: _awardedDate,
+      ReportDueDate: _reportDueDate, Status: _status,
+      Notes: string.IsNullOrWhiteSpace(_notes) ? null : _notes);
+    var ok = await Api.CreateGrantAsync(dto);
+    _busy = false;
+    if (ok)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/grants");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

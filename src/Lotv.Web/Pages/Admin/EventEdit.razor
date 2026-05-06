@@ -1,0 +1,213 @@
+@page "/admin/events/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Event — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Event</h2><p>@(_event?.Title ?? $"Event #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events/@Id" class="btn btn-sm">← Event Detail</a>
+    <a href="/admin/events" class="btn btn-sm">All Events</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_event is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Event #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Event updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Event Details</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Title *</label>
+            <input class="form-input" @bind="_title" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Type</label>
+            <select class="form-input" @bind="_type">
+              @foreach (var t in Enum.GetValues<EventType>())
+              {
+                <option value="@t">@t</option>
+              }
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Description</label>
+            <textarea class="form-input" rows="4" @bind="_description" placeholder="Event description…"></textarea>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Notes (staff only)</label>
+            <textarea class="form-input" rows="2" @bind="_notes"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Schedule & Location</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Start Date & Time *</label>
+            <input class="form-input" type="datetime-local" @bind="_date" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">End Date & Time</label>
+            <input class="form-input" type="datetime-local" @bind="_endDate" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" @bind="_isVirtual" style="width:16px;height:16px;" />
+              <span>Virtual event</span>
+            </label>
+          </div>
+          @if (_isVirtual)
+          {
+            <div class="form-group" style="margin-top:10px;">
+              <label class="form-label">Meeting Link</label>
+              <input class="form-input" @bind="_meetingLink" />
+            </div>
+          }
+          else
+          {
+            <div class="form-group" style="margin-top:10px;">
+              <label class="form-label">Location</label>
+              <input class="form-input" @bind="_location" />
+            </div>
+          }
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Status</label>
+            <select class="form-input" @bind="_status">
+              @foreach (var s in Enum.GetValues<EventStatus>())
+              {
+                <option value="@s">@s</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Capacity & Tickets</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Capacity</label>
+              <input class="form-input" type="number" min="0" @bind="_capacity" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ticket Price</label>
+              <input class="form-input" type="number" step="5" min="0" @bind="_ticketPrice" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Fundraising Goal</label>
+            <input class="form-input" type="number" step="100" min="0" @bind="_goalAmount" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+    <a href="/admin/events/@Id" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private MinistryEvent? _event;
+  private List<Chapter> _chapters = [];
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private string _title = "", _description = "", _notes = "", _location = "", _meetingLink = "";
+  private EventType _type;
+  private EventStatus _status;
+  private DateTime _date;
+  private DateTime? _endDate;
+  private int? _capacity;
+  private decimal? _ticketPrice, _goalAmount;
+  private bool _isVirtual;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _event = await Api.GetEventAsync(Id);
+    if (_event is not null)
+    {
+      _title       = _event.Title;
+      _type        = _event.Type;
+      _status      = _event.Status;
+      _date        = _event.Date;
+      _endDate     = _event.EndDate;
+      _location    = _event.Location;
+      _description = _event.Description ?? "";
+      _notes       = _event.Notes ?? "";
+      _capacity    = _event.Capacity;
+      _ticketPrice = _event.TicketPrice;
+      _goalAmount  = _event.GoalAmount;
+      _isVirtual   = _event.IsVirtual;
+      _meetingLink = _event.MeetingLink ?? "";
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_title)) { _error = "Title is required."; return; }
+
+    _busy = true;
+    var updated = new MinistryEvent
+    {
+      Id          = Id,
+      Title       = _title,
+      Type        = _type,
+      Status      = _status,
+      ChapterId   = _event!.ChapterId,
+      Date        = _date,
+      EndDate     = _endDate,
+      Location    = _isVirtual ? (_meetingLink ?? "Virtual") : _location,
+      Description = string.IsNullOrWhiteSpace(_description) ? null : _description,
+      Capacity    = _capacity is > 0 ? _capacity : null,
+      TicketPrice = _ticketPrice is > 0 ? _ticketPrice : null,
+      GoalAmount  = _goalAmount is > 0 ? _goalAmount : null,
+      IsVirtual   = _isVirtual,
+      MeetingLink = _isVirtual ? _meetingLink : null,
+      Notes       = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+      Registered  = _event.Registered,
+      CreatedBy   = _event.CreatedBy,
+      CreatedAt   = _event.CreatedAt,
+    };
+    var result = await Api.UpdateEventAsync(Id, updated);
+    _busy = false;
+    if (result is not null) { _saved = true; _event = updated; }
+    else _error = "Save failed. Please try again.";
+  }
+}

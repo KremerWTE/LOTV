@@ -731,6 +731,11 @@
       var u when u.Contains("/admin/pledges/")              => "Pledge Detail",
       var u when u.Contains("/admin/webhooks/") && !u.EndsWith("/admin/webhooks") => "Webhook Event Detail",
       var u when u.Contains("/certifications/new")          => "Add Certification",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/touchpoints") => "Donor Touchpoints",
+      var u when u.EndsWith("/admin/expenses/new")           => "Log Expense",
+      var u when u.EndsWith("/admin/events/new")             => "Create Event",
+      var u when u.EndsWith("/admin/grants/new")             => "Add Grant",
+      var u when u.Contains("/admin/events/") && u.EndsWith("/edit") => "Edit Event",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

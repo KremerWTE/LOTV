@@ -1,0 +1,181 @@
+@page "/admin/donors/{Id:int}/touchpoints"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donor Touchpoints — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Donor Touchpoints</h2>
+    <p>@(_donor?.FullName ?? $"Donor #{Id}") — engagement history</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/by-donor" class="btn btn-sm">← Donors</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128172;</div>
+      <div class="kpi-label">Total Touchpoints</div>
+      <div class="kpi-value" style="color:var(--navy)">@_touchpoints.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Given</div>
+      <div class="kpi-value" style="color:var(--green)">@(_donor?.TotalGiven.ToString("C0") ?? "—")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Last Gift</div>
+      <div class="kpi-value" style="color:var(--amber);font-size:1rem;">@(_donor?.LastGiftDate.ToString("MMM d, yyyy") ?? "—")</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-label">Tier</div>
+      <div class="kpi-value" style="font-size:1.1rem;">@(_donor?.Tier.ToString() ?? "—")</div>
+    </div>
+  </div>
+
+  <!-- ADD TOUCHPOINT -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>Log Touchpoint</h3></div>
+    <div class="panel-body">
+      @if (!string.IsNullOrEmpty(_addError))
+      {
+        <div style="color:var(--red);font-size:.82rem;margin-bottom:10px;">@_addError</div>
+      }
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-group">
+          <label class="form-label">Touch Type</label>
+          <select class="form-input" @bind="_newType">
+            <option value="Call">Phone Call</option>
+            <option value="Email">Email</option>
+            <option value="Letter">Letter</option>
+            <option value="InPerson">In Person</option>
+            <option value="ThankYou">Thank You</option>
+            <option value="Event">Event Invite</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Touch Date</label>
+          <input class="form-input" type="date" @bind="_touchDate" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Staff Member</label>
+          <input class="form-input" @bind="_staffName" placeholder="Your name" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes *</label>
+        <textarea class="form-input" rows="3" @bind="_newNotes" placeholder="Summary of the interaction…"></textarea>
+      </div>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" @onclick="AddTouchpoint" disabled="@_addBusy">@(_addBusy ? "Saving…" : "Log Touchpoint")</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOUCHPOINT LIST -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>History (@_touchpoints.Count)</h3>
+      <select class="form-input" style="font-size:.82rem;padding:5px 10px;width:160px;" @bind="_typeFilter">
+        <option value="">All types</option>
+        <option value="Call">Call</option>
+        <option value="Email">Email</option>
+        <option value="Letter">Letter</option>
+        <option value="InPerson">In Person</option>
+        <option value="ThankYou">Thank You</option>
+        <option value="Event">Event</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No touchpoints on record.</div>
+      }
+      else
+      {
+        @foreach (var t in Filtered.OrderByDescending(t => t.TouchDate))
+        {
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px;">
+            <div style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">
+              @TouchIcon(t.TouchType)
+            </div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span class="badge badge-new" style="font-size:.6rem;">@t.TouchType</span>
+                <span style="font-size:.74rem;color:var(--text-light);">@t.TouchDate.ToString("MMM d, yyyy")</span>
+                <span style="font-size:.74rem;color:var(--text-light);margin-left:auto;">by @t.StaffName</span>
+              </div>
+              <div style="font-size:.84rem;line-height:1.5;">@t.Notes</div>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Donor? _donor;
+  private List<TouchpointDto> _touchpoints = [];
+  private bool _loading = true, _addBusy;
+  private string _newType = "Call", _newNotes = "", _staffName = "", _addError = "", _typeFilter = "";
+  private DateTime _touchDate = DateTime.Today;
+
+  private IEnumerable<TouchpointDto> Filtered => _touchpoints.Where(t =>
+    string.IsNullOrEmpty(_typeFilter) || t.TouchType == _typeFilter);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorTask = Api.GetDonorAsync(Id);
+    var touchTask = Api.GetDonorTouchpointsAsync(Id);
+    await Task.WhenAll(donorTask, touchTask);
+    _donor       = await donorTask;
+    _touchpoints = await touchTask;
+    _loading = false;
+  }
+
+  private async Task AddTouchpoint()
+  {
+    _addError = "";
+    if (string.IsNullOrWhiteSpace(_newNotes)) { _addError = "Notes are required."; return; }
+    if (string.IsNullOrWhiteSpace(_staffName)) { _addError = "Staff member name is required."; return; }
+
+    _addBusy = true;
+    var dto = new TouchpointDto(0, Id, _newType, _newNotes, _touchDate, _staffName);
+    var ok = await Api.CreateDonorTouchpointAsync(Id, dto);
+    if (ok)
+    {
+      _touchpoints = await Api.GetDonorTouchpointsAsync(Id);
+      _newNotes = ""; _touchDate = DateTime.Today;
+    }
+    else _addError = "Save failed. Please try again.";
+    _addBusy = false;
+  }
+
+  private static string TouchIcon(string t) => t switch
+  {
+    "Call"     => "📞",
+    "Email"    => "📧",
+    "Letter"   => "✉️",
+    "InPerson" => "🤝",
+    "ThankYou" => "💌",
+    "Event"    => "🎉",
+    _          => "💬"
+  };
+}

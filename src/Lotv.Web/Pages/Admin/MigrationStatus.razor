@@ -1,0 +1,103 @@
+@page "/admin/migrations"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>DB Migrations — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Database Migrations</h2><p>Applied and pending EF Core schema migrations</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/health" class="btn btn-sm">Health</a>
+    <a href="/admin/settings" class="btn btn-sm">Settings</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Checking migration status…</div></div>
+}
+else if (_data is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Failed to load migration data. Check API health.</div></div>
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#10003;</div>
+      <div class="kpi-label">Applied</div>
+      <div class="kpi-value" style="color:var(--green)">@_data.Applied.Count</div>
+    </div>
+    <div class="kpi-card @(_data.Pending.Count > 0 ? "" : "kpi-green")">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Pending</div>
+      <div class="kpi-value" style="color:@(_data.Pending.Count > 0 ? "var(--red)" : "var(--green)")">@_data.Pending.Count</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128202;</div>
+      <div class="kpi-label">Total</div>
+      <div class="kpi-value" style="color:var(--navy)">@(_data.Applied.Count + _data.Pending.Count)</div>
+    </div>
+    <div class="kpi-card @(_data.Pending.Count == 0 ? "kpi-green" : "")">
+      <div class="kpi-icon">@(_data.Pending.Count == 0 ? "✅" : "⚠️")</div>
+      <div class="kpi-label">Schema Status</div>
+      <div class="kpi-value" style="font-size:.9rem;color:@(_data.Pending.Count == 0 ? "var(--green)" : "var(--red)")">
+        @(_data.Pending.Count == 0 ? "Up to date" : "Needs migration")
+      </div>
+    </div>
+  </div>
+
+  @if (_data.Pending.Count > 0)
+  {
+    <div class="panel" style="margin-bottom:16px;border-left:4px solid var(--red);">
+      <div class="panel-head"><h3 style="color:var(--red);">⚠ Pending Migrations (@_data.Pending.Count)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        @foreach (var m in _data.Pending)
+        {
+          <div style="padding:10px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:.72rem;color:var(--red);">⏳</span>
+            <span style="font-family:monospace;font-size:.82rem;color:var(--red);">@m</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Applied Migrations (@_data.Applied.Count)</h3>
+      <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
+             placeholder="&#128269; Filter…" @bind="_search" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;max-height:60vh;overflow-y:auto;">
+      @foreach (var m in FilteredApplied)
+      {
+        <div style="padding:9px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:.72rem;color:var(--green);">✓</span>
+          <span style="font-family:monospace;font-size:.8rem;color:var(--text-mid);">@m</span>
+        </div>
+      }
+      @if (!FilteredApplied.Any())
+      {
+        <div style="padding:20px;text-align:center;font-size:.84rem;color:var(--text-light);">No applied migrations match.</div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private ApiService.MigrationsDto? _data;
+  private bool _loading = true;
+  private string _search = "";
+
+  private IEnumerable<string> FilteredApplied => _data?.Applied
+    .Where(m => string.IsNullOrEmpty(_search) || m.Contains(_search, StringComparison.OrdinalIgnoreCase))
+    .OrderByDescending(m => m) ?? Enumerable.Empty<string>();
+
+  protected override async Task OnInitializedAsync()
+  {
+    _data = await Api.GetMigrationsAsync();
+    _loading = false;
+  }
+}
