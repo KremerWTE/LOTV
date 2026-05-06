@@ -1,0 +1,148 @@
+@page "/admin/parishes"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Parish & Diocese Directory — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Parish & Diocese Directory</h2><p>All registered parishes and dioceses in the ministry network</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/diocese-data" class="btn btn-sm">Diocese Data</a>
+    <a href="/admin/volunteers" class="btn btn-sm">Volunteers</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#9962;</div>
+      <div class="kpi-label">Parishes</div>
+      <div class="kpi-value" style="color:var(--navy)">@_parishes.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Dioceses</div>
+      <div class="kpi-value" style="color:var(--green)">@_dioceses.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Avg Parishes/Diocese</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_dioceses.Any() ? (_parishes.Count / (decimal)_dioceses.Count).ToString("F1") : "—")</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head">
+      <h3>Dioceses (@_dioceses.Count)</h3>
+      <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 10px;"
+             placeholder="Search dioceses…" @bind="_dioceseSearch" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!FilteredDioceses.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No dioceses match.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Diocese</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">City / State</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Coordinator</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Parishes</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Cases Fulfilled</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var d in FilteredDioceses)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@d.Name</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.City, @d.State</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(d.CoordinatorName ?? "—")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@d.ActiveParishes / @d.TotalParishes</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@d.TotalCasesFulfilled</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Parishes (@_parishes.Count)</h3>
+      <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 10px;"
+             placeholder="Search parishes…" @bind="_parishSearch" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!FilteredParishes.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No parishes match.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Parish</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Diocese</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Liaison</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Active Cases</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var p in FilteredParishes)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@p.Name</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@p.DioceseName</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(p.LiaisonName ?? "—")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@p.ActiveCases</td>
+                <td style="padding:10px 16px;"><span class="badge badge-@(p.Status == ParishStatus.Active ? "fulfilled" : "cancelled")" style="font-size:.68rem;">@p.Status</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private List<Parish> _parishes = [];
+  private List<Diocese> _dioceses = [];
+  private string _parishSearch = "";
+  private string _dioceseSearch = "";
+  private bool _loading = true;
+
+  private IEnumerable<Parish> FilteredParishes => (_parishes ?? [])
+    .Where(p => string.IsNullOrEmpty(_parishSearch) ||
+                p.Name.Contains(_parishSearch, StringComparison.OrdinalIgnoreCase) ||
+                (p.DioceseName ?? "").Contains(_parishSearch, StringComparison.OrdinalIgnoreCase))
+    .OrderBy(p => p.DioceseName).ThenBy(p => p.Name);
+
+  private IEnumerable<Diocese> FilteredDioceses => (_dioceses ?? [])
+    .Where(d => string.IsNullOrEmpty(_dioceseSearch) ||
+                d.Name.Contains(_dioceseSearch, StringComparison.OrdinalIgnoreCase))
+    .OrderBy(d => d.Name);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var parishTask  = Api.GetParishesAsync();
+    var dioceseTask = Api.GetDiocesesAsync();
+    await Task.WhenAll(parishTask, dioceseTask);
+    _parishes  = await parishTask;
+    _dioceses  = await dioceseTask;
+    _loading = false;
+  }
+}

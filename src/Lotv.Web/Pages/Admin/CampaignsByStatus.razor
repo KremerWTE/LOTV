@@ -1,0 +1,158 @@
+@page "/admin/campaigns/by-status"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Campaigns by Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Campaigns by Status</h2><p>Campaign portfolio overview grouped by lifecycle stage</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/campaigns" class="btn btn-sm">← All Campaigns</a>
+    <a href="/admin/campaigns/new" class="btn btn-sm btn-primary">+ New Campaign</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127919;</div>
+      <div class="kpi-label">Total Campaigns</div>
+      <div class="kpi-value" style="color:var(--navy)">@_campaigns.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Raised</div>
+      <div class="kpi-value" style="color:var(--green)">@_campaigns.Sum(c => c.Raised).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127959;</div>
+      <div class="kpi-label">Total Goal</div>
+      <div class="kpi-value" style="color:var(--amber)">@_campaigns.Where(c => c.GoalAmount > 0).Sum(c => c.GoalAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--green)">@_campaigns.Count(c => c.Status == "Active")</div>
+    </div>
+  </div>
+
+  @foreach (var grp in _campaigns.GroupBy(c => c.Status).OrderBy(g => StatusOrder(g.Key)))
+  {
+    var grpRaised = grp.Sum(c => c.Raised);
+    var grpGoal   = grp.Where(c => c.GoalAmount > 0).Sum(c => c.GoalAmount);
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head" style="background:@StatusBg(grp.Key);">
+        <h3 style="color:@StatusFg(grp.Key);">@grp.Key <span style="font-size:.78rem;font-weight:400;opacity:.85;">(@grp.Count() campaigns · @grpRaised.ToString("C0") raised)</span></h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Campaign</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Start</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">End</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Raised</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Goal</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Progress</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Gifts</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var c in grp.OrderByDescending(c => c.Raised))
+            {
+              var pct = c.GoalAmount > 0 ? Math.Min(100m, c.Raised / c.GoalAmount * 100m) : 0m;
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/campaigns/@c.Id" style="color:var(--navy);">@c.Name</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);white-space:nowrap;">@c.StartDate.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);white-space:nowrap;">@(c.EndDate?.ToString("MMM d, yyyy") ?? "—")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@c.Raised.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@(c.GoalAmount > 0 ? c.GoalAmount.ToString("C0") : "—")</td>
+                <td style="padding:10px 16px;min-width:120px;">
+                  @if (c.GoalAmount > 0)
+                  {
+                    <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;margin-bottom:2px;">
+                      <div style="background:var(--green);height:6px;width:@pct.ToString("F1")%;"></div>
+                    </div>
+                    <div style="font-size:.72rem;color:var(--text-light);">@pct.ToString("F0")%</div>
+                  }
+                  else { <text>—</text> }
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@c.GiftCount</td>
+                <td style="padding:10px 16px;text-align:center;white-space:nowrap;">
+                  <a href="/admin/campaigns/@c.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                  <span style="color:var(--border);margin:0 4px;">|</span>
+                  <a href="/admin/campaigns/@c.Id/donations" style="font-size:.78rem;color:var(--navy);">Gifts</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+          @if (grp.Count() > 1)
+          {
+            <tfoot>
+              <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
+                <td colspan="3" style="padding:10px 16px;font-size:.84rem;">Subtotal</td>
+                <td style="padding:10px 16px;font-size:.88rem;text-align:right;color:var(--green);">@grpRaised.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@(grpGoal > 0 ? grpGoal.ToString("C0") : "—")</td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          }
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_campaigns.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No campaigns found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<CampaignDto> _campaigns = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _campaigns = await Api.GetCampaignsAsync();
+    _loading   = false;
+  }
+
+  private static int StatusOrder(string status) => status switch
+  {
+    "Active"    => 0,
+    "Draft"     => 1,
+    "Paused"    => 2,
+    "Completed" => 3,
+    "Cancelled" => 4,
+    _           => 99
+  };
+
+  private static string StatusBg(string status) => status switch
+  {
+    "Active"    => "var(--green)",
+    "Draft"     => "var(--text-light)",
+    "Paused"    => "var(--amber)",
+    "Completed" => "var(--navy)",
+    _           => "var(--border)"
+  };
+
+  private static string StatusFg(string status) => status switch
+  {
+    "Active"    => "#fff",
+    "Draft"     => "#fff",
+    "Paused"    => "#fff",
+    "Completed" => "#fff",
+    _           => "var(--text)"
+  };
+}

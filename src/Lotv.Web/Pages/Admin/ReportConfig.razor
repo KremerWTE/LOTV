@@ -1,0 +1,108 @@
+@page "/admin/reports/config"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Report Configuration — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Report Configuration</h2><p>Configure scheduled report recipients and delivery preferences</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/reports/schedule" class="btn btn-sm">← Scheduled Reports</a>
+    <a href="/admin/reports/history" class="btn btn-sm">Report History</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_success))
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="padding:12px 16px;color:var(--green);font-weight:600;">@_success</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="padding:12px 16px;color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head"><h3>HQ Email Recipients</h3></div>
+    <div class="panel-body">
+      <div style="margin-bottom:16px;">
+        <label class="form-label">Weekly Summary Email</label>
+        <input class="form-input" type="email" placeholder="hq-weekly@ministry.org" @bind="_hqWeeklyEmail" />
+        <div style="font-size:.78rem;color:var(--text-light);margin-top:4px;">Receives chapter summary reports every Monday morning.</div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label class="form-label">Daily Operations Email</label>
+        <input class="form-input" type="email" placeholder="ops@ministry.org" @bind="_hqDailyEmail" />
+        <div style="font-size:.78rem;color:var(--text-light);margin-top:4px;">Receives daily intake and fulfillment digests.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head"><h3>Platform Settings</h3></div>
+    <div class="panel-body">
+      @if (_settings.Any())
+      {
+        @foreach (var key in _settings.Keys.OrderBy(k => k))
+        {
+          <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+            <label style="font-size:.82rem;font-weight:600;color:var(--text-light);width:260px;flex-shrink:0;">@key</label>
+            <input class="form-input" style="flex:1;"
+                   value="@_settings[key]"
+                   @oninput="e => _settings[key] = e.Value?.ToString() ?? string.Empty" />
+          </div>
+        }
+      }
+      else
+      {
+        <div style="color:var(--text-light);font-size:.84rem;">No configurable settings found.</div>
+      }
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-primary" @onclick="Save" disabled="@_saving">
+      @(_saving ? "Saving…" : "Save Configuration")
+    </button>
+    <button class="btn" @onclick="Load">Reset</button>
+  </div>
+}
+
+@code {
+  private Dictionary<string, string> _settings = [];
+  private string _hqWeeklyEmail = "";
+  private string _hqDailyEmail = "";
+  private string _success = "";
+  private string _error = "";
+  private bool _loading = true;
+  private bool _saving = false;
+
+  protected override async Task OnInitializedAsync() => await Load();
+
+  private async Task Load()
+  {
+    _loading = true;
+    _settings = await Api.GetSettingsAsync();
+    if (_settings.TryGetValue("HqWeeklyEmail", out var w)) _hqWeeklyEmail = w;
+    if (_settings.TryGetValue("HqDailyEmail",  out var d)) _hqDailyEmail  = d;
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _success = ""; _error = ""; _saving = true;
+    var ok = await Api.SaveReportConfigAsync(_settings, _hqWeeklyEmail, _hqDailyEmail);
+    _saving = false;
+    if (ok) _success = "Configuration saved successfully.";
+    else    _error   = "Failed to save configuration. Please try again.";
+  }
+}

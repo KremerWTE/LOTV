@@ -1,0 +1,123 @@
+@page "/admin/donors/monthly"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Monthly Giving Trends — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Monthly Giving Trends</h2><p>Donation totals by month for the selected year</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donations" class="btn btn-sm">← All Donations</a>
+    <a href="/admin/donors" class="btn btn-sm">Donors</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center;">
+    <select class="form-input" style="width:120px;font-size:.84rem;padding:6px 10px;" @bind="_year" @bind:after="Recompute">
+      @for (var y = DateTime.Today.Year; y >= DateTime.Today.Year - 4; y--)
+      {
+        <option value="@y">@y</option>
+      }
+    </select>
+    <span style="font-size:.82rem;color:var(--text-light);">Showing @_rows.Count(r => r.Total > 0) active months</span>
+  </div>
+
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Year Total</div>
+      <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.Total).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Best Month</div>
+      <div class="kpi-value" style="color:var(--navy)">@(_rows.Any(r => r.Total > 0) ? _rows.MaxBy(r => r.Total)?.MonthLabel : "—")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Total Gifts</div>
+      <div class="kpi-value" style="color:var(--amber)">@_rows.Sum(r => r.Count)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Avg/Month</div>
+      <div class="kpi-value" style="color:var(--navy)">@(_rows.Any(r => r.Total > 0) ? (_rows.Sum(r => r.Total) / _rows.Count(r => r.Total > 0)).ToString("C0") : "—")</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Monthly Breakdown — @_year</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Month</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Gifts</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Avg Gift</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Trend</th>
+          </tr>
+        </thead>
+        <tbody>
+          @{var maxTotal = _rows.Max(r => r.Total);}
+          @foreach (var r in _rows)
+          {
+            var barPct = maxTotal > 0 ? r.Total / maxTotal * 100m : 0m;
+            <tr style="border-top:1px solid var(--border);@(r.Total == 0 ? "opacity:0.4;" : "")">
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@r.MonthLabel</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.Count</td>
+              <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.Total.ToString("C0")</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@(r.Count > 0 ? (r.Total / r.Count).ToString("C0") : "—")</td>
+              <td style="padding:10px 16px;min-width:160px;">
+                <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+                  <div style="background:var(--green);height:8px;width:@barPct.ToString("F1")%;"></div>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
+            <td style="padding:10px 16px;font-size:.84rem;">Total</td>
+            <td style="padding:10px 16px;font-size:.84rem;text-align:right;">@_rows.Sum(r => r.Count)</td>
+            <td style="padding:10px 16px;font-size:.92rem;text-align:right;color:var(--green);">@_rows.Sum(r => r.Total).ToString("C0")</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<MonthRow> _rows = [];
+  private List<Donation> _all = [];
+  private int _year = DateTime.Today.Year;
+  private bool _loading = true;
+
+  private record MonthRow(string MonthLabel, int Count, decimal Total);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all     = await Api.GetDonationsAsync();
+    _loading = false;
+    Recompute();
+  }
+
+  private void Recompute()
+  {
+    var forYear = _all.Where(d => d.Date.Year == _year).ToList();
+    _rows = Enumerable.Range(1, 12).Select(m =>
+    {
+      var label   = new DateTime(_year, m, 1).ToString("MMMM");
+      var inMonth = forYear.Where(d => d.Date.Month == m).ToList();
+      return new MonthRow(label, inMonth.Count, inMonth.Sum(d => d.Amount));
+    }).ToList();
+  }
+}

@@ -1,0 +1,148 @@
+@page "/admin/events/by-type"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Events by Type — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Events by Type</h2><p>Ministry event breakdown across all event categories</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events" class="btn btn-sm">← All Events</a>
+    <a href="/admin/events/summary" class="btn btn-sm">Event Summary</a>
+    <a href="/admin/events/new" class="btn btn-sm btn-primary">+ New Event</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-label">Total Events</div>
+      <div class="kpi-value" style="color:var(--navy)">@_events.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Open / Active</div>
+      <div class="kpi-value" style="color:var(--green)">@_events.Count(e => e.Status == EventStatus.Open || e.Status == EventStatus.Published)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-label">Event Types</div>
+      <div class="kpi-value" style="color:var(--amber)">@_events.Select(e => e.Type).Distinct().Count()</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Total Registered</div>
+      <div class="kpi-value" style="color:var(--navy)">@_events.Sum(e => e.Registered)</div>
+    </div>
+  </div>
+
+  @foreach (var typeGroup in _events.GroupBy(e => e.Type).OrderByDescending(g => g.Count()))
+  {
+    var open = typeGroup.Count(e => e.Status == EventStatus.Open || e.Status == EventStatus.Published);
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>@TypeLabel(typeGroup.Key) <span style="font-size:.78rem;font-weight:400;color:var(--text-light);">(@typeGroup.Count() events · @open open · @typeGroup.Sum(e => e.Registered) registered)</span></h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Event</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Location</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Registered</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Capacity</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var e in typeGroup.OrderByDescending(e => e.Date))
+            {
+              var pct = e.Capacity.HasValue && e.Capacity > 0 ? e.Registered * 100 / e.Capacity.Value : (int?)null;
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/events/@e.Id" style="color:var(--navy);">@e.Title</a>
+                  @if (e.IsVirtual)
+                  {
+                    <span style="font-size:.68rem;color:var(--navy);margin-left:6px;">Virtual</span>
+                  }
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);white-space:nowrap;">@e.Date.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@e.Location</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@e.Registered</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">
+                  @if (pct.HasValue)
+                  {
+                    @e.Capacity
+                    <span style="font-size:.72rem;color:@(pct >= 90 ? "var(--red)" : "var(--text-light)");">(@pct%)</span>
+                  }
+                  else
+                  {
+                    <text>—</text>
+                  }
+                </td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@StatusClass(e.Status)" style="font-size:.68rem;">@e.Status</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/events/@e.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_events.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No events found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<MinistryEvent> _events = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _events  = await Api.GetEventsAsync();
+    _loading = false;
+  }
+
+  private static string TypeLabel(EventType type) => type switch
+  {
+    EventType.PrayerNight       => "Prayer Night",
+    EventType.InPersonGathering => "In-Person Gathering",
+    EventType.Gala              => "Gala",
+    EventType.SilentAuction     => "Silent Auction",
+    EventType.Workshop          => "Workshop",
+    EventType.Dinner            => "Dinner",
+    EventType.Concert           => "Concert",
+    EventType.GolfTournament    => "Golf Tournament",
+    EventType.Walkathon         => "Walkathon",
+    _                           => type.ToString()
+  };
+
+  private static string StatusClass(EventStatus status) => status switch
+  {
+    EventStatus.Open      => "fulfilled",
+    EventStatus.Published => "new",
+    EventStatus.Completed => "onhold",
+    EventStatus.Cancelled => "cancelled",
+    EventStatus.Draft     => "onhold",
+    EventStatus.Closed    => "cancelled",
+    _                     => "new"
+  };
+}

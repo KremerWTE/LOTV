@@ -847,6 +847,12 @@
       var u when u.Contains("/admin/donors/") && u.EndsWith("/events")                                                     => "Donor Events",
       var u when u == "/admin/sponsors/by-tier"                                                                            => "Sponsors by Tier",
       var u when u == "/admin/volunteers/by-role"                                                                          => "Volunteers by Role",
+      var u when u == "/admin/parishes"                                                                                    => "Parish & Diocese Directory",
+      var u when u == "/admin/reports/config"                                                                              => "Report Configuration",
+      var u when u == "/admin/events/by-type"                                                                              => "Events by Type",
+      var u when u == "/admin/campaigns/by-status"                                                                         => "Campaigns by Status",
+      var u when u == "/admin/donors/monthly"                                                                              => "Monthly Giving Trends",
+      var u when u == "/admin/chapters/comparison"                                                                         => "Chapter Comparison",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

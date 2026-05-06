@@ -1,0 +1,126 @@
+@page "/admin/chapters/comparison"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+@using Lotv.Core.Reporting
+
+<PageTitle>Chapter Comparison — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Comparison</h2><p>Side-by-side performance metrics across all chapters</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/hq" class="btn btn-sm">← HQ Dashboard</a>
+    <a href="/admin/chapter-analytics" class="btn btn-sm">Chapter Analytics</a>
+    <a href="/admin/chapters/health" class="btn btn-sm">Health Scores</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Chapters</div>
+      <div class="kpi-value" style="color:var(--navy)">@_summary.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Fulfilled (Period)</div>
+      <div class="kpi-value" style="color:var(--green)">@_summary.Sum(r => r.FulfilledThisPeriod)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-label">Open Requests</div>
+      <div class="kpi-value" style="color:var(--amber)">@_summary.Sum(r => r.OpenRequests)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--navy)">@_summary.Sum(r => r.TotalDonations).ToString("C0")</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Chapter Metrics (@_summary.Count)</h3>
+      <select class="form-input" style="width:180px;font-size:.82rem;padding:5px 10px;" @bind="_sortBy">
+        <option value="families">Sort: Fulfilled</option>
+        <option value="cases">Sort: Open Requests</option>
+        <option value="donations">Sort: Donations</option>
+        <option value="volunteers">Sort: Volunteers</option>
+        <option value="name">Sort: Name</option>
+      </select>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Sorted.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No chapters found.</div>
+      }
+      else
+      {
+        var maxDonations = Sorted.Max(r => r.TotalDonations);
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Chapter</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Open Requests</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Overdue</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Volunteers</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Donations</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Giving</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var r in Sorted)
+            {
+              var barPct = maxDonations > 0 ? r.TotalDonations / maxDonations * 100m : 0m;
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/chapters/@r.ChapterId" style="color:var(--navy);">@r.ChapterName</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.OpenRequests</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:@(r.OverdueRequests > 0 ? "var(--red)" : "var(--text-light)");">@r.OverdueRequests</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.ActiveVolunteers</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.TotalDonations.ToString("C0")</td>
+                <td style="padding:10px 16px;min-width:120px;">
+                  <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
+                    <div style="background:var(--green);height:6px;width:@barPct.ToString("F1")%;"></div>
+                  </div>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/chapters/@r.ChapterId" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private List<ChapterSummaryRow> _summary = [];
+  private string _sortBy = "donations";
+  private bool _loading = true;
+
+  private IEnumerable<ChapterSummaryRow> Sorted => _sortBy switch
+  {
+    "families"   => _summary.OrderByDescending(r => r.FulfilledThisPeriod),
+    "cases"      => _summary.OrderByDescending(r => r.OpenRequests),
+    "volunteers" => _summary.OrderByDescending(r => r.ActiveVolunteers),
+    "name"       => _summary.OrderBy(r => r.ChapterName),
+    _            => _summary.OrderByDescending(r => r.TotalDonations)
+  };
+
+  protected override async Task OnInitializedAsync()
+  {
+    _summary = await Api.GetHqSummaryAsync();
+    _loading = false;
+  }
+}
