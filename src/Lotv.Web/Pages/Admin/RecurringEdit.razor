@@ -1,0 +1,154 @@
+@page "/admin/recurring/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Recurring Gift — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Recurring Gift</h2><p>Schedule #@Id</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/recurring" class="btn btn-sm">← Recurring Gifts</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_rec is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Recurring gift #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Recurring gift updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Gift Details</h3></div>
+        <div class="panel-body">
+          <div style="margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:6px;font-size:.83rem;">
+            Donor: <strong>@(_rec.Donor?.FullName ?? $"Donor #{_rec.DonorId}")</strong>
+            @if (!string.IsNullOrEmpty(_rec.StripeSubscriptionId))
+            {
+              <span style="margin-left:10px;font-size:.76rem;color:var(--text-light);">Stripe: @_rec.StripeSubscriptionId</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Amount per Cycle *</label>
+            <input class="form-input" type="number" step="5" min="1" @bind="_amount" />
+          </div>
+
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Frequency *</label>
+            <select class="form-input" @bind="_frequency">
+              @foreach (var f in Enum.GetValues<RecurringFrequency>())
+              {
+                <option value="@f.ToString()">@f.ToDisplayName()</option>
+              }
+            </select>
+          </div>
+
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+            <a href="/admin/recurring" class="btn btn-sm">Cancel</a>
+            <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Current Status</h3></div>
+        <div class="panel-body">
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Status</div>
+          <div style="margin-bottom:12px;">
+            <span class="badge badge-@StatusBadge(_rec.Status)" style="font-size:.72rem;">@_rec.Status</span>
+          </div>
+
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Channel</div>
+          <div style="font-size:.86rem;margin-bottom:12px;">@_rec.Channel.ToDisplayName()</div>
+
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Next Charge</div>
+          <div style="font-size:.86rem;font-weight:600;color:var(--navy);margin-bottom:12px;">@_rec.NextChargeDate.ToString("MMM d, yyyy")</div>
+
+          @if (_rec.LastChargedAt.HasValue)
+          {
+            <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Last Charged</div>
+            <div style="font-size:.86rem;margin-bottom:12px;">@_rec.LastChargedAt.Value.ToString("MMM d, yyyy")</div>
+          }
+
+          @if (_rec.EndsOn.HasValue)
+          {
+            <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Ends On</div>
+            <div style="font-size:.86rem;margin-bottom:12px;">@_rec.EndsOn.Value.ToString("MMM d, yyyy")</div>
+          }
+
+          @if (!string.IsNullOrEmpty(_rec.Campaign))
+          {
+            <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Campaign</div>
+            <div style="font-size:.86rem;">@_rec.Campaign</div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private RecurringDonation? _rec;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+  private decimal _amount;
+  private string _frequency = RecurringFrequency.Monthly.ToString();
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetAllRecurringAsync();
+    _rec = all.FirstOrDefault(r => r.Id == Id);
+    if (_rec is not null)
+    {
+      _amount    = _rec.Amount;
+      _frequency = _rec.Frequency.ToString();
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+
+    _busy = true;
+    var ok = await Api.UpdateDonorRecurringAsync(Id, _amount, _frequency);
+    _busy = false;
+    if (ok) { _saved = true; _rec!.Amount = _amount; }
+    else _error = "Save failed. Please try again.";
+  }
+
+  private static string StatusBadge(RecurringStatus s) => s switch
+  {
+    RecurringStatus.Active    => "fulfilled",
+    RecurringStatus.Paused    => "onhold",
+    RecurringStatus.PastDue   => "pending",
+    RecurringStatus.Cancelled => "cancelled",
+    _                         => "new"
+  };
+}

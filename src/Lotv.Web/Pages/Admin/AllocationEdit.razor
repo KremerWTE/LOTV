@@ -1,0 +1,136 @@
+@page "/admin/allocations/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Allocation — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Allocation</h2><p>Allocation #@Id</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/allocations" class="btn btn-sm">← Allocations</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_alloc is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Allocation #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Allocation updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="max-width:640px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Allocation Details</h3></div>
+      <div class="panel-body">
+        <div style="margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:6px;font-size:.82rem;">
+          Source donation #@_alloc.DonationId
+          @if (_alloc.Donation is not null)
+          {
+            <span> — @(_alloc.Donation.Donor?.FullName ?? $"Donor #{_alloc.Donation.DonorId}"), @_alloc.Donation.Amount.ToString("C0")</span>
+          }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Allocated To *</label>
+          <input class="form-input" @bind="_allocatedTo" placeholder="Case #123, Building Fund, Program name…" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Amount *</label>
+          <input class="form-input" type="number" step="10" min="0" @bind="_amount" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Status</label>
+          <select class="form-input" @bind="_status">
+            <option value="@AllocationStatus.PendingReview">Pending Review</option>
+            <option value="@AllocationStatus.Allocated">Allocated</option>
+            <option value="@AllocationStatus.Restricted">Restricted</option>
+            <option value="@AllocationStatus.Unallocated">Unallocated</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Approved By</label>
+          <input class="form-input" @bind="_approvedBy" placeholder="Staff name" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="3" @bind="_notes"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/allocations" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private FundAllocation? _alloc;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private string _allocatedTo = "", _notes = "", _approvedBy = "";
+  private decimal _amount;
+  private AllocationStatus _status;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetAllocationsAsync();
+    _alloc = all.FirstOrDefault(a => a.Id == Id);
+    if (_alloc is not null)
+    {
+      _allocatedTo = _alloc.AllocatedTo;
+      _amount      = _alloc.Amount;
+      _status      = _alloc.Status;
+      _approvedBy  = _alloc.ApprovedBy ?? "";
+      _notes       = _alloc.Notes ?? "";
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_allocatedTo)) { _error = "Allocated To is required."; return; }
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+
+    _busy = true;
+    var updated = new FundAllocation
+    {
+      Id          = Id,
+      DonationId  = _alloc!.DonationId,
+      AllocatedTo = _allocatedTo,
+      Amount      = _amount,
+      Status      = _status,
+      ApprovedBy  = string.IsNullOrWhiteSpace(_approvedBy) ? null : _approvedBy,
+      ApprovedAt  = _status == AllocationStatus.Allocated && _alloc.ApprovedAt is null ? DateTime.UtcNow : _alloc.ApprovedAt,
+      Notes       = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+      CreatedAt   = _alloc.CreatedAt,
+    };
+    var result = await Api.UpdateAllocationAsync(Id, updated);
+    _busy = false;
+    if (result is not null) { _saved = true; _alloc = result; }
+    else _error = "Save failed. Please try again.";
+  }
+}

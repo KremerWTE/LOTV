@@ -1,0 +1,186 @@
+@page "/admin/inventory/{ResourceId:int}/allocate"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Allocate Resource — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Allocate Resource</h2><p>@(_item?.Name ?? $"Item #{ResourceId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory/@ResourceId" class="btn btn-sm">← Item Detail</a>
+    <a href="/admin/inventory" class="btn btn-sm">Inventory</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_item is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Item #@ResourceId not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Resource allocated successfully.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Allocation</h3></div>
+        <div class="panel-body">
+          <!-- Case request search -->
+          <div class="form-group">
+            <label class="form-label">Case / Request *</label>
+            <div style="position:relative;">
+              <input class="form-input" value="@_requestSearch"
+                     @oninput='e => { _requestSearch = e.Value?.ToString() ?? ""; FilterRequests(); }'
+                     placeholder="Search by family name or case #…" autocomplete="off" />
+              @if (_requestSuggestions.Any())
+              {
+                <ul style="position:absolute;z-index:50;background:white;border:1px solid var(--border);border-radius:6px;width:100%;list-style:none;margin:2px 0 0;padding:4px 0;box-shadow:0 4px 12px rgba(0,0,0,.1);">
+                  @foreach (var r in _requestSuggestions)
+                  {
+                    var rCopy = r;
+                    <li @onmousedown='() => SelectRequest(rCopy)'
+                        style="padding:8px 14px;cursor:pointer;font-size:.84rem;">
+                      Case #@r.Id <span style="color:var(--text-light);font-size:.76rem;">— @(r.Family?.Parent1LastName ?? "Family") &bull; @r.Category</span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+            @if (_selectedRequestId.HasValue)
+            {
+              <div style="margin-top:5px;font-size:.78rem;color:var(--green);">✓ Case #@_selectedRequestId — @_selectedRequestDesc</div>
+            }
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">Quantity *</label>
+            <input class="form-input" type="number" min="1" max="@_item.QuantityAvailable" @bind="_quantity" />
+            <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">
+              @_item.QuantityAvailable @(_item.Unit) available
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Notes</label>
+            <textarea class="form-input" rows="2" @bind="_notes" placeholder="Delivery instructions, condition notes…"></textarea>
+          </div>
+
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+            <a href="/admin/inventory/@ResourceId" class="btn btn-sm">Cancel</a>
+            <button class="btn btn-primary" @onclick="Submit" disabled="@(_busy || _item.QuantityAvailable <= 0)">
+              @(_busy ? "Allocating…" : "Allocate Resource")
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>@_item.Name</h3></div>
+        <div class="panel-body">
+          <div style="font-size:.78rem;color:var(--text-light);">Category</div>
+          <div style="font-size:.86rem;margin-bottom:10px;">@_item.Category</div>
+          <div style="font-size:.78rem;color:var(--text-light);">Available</div>
+          <div style="font-size:1.4rem;font-weight:800;color:@(_item.QuantityAvailable <= 0 ? "var(--red)" : "var(--green)");margin-bottom:10px;">
+            @_item.QuantityAvailable <span style="font-size:.8rem;font-weight:400;">@_item.Unit</span>
+          </div>
+          <div style="font-size:.78rem;color:var(--text-light);">On Hand</div>
+          <div style="font-size:.86rem;margin-bottom:4px;">@_item.QuantityOnHand</div>
+          <div style="font-size:.78rem;color:var(--text-light);">Reserved</div>
+          <div style="font-size:.86rem;color:var(--amber);">@_item.QuantityReserved</div>
+
+          @if (_item.QuantityAvailable <= 0)
+          {
+            <div style="margin-top:12px;padding:8px 10px;background:#fef2f2;border-radius:6px;font-size:.78rem;color:var(--red);font-weight:600;">
+              ⚠ Out of stock — cannot allocate
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int ResourceId { get; set; }
+
+  private ResourceItem? _item;
+  private List<PackageRequest> _allRequests = [];
+  private List<PackageRequest> _requestSuggestions = [];
+  private int? _selectedRequestId;
+  private string _selectedRequestDesc = "";
+  private string _requestSearch = "", _notes = "";
+  private int _quantity = 1;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var itemTask    = Api.GetInventoryItemAsync(ResourceId);
+    var requestTask = Api.GetRequestsAsync();
+    await Task.WhenAll(itemTask, requestTask);
+    _item        = await itemTask;
+    _allRequests = await requestTask;
+    _loading     = false;
+  }
+
+  private void FilterRequests()
+  {
+    if (string.IsNullOrWhiteSpace(_requestSearch) || _requestSearch.Length < 1)
+    { _requestSuggestions = []; return; }
+    var q = _requestSearch;
+    _requestSuggestions = _allRequests
+      .Where(r => r.Id.ToString().Contains(q) ||
+                  (r.Family?.Parent1LastName.Contains(q, StringComparison.OrdinalIgnoreCase) == true))
+      .Take(6).ToList();
+  }
+
+  private void SelectRequest(PackageRequest r)
+  {
+    _selectedRequestId   = r.Id;
+    _selectedRequestDesc = $"{r.Family?.Parent1LastName ?? "Family"} — {r.Category}";
+    _requestSearch       = $"Case #{r.Id}";
+    _requestSuggestions  = [];
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (!_selectedRequestId.HasValue) { _error = "Please select a case."; return; }
+    if (_quantity <= 0) { _error = "Quantity must be at least 1."; return; }
+    if (_quantity > _item!.QuantityAvailable) { _error = $"Only {_item.QuantityAvailable} available."; return; }
+
+    _busy = true;
+    var ok = await Api.AllocateResourceAsync(
+      resourceId: ResourceId,
+      requestId:  _selectedRequestId.Value,
+      quantity:   _quantity,
+      notes:      string.IsNullOrWhiteSpace(_notes) ? null : _notes);
+    _busy = false;
+    if (ok)
+    {
+      _saved = true;
+      _item = await Api.GetInventoryItemAsync(ResourceId);
+      _selectedRequestId = null; _requestSearch = ""; _quantity = 1;
+    }
+    else _error = "Allocation failed. Please try again.";
+  }
+}

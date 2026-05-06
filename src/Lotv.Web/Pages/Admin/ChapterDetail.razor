@@ -1,0 +1,131 @@
+@page "/admin/chapters/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Chapter Detail — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Detail</h2><p>@(_chapter?.Name ?? $"Chapter #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapters" class="btn btn-sm">← Chapters</a>
+    <a href="/admin/chapters/@Id/edit" class="btn btn-sm btn-primary">Edit Chapter</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_chapter is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Chapter #@Id not found.</div></div>
+}
+else
+{
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <!-- Chapter info -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head">
+          <h3>@_chapter.Name</h3>
+          <span class="badge badge-@(_chapter.IsActive ? "fulfilled" : "cancelled")" style="font-size:.68rem;">
+            @(_chapter.IsActive ? "Active" : "Inactive")
+          </span>
+        </div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:40%;">Location</td>
+                <td style="padding:8px 0;font-size:.86rem;font-weight:600;">@_chapter.City, @_chapter.State</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Contact Name</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_chapter.ContactName</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Contact Email</td>
+                <td style="padding:8px 0;font-size:.86rem;">
+                  <a href="mailto:@_chapter.ContactEmail" style="color:var(--navy);">@_chapter.ContactEmail</a>
+                </td>
+              </tr>
+              @if (!string.IsNullOrEmpty(_chapter.ContactPhone))
+              {
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Contact Phone</td>
+                  <td style="padding:8px 0;font-size:.86rem;">@_chapter.ContactPhone</td>
+                </tr>
+              }
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Chapter ID</td>
+                <td style="padding:8px 0;font-size:.86rem;font-family:monospace;">#@_chapter.Id</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Created</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_chapter.CreatedAt.ToString("MMM d, yyyy")</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="panel">
+        <div class="panel-head"><h3>Chapter Resources</h3></div>
+        <div class="panel-body" style="display:flex;flex-wrap:wrap;gap:10px;">
+          <a href="/admin/families?chapter=@Id" class="btn btn-sm">Families</a>
+          <a href="/admin/volunteers?chapter=@Id" class="btn btn-sm">Volunteers</a>
+          <a href="/admin/donations?chapter=@Id" class="btn btn-sm">Donations</a>
+          <a href="/admin/cases?chapter=@Id" class="btn btn-sm">Cases</a>
+          <a href="/admin/inventory?chapter=@Id" class="btn btn-sm">Inventory</a>
+          <a href="/admin/grants?chapter=@Id" class="btn btn-sm">Grants</a>
+          <a href="/admin/expenses?chapter=@Id" class="btn btn-sm">Expenses</a>
+          <a href="/admin/chapter-analytics" class="btn btn-sm">Analytics</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto-assignment config -->
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Auto-Assignment Config</h3></div>
+        <div class="panel-body">
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Max Cases / Volunteer</div>
+          <div style="font-size:1.2rem;font-weight:700;color:var(--navy);margin-bottom:12px;">@_chapter.MaxActiveCasesPerVolunteer</div>
+
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Acceptance Window</div>
+          <div style="font-size:.9rem;font-weight:600;margin-bottom:12px;">@_chapter.AcceptanceWindowHours hrs</div>
+
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Urgent Window</div>
+          <div style="font-size:.9rem;font-weight:600;margin-bottom:12px;">@_chapter.UrgentAcceptanceWindowHours hrs</div>
+
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Max Reassignment Attempts</div>
+          <div style="font-size:.9rem;font-weight:600;margin-bottom:12px;">@_chapter.MaxReassignmentAttempts</div>
+
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Service Radius</div>
+          <div style="font-size:.9rem;font-weight:600;margin-bottom:12px;">@_chapter.DefaultServiceRadiusMiles mi</div>
+
+          <div style="margin-top:4px;">
+            <a href="/admin/chapters/@Id/edit" class="btn btn-sm" style="width:100%;text-align:center;">Edit Settings</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Chapter? _chapter;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetChaptersAdminAsync();
+    _chapter = all.FirstOrDefault(c => c.Id == Id);
+    _loading = false;
+  }
+}

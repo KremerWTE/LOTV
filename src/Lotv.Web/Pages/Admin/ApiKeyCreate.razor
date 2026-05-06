@@ -1,0 +1,111 @@
+@page "/admin/api-keys/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>New API Key — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Create API Key</h2><p>Generate credentials for a third-party integration</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/api-keys" class="btn btn-sm">← API Keys</a>
+  </div>
+</div>
+
+@if (_result is not null)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body">
+      <div style="font-weight:700;font-size:.9rem;color:var(--green);margin-bottom:10px;">✓ API key created — copy it now. It will not be shown again.</div>
+      <div style="background:#0f172a;border-radius:8px;padding:14px 18px;font-family:monospace;font-size:.88rem;color:#e2e8f0;display:flex;align-items:center;gap:12px;">
+        <span style="flex:1;word-break:break-all;">@_result.RawKey</span>
+        <button @onclick="CopyKey" title="Copy to clipboard"
+                style="background:rgba(255,255,255,.1);border:none;border-radius:5px;padding:5px 10px;color:white;cursor:pointer;font-size:.8rem;white-space:nowrap;">
+          @(_copied ? "✓ Copied" : "Copy")
+        </button>
+      </div>
+      <div style="margin-top:10px;font-size:.78rem;color:var(--text-light);">
+        Key ID: <strong>#@_result.Id</strong> &bull; Partner: @_result.PartnerName
+      </div>
+      <div style="margin-top:10px;">
+        <a href="/admin/api-keys" class="btn btn-sm btn-primary">← Back to API Keys</a>
+      </div>
+    </div>
+  </div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="max-width:640px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Key Details</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Partner / Integration Name *</label>
+          <input class="form-input" @bind="_partnerName" placeholder="e.g. Salesforce, GiveButter Integration" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Contact Email *</label>
+          <input class="form-input" type="email" @bind="_contactEmail" placeholder="responsible party email" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Scope</label>
+          <select class="form-input" @bind="_scope">
+            <option value="read">Read Only</option>
+            <option value="write">Read + Write</option>
+            <option value="admin">Full Admin</option>
+            <option value="webhooks">Webhooks Only</option>
+            <option value="donations:read">Donations: Read</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Expiry Date (leave blank for no expiry)</label>
+          <input class="form-input" type="date" @bind="_expiresAt" />
+        </div>
+
+        <div style="margin-top:14px;padding:10px 12px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;font-size:.78rem;color:#92400e;">
+          ⚠ The raw key is only shown once after creation. Store it securely immediately.
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/api-keys" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Generating…" : "Generate Key")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private string _partnerName = "", _contactEmail = "", _scope = "read";
+  private DateTime? _expiresAt;
+  private bool _busy, _copied;
+  private string _error = "";
+  private ApiKeyCreateResult? _result;
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_partnerName))  { _error = "Partner name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_contactEmail)) { _error = "Contact email is required."; return; }
+
+    _busy = true;
+    _result = await Api.CreateApiKeyAsync(_partnerName, _contactEmail, _scope, _expiresAt);
+    _busy = false;
+    if (_result is null) _error = "Failed to generate key. Please try again.";
+  }
+
+  private async Task CopyKey()
+  {
+    if (_result is null) return;
+    try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", _result.RawKey); _copied = true; }
+    catch { }
+  }
+}
