@@ -1,0 +1,101 @@
+@page "/admin/cases/{Id:int}/activity"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Case Activity — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Case Activity Log</h2><p>@(_case is null ? $"Case #{Id}" : (_case.Family?.Parent1FirstName + " " + _case.Family?.Parent1LastName).Trim())</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (!_activity.Any())
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No activity recorded for this case.</div>
+  </div>
+}
+else
+{
+  <div class="panel">
+    <div class="panel-head"><h3>Activity (@_activity.Count events)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">When</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Actor</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Event</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var a in _activity.OrderByDescending(a => a.Timestamp))
+          {
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:10px 16px;font-size:.82rem;white-space:nowrap;color:var(--text-light);">
+                @a.Timestamp.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;font-weight:600;">@a.ActorName</td>
+              <td style="padding:10px 16px;">
+                <span class="badge badge-@BadgeClass(a.ActivityType)" style="font-size:.68rem;">@a.ActivityType</span>
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">
+                @if (!string.IsNullOrEmpty(a.OldValue) && !string.IsNullOrEmpty(a.NewValue))
+                {
+                  <span style="color:var(--red);">@a.OldValue</span>
+                  <span style="margin:0 4px;">→</span>
+                  <span style="color:var(--green);">@a.NewValue</span>
+                }
+                else
+                {
+                  @(a.Details ?? a.NewValue ?? "—")
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private PackageRequest? _case;
+  private List<RequestActivity> _activity = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var caseTask    = Api.GetRequestAsync(Id);
+    var actTask     = Api.GetRequestActivityAsync(Id);
+    await Task.WhenAll(caseTask, actTask);
+    _case    = await caseTask;
+    _activity = await actTask;
+    _loading = false;
+  }
+
+  private static string BadgeClass(ActivityType t) => t switch
+  {
+    ActivityType.StatusChanged    => "onhold",
+    ActivityType.Assigned         => "new",
+    ActivityType.Reassigned       => "new",
+    ActivityType.NoteAdded        => "fulfilled",
+    ActivityType.DueDateSet       => "onhold",
+    ActivityType.PriorityChanged  => "onhold",
+    ActivityType.Fulfilled        => "fulfilled",
+    ActivityType.Cancelled        => "cancelled",
+    ActivityType.Escalated        => "cancelled",
+    ActivityType.Created          => "new",
+    _                             => "new"
+  };
+}

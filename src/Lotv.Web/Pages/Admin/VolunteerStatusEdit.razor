@@ -1,0 +1,130 @@
+@page "/admin/volunteers/{Id:int}/status"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Update Status</h2><p>@(_vol?.FullName ?? $"Volunteer #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers/@Id" class="btn btn-sm">← Volunteer Profile</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_vol is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Volunteer #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">
+        ✓ Status updated to @_vol.Status.
+        <a href="/admin/volunteers/@Id" style="color:var(--green);margin-left:8px;">Back to profile →</a>
+      </div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <!-- Volunteer summary -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Current Status</div>
+        <span class="badge badge-@(_vol.Status == VolunteerStatus.Active ? "fulfilled" : "cancelled")" style="font-size:.72rem;">@_vol.Status</span>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Role</div>
+        <div style="font-size:.84rem;">@_vol.Role.ToDisplayName()</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Active Cases</div>
+        <div style="font-weight:700;color:@(_vol.ActiveCases > 0 ? "var(--navy)" : "var(--text-light)");">@_vol.ActiveCases</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:400px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Change Status</h3></div>
+      <div class="panel-body">
+        @if (_vol.ActiveCases > 0 && _newStatus != VolunteerStatus.Active)
+        {
+          <div style="margin-bottom:12px;padding:10px 12px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;font-size:.78rem;color:#92400e;">
+            ⚠ This volunteer has @_vol.ActiveCases active case(s). Deactivating them will not automatically unassign cases.
+          </div>
+        }
+
+        <div class="form-group">
+          <label class="form-label">New Status</label>
+          <select class="form-input" @bind="_newStatus">
+            <option value="@VolunteerStatus.Active">Active</option>
+            <option value="@VolunteerStatus.Inactive">Inactive</option>
+            <option value="@VolunteerStatus.Onboarding">Onboarding</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/volunteers/@Id" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Save" disabled="@(_busy || _newStatus == _vol.Status)">
+            @(_busy ? "Saving…" : "Update Status")
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Volunteer? _vol;
+  private VolunteerStatus _newStatus;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _vol = await Api.GetVolunteerByIdAsync(Id);
+    if (_vol is not null) _newStatus = _vol.Status;
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    if (_vol is null) return;
+    _error = ""; _saved = false;
+    _busy = true;
+    var updated = new Volunteer
+    {
+      Id          = _vol.Id,
+      FirstName   = _vol.FirstName,
+      LastName    = _vol.LastName,
+      Email       = _vol.Email,
+      Phone       = _vol.Phone,
+      Role        = _vol.Role,
+      Status      = _newStatus,
+      ChapterId   = _vol.ChapterId,
+      JoinedDate  = _vol.JoinedDate,
+      Notes       = _vol.Notes,
+      ActiveCases = _vol.ActiveCases
+    };
+    var result = await Api.UpdateVolunteerAsync(Id, updated);
+    _busy = false;
+    if (result is not null) { _vol = result; _saved = true; }
+    else _error = "Failed to update status. Please try again.";
+  }
+}

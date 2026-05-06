@@ -1,0 +1,121 @@
+@page "/admin/cases/{Id:int}/candidates"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+@using Lotv.Core.Reporting
+
+<PageTitle>Volunteer Candidates — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Candidates</h2><p>Auto-scored matches for Case #@Id</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+    <a href="/admin/cases/@Id/assign" class="btn btn-sm btn-primary">Assign Volunteer</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Scoring volunteers…</div></div>
+}
+else if (!_candidates.Any())
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No volunteer candidates found for this case.</div>
+  </div>
+}
+else
+{
+  @if (_assigned)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">
+        ✓ Volunteer assigned. <a href="/admin/cases/@Id" style="color:var(--green);margin-left:8px;">Back to case →</a>
+      </div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Ranked Matches (@_candidates.Count volunteers)</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">Higher composite score = better match</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">#</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Volunteer</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Composite</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Proximity</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Workload</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Loyalty</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Distance</th>
+            <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @{ int rank = 0; }
+          @foreach (var c in _candidates.OrderByDescending(c => c.CompositeScore))
+          {
+            rank++;
+            <tr style="border-top:1px solid var(--border);@(c.Recommended ? "background:#f0fdf4;" : "")">
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:700;color:var(--text-light);">@rank</td>
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                <a href="/admin/volunteers/@c.VolunteerId" style="color:var(--navy);">@c.Name</a>
+                @if (c.Recommended)
+                {
+                  <span class="badge badge-fulfilled" style="font-size:.64rem;margin-left:6px;">Recommended</span>
+                }
+              </td>
+              <td style="padding:10px 16px;text-align:right;font-size:.88rem;font-weight:700;color:@(c.CompositeScore >= 0.7 ? "var(--green)" : c.CompositeScore >= 0.4 ? "var(--amber)" : "var(--red)");">
+                @c.CompositeScore.ToString("P0")
+              </td>
+              <td style="padding:10px 16px;text-align:right;font-size:.82rem;color:var(--text-light);">@c.ProximityScore.ToString("P0")</td>
+              <td style="padding:10px 16px;text-align:right;font-size:.82rem;color:var(--text-light);">@c.WorkloadScore.ToString("P0")</td>
+              <td style="padding:10px 16px;text-align:right;font-size:.82rem;color:var(--text-light);">@c.LoyaltyScore.ToString("P0")</td>
+              <td style="padding:10px 16px;text-align:right;font-size:.82rem;color:var(--text-light);">@c.DistanceMiles.ToString("F1") mi</td>
+              <td style="padding:10px 16px;text-align:center;white-space:nowrap;">
+                <button class="btn btn-sm btn-primary" style="font-size:.74rem;padding:4px 10px;"
+                        @onclick="() => Assign(c.VolunteerId)" disabled="@_busy">
+                  @(_busy && _assigningId == c.VolunteerId ? "Assigning…" : "Assign")
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private List<VolunteerScoreResult> _candidates = [];
+  private bool _loading = true, _busy, _assigned;
+  private int _assigningId;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _candidates = await Api.GetVolunteerCandidatesAsync(Id);
+    _loading = false;
+  }
+
+  private async Task Assign(int volunteerId)
+  {
+    _error = ""; _busy = true; _assigningId = volunteerId;
+    var ok = await Api.AssignRequestAsync(Id, volunteerId);
+    _busy = false;
+    if (ok) _assigned = true;
+    else _error = "Failed to assign volunteer. Please try again.";
+  }
+}

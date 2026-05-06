@@ -1,0 +1,83 @@
+@page "/admin/donors/{DonorId:int}/portal-status"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donor Portal Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Portal Status</h2><p>@(_donor?.FullName ?? $"Donor #{DonorId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor Profile</a>
+    <a href="/admin/donors/@DonorId/portal-link" class="btn btn-sm btn-primary">Send Portal Link</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card" style="border-top:3px solid @(_status?.HasStripeCustomer == true ? "var(--green)" : "var(--red)");">
+      <div class="kpi-icon">&#128179;</div>
+      <div class="kpi-label">Stripe Customer</div>
+      <div class="kpi-value" style="font-size:1.1rem;color:@(_status?.HasStripeCustomer == true ? "var(--green)" : "var(--red)");">
+        @(_status?.HasStripeCustomer == true ? "✓ Set Up" : "✗ Not Set Up")
+      </div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid @(_status?.HasActiveRecurring == true ? "var(--green)" : "var(--amber)");">
+      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-label">Active Recurring Gift</div>
+      <div class="kpi-value" style="font-size:1.1rem;color:@(_status?.HasActiveRecurring == true ? "var(--green)" : "var(--amber)");">
+        @(_status?.HasActiveRecurring == true ? "✓ Active" : "None")
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Quick Actions</h3></div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:.88rem;font-weight:600;">Send Portal Access Link</div>
+          <div style="font-size:.78rem;color:var(--text-light);">Email a magic link so the donor can access their self-service portal.</div>
+        </div>
+        <a href="/admin/donors/@DonorId/portal-link" class="btn btn-sm btn-primary">Send Link</a>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:.88rem;font-weight:600;">Recurring Giving</div>
+          <div style="font-size:.78rem;color:var(--text-light);">View or manage this donor's recurring gift schedules.</div>
+        </div>
+        <a href="/admin/donors/@DonorId/recurring" class="btn btn-sm">View Recurring</a>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;">
+        <div>
+          <div style="font-size:.88rem;font-weight:600;">Pledge History</div>
+          <div style="font-size:.78rem;color:var(--text-light);">View all pledges and payment progress for this donor.</div>
+        </div>
+        <a href="/admin/donors/@DonorId/pledges" class="btn btn-sm">View Pledges</a>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+
+  private Donor? _donor;
+  private ApiService.DonorPortalStatusDto? _status;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorTask  = Api.GetDonorAsync(DonorId);
+    var statusTask = Api.GetDonorPortalStatusAsync(DonorId);
+    await Task.WhenAll(donorTask, statusTask);
+    _donor  = await donorTask;
+    _status = await statusTask;
+    _loading = false;
+  }
+}

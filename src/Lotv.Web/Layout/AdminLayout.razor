@@ -814,6 +814,12 @@
       var u when u.Contains("/admin/chapters/") && u.EndsWith("/cases")                                                       => "Chapter Cases",
       var u when u.Contains("/admin/chapters/") && u.EndsWith("/events")                                                      => "Chapter Events",
       var u when u.Contains("/admin/chapters/") && u.EndsWith("/donations")                                                   => "Chapter Donations",
+      var u when u.Contains("/admin/volunteers/") && u.EndsWith("/status")                                                    => "Volunteer Status",
+      var u when u == "/admin/recurring/past-due"                                                                             => "Past-Due Recurring",
+      var u when u.Contains("/admin/cases/") && u.EndsWith("/activity")                                                       => "Case Activity Log",
+      var u when u.Contains("/admin/cases/") && u.EndsWith("/candidates")                                                     => "Volunteer Candidates",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/portal-status")                                                 => "Donor Portal Status",
+      var u when u.Contains("/admin/volunteers/") && u.EndsWith("/role")                                                      => "Volunteer Role",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();
