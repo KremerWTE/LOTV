@@ -1,0 +1,148 @@
+@page "/admin/donations/by-campaign"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donations by Campaign — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donations by Campaign</h2><p>Giving totals attributed to each fundraising campaign</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donations" class="btn btn-sm">← All Donations</a>
+    <a href="/admin/campaigns" class="btn btn-sm">Campaigns</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Campaigns</div>
+      <div class="kpi-value" style="color:var(--navy)">@_campaigns.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Raised</div>
+      <div class="kpi-value" style="color:var(--green)">@_campaigns.Sum(c => c.Raised).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127919;</div>
+      <div class="kpi-label">Total Goal</div>
+      <div class="kpi-value" style="color:var(--amber)">@_campaigns.Sum(c => c.GoalAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-label">Total Gifts</div>
+      <div class="kpi-value" style="color:var(--green)">@_donations.Count(d => !string.IsNullOrEmpty(d.Campaign))</div>
+    </div>
+  </div>
+
+  @foreach (var c in _campaigns.OrderByDescending(c => c.Raised))
+  {
+    var pct = c.GoalAmount > 0 ? c.Raised / c.GoalAmount * 100m : 0m;
+    var pctClamped = Math.Min(100, pct);
+    var campaignDonations = _donations.Where(d => d.Campaign == c.Name).OrderByDescending(d => d.Date).Take(5).ToList();
+    var totalGifts = _donations.Count(d => d.Campaign == c.Name);
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>
+          <a href="/admin/campaigns/@c.Id" style="color:inherit;text-decoration:none;">@c.Name</a>
+          <span class="badge badge-@CampaignStatusClass(c.Status)" style="font-size:.68rem;margin-left:8px;">@c.Status</span>
+        </h3>
+        <a href="/admin/campaigns/@c.Id" style="font-size:.8rem;color:var(--navy);">View campaign →</a>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;gap:32px;margin-bottom:12px;flex-wrap:wrap;">
+          <div><span style="font-size:.74rem;color:var(--text-light);">Raised</span><br/><strong style="color:var(--green);">@c.Raised.ToString("C0")</strong></div>
+          <div><span style="font-size:.74rem;color:var(--text-light);">Goal</span><br/><strong>@c.GoalAmount.ToString("C0")</strong></div>
+          <div><span style="font-size:.74rem;color:var(--text-light);">Gifts</span><br/><strong>@totalGifts</strong></div>
+          <div><span style="font-size:.74rem;color:var(--text-light);">Ends</span><br/><strong>@(c.EndDate?.ToString("MMM d, yyyy") ?? "Ongoing")</strong></div>
+        </div>
+        <div style="background:var(--bg);border-radius:4px;height:8px;overflow:hidden;margin-bottom:@(campaignDonations.Any() ? "16px" : "0");">
+          <div style="background:@(pct >= 100 ? "var(--green)" : "var(--navy)");height:100%;width:@pctClamped.ToString("F0")%;transition:width .3s;"></div>
+        </div>
+        @if (pct > 0)
+        {
+          <div style="font-size:.72rem;color:var(--text-light);margin-bottom:@(campaignDonations.Any() ? "12px" : "0");">@pct.ToString("F0")% of goal</div>
+        }
+        @if (campaignDonations.Any())
+        {
+          <div style="font-size:.74rem;font-weight:600;color:var(--text-light);margin-bottom:6px;">Recent gifts</div>
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              @foreach (var d in campaignDonations)
+              {
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:6px 0;font-size:.82rem;font-weight:600;">
+                    <a href="/admin/donors/@d.DonorId" style="color:var(--navy);">Donor #@d.DonorId</a>
+                  </td>
+                  <td style="padding:6px 0;font-size:.82rem;color:var(--green);text-align:right;">@d.Amount.ToString("C0")</td>
+                  <td style="padding:6px 0 6px 16px;font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
+                </tr>
+              }
+              @if (totalGifts > 5)
+              {
+                <tr style="border-top:1px solid var(--border);">
+                  <td colspan="3" style="padding:6px 0;font-size:.76rem;color:var(--text-light);">
+                    <a href="/admin/campaigns/@c.Id" style="color:var(--navy);">+ @(totalGifts - 5) more gifts →</a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  }
+
+  @if (Unattributed.Any())
+  {
+    <div class="panel" style="margin-bottom:16px;border-left:4px solid var(--border);">
+      <div class="panel-head">
+        <h3 style="color:var(--text-light);">Unattributed Gifts <span style="font-size:.78rem;font-weight:400;">(@Unattributed.Count)</span></h3>
+      </div>
+      <div class="panel-body" style="padding:12px 16px;font-size:.82rem;color:var(--text-light);">
+        @Unattributed.Sum(d => d.Amount).ToString("C0") across @Unattributed.Count gifts with no campaign tag
+      </div>
+    </div>
+  }
+
+  @if (!_campaigns.Any() && !_donations.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No campaigns found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<CampaignDto> _campaigns = [];
+  private List<Donation> _donations = [];
+  private bool _loading = true;
+
+  private List<Donation> Unattributed => _donations.Where(d => string.IsNullOrEmpty(d.Campaign)).ToList();
+
+  protected override async Task OnInitializedAsync()
+  {
+    var campTask = Api.GetCampaignsAsync();
+    var donTask  = Api.GetDonationsAsync();
+    await Task.WhenAll(campTask, donTask);
+    _campaigns = await campTask;
+    _donations = await donTask;
+    _loading = false;
+  }
+
+  private static string CampaignStatusClass(string status) => status switch
+  {
+    "Active"    => "new",
+    "Completed" => "fulfilled",
+    "Paused"    => "onhold",
+    "Draft"     => "onhold",
+    _           => "new"
+  };
+}

@@ -1,0 +1,150 @@
+@page "/admin/recurring/by-status"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Recurring Donations by Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Recurring Donations by Status</h2><p>Active, paused, and cancelled recurring giving plans</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donations" class="btn btn-sm">← All Donations</a>
+    <a href="/admin/donors" class="btn btn-sm">Donors</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-label">Total Plans</div>
+      <div class="kpi-value" style="color:var(--navy)">@_recurring.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--green)">@_recurring.Count(r => r.IsActive)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Monthly Run Rate</div>
+      <div class="kpi-value" style="color:var(--green)">@MonthlyRunRate.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-label">Cancelled / Completed</div>
+      <div class="kpi-value" style="color:var(--amber)">@_recurring.Count(r => r.Status == RecurringStatus.Cancelled || r.Status == RecurringStatus.Completed)</div>
+    </div>
+  </div>
+
+  @foreach (var grp in _recurring.GroupBy(r => r.Status).OrderBy(g => StatusOrder(g.Key)))
+  {
+    var grpMonthly = grp.Where(r => r.IsActive).Sum(r => MonthlyEquivalent(r));
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>
+          <span class="badge badge-@StatusClass(grp.Key)" style="font-size:.72rem;margin-right:8px;">@grp.Key</span>
+          <span style="font-size:.84rem;">@grp.Count() plans</span>
+          @if (grpMonthly > 0)
+          {
+            <span style="font-size:.8rem;color:var(--text-light);margin-left:8px;">· @grpMonthly.ToString("C0")/mo equivalent</span>
+          }
+        </h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Frequency</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Next Charge</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Channel</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Started</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var r in grp.OrderByDescending(r => r.Amount))
+            {
+              var nextDue = r.IsActive && r.NextChargeDate.Date < DateTime.Today;
+              <tr style="border-top:1px solid var(--border);@(nextDue ? "background:#fef2f2;" : "")">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@r.DonorId" style="color:var(--navy);">
+                    @(r.Donor?.FullName ?? $"Donor #{r.DonorId}")
+                  </a>
+                </td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.Frequency</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:@(nextDue ? "var(--red)" : "var(--text-light)");">
+                  @r.NextChargeDate.ToString("MMM d, yyyy")
+                  @if (nextDue) { <span style="font-size:.7rem;"> ⚠</span> }
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.Channel</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.CreatedAt.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/donors/@r.DonorId" style="font-size:.78rem;color:var(--navy);">Donor</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_recurring.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No recurring plans found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<RecurringDonation> _recurring = [];
+  private bool _loading = true;
+
+  private decimal MonthlyRunRate => _recurring.Where(r => r.IsActive).Sum(r => MonthlyEquivalent(r));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _recurring = await Api.GetAllRecurringAsync();
+    _loading = false;
+  }
+
+  private static decimal MonthlyEquivalent(RecurringDonation r) => r.Frequency switch
+  {
+    RecurringFrequency.Weekly      => r.Amount * 52 / 12,
+    RecurringFrequency.BiWeekly    => r.Amount * 26 / 12,
+    RecurringFrequency.Monthly     => r.Amount,
+    RecurringFrequency.Quarterly   => r.Amount / 3,
+    RecurringFrequency.Annually    => r.Amount / 12,
+    _                              => r.Amount
+  };
+
+  private static int StatusOrder(RecurringStatus s) => s switch
+  {
+    RecurringStatus.Active    => 0,
+    RecurringStatus.PastDue   => 1,
+    RecurringStatus.Paused    => 2,
+    RecurringStatus.Cancelled => 3,
+    RecurringStatus.Completed => 4,
+    _                         => 99
+  };
+
+  private static string StatusClass(RecurringStatus s) => s switch
+  {
+    RecurringStatus.Active    => "fulfilled",
+    RecurringStatus.PastDue   => "cancelled",
+    RecurringStatus.Paused    => "onhold",
+    RecurringStatus.Cancelled => "cancelled",
+    RecurringStatus.Completed => "new",
+    _                         => "new"
+  };
+}

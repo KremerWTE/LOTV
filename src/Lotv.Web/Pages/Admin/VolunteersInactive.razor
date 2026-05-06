@@ -1,0 +1,130 @@
+@page "/admin/volunteers/inactive"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Inactive Volunteers — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Inactive Volunteers</h2><p>Volunteers not currently active — onboarding, inactive, or lapsed</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← All Volunteers</a>
+    <a href="/admin/volunteers/by-role" class="btn btn-sm">By Role</a>
+    <a href="/admin/volunteers/new" class="btn btn-sm btn-primary">+ Add Volunteer</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Non-Active</div>
+      <div class="kpi-value" style="color:var(--navy)">@_volunteers.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128336;</div>
+      <div class="kpi-label">Onboarding</div>
+      <div class="kpi-value" style="color:var(--amber)">@_volunteers.Count(v => v.Status == VolunteerStatus.Onboarding)</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-label">Inactive</div>
+      <div class="kpi-value" style="color:var(--red)">@_volunteers.Count(v => v.Status == VolunteerStatus.Inactive)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-label">Cases Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_volunteers.Sum(v => v.TotalCasesFulfilled)</div>
+    </div>
+  </div>
+
+  @foreach (var grp in _volunteers.GroupBy(v => v.Status).OrderBy(g => StatusOrder(g.Key)))
+  {
+    <div class="panel" style="margin-bottom:16px;border-left:4px solid @StatusColor(grp.Key);">
+      <div class="panel-head">
+        <h3>
+          <span class="badge badge-@StatusClass(grp.Key)" style="font-size:.72rem;margin-right:8px;">@grp.Key</span>
+          <span style="font-size:.84rem;">@grp.Count() volunteers</span>
+        </h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Name</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Role</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Parish</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Cases Done</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Joined</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var v in grp.OrderBy(v => v.LastName).ThenBy(v => v.FirstName))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/volunteers/@v.Id" style="color:var(--navy);">@v.FullName</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@v.Role</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(v.ParishName ?? "—")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@v.TotalCasesFulfilled</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@v.JoinedDate.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/volunteers/@v.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_volunteers.Any())
+  {
+    <div class="panel" style="border-left:4px solid var(--green);">
+      <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+        ✓ All volunteers are currently active.
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<Volunteer> _volunteers = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetVolunteersAsync();
+    _volunteers = all.Where(v => v.Status != VolunteerStatus.Active).ToList();
+    _loading = false;
+  }
+
+  private static int StatusOrder(VolunteerStatus s) => s switch
+  {
+    VolunteerStatus.Onboarding => 0,
+    VolunteerStatus.Inactive   => 1,
+    _                          => 99
+  };
+
+  private static string StatusClass(VolunteerStatus s) => s switch
+  {
+    VolunteerStatus.Onboarding => "new",
+    VolunteerStatus.Inactive   => "cancelled",
+    _                          => "new"
+  };
+
+  private static string StatusColor(VolunteerStatus s) => s switch
+  {
+    VolunteerStatus.Onboarding => "var(--amber)",
+    VolunteerStatus.Inactive   => "var(--red)",
+    _                          => "var(--border)"
+  };
+}

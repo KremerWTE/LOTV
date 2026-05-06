@@ -1,0 +1,192 @@
+@page "/admin/cases/assigned"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Cases by Assignee — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Cases by Assignee</h2><p>Open cases grouped by assigned volunteer or staff</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+    <a href="/admin/cases/by-chapter" class="btn btn-sm">By Chapter</a>
+    <a href="/admin/cases/by-priority" class="btn btn-sm">By Priority</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Open Cases</div>
+      <div class="kpi-value" style="color:var(--navy)">@_open.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Assignees</div>
+      <div class="kpi-value" style="color:var(--amber)">@_open.Select(c => c.AssignedTo ?? "Unassigned").Distinct().Count()</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_open.Count(c => c.DueDate.HasValue && c.DueDate.Value.Date < DateTime.Today)</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--border);">
+      <div class="kpi-icon">&#10067;</div>
+      <div class="kpi-label">Unassigned</div>
+      <div class="kpi-value">@_open.Count(c => string.IsNullOrEmpty(c.AssignedTo))</div>
+    </div>
+  </div>
+
+  @if (Unassigned.Any())
+  {
+    <div class="panel" style="margin-bottom:16px;border-left:4px solid var(--red);">
+      <div class="panel-head">
+        <h3>
+          <span style="color:var(--red);">Unassigned</span>
+          <span style="font-size:.78rem;font-weight:400;color:var(--text-light);"> — @Unassigned.Count open</span>
+        </h3>
+        <a href="/admin/cases?assigned=none" style="font-size:.8rem;color:var(--navy);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">#</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Family</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Priority</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Due</th>
+              <th style="padding:8px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var c in Unassigned.OrderBy(c => c.DueDate ?? DateTime.MaxValue).Take(10))
+            {
+              var isOverdue = c.DueDate.HasValue && c.DueDate.Value.Date < DateTime.Today;
+              <tr style="border-top:1px solid var(--border);@(isOverdue ? "background:#fef2f2;" : "")">
+                <td style="padding:8px 16px;font-size:.78rem;color:var(--text-light);">#@c.Id</td>
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/cases/@c.Id" style="color:var(--navy);">@(c.Family?.FullName ?? $"Family #{c.FamilyId}")</a>
+                </td>
+                <td style="padding:8px 16px;">
+                  <span class="badge badge-@PriorityClass(c.Priority)" style="font-size:.68rem;">@c.Priority</span>
+                </td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@c.Status</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:@(isOverdue ? "var(--red)" : "var(--text-light)");">@(c.DueDate?.ToString("MMM d") ?? "—")</td>
+                <td style="padding:8px 16px;text-align:center;">
+                  <a href="/admin/cases/@c.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+            @if (Unassigned.Count > 10)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td colspan="6" style="padding:8px 16px;font-size:.78rem;color:var(--text-light);text-align:center;">
+                  + @(Unassigned.Count - 10) more cases
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @foreach (var g in _open.Where(c => !string.IsNullOrEmpty(c.AssignedTo))
+                          .GroupBy(c => c.AssignedTo!)
+                          .OrderByDescending(g => g.Count()))
+  {
+    var overdue = g.Count(c => c.DueDate.HasValue && c.DueDate.Value.Date < DateTime.Today);
+    var urgent  = g.Count(c => c.Priority == RequestPriority.Urgent);
+    <div class="panel" style="margin-bottom:16px;@(overdue > 0 ? "border-left:4px solid var(--amber);" : "")">
+      <div class="panel-head">
+        <h3>
+          @g.Key
+          <span style="font-size:.78rem;font-weight:400;color:var(--text-light);"> — @g.Count() open</span>
+          @if (overdue > 0) { <span class="badge badge-cancelled" style="font-size:.68rem;margin-left:8px;">@overdue overdue</span> }
+          @if (urgent > 0)  { <span class="badge badge-onhold"    style="font-size:.68rem;margin-left:4px;">@urgent urgent</span> }
+        </h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">#</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Family</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Priority</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Due</th>
+              <th style="padding:8px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var c in g.OrderBy(c => c.DueDate ?? DateTime.MaxValue).Take(10))
+            {
+              var isOverdue = c.DueDate.HasValue && c.DueDate.Value.Date < DateTime.Today;
+              <tr style="border-top:1px solid var(--border);@(isOverdue ? "background:#fef2f2;" : "")">
+                <td style="padding:8px 16px;font-size:.78rem;color:var(--text-light);">#@c.Id</td>
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/cases/@c.Id" style="color:var(--navy);">@(c.Family?.FullName ?? $"Family #{c.FamilyId}")</a>
+                </td>
+                <td style="padding:8px 16px;">
+                  <span class="badge badge-@PriorityClass(c.Priority)" style="font-size:.68rem;">@c.Priority</span>
+                </td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@c.Status</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:@(isOverdue ? "var(--red)" : "var(--text-light)");">@(c.DueDate?.ToString("MMM d") ?? "—")</td>
+                <td style="padding:8px 16px;text-align:center;">
+                  <a href="/admin/cases/@c.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+            @if (g.Count() > 10)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td colspan="6" style="padding:8px 16px;font-size:.78rem;color:var(--text-light);text-align:center;">
+                  + @(g.Count() - 10) more cases
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_open.Any())
+  {
+    <div class="panel" style="border-left:4px solid var(--green);">
+      <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+        ✓ No open cases.
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<PackageRequest> _open = [];
+  private bool _loading = true;
+
+  private List<PackageRequest> Unassigned => _open.Where(c => string.IsNullOrEmpty(c.AssignedTo)).ToList();
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetRequestsAsync(status: null, overdue: null, familyId: null);
+    _open = all.Where(c => c.Status != CaseStatus.Fulfilled && c.Status != CaseStatus.Cancelled).ToList();
+    _loading = false;
+  }
+
+  private static string PriorityClass(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "cancelled",
+    RequestPriority.High   => "onhold",
+    RequestPriority.Normal => "new",
+    RequestPriority.Low    => "fulfilled",
+    _                      => "new"
+  };
+}

@@ -1,0 +1,142 @@
+@page "/admin/cases/by-chapter"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Cases by Chapter — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Cases by Chapter</h2><p>Open cases distributed across ministry chapters</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+    <a href="/admin/cases/by-priority" class="btn btn-sm">By Priority</a>
+    <a href="/admin/chapter-analytics" class="btn btn-sm">Analytics</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Total Cases</div>
+      <div class="kpi-value" style="color:var(--navy)">@_cases.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128282;</div>
+      <div class="kpi-label">Open</div>
+      <div class="kpi-value" style="color:var(--amber)">@_open.Count</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_open.Count(c => c.DueDate.HasValue && c.DueDate.Value.Date < DateTime.Today)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Chapters</div>
+      <div class="kpi-value" style="color:var(--green)">@_chapterMap.Count</div>
+    </div>
+  </div>
+
+  @foreach (var g in _open.GroupBy(c => c.ChapterId).OrderByDescending(g => g.Count()))
+  {
+    var chName = _chapterMap.TryGetValue(g.Key, out var n) ? n : $"Chapter #{g.Key}";
+    var overdue = g.Count(c => c.DueDate.HasValue && c.DueDate.Value.Date < DateTime.Today);
+    var urgent  = g.Count(c => c.Priority == RequestPriority.Urgent);
+    <div class="panel" style="margin-bottom:16px;@(overdue > 0 ? "border-left:4px solid var(--amber);" : "")">
+      <div class="panel-head">
+        <h3>
+          <a href="/admin/chapters/@g.Key/cases" style="color:inherit;text-decoration:none;">@chName</a>
+          <span style="font-size:.78rem;font-weight:400;color:var(--text-light);"> — @g.Count() open</span>
+          @if (overdue > 0) { <span class="badge badge-cancelled" style="font-size:.68rem;margin-left:8px;">@overdue overdue</span> }
+          @if (urgent > 0) { <span class="badge badge-onhold" style="font-size:.68rem;margin-left:4px;">@urgent urgent</span> }
+        </h3>
+        <a href="/admin/chapters/@g.Key/cases" style="font-size:.8rem;color:var(--navy);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">#</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Family</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Priority</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Due</th>
+              <th style="padding:8px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var c in g.OrderBy(c => c.DueDate ?? DateTime.MaxValue).Take(8))
+            {
+              var isOverdue = c.DueDate.HasValue && c.DueDate.Value.Date < DateTime.Today;
+              <tr style="border-top:1px solid var(--border);@(isOverdue ? "background:#fef2f2;" : "")">
+                <td style="padding:8px 16px;font-size:.78rem;color:var(--text-light);">#@c.Id</td>
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/cases/@c.Id" style="color:var(--navy);">@(c.Family?.FullName ?? $"Family #{c.FamilyId}")</a>
+                </td>
+                <td style="padding:8px 16px;">
+                  <span class="badge badge-@PriorityClass(c.Priority)" style="font-size:.68rem;">@c.Priority</span>
+                </td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@c.Status</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:@(isOverdue ? "var(--red)" : "var(--text-light)");">@(c.DueDate?.ToString("MMM d") ?? "—")</td>
+                <td style="padding:8px 16px;text-align:center;">
+                  <a href="/admin/cases/@c.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+            @if (g.Count() > 8)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td colspan="6" style="padding:8px 16px;font-size:.78rem;color:var(--text-light);text-align:center;">
+                  <a href="/admin/chapters/@g.Key/cases" style="color:var(--navy);">+ @(g.Count() - 8) more cases →</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_open.Any())
+  {
+    <div class="panel" style="border-left:4px solid var(--green);">
+      <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+        ✓ No open cases.
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<PackageRequest> _cases = [];
+  private List<PackageRequest> _open = [];
+  private Dictionary<int, string> _chapterMap = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var caseTask = Api.GetRequestsAsync(status: null, overdue: null, familyId: null);
+    var chapTask = Api.GetChaptersAdminAsync();
+    await Task.WhenAll(caseTask, chapTask);
+    _cases = await caseTask;
+    _open  = _cases.Where(c => c.Status != CaseStatus.Fulfilled && c.Status != CaseStatus.Cancelled).ToList();
+    var chapters = await chapTask;
+    _chapterMap  = chapters.ToDictionary(c => c.Id, c => c.Name);
+    _loading = false;
+  }
+
+  private static string PriorityClass(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "cancelled",
+    RequestPriority.High   => "onhold",
+    RequestPriority.Normal => "new",
+    RequestPriority.Low    => "fulfilled",
+    _                      => "new"
+  };
+}
