@@ -1,0 +1,101 @@
+@page "/admin/events/{EventId:int}/auction/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Add Auction Item — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Add Auction Item</h2><p>@(_event?.Title ?? $"Event #{EventId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events/@EventId/auction" class="btn btn-sm">← Auction</a>
+    <a href="/admin/events/@EventId" class="btn btn-sm">Event</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">
+      Item added. <a href="/admin/events/@EventId/auction" style="color:var(--green);">View auction →</a>
+    </div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="max-width:580px;">
+  <div class="panel">
+    <div class="panel-head"><h3>Item Details</h3></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label">Item Name *</label>
+        <input class="form-input" @bind="_name" placeholder="e.g. Gift Basket, Weekend Getaway" />
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" rows="3" @bind="_description" placeholder="What the item includes, any restrictions…"></textarea>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+        <div class="form-group">
+          <label class="form-label">Fair Market Value *</label>
+          <input class="form-input" type="number" step="10" min="0" @bind="_fairMarketValue" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Starting Bid *</label>
+          <input class="form-input" type="number" step="10" min="0" @bind="_startingBid" />
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">Typically 30–50% of FMV</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <a href="/admin/events/@EventId/auction" class="btn btn-sm">Cancel</a>
+        <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Adding…" : "Add Item")</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  [Parameter] public int EventId { get; set; }
+
+  private MinistryEvent? _event;
+  private bool _busy, _saved;
+  private string _error = "";
+  private string _name = "", _description = "";
+  private decimal _fairMarketValue, _startingBid;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _event = await Api.GetEventAsync(EventId);
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_name)) { _error = "Item name is required."; return; }
+    if (_fairMarketValue <= 0) { _error = "Fair market value is required."; return; }
+    if (_startingBid <= 0) { _error = "Starting bid is required."; return; }
+
+    _busy = true;
+    var item = new SilentAuctionItem
+    {
+      EventId        = EventId,
+      Name           = _name,
+      Description    = string.IsNullOrWhiteSpace(_description) ? null : _description,
+      FairMarketValue = _fairMarketValue,
+      StartingBid    = _startingBid,
+    };
+    var result = await Api.CreateAuctionItemAsync(EventId, item);
+    _busy = false;
+    if (result is not null) { _saved = true; _name = ""; _description = ""; _fairMarketValue = 0; _startingBid = 0; }
+    else _error = "Failed to add item. Please try again.";
+  }
+}

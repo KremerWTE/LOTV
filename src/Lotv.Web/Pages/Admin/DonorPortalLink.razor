@@ -1,0 +1,104 @@
+@page "/admin/donors/{DonorId:int}/portal-link"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Send Portal Link — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Send Portal Link</h2><p>@(_donor?.FullName ?? $"Donor #{DonorId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor Profile</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_donor is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Donor #@DonorId not found.</div></div>
+}
+else if (string.IsNullOrEmpty(_donor.Email))
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">
+      No email address on file for @_donor.FullName. Please update their profile first.
+    </div>
+  </div>
+}
+else
+{
+  @if (_sent)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">
+        ✓ Portal link sent to @_donor.Email. Valid for @_days days.
+      </div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="max-width:520px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Send Magic-Link Access</h3></div>
+      <div class="panel-body">
+        <div style="padding:10px 12px;background:var(--bg);border-radius:6px;font-size:.84rem;margin-bottom:16px;">
+          Will send to: <strong>@_donor.Email</strong>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Link Validity (days)</label>
+          <select class="form-input" @bind="_days">
+            <option value="1">1 day</option>
+            <option value="3">3 days</option>
+            <option value="7">7 days (default)</option>
+            <option value="14">14 days</option>
+            <option value="30">30 days</option>
+          </select>
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">
+            The link will expire after this period. Donors can click it to access their self-service portal without a password.
+          </div>
+        </div>
+
+        <div style="margin-top:14px;padding:10px 12px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;font-size:.78rem;color:#92400e;">
+          ⚠ Each send generates a new token. Any previously sent links for this donor will be invalidated.
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-primary" @onclick="Send" disabled="@_busy">@(_busy ? "Sending…" : "Send Portal Link")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+
+  private Lotv.Core.Models.Donor? _donor;
+  private bool _loading = true, _busy, _sent;
+  private string _error = "";
+  private int _days = 7;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donor = await Api.GetDonorAsync(DonorId);
+    _loading = false;
+  }
+
+  private async Task Send()
+  {
+    _error = ""; _sent = false;
+    _busy = true;
+    var ok = await Api.SendDonorPortalLinkAsync(DonorId, _days);
+    _busy = false;
+    if (ok) _sent = true;
+    else _error = "Failed to send portal link. Please try again.";
+  }
+}

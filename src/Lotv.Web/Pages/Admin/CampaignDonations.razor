@@ -1,0 +1,124 @@
+@page "/admin/campaigns/{Id:int}/donations"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Campaign Donations — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Campaign Donations</h2><p>@(_campaign?.Name ?? $"Campaign #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/campaigns/@Id" class="btn btn-sm">← Campaign Detail</a>
+    <a href="/admin/donations/new" class="btn btn-sm btn-primary">+ Log Donation</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Raised</div>
+      <div class="kpi-value" style="color:var(--green)">@_totalRaised.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-label">Gift Count</div>
+      <div class="kpi-value" style="color:var(--navy)">@_donations.Count</div>
+    </div>
+    @if (_campaign is not null && _campaign.GoalAmount > 0)
+    {
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-icon">&#128200;</div>
+        <div class="kpi-label">Goal</div>
+        <div class="kpi-value" style="color:var(--amber)">@_campaign.GoalAmount.ToString("C0")</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">&#127942;</div>
+        <div class="kpi-label">Progress</div>
+        <div class="kpi-value" style="font-size:1rem;color:@(_totalRaised >= _campaign.GoalAmount ? "var(--green)" : "var(--navy)");">
+          @(_campaign.GoalAmount > 0 ? (_totalRaised / _campaign.GoalAmount * 100m).ToString("F0") : "0")%
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Donations (@_donations.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_donations.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No donations tagged to this campaign yet.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Channel</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var d in _donations.OrderByDescending(d => d.Date))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;">@d.Date.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@(d.Donor?.FullName ?? $"Donor #{d.DonorId}")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.84rem;">@d.Channel.ToDisplayName()</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/donations/@d.Id/edit" style="font-size:.78rem;color:var(--navy);">Edit</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--border);font-weight:700;background:var(--bg);">
+              <td colspan="2" style="padding:10px 16px;font-size:.84rem;">Total</td>
+              <td style="padding:10px 16px;font-size:.92rem;text-align:right;color:var(--green);">@_totalRaised.ToString("C0")</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private CampaignDto? _campaign;
+  private List<Donation> _donations = [];
+  private decimal _totalRaised;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var campTask = Api.GetCampaignsAsync();
+    var donTask  = Api.GetDonationsAsync();
+    await Task.WhenAll(campTask, donTask);
+    var allCamps = await campTask;
+    _campaign = allCamps.FirstOrDefault(c => c.Id == Id);
+
+    if (_campaign is not null)
+    {
+      var allDonations = await donTask;
+      _donations = allDonations
+        .Where(d => d.Campaign != null &&
+                    d.Campaign.Equals(_campaign.Name, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+      _totalRaised = _donations.Sum(d => d.Amount);
+    }
+    _loading = false;
+  }
+}
