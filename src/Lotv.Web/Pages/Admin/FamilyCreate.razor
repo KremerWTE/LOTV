@@ -1,0 +1,282 @@
+@page "/admin/families/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Family — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Register New Family</h2><p>Add a family to the ministry care program</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/families" class="btn btn-sm">← Families</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Family registered successfully. Redirecting…</div>
+  </div>
+}
+
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<EditForm Model="_f" OnValidSubmit="Submit">
+  <DataAnnotationsValidator />
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <!-- LEFT COLUMN -->
+    <div>
+      <!-- Parent 1 -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Primary Contact (Parent 1)</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <InputText class="form-input" @bind-Value="_f.Parent1FirstName" placeholder="First name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name *</label>
+              <InputText class="form-input" @bind-Value="_f.Parent1LastName" placeholder="Last name" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Email *</label>
+            <InputText class="form-input" @bind-Value="_f.Email" placeholder="email@example.com" type="email" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Phone</label>
+            <InputText class="form-input" @bind-Value="_f.Phone" placeholder="(555) 555-5555" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Parent 2 -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Second Parent (optional)</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">First Name</label>
+              <InputText class="form-input" @bind-Value="_f.Parent2FirstName" placeholder="First name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <InputText class="form-input" @bind-Value="_f.Parent2LastName" placeholder="Last name" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Address</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Street Address *</label>
+            <InputText class="form-input" @bind-Value="_f.StreetAddress" placeholder="123 Main St" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Apt / Suite</label>
+            <InputText class="form-input" @bind-Value="_f.Apt" placeholder="Apt 2B" />
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:10px;">
+            <div class="form-group">
+              <label class="form-label">City *</label>
+              <InputText class="form-input" @bind-Value="_f.City" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">State *</label>
+              <InputText class="form-input" @bind-Value="_f.State" placeholder="IL" maxlength="2" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Zip *</label>
+              <InputText class="form-input" @bind-Value="_f.Zip" placeholder="60601" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+      <!-- Ministry Info -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Ministry Information</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Reason for Reaching Out *</label>
+            <InputSelect class="form-input" @bind-Value="_f.Reason">
+              @foreach (var r in Enum.GetValues<PackageReason>())
+              {
+                <option value="@r">@r.ToDisplayName()</option>
+              }
+            </InputSelect>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Faith Tradition</label>
+            <InputText class="form-input" @bind-Value="_f.FaithTradition" placeholder="e.g. Catholic" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Parish Name</label>
+            <InputText class="form-input" @bind-Value="_f.ParishName" placeholder="St. Mary's Parish" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Diocese</label>
+            <InputText class="form-input" @bind-Value="_f.DioceseName" placeholder="Diocese of Chicago" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Children's Initials</label>
+            <InputText class="form-input" @bind-Value="_f.ChildrenInitials" placeholder="e.g. A.B., C.D." />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">How Did They Hear About Us?</label>
+            <InputText class="form-input" @bind-Value="_f.HowHeard" placeholder="Referral, social media…" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Privacy & Chapter -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Privacy & Assignment</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Privacy Preference</label>
+            <InputSelect class="form-input" @bind-Value="_f.PrivacyPreference">
+              <option value="@PrivacyPreference.Public">Public — name visible on prayer wall</option>
+              <option value="@PrivacyPreference.Anonymous">Anonymous — on prayer wall, name hidden</option>
+              <option value="@PrivacyPreference.Private">Private — prayers only, not listed</option>
+            </InputSelect>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Chapter *</label>
+            <InputSelect class="form-input" @bind-Value="_f.ChapterId">
+              <option value="0">— Select chapter —</option>
+              @foreach (var c in _chapters)
+              {
+                <option value="@c.Id">@c.Name — @c.City, @c.State</option>
+              }
+            </InputSelect>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Contact Notes</label>
+            <InputTextArea class="form-input" @bind-Value="_f.ContactNotes" rows="3" placeholder="Internal notes about this family…" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Story -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Story (optional)</h3></div>
+        <div class="panel-body">
+          <InputTextArea class="form-input" @bind-Value="_f.Story" rows="5"
+                         placeholder="Brief narrative of the family's situation for volunteer context…" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+    <a href="/admin/families" class="btn btn-sm">Cancel</a>
+    <button type="submit" class="btn btn-primary" disabled="@_busy">
+      @(_busy ? "Saving…" : "Register Family")
+    </button>
+  </div>
+</EditForm>
+
+@code {
+  private FamilyForm _f = new();
+  private List<Chapter> _chapters = [];
+  private bool _busy, _saved;
+  private string _error = "";
+
+  private class FamilyForm
+  {
+    public string Parent1FirstName { get; set; } = "";
+    public string Parent1LastName  { get; set; } = "";
+    public string? Parent2FirstName { get; set; }
+    public string? Parent2LastName  { get; set; }
+    public string Email { get; set; } = "";
+    public string? Phone { get; set; }
+    public string StreetAddress { get; set; } = "";
+    public string? Apt { get; set; }
+    public string City  { get; set; } = "";
+    public string State { get; set; } = "";
+    public string Zip   { get; set; } = "";
+    public PackageReason Reason { get; set; }
+    public string? FaithTradition { get; set; }
+    public string? ChildrenInitials { get; set; }
+    public string? Story { get; set; }
+    public string? ParishName { get; set; }
+    public string? DioceseName { get; set; }
+    public string? HowHeard { get; set; }
+    public int ChapterId { get; set; }
+    public string? ContactNotes { get; set; }
+    public PrivacyPreference PrivacyPreference { get; set; } = PrivacyPreference.Anonymous;
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_f.Parent1FirstName) || string.IsNullOrWhiteSpace(_f.Parent1LastName))
+    { _error = "Parent 1 first and last name are required."; return; }
+    if (string.IsNullOrWhiteSpace(_f.Email))
+    { _error = "Email is required."; return; }
+    if (string.IsNullOrWhiteSpace(_f.StreetAddress) || string.IsNullOrWhiteSpace(_f.City) ||
+        string.IsNullOrWhiteSpace(_f.State) || string.IsNullOrWhiteSpace(_f.Zip))
+    { _error = "Full address is required."; return; }
+    if (_f.ChapterId == 0)
+    { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var family = new Family
+    {
+      Parent1FirstName  = _f.Parent1FirstName,
+      Parent1LastName   = _f.Parent1LastName,
+      Parent2FirstName  = _f.Parent2FirstName,
+      Parent2LastName   = _f.Parent2LastName,
+      Email             = _f.Email,
+      Phone             = _f.Phone,
+      StreetAddress     = _f.StreetAddress,
+      Apt               = _f.Apt,
+      City              = _f.City,
+      State             = _f.State,
+      Zip               = _f.Zip,
+      Reason            = _f.Reason,
+      FaithTradition    = _f.FaithTradition,
+      ChildrenInitials  = _f.ChildrenInitials,
+      Story             = _f.Story,
+      ParishName        = _f.ParishName,
+      DioceseName       = _f.DioceseName,
+      HowHeard          = _f.HowHeard,
+      ChapterId         = _f.ChapterId,
+      ContactNotes      = _f.ContactNotes,
+      PrivacyPreference = _f.PrivacyPreference,
+    };
+
+    var result = await Api.CreateFamilyAsync(family);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(800);
+      Nav.NavigateTo("/admin/families");
+    }
+    else
+    {
+      _error = "Save failed. Please try again.";
+    }
+  }
+}

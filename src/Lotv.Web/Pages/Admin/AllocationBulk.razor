@@ -1,0 +1,182 @@
+@page "/admin/allocations/bulk"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Bulk Allocation — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Bulk Allocation</h2><p>Select donations and approve or restrict their allocation in batch</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/allocations" class="btn btn-sm">← Allocations</a>
+    <a href="/admin/allocations/review" class="btn btn-sm">Pending Review</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-label">Total Donations</div>
+    <div class="kpi-value" style="color:var(--navy)">@_donations.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Selected</div>
+    <div class="kpi-value" style="color:var(--green)">@_selected.Count</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128176;</div>
+    <div class="kpi-label">Selected Total</div>
+    <div class="kpi-value" style="color:var(--amber)">@_selectedTotal.ToString("C0")</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">&#128203;</div>
+    <div class="kpi-label">Processed</div>
+    <div class="kpi-value" style="color:var(--text-mid)">@_processedCount</div>
+  </div>
+</div>
+
+<!-- BULK ACTION BAR -->
+@if (_selected.Any())
+{
+  <div style="background:var(--navy);color:white;padding:12px 18px;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:14px;">
+    <span style="font-weight:600;font-size:.88rem;">@_selected.Count donation(s) selected — @_selectedTotal.ToString("C0")</span>
+    <div style="margin-left:auto;display:flex;gap:10px;">
+      <button class="btn btn-sm" style="background:var(--green);color:white;border:none;" @onclick='() => ApplyBulk("Allocated")' disabled="@_busy">
+        &#10003; Approve All
+      </button>
+      <button class="btn btn-sm" style="background:var(--red);color:white;border:none;" @onclick='() => ApplyBulk("Restricted")' disabled="@_busy">
+        &#10007; Restrict All
+      </button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:white;border:none;" @onclick="ClearSelection">
+        Clear
+      </button>
+    </div>
+  </div>
+}
+
+@if (!string.IsNullOrEmpty(_resultMsg))
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:14px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">@_resultMsg</div>
+  </div>
+}
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
+         placeholder="&#128269; Search donor or channel…" @bind="_search" @bind:event="oninput" />
+  @foreach (var ch in new[] { "All", "Check", "Cash", "Online", "Card", "ACH" })
+  {
+    var chVal = ch;
+    <button class="filter-chip @(_channelFilter == chVal ? "active" : "")" @onclick='() => _channelFilter = chVal'>@chVal</button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (_loading)
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">Loading donations…</div>
+    }
+    else if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No donations match this filter.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:40px;">
+              <input type="checkbox" @onchange="ToggleAll"
+                     checked="@(Filtered.All(d => _selected.Contains(d.Id)))"
+                     style="cursor:pointer;" />
+            </th>
+            <th>Donor</th>
+            <th>Date</th>
+            <th style="text-align:right;">Amount</th>
+            <th>Channel</th>
+            <th>Campaign</th>
+            <th>Allocation</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var d in Filtered.OrderByDescending(d => d.Date))
+          {
+            var isSelected = _selected.Contains(d.Id);
+            <tr style="@(isSelected ? "background:rgba(0,51,102,.06);" : "")" @onclick="() => Toggle(d.Id)" class="clickable-row">
+              <td @onclick:stopPropagation="true">
+                <input type="checkbox" checked="@isSelected" @onchange="() => Toggle(d.Id)" style="cursor:pointer;" />
+              </td>
+              <td style="font-size:.84rem;font-weight:600;">@(d.Donor?.FullName ?? "Anonymous")</td>
+              <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@d.Amount.ToString("C0")</td>
+              <td style="font-size:.78rem;">@d.Channel.ToDisplayName()</td>
+              <td style="font-size:.74rem;color:var(--text-light);">@(d.Campaign ?? "—")</td>
+              <td><span class="badge badge-@AllocBadge(d.AllocationStatus)" style="font-size:.6rem;">@d.AllocationStatus</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@code {
+  private List<Donation> _donations = [];
+  private HashSet<int> _selected = [];
+  private bool _loading = true, _busy;
+  private string _search = "", _channelFilter = "All", _resultMsg = "";
+  private int _processedCount;
+
+  private decimal _selectedTotal => _donations.Where(d => _selected.Contains(d.Id)).Sum(d => d.Amount);
+
+  private IEnumerable<Donation> Filtered => _donations.Where(d =>
+    (_channelFilter == "All" || d.Channel.ToString().Equals(_channelFilter, StringComparison.OrdinalIgnoreCase)) &&
+    (string.IsNullOrEmpty(_search) ||
+     (d.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+     d.Channel.ToString().Contains(_search, StringComparison.OrdinalIgnoreCase)));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donations = await Api.GetDonationsAsync();
+    _loading = false;
+  }
+
+  private void Toggle(int id)
+  {
+    if (!_selected.Add(id)) _selected.Remove(id);
+  }
+
+  private void ToggleAll(ChangeEventArgs e)
+  {
+    var filtered = Filtered.Select(d => d.Id).ToList();
+    if ((bool?)e.Value == true) foreach (var id in filtered) _selected.Add(id);
+    else foreach (var id in filtered) _selected.Remove(id);
+  }
+
+  private void ClearSelection() => _selected.Clear();
+
+  private async Task ApplyBulk(string status)
+  {
+    if (!_selected.Any()) return;
+    _busy = true;
+    var ids = _selected.ToArray();
+    var count = await Api.BulkAllocateAsync(ids, status);
+    _processedCount += count;
+    _resultMsg = $"{count} donation(s) marked as {status}.";
+    _selected.Clear();
+    _donations = await Api.GetDonationsAsync();
+    _busy = false;
+  }
+
+  private static string AllocBadge(AllocationStatus s) => s switch
+  {
+    AllocationStatus.Allocated     => "fulfilled",
+    AllocationStatus.Restricted    => "cancelled",
+    AllocationStatus.PendingReview => "onhold",
+    _                              => "new"
+  };
+}

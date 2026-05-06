@@ -1,0 +1,173 @@
+@page "/admin/campaigns/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Campaign Detail — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>@(_campaign?.Name ?? "Campaign")</h2>
+    <p>@(_campaign?.Description ?? "Campaign performance and donation breakdown")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/campaigns" class="btn btn-sm">← Campaigns</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_campaign is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Campaign #@Id not found.</div></div>
+}
+else
+{
+  var pct = _campaign.GoalAmount > 0 ? (double)_campaign.Raised / (double)_campaign.GoalAmount * 100 : 0;
+
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127919;</div>
+      <div class="kpi-label">Goal</div>
+      <div class="kpi-value" style="color:var(--green)">@_campaign.GoalAmount.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Raised</div>
+      <div class="kpi-value" style="color:var(--navy)">@_campaign.Raised.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128202;</div>
+      <div class="kpi-label">Gift Count</div>
+      <div class="kpi-value" style="color:var(--amber)">@_campaign.GiftCount</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Progress</div>
+      <div class="kpi-value" style="color:@(pct >= 100 ? "var(--green)" : pct >= 75 ? "var(--amber)" : "var(--navy)")">@pct.ToString("F0")%</div>
+    </div>
+  </div>
+
+  <!-- PROGRESS BAR -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-body" style="padding:20px 24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <span style="font-size:1.4rem;font-weight:800;color:var(--navy);">@_campaign.Raised.ToString("C0")</span>
+          <span style="font-size:.9rem;color:var(--text-light);"> raised of @_campaign.GoalAmount.ToString("C0") goal</span>
+        </div>
+        <div style="text-align:right;">
+          <span class="badge badge-@StatusBadge(_campaign.Status)" style="font-size:.7rem;">@_campaign.Status</span>
+          @if (!string.IsNullOrEmpty(_campaign.ExternalCode))
+          {
+            <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">Code: @_campaign.ExternalCode</div>
+          }
+        </div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;height:16px;overflow:hidden;">
+        <div style="height:100%;width:@Math.Min(pct, 100).ToString("F0")%;background:@(pct >= 100 ? "var(--green)" : "var(--navy)");border-radius:8px;transition:width .5s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:.76rem;color:var(--text-light);">
+        <span>Started @_campaign.StartDate.ToString("MMM d, yyyy")</span>
+        @if (_campaign.EndDate.HasValue)
+        {
+          var daysLeft = (_campaign.EndDate.Value - DateTime.Today).Days;
+          <span>@(daysLeft >= 0 ? $"{daysLeft} days remaining" : $"Ended {_campaign.EndDate.Value.ToString("MMM d, yyyy")}")</span>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- DONATIONS TABLE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Donations (@_donations.Count)</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="form-input" style="width:180px;font-size:.82rem;padding:5px 12px;"
+               placeholder="&#128269; Search…" @bind="_search" @bind:event="oninput" />
+      </div>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No donations recorded for this campaign yet.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Donor</th>
+              <th>Date</th>
+              <th style="text-align:right;">Amount</th>
+              <th>Channel</th>
+              <th>Recurring</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var d in Filtered.OrderByDescending(d => d.Date))
+            {
+              <tr>
+                <td style="font-size:.84rem;font-weight:600;">@(d.Donor?.FullName ?? "Anonymous")</td>
+                <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
+                <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@d.Amount.ToString("C0")</td>
+                <td style="font-size:.78rem;">@d.Channel.ToDisplayName()</td>
+                <td style="font-size:.78rem;text-align:center;">@(d.IsRecurring ? "🔁" : "—")</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr style="background:var(--bg);">
+              <td colspan="2" style="font-weight:700;font-size:.84rem;padding:10px 14px;">Total</td>
+              <td style="text-align:right;font-weight:700;color:var(--green);font-size:.88rem;">@Filtered.Sum(d => d.Amount).ToString("C0")</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private CampaignDto? _campaign;
+  private List<Donation> _donations = [];
+  private bool _loading = true;
+  private string _search = "";
+
+  private IEnumerable<Donation> Filtered => _donations.Where(d =>
+    string.IsNullOrEmpty(_search) ||
+    (d.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+    d.Channel.ToString().Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+  protected override async Task OnInitializedAsync()
+  {
+    var campTask = Api.GetCampaignsAsync();
+    var donTask  = Api.GetDonationsAsync();
+    await Task.WhenAll(campTask, donTask);
+
+    var allCampaigns = await campTask;
+    _campaign = allCampaigns.FirstOrDefault(c => c.Id == Id);
+
+    var allDonations = await donTask;
+    if (_campaign is not null)
+      _donations = allDonations.Where(d => d.Campaign == _campaign.Name).ToList();
+
+    _loading = false;
+  }
+
+  private static string StatusBadge(string s) => s switch
+  {
+    "Active"    => "fulfilled",
+    "Completed" => "onhold",
+    "Paused"    => "onhold",
+    "Cancelled" => "cancelled",
+    _           => "new"
+  };
+}

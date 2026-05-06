@@ -1,0 +1,182 @@
+@page "/admin/donations/bulk-channel"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Bulk Channel Update — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Bulk Channel Update</h2><p>Reassign the payment channel for multiple donations at once</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donations" class="btn btn-sm">← All Donations</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value" style="color:var(--navy)">@_donations.Count</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-label">Selected</div>
+    <div class="kpi-value" style="color:var(--green)">@_selected.Count</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">&#128176;</div>
+    <div class="kpi-label">Selected Total</div>
+    <div class="kpi-value" style="color:var(--amber)">@_selectedTotal.ToString("C0")</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">&#128260;</div>
+    <div class="kpi-label">Updated</div>
+    <div class="kpi-value" style="color:var(--text-mid)">@_updatedCount</div>
+  </div>
+</div>
+
+<!-- ACTION BAR -->
+@if (_selected.Any())
+{
+  <div style="background:var(--navy);color:white;padding:12px 18px;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <span style="font-weight:600;font-size:.88rem;">@_selected.Count selected — @_selectedTotal.ToString("C0")</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <select class="form-input" style="font-size:.82rem;padding:4px 10px;width:160px;" @bind="_targetChannel">
+        <option value="">— Target channel —</option>
+        @foreach (var ch in Enum.GetValues<DonationChannel>())
+        {
+          <option value="@ch">@ch.ToDisplayName()</option>
+        }
+      </select>
+      <button class="btn btn-sm" style="background:var(--green);color:white;border:none;" @onclick="ApplyBulk"
+              disabled="@(_busy || string.IsNullOrEmpty(_targetChannel))">
+        &#10003; Apply to Selected
+      </button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:white;border:none;" @onclick="ClearSelection">
+        Clear
+      </button>
+    </div>
+  </div>
+}
+
+@if (!string.IsNullOrEmpty(_resultMsg))
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:14px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">@_resultMsg</div>
+  </div>
+}
+
+<!-- FILTER BAR -->
+<div class="filter-bar" style="margin-bottom:12px;">
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
+         placeholder="&#128269; Search donor…" @bind="_search" @bind:event="oninput" />
+  <span style="font-size:.8rem;color:var(--text-light);">Filter current channel:</span>
+  <button class="filter-chip @(_channelFilter == "All" ? "active" : "")" @onclick='() => _channelFilter = "All"'>All</button>
+  @foreach (var ch in Enum.GetValues<DonationChannel>())
+  {
+    var chVal = ch;
+    <button class="filter-chip @(_channelFilter == chVal.ToString() ? "active" : "")" @onclick='() => _channelFilter = chVal.ToString()'>@chVal.ToDisplayName()</button>
+  }
+</div>
+
+<div class="panel">
+  <div class="panel-body" style="padding:0;">
+    @if (_loading)
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div>
+    }
+    else if (!Filtered.Any())
+    {
+      <div style="padding:40px;text-align:center;color:var(--text-light);">No donations match this filter.</div>
+    }
+    else
+    {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:40px;">
+              <input type="checkbox" @onchange="ToggleAll"
+                     checked="@(Filtered.All(d => _selected.Contains(d.Id)))"
+                     style="cursor:pointer;" />
+            </th>
+            <th>Donor</th>
+            <th>Date</th>
+            <th style="text-align:right;">Amount</th>
+            <th>Current Channel</th>
+            <th>Campaign</th>
+            <th>Recurring</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var d in Filtered.OrderByDescending(d => d.Date))
+          {
+            var isSelected = _selected.Contains(d.Id);
+            <tr style="@(isSelected ? "background:rgba(0,51,102,.06);" : "")" @onclick="() => Toggle(d.Id)" class="clickable-row">
+              <td @onclick:stopPropagation="true">
+                <input type="checkbox" checked="@isSelected" @onchange="() => Toggle(d.Id)" style="cursor:pointer;" />
+              </td>
+              <td style="font-size:.84rem;font-weight:600;">@(d.Donor?.FullName ?? "Anonymous")</td>
+              <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@d.Amount.ToString("C0")</td>
+              <td>
+                <span class="badge badge-new" style="font-size:.6rem;">@d.Channel.ToDisplayName()</span>
+              </td>
+              <td style="font-size:.74rem;color:var(--text-light);">@(d.Campaign ?? "—")</td>
+              <td style="font-size:.78rem;text-align:center;">@(d.IsRecurring ? "🔁" : "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@code {
+  private List<Donation> _donations = [];
+  private HashSet<int> _selected = [];
+  private bool _loading = true, _busy;
+  private string _search = "", _channelFilter = "All", _targetChannel = "", _resultMsg = "";
+  private int _updatedCount;
+
+  private decimal _selectedTotal => _donations.Where(d => _selected.Contains(d.Id)).Sum(d => d.Amount);
+
+  private IEnumerable<Donation> Filtered => _donations.Where(d =>
+    (_channelFilter == "All" || d.Channel.ToString() == _channelFilter) &&
+    (string.IsNullOrEmpty(_search) ||
+     (d.Donor?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donations = await Api.GetDonationsAsync();
+    _loading = false;
+  }
+
+  private void Toggle(int id)
+  {
+    if (!_selected.Add(id)) _selected.Remove(id);
+  }
+
+  private void ToggleAll(ChangeEventArgs e)
+  {
+    var filtered = Filtered.Select(d => d.Id).ToList();
+    if ((bool?)e.Value == true) foreach (var id in filtered) _selected.Add(id);
+    else foreach (var id in filtered) _selected.Remove(id);
+  }
+
+  private void ClearSelection() => _selected.Clear();
+
+  private async Task ApplyBulk()
+  {
+    if (!_selected.Any() || string.IsNullOrEmpty(_targetChannel)) return;
+    _busy = true;
+    var ids = _selected.ToArray();
+    var count = await Api.BulkChannelAsync(ids, _targetChannel);
+    _updatedCount += count;
+    _resultMsg = $"{count} donation(s) updated to channel \"{_targetChannel}\".";
+    _selected.Clear();
+    _targetChannel = "";
+    _donations = await Api.GetDonationsAsync();
+    _busy = false;
+  }
+}

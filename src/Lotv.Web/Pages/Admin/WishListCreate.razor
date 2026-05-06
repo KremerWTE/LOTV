@@ -1,0 +1,196 @@
+@page "/admin/wishlist/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Add Wish List Item — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Add Wish List Item</h2><p>Create a new item families or chapters need fulfilled</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/wishlist" class="btn btn-sm">← Wish List</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Item added successfully. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Item Details</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input class="form-input" @bind="_title" placeholder='e.g. "Knitted blanket — newborn size"' />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Category</label>
+          <select class="form-input" @bind="_category">
+            @foreach (var c in Enum.GetValues<WishListCategory>())
+            {
+              <option value="@c">@c.ToDisplayName()</option>
+            }
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Description</label>
+          <textarea class="form-input" rows="3" @bind="_description" placeholder="More detail about what's needed…"></textarea>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Quantity Needed</label>
+          <input class="form-input" type="number" min="1" @bind="_qty" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Notes (staff only)</label>
+          <textarea class="form-input" rows="2" @bind="_notes" placeholder="Internal notes…"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Assignment</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name — @c.City, @c.State</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-top:14px;">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" @bind="_linkToFamily" style="width:16px;height:16px;" />
+            <span>Link to a specific family</span>
+          </label>
+        </div>
+
+        @if (_linkToFamily)
+        {
+          <div class="form-group" style="margin-top:10px;position:relative;">
+            <label class="form-label">Family Search</label>
+            <input class="form-input" value="@_familySearch"
+                   @oninput='e => { _familySearch = e.Value?.ToString() ?? ""; FilterFamilies(); }'
+                   placeholder="Search by name…" autocomplete="off" />
+            @if (_familySuggestions.Any())
+            {
+              <ul style="position:absolute;z-index:50;background:white;border:1px solid var(--border);border-radius:6px;width:100%;list-style:none;margin:2px 0 0;padding:4px 0;box-shadow:0 4px 12px rgba(0,0,0,.1);">
+                @foreach (var fam in _familySuggestions)
+                {
+                  var famCopy = fam;
+                  <li @onmousedown='() => SelectFamily(famCopy)'
+                      style="padding:8px 14px;cursor:pointer;font-size:.84rem;">
+                    @fam.FullName <span style="color:var(--text-light);font-size:.76rem;">— @fam.City, @fam.State</span>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+          @if (_selectedFamilyId.HasValue)
+          {
+            <div style="margin-top:6px;font-size:.82rem;color:var(--green);">
+              &#10003; Linked to: @_selectedFamilyName
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;background:#f0f9ff;border-left:3px solid var(--navy);">
+      <div class="panel-body" style="font-size:.82rem;color:var(--text-mid);line-height:1.6;">
+        <strong>Note:</strong> Once created, this item will appear on the public-facing wish list for donors to browse and fulfill.
+        Donors can claim items, and fulfillment is tracked automatically.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+  <a href="/admin/wishlist" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Add Item")</button>
+</div>
+
+@code {
+  private string _title = "", _description = "", _notes = "", _familySearch = "";
+  private WishListCategory _category;
+  private int _qty = 1, _chapterId;
+  private bool _linkToFamily, _busy, _saved;
+  private string _error = "", _selectedFamilyName = "";
+  private int? _selectedFamilyId;
+
+  private List<Chapter> _chapters = [];
+  private List<Family> _allFamilies = [];
+  private List<Family> _familySuggestions = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var chapTask = Api.GetChaptersAdminAsync();
+    var famTask  = Api.GetFamiliesAsync();
+    await Task.WhenAll(chapTask, famTask);
+    _chapters    = await chapTask;
+    _allFamilies = await famTask;
+  }
+
+  private void FilterFamilies()
+  {
+    if (string.IsNullOrWhiteSpace(_familySearch) || _familySearch.Length < 2)
+    { _familySuggestions = []; return; }
+    _familySuggestions = _allFamilies
+      .Where(f => f.FullName.Contains(_familySearch, StringComparison.OrdinalIgnoreCase))
+      .Take(6).ToList();
+  }
+
+  private void SelectFamily(Family fam)
+  {
+    _selectedFamilyId   = fam.Id;
+    _selectedFamilyName = fam.FullName;
+    _familySearch       = fam.FullName;
+    _familySuggestions  = [];
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_title)) { _error = "Title is required."; return; }
+    if (_chapterId == 0) { _error = "Please select a chapter."; return; }
+    if (_qty < 1) { _error = "Quantity must be at least 1."; return; }
+
+    _busy = true;
+    var item = new WishListItem
+    {
+      Title            = _title,
+      Description      = string.IsNullOrWhiteSpace(_description) ? null : _description,
+      Category         = _category,
+      QuantityRequested = _qty,
+      ChapterId        = _chapterId,
+      FamilyId         = _linkToFamily ? _selectedFamilyId : null,
+      Notes            = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+    };
+    var result = await Api.CreateWishListItemAsync(item);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/wishlist");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

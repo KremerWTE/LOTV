@@ -1,0 +1,261 @@
+@page "/admin/volunteers/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Volunteer — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Volunteer</h2><p>@(_vol?.FullName ?? $"Volunteer #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← Volunteers</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_vol is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Volunteer #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Changes saved successfully.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <!-- LEFT -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Personal Information</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input class="form-input" @bind="_f.FirstName" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name *</label>
+              <input class="form-input" @bind="_f.LastName" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Email *</label>
+            <input class="form-input" type="email" @bind="_f.Email" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Phone</label>
+            <input class="form-input" @bind="_f.Phone" placeholder="(555) 555-5555" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Parish & Diocese</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Parish Name</label>
+            <input class="form-input" @bind="_f.ParishName" placeholder="St. Mary's Parish" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Diocese</label>
+            <input class="form-input" @bind="_f.DioceseName" placeholder="Diocese of Chicago" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Notes</h3></div>
+        <div class="panel-body">
+          <textarea class="form-input" rows="4" @bind="_f.Notes" placeholder="Internal staff notes…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Role & Status</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <select class="form-input" @bind="_f.Role">
+              @foreach (var r in Enum.GetValues<VolunteerRole>())
+              {
+                <option value="@r">@r.ToDisplayName()</option>
+              }
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Status</label>
+            <select class="form-input" @bind="_f.Status">
+              <option value="@VolunteerStatus.Active">Active</option>
+              <option value="@VolunteerStatus.Inactive">Inactive</option>
+              <option value="@VolunteerStatus.Onboarding">Onboarding</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Chapter</label>
+            <select class="form-input" @bind="_f.ChapterId">
+              @foreach (var c in _chapters)
+              {
+                <option value="@c.Id">@c.Name — @c.City, @c.State</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Service Area</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Latitude</label>
+              <input class="form-input" type="number" step="any" @bind="_f.Latitude" placeholder="41.8781" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Longitude</label>
+              <input class="form-input" type="number" step="any" @bind="_f.Longitude" placeholder="-87.6298" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Service Radius (miles)</label>
+            <input class="form-input" type="number" step="1" @bind="_f.ServiceRadiusMiles" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Read-only stats -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Stats (read-only)</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Active Cases</div>
+              <div style="font-size:1.1rem;font-weight:700;color:var(--navy);">@_vol.ActiveCases</div>
+            </div>
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Total Fulfilled</div>
+              <div style="font-size:1.1rem;font-weight:700;color:var(--green);">@_vol.TotalCasesFulfilled</div>
+            </div>
+            <div>
+              <div style="font-size:.74rem;color:var(--text-light);">Joined</div>
+              <div style="font-size:.88rem;color:var(--text-mid);">@_vol.JoinedDate.ToString("MMM d, yyyy")</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+    <a href="/admin/volunteers" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Volunteer? _vol;
+  private List<Chapter> _chapters = [];
+  private VolForm _f = new();
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private class VolForm
+  {
+    public string FirstName { get; set; } = "";
+    public string LastName  { get; set; } = "";
+    public string Email     { get; set; } = "";
+    public string? Phone    { get; set; }
+    public VolunteerRole Role { get; set; }
+    public VolunteerStatus Status { get; set; } = VolunteerStatus.Active;
+    public string? ParishName  { get; set; }
+    public string? DioceseName { get; set; }
+    public int ChapterId { get; set; }
+    public double? Latitude  { get; set; }
+    public double? Longitude { get; set; }
+    public double ServiceRadiusMiles { get; set; } = 25;
+    public string? Notes { get; set; }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    var volTask     = Api.GetVolunteerByIdAsync(Id);
+    var chapTask    = Api.GetChaptersAdminAsync();
+    await Task.WhenAll(volTask, chapTask);
+    _vol      = await volTask;
+    _chapters = await chapTask;
+
+    if (_vol is not null)
+    {
+      _f = new VolForm
+      {
+        FirstName         = _vol.FirstName,
+        LastName          = _vol.LastName,
+        Email             = _vol.Email,
+        Phone             = _vol.Phone,
+        Role              = _vol.Role,
+        Status            = _vol.Status,
+        ParishName        = _vol.ParishName,
+        DioceseName       = _vol.DioceseName,
+        ChapterId         = _vol.ChapterId,
+        Latitude          = _vol.Latitude,
+        Longitude         = _vol.Longitude,
+        ServiceRadiusMiles = _vol.ServiceRadiusMiles,
+        Notes             = _vol.Notes,
+      };
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_f.FirstName) || string.IsNullOrWhiteSpace(_f.LastName))
+    { _error = "First and last name are required."; return; }
+    if (string.IsNullOrWhiteSpace(_f.Email))
+    { _error = "Email is required."; return; }
+
+    _busy = true;
+    var updated = new Volunteer
+    {
+      Id                = Id,
+      FirstName         = _f.FirstName,
+      LastName          = _f.LastName,
+      Email             = _f.Email,
+      Phone             = _f.Phone,
+      Role              = _f.Role,
+      Status            = _f.Status,
+      ParishName        = _f.ParishName,
+      DioceseName       = _f.DioceseName,
+      ChapterId         = _f.ChapterId,
+      Latitude          = _f.Latitude,
+      Longitude         = _f.Longitude,
+      ServiceRadiusMiles = _f.ServiceRadiusMiles,
+      Notes             = _f.Notes,
+      ActiveCases       = _vol!.ActiveCases,
+      TotalCasesFulfilled = _vol.TotalCasesFulfilled,
+      JoinedDate        = _vol.JoinedDate,
+    };
+    var result = await Api.UpdateVolunteerAsync(Id, updated);
+    _busy = false;
+    if (result is not null) { _saved = true; _vol = updated; }
+    else _error = "Save failed. Please try again.";
+  }
+}
