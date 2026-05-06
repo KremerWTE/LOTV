@@ -1,0 +1,111 @@
+@page "/admin/families/by-chapter"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Families by Chapter — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Families by Chapter</h2><p>Family enrollment grouped by chapter</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/families" class="btn btn-sm">← All Families</a>
+    <a href="/admin/chapter-analytics" class="btn btn-sm">Chapter Analytics</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Total Families</div>
+      <div class="kpi-value" style="color:var(--navy)">@_families.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Chapters</div>
+      <div class="kpi-value" style="color:var(--green)">@_families.Select(f => f.ChapterId).Distinct().Count()</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg per Chapter</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_families.Any() ? (_families.Count / (decimal)_families.Select(f => f.ChapterId).Distinct().Count()).ToString("F1") : "—")</div>
+    </div>
+  </div>
+
+  @foreach (var g in _families.GroupBy(f => f.ChapterId).OrderByDescending(g => g.Count()))
+  {
+    var chName = _chapterMap.TryGetValue(g.Key, out var n) ? n : $"Chapter #{g.Key}";
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>@chName <span style="font-size:.78rem;font-weight:400;color:var(--text-light);">(@g.Count() families)</span></h3>
+        <a href="/admin/chapters/@g.Key/cases" style="font-size:.8rem;color:var(--navy);">View cases →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Family</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">City</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Parish</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Reason</th>
+              <th style="padding:8px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var f in g.OrderBy(f => f.Parent1LastName).Take(10))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/families/@f.Id" style="color:var(--navy);">@f.Parent1LastName, @f.Parent1FirstName</a>
+                </td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@(f.City ?? "—")</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@(f.ParishName ?? "—")</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@f.Reason.ToDisplayName()</td>
+                <td style="padding:8px 16px;text-align:center;">
+                  <a href="/admin/families/@f.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+            @if (g.Count() > 10)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td colspan="5" style="padding:8px 16px;font-size:.78rem;color:var(--text-light);text-align:center;">
+                  + @(g.Count() - 10) more families
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_families.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No families found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<Family> _families = [];
+  private Dictionary<int, string> _chapterMap = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var famTask  = Api.GetFamiliesAsync();
+    var chapTask = Api.GetChaptersAdminAsync();
+    await Task.WhenAll(famTask, chapTask);
+    _families   = await famTask;
+    var chapters = await chapTask;
+    _chapterMap  = chapters.ToDictionary(c => c.Id, c => c.Name);
+    _loading = false;
+  }
+}

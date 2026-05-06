@@ -1,0 +1,120 @@
+@page "/admin/pledges/by-status"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Pledges by Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Pledges by Status</h2><p>Donor pledge portfolio grouped by fulfillment stage</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/pledges" class="btn btn-sm">← All Pledges</a>
+    <a href="/admin/pledges/lapsed" class="btn btn-sm">Lapsed</a>
+    <a href="/admin/pledges/new" class="btn btn-sm btn-primary">+ Create Pledge</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Total Pledges</div>
+      <div class="kpi-value" style="color:var(--navy)">@_pledges.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Pledged</div>
+      <div class="kpi-value" style="color:var(--green)">@_pledges.Sum(p => p.PledgedAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Outstanding</div>
+      <div class="kpi-value" style="color:var(--amber)">@_pledges.Sum(p => p.RemainingAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_pledges.Sum(p => p.FulfilledAmount).ToString("C0")</div>
+    </div>
+  </div>
+
+  @foreach (var grp in _pledges.GroupBy(p => p.Status).OrderBy(g => g.Key))
+  {
+    var grpPledged    = grp.Sum(p => p.PledgedAmount);
+    var grpFulfilled  = grp.Sum(p => p.FulfilledAmount);
+    var grpRemaining  = grp.Sum(p => p.RemainingAmount);
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>
+          <span class="badge badge-@StatusClass(grp.Key)" style="font-size:.72rem;margin-right:8px;">@grp.Key</span>
+          <span style="font-size:.84rem;">@grp.Count() pledges · @grpPledged.ToString("C0") pledged</span>
+        </h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Pledged</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Fulfilled</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Remaining</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Target Date</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var p in grp.OrderBy(p => p.TargetDate))
+            {
+              var isOverdue = p.TargetDate.Date < DateTime.Today && p.Status != PledgeStatus.Fulfilled && p.Status != PledgeStatus.Cancelled;
+              <tr style="border-top:1px solid var(--border);@(isOverdue ? "background:#fef2f2;" : "")">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@p.DonorId" style="color:var(--navy);">Donor #@p.DonorId</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@p.PledgedAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green);">@p.FulfilledAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:@(p.RemainingAmount > 0 ? "var(--amber)" : "var(--green)");">@p.RemainingAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:@(isOverdue ? "var(--red)" : "var(--text-light)");">@p.TargetDate.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/pledges/@p.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_pledges.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No pledges found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<DonorPledge> _pledges = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _pledges = await Api.GetPledgesAsync();
+    _loading = false;
+  }
+
+  private static string StatusClass(PledgeStatus status) => status switch
+  {
+    PledgeStatus.Active    => "new",
+    PledgeStatus.Overdue   => "cancelled",
+    PledgeStatus.Fulfilled => "fulfilled",
+    PledgeStatus.Lapsed    => "cancelled",
+    PledgeStatus.Cancelled => "cancelled",
+    _                      => "new"
+  };
+}

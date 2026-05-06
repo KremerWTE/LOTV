@@ -1,0 +1,115 @@
+@page "/admin/donors/top"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Top Donors — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Top Donors</h2><p>Highest-impact donors ranked by lifetime giving</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors" class="btn btn-sm">← All Donors</a>
+    <a href="/admin/donors/tiers" class="btn btn-sm">By Tier</a>
+    <a href="/admin/donors/lapsed" class="btn btn-sm">Lapsed</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Top @_limit Combined</div>
+      <div class="kpi-value" style="color:var(--green)">@TopDonors.Sum(d => d.TotalGiven).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-label">Top Gift</div>
+      <div class="kpi-value" style="color:var(--navy)">@(TopDonors.FirstOrDefault()?.TotalGiven.ToString("C0") ?? "—")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Recurring</div>
+      <div class="kpi-value" style="color:var(--amber)">@TopDonors.Count(d => d.IsRecurring)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg Gifts</div>
+      <div class="kpi-value" style="color:var(--navy)">@(TopDonors.Any() ? TopDonors.Average(d => d.GiftCount).ToString("F1") : "—")</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
+    <span style="font-size:.82rem;color:var(--text-light);">Show top</span>
+    @foreach (var n in new[] { 25, 50, 100 })
+    {
+      <button class="btn btn-sm @(_limit == n ? "btn-primary" : "")" @onclick="() => _limit = n">@n</button>
+    }
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Top @_limit Donors by Lifetime Giving</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @{var maxGiven = TopDonors.Any() ? TopDonors.Max(d => d.TotalGiven) : 1m;}
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);width:40px;">#</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Tier</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total Given</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Gifts</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Last Gift</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Giving</th>
+            <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @{int rank = 0;}
+          @foreach (var d in TopDonors)
+          {
+            rank++;
+            var barPct = maxGiven > 0 ? d.TotalGiven / maxGiven * 100m : 0m;
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@rank</td>
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                <a href="/admin/donors/@d.Id" style="color:var(--navy);">@d.FullName</a>
+                @if (d.IsRecurring) { <span style="font-size:.68rem;color:var(--green);margin-left:4px;">● Recurring</span> }
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.Tier</td>
+              <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.TotalGiven.ToString("C0")</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@d.GiftCount</td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.LastGiftDate.ToString("MMM d, yyyy")</td>
+              <td style="padding:10px 16px;min-width:120px;">
+                <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
+                  <div style="background:var(--green);height:6px;width:@barPct.ToString("F1")%;"></div>
+                </div>
+              </td>
+              <td style="padding:10px 16px;text-align:center;">
+                <a href="/admin/donors/@d.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<Donor> _donors = [];
+  private int _limit = 25;
+  private bool _loading = true;
+
+  private IEnumerable<Donor> TopDonors => _donors.OrderByDescending(d => d.TotalGiven).Take(_limit);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donors  = await Api.GetDonorsAsync();
+    _loading = false;
+  }
+}

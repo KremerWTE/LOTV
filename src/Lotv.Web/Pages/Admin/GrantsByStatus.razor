@@ -1,0 +1,133 @@
+@page "/admin/grants/by-status"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Grants by Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Grants by Status</h2><p>Grant portfolio grouped by lifecycle stage</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/grants" class="btn btn-sm">← All Grants</a>
+    <a href="/admin/grants/calendar" class="btn btn-sm">Calendar</a>
+    <a href="/admin/grants/new" class="btn btn-sm btn-primary">+ Add Grant</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Grants</div>
+      <div class="kpi-value" style="color:var(--navy)">@_grants.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Awarded</div>
+      <div class="kpi-value" style="color:var(--green)">@_grants.Where(g => g.Status == "Awarded").Sum(g => g.Amount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Pending</div>
+      <div class="kpi-value" style="color:var(--amber)">@_grants.Count(g => g.Status == "Pending" || g.Status == "Applied")</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Reports Due Soon</div>
+      <div class="kpi-value" style="color:var(--red)">@_grants.Count(g => g.ReportDueDate.HasValue && (g.ReportDueDate.Value - DateTime.Today).TotalDays <= 30 && g.ReportDueDate.Value >= DateTime.Today)</div>
+    </div>
+  </div>
+
+  @foreach (var grp in _grants.GroupBy(g => g.Status).OrderBy(g => StatusOrder(g.Key)))
+  {
+    var grpTotal = grp.Sum(g => g.Amount);
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>
+          <span class="badge badge-@StatusClass(grp.Key)" style="font-size:.72rem;margin-right:8px;">@grp.Key</span>
+          <span style="font-size:.84rem;">@grp.Count() grants · @grpTotal.ToString("C0")</span>
+        </h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Grant</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Funder</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Awarded / Report Due</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var g in grp.OrderBy(g => g.ReportDueDate ?? DateTime.MaxValue))
+            {
+              var dueSoon = g.ReportDueDate.HasValue && (g.ReportDueDate.Value - DateTime.Today).TotalDays <= 30 && g.ReportDueDate.Value >= DateTime.Today;
+              <tr style="border-top:1px solid var(--border);@(dueSoon ? "background:#fffbeb;" : "")">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@g.Purpose</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@g.GrantorName</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@g.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">
+                  <div>Awarded: @g.AwardedDate.ToString("MMM d, yyyy")</div>
+                  @if (g.ReportDueDate.HasValue)
+                  {
+                    <span style="color:@(dueSoon ? "var(--amber)" : "var(--text-light)");">Report: @g.ReportDueDate.Value.ToString("MMM d, yyyy") @(dueSoon ? "⚠" : "")</span>
+                  }
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/grants/@g.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_grants.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No grants found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<GrantDto> _grants = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _grants  = await Api.GetGrantsAsync();
+    _loading = false;
+  }
+
+  private static int StatusOrder(string status) => status switch
+  {
+    "Applied"   => 0,
+    "Pending"   => 1,
+    "Awarded"   => 2,
+    "Active"    => 3,
+    "Reporting" => 4,
+    "Closed"    => 5,
+    "Declined"  => 6,
+    _           => 99
+  };
+
+  private static string StatusClass(string status) => status switch
+  {
+    "Applied"   => "new",
+    "Pending"   => "new",
+    "Awarded"   => "fulfilled",
+    "Active"    => "fulfilled",
+    "Reporting" => "onhold",
+    "Closed"    => "cancelled",
+    "Declined"  => "cancelled",
+    _           => "new"
+  };
+}
