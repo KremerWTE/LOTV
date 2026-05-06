@@ -1,0 +1,140 @@
+@page "/admin/chapters/{Id:int}/pledges"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Chapter Pledges — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Pledges</h2><p>@(_chapter?.Name ?? $"Chapter #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapters/@Id" class="btn btn-sm">← Chapter</a>
+    <a href="/admin/pledges" class="btn btn-sm">All Pledges</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128179;</div>
+      <div class="kpi-label">Total Pledged</div>
+      <div class="kpi-value" style="color:var(--navy)">@_pledges.Sum(p => p.PledgedAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_pledges.Count(p => p.Status == PledgeStatus.Fulfilled)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--amber)">@_pledges.Count(p => p.Status == PledgeStatus.Active)</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_pledges.Count(p => p.Status == PledgeStatus.Overdue)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Pledges (@_pledges.Count)</h3>
+      <select class="form-input" style="width:160px;font-size:.82rem;padding:5px 10px;" @bind="_filter">
+        <option value="all">All</option>
+        <option value="Active">Active</option>
+        <option value="Overdue">Overdue</option>
+        <option value="Fulfilled">Fulfilled</option>
+        <option value="Lapsed">Lapsed</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No pledges match the selected filter.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Paid</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Remaining</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var p in Filtered.OrderByDescending(p => p.TargetDate))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@p.DonorId" style="color:var(--navy);">@(p.Donor?.FullName ?? $"Donor #{p.DonorId}")</a>
+                  @if (!string.IsNullOrEmpty(p.Campaign))
+                  {
+                    <div style="font-size:.74rem;color:var(--text-light);">@p.Campaign</div>
+                  }
+                </td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--navy);">@p.PledgedAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.84rem;text-align:right;color:var(--green);">@p.FulfilledAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.84rem;text-align:right;color:@(p.RemainingAmount > 0 ? "var(--amber)" : "var(--green)");">@p.RemainingAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@StatusClass(p.Status)" style="font-size:.68rem;">@p.Status</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;white-space:nowrap;">
+                  @if (p.Status == PledgeStatus.Active || p.Status == PledgeStatus.Overdue)
+                  {
+                    <a href="/admin/pledges/@p.Id/payment" style="font-size:.78rem;color:var(--navy);margin-right:8px;">Pay</a>
+                  }
+                  <a href="/admin/pledges/@p.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Chapter? _chapter;
+  private List<DonorPledge> _pledges = [];
+  private string _filter = "all";
+  private bool _loading = true;
+
+  private IEnumerable<DonorPledge> Filtered =>
+    _filter == "all" ? _pledges : _pledges.Where(p => p.Status.ToString() == _filter);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var chapTask   = Api.GetChaptersAdminAsync();
+    var pledgeTask = Api.GetPledgesAsync();
+    await Task.WhenAll(chapTask, pledgeTask);
+    var chapters = await chapTask;
+    _chapter     = chapters.FirstOrDefault(c => c.Id == Id);
+    var all      = await pledgeTask;
+    _pledges     = all.Where(p => p.ChapterId == Id).ToList();
+    _loading = false;
+  }
+
+  private static string StatusClass(PledgeStatus s) => s switch
+  {
+    PledgeStatus.Active    => "new",
+    PledgeStatus.Fulfilled => "fulfilled",
+    PledgeStatus.Overdue   => "cancelled",
+    PledgeStatus.Cancelled => "cancelled",
+    PledgeStatus.Lapsed    => "onhold",
+    _                      => "new"
+  };
+}

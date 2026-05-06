@@ -1,0 +1,152 @@
+@page "/admin/volunteers/geography"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Geography — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Geography</h2><p>Service radius and location coverage by volunteer</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← Volunteers</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127759;</div>
+      <div class="kpi-label">With Location</div>
+      <div class="kpi-value" style="color:var(--navy)">@_located.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#10060;</div>
+      <div class="kpi-label">No Location</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_volunteers.Count - _located.Count)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128205;</div>
+      <div class="kpi-label">Avg Radius</div>
+      <div class="kpi-value" style="font-size:.9rem;color:var(--green)">@(_located.Any() ? _located.Average(v => v.ServiceRadiusMiles).ToString("F1") + " mi" : "—")</div>
+    </div>
+  </div>
+
+  @if (_volunteers.Count - _located.Count > 0)
+  {
+    <div class="panel" style="border-left:4px solid var(--amber);margin-bottom:16px;">
+      <div class="panel-body" style="font-size:.84rem;color:#92400e;">
+        ⚠ @(_volunteers.Count - _located.Count) volunteer(s) have no location data and cannot be auto-matched to cases by distance.
+      </div>
+    </div>
+  }
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Volunteers with Location (@_located.Count)</h3>
+      <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 10px;"
+             placeholder="Search name…" @bind="_search" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No results.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Volunteer</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Radius</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Lat</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Lng</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Active Cases</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var v in Filtered)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/volunteers/@v.Id" style="color:var(--navy);">@v.FullName</a>
+                </td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@(v.Status == VolunteerStatus.Active ? "fulfilled" : "cancelled")" style="font-size:.68rem;">@v.Status</span>
+                </td>
+                <td style="padding:10px 16px;text-align:right;font-size:.84rem;font-weight:600;">@v.ServiceRadiusMiles.ToString("F0") mi</td>
+                <td style="padding:10px 16px;text-align:right;font-size:.78rem;font-family:monospace;color:var(--text-light);">@(v.Latitude?.ToString("F4") ?? "—")</td>
+                <td style="padding:10px 16px;text-align:right;font-size:.78rem;font-family:monospace;color:var(--text-light);">@(v.Longitude?.ToString("F4") ?? "—")</td>
+                <td style="padding:10px 16px;text-align:right;font-size:.84rem;font-weight:600;color:@(v.ActiveCases > 0 ? "var(--navy)" : "var(--text-light)");">@v.ActiveCases</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/volunteers/@v.Id/edit" style="font-size:.78rem;color:var(--navy);">Edit</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+
+  @if (_noLocation.Any())
+  {
+    <div class="panel" style="margin-top:16px;">
+      <div class="panel-head"><h3>Missing Location (@_noLocation.Count)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Volunteer</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var v in _noLocation.OrderBy(v => v.LastName))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/volunteers/@v.Id" style="color:var(--navy);">@v.FullName</a>
+                </td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@(v.Status == VolunteerStatus.Active ? "fulfilled" : "cancelled")" style="font-size:.68rem;">@v.Status</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/volunteers/@v.Id/edit" style="font-size:.78rem;color:var(--navy);">Add Location</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<Volunteer> _volunteers = [];
+  private List<Volunteer> _located = [];
+  private List<Volunteer> _noLocation = [];
+  private string _search = "";
+  private bool _loading = true;
+
+  private IEnumerable<Volunteer> Filtered =>
+    _located.Where(v => string.IsNullOrEmpty(_search) ||
+      v.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase))
+    .OrderByDescending(v => v.ServiceRadiusMiles);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _volunteers = await Api.GetVolunteersAsync();
+    _located    = _volunteers.Where(v => v.Latitude.HasValue && v.Longitude.HasValue).ToList();
+    _noLocation = _volunteers.Where(v => !v.Latitude.HasValue || !v.Longitude.HasValue).ToList();
+    _loading = false;
+  }
+}

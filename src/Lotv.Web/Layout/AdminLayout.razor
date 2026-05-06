@@ -826,6 +826,11 @@
       var u when u == "/admin/currencies"                                                                                     => "Exchange Rates",
       var u when u.Contains("/admin/chapters/") && u.EndsWith("/staff")                                                      => "Chapter Staff",
       var u when u.Contains("/admin/cases/") && u.EndsWith("/status")                                                        => "Case Status",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/recurring")                                                  => "Chapter Recurring",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/pledges")                                                    => "Chapter Pledges",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/inventory")                                                  => "Chapter Inventory",
+      var u when u.Contains("/admin/families/") && u.EndsWith("/volunteers")                                                 => "Family Volunteers",
+      var u when u == "/admin/volunteers/geography"                                                                          => "Volunteer Geography",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

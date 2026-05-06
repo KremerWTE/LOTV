@@ -1,0 +1,145 @@
+@page "/admin/chapters/{Id:int}/recurring"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Chapter Recurring — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Recurring Gifts</h2><p>@(_chapter?.Name ?? $"Chapter #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapters/@Id" class="btn btn-sm">← Chapter</a>
+    <a href="/admin/recurring" class="btn btn-sm">All Recurring</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--green)">@_recurring.Count(r => r.Status == RecurringStatus.Active)</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Est. Monthly</div>
+      <div class="kpi-value" style="color:var(--navy)">@EstimatedMonthly().ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Past Due</div>
+      <div class="kpi-value" style="color:var(--amber)">@_recurring.Count(r => r.Status == RecurringStatus.PastDue)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#9646;</div>
+      <div class="kpi-label">Paused</div>
+      <div class="kpi-value">@_recurring.Count(r => r.Status == RecurringStatus.Paused)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Recurring Schedules (@_recurring.Count)</h3>
+      <select class="form-input" style="width:160px;font-size:.82rem;padding:5px 10px;" @bind="_filter">
+        <option value="all">All</option>
+        <option value="Active">Active</option>
+        <option value="PastDue">Past Due</option>
+        <option value="Paused">Paused</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No schedules match the selected filter.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Frequency</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Next Charge</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var r in Filtered.OrderBy(r => r.NextChargeDate))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@r.DonorId" style="color:var(--navy);">@(r.Donor?.FullName ?? $"Donor #{r.DonorId}")</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.Frequency.ToDisplayName()</td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@StatusClass(r.Status)" style="font-size:.68rem;">@r.Status</span>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:@(r.Status == RecurringStatus.PastDue ? "var(--red)" : "var(--text-light)");">
+                  @r.NextChargeDate.ToString("MMM d, yyyy")
+                </td>
+                <td style="padding:10px 16px;text-align:center;white-space:nowrap;">
+                  <a href="/admin/recurring/@r.Id/manage" style="font-size:.78rem;color:var(--navy);">Manage</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Chapter? _chapter;
+  private List<RecurringDonation> _recurring = [];
+  private string _filter = "all";
+  private bool _loading = true;
+
+  private IEnumerable<RecurringDonation> Filtered =>
+    _filter == "all" ? _recurring : _recurring.Where(r => r.Status.ToString() == _filter);
+
+  private decimal EstimatedMonthly() => _recurring
+    .Where(r => r.Status == RecurringStatus.Active)
+    .Sum(r => r.Frequency switch
+    {
+      RecurringFrequency.Weekly     => r.Amount * 4.33m,
+      RecurringFrequency.BiWeekly   => r.Amount * 2.17m,
+      RecurringFrequency.Monthly    => r.Amount,
+      RecurringFrequency.Quarterly  => r.Amount / 3m,
+      RecurringFrequency.Annually   => r.Amount / 12m,
+      _                             => r.Amount
+    });
+
+  protected override async Task OnInitializedAsync()
+  {
+    var chapTask = Api.GetChaptersAdminAsync();
+    var recTask  = Api.GetAllRecurringAsync();
+    await Task.WhenAll(chapTask, recTask);
+    var chapters  = await chapTask;
+    _chapter      = chapters.FirstOrDefault(c => c.Id == Id);
+    var all       = await recTask;
+    _recurring    = all.Where(r => r.ChapterId == Id).ToList();
+    _loading = false;
+  }
+
+  private static string StatusClass(RecurringStatus s) => s switch
+  {
+    RecurringStatus.Active    => "fulfilled",
+    RecurringStatus.Paused    => "onhold",
+    RecurringStatus.Cancelled => "cancelled",
+    RecurringStatus.PastDue   => "cancelled",
+    RecurringStatus.Completed => "fulfilled",
+    _                         => "new"
+  };
+}
