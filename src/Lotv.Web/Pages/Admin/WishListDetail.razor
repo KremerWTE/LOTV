@@ -1,0 +1,206 @@
+@page "/admin/wishlist/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Wish List Item — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Wish List Item</h2><p>@(_item?.Title ?? $"Item #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/wishlist" class="btn btn-sm">← Wish List</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_item is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Item #@Id not found.</div></div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_msg))
+  {
+    <div class="panel" style="border-left:4px solid @(_msgOk ? "var(--green)" : "var(--red)");margin-bottom:16px;">
+      <div class="panel-body" style="color:@(_msgOk ? "var(--green)" : "var(--red)");font-weight:600;">@_msg</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <!-- Item detail -->
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <h3>@_item.Title</h3>
+          <span class="badge badge-@StatusBadge(_item.Status)" style="font-size:.68rem;">@_item.Status</span>
+        </div>
+        <div class="panel-body">
+          @if (!string.IsNullOrEmpty(_item.Description))
+          {
+            <div style="font-size:.86rem;line-height:1.6;color:var(--text-mid);margin-bottom:14px;">@_item.Description</div>
+          }
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:35%;">Category</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_item.Category.ToDisplayName()</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Family</td>
+                <td style="padding:8px 0;font-size:.86rem;">
+                  @if (_item.FamilyId.HasValue)
+                  {
+                    <a href="/admin/families?family=@_item.FamilyId" style="color:var(--navy);">Family #@_item.FamilyId</a>
+                  }
+                  else { <span style="color:var(--text-light);">Chapter-wide</span> }
+                </td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Requested</td>
+                <td style="padding:8px 0;font-size:.86rem;font-weight:600;">@_item.QuantityRequested</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Fulfilled</td>
+                <td style="padding:8px 0;font-size:.86rem;color:var(--green);">@_item.QuantityFulfilled</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Remaining</td>
+                <td style="padding:8px 0;font-size:1.1rem;font-weight:800;color:@(_item.QuantityRemaining > 0 ? "var(--amber)" : "var(--green)");">@_item.QuantityRemaining</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Created</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_item.CreatedAt.ToString("MMM d, yyyy")</td>
+              </tr>
+              @if (_item.FulfilledAt.HasValue)
+              {
+                <tr>
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Fulfilled At</td>
+                  <td style="padding:8px 0;font-size:.86rem;color:var(--green);">@_item.FulfilledAt.Value.ToString("MMM d, yyyy")</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          @if (!string.IsNullOrEmpty(_item.Notes))
+          {
+            <div style="margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:6px;font-size:.82rem;color:var(--text-mid);">
+              @_item.Notes
+            </div>
+          }
+
+          <!-- Fulfillment progress bar -->
+          @{
+            var pct = _item.QuantityRequested == 0 ? 0 : (int)((double)_item.QuantityFulfilled / _item.QuantityRequested * 100);
+          }
+          <div style="margin-top:16px;">
+            <div style="font-size:.74rem;color:var(--text-light);margin-bottom:4px;">Fulfillment progress — @pct%</div>
+            <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+              <div style="width:@(Math.Min(pct, 100))%;background:@(pct >= 100 ? "var(--green)" : "var(--amber)");height:100%;border-radius:4px;transition:.3s;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div>
+      @if (_item.Status is WishListStatus.Open or WishListStatus.PartiallyFulfilled)
+      {
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head"><h3>Record Fulfillment</h3></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <label class="form-label">Quantity Fulfilled</label>
+              <input class="form-input" type="number" min="1" max="@_item.QuantityRemaining" @bind="_fulfillQty" />
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+              <label class="form-label">Donor ID (optional)</label>
+              <input class="form-input" @bind="_fulfillDonorId" placeholder="User ID of fulfilling donor" />
+            </div>
+            <button class="btn btn-sm" style="width:100%;margin-top:12px;background:var(--green);color:white;border:none;"
+                    @onclick="Fulfill" disabled="@_busy">
+              ✓ Mark Fulfilled
+            </button>
+          </div>
+        </div>
+      }
+
+      <div class="panel">
+        <div class="panel-head"><h3>Actions</h3></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          <a href="/admin/wishlist/new" class="btn btn-sm" style="text-align:center;">+ Add Similar Item</a>
+          @if (_item.Status != WishListStatus.Cancelled && _item.Status != WishListStatus.Fulfilled)
+          {
+            <button class="btn btn-sm" style="background:var(--red);color:white;border:none;"
+                    @onclick="Cancel" disabled="@_busy">
+              ✕ Cancel Item
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private WishListItem? _item;
+  private bool _loading = true, _busy;
+  private string _msg = "";
+  private bool _msgOk;
+
+  private int _fulfillQty = 1;
+  private string _fulfillDonorId = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetWishListAsync();
+    _item = all.FirstOrDefault(w => w.Id == Id);
+    if (_item is not null) _fulfillQty = Math.Max(1, _item.QuantityRemaining);
+    _loading = false;
+  }
+
+  private async Task Fulfill()
+  {
+    if (_item is null) return;
+    if (_fulfillQty <= 0) { _msg = "Quantity must be at least 1."; _msgOk = false; return; }
+    _busy = true;
+    var donorId = string.IsNullOrWhiteSpace(_fulfillDonorId) ? null : _fulfillDonorId;
+    var ok = await Api.FulfillWishListItemAsync(Id, _fulfillQty, donorId);
+    _busy = false;
+    if (ok)
+    {
+      var all = await Api.GetWishListAsync();
+      _item = all.FirstOrDefault(w => w.Id == Id);
+      _msg = "Fulfillment recorded."; _msgOk = true;
+    }
+    else { _msg = "Action failed. Please try again."; _msgOk = false; }
+  }
+
+  private async Task Cancel()
+  {
+    _busy = true;
+    var ok = await Api.CancelWishListItemAsync(Id);
+    _busy = false;
+    if (ok)
+    {
+      var all = await Api.GetWishListAsync();
+      _item = all.FirstOrDefault(w => w.Id == Id);
+      _msg = "Item cancelled."; _msgOk = true;
+    }
+    else { _msg = "Action failed. Please try again."; _msgOk = false; }
+  }
+
+  private static string StatusBadge(WishListStatus s) => s switch
+  {
+    WishListStatus.Fulfilled          => "fulfilled",
+    WishListStatus.Cancelled          => "cancelled",
+    WishListStatus.PartiallyFulfilled => "onhold",
+    _                                 => "new"
+  };
+}

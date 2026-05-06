@@ -1,0 +1,133 @@
+@page "/admin/inventory/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Inventory Item — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Add Inventory Item</h2><p>Record a new physical resource for the chapter</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory" class="btn btn-sm">← Inventory</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Item added. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Item Details</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Item Name *</label>
+          <input class="form-input" @bind="_name" placeholder="e.g. Knitted blanket — newborn" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Category</label>
+          <select class="form-input" @bind="_category">
+            @foreach (var cat in Enum.GetValues<ResourceCategory>())
+            {
+              <option value="@cat">@cat</option>
+            }
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Unit of Measure</label>
+          <input class="form-input" @bind="_unit" placeholder="box, bag, set, unit…" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Description</label>
+          <textarea class="form-input" rows="3" @bind="_description" placeholder="Size, condition, any notes…"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Quantity &amp; Assignment</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Initial Quantity On Hand *</label>
+          <input class="form-input" type="number" min="0" @bind="_quantityOnHand" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="background:#f0f9ff;border-left:3px solid var(--navy);">
+      <div class="panel-body" style="font-size:.82rem;color:var(--text-mid);line-height:1.6;">
+        <strong>Stock tracking:</strong> Once added, navigate to the item detail page to make stock adjustments as items are received or allocated.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+  <a href="/admin/inventory" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Add Item")</button>
+</div>
+
+@code {
+  private string _name = "", _unit = "unit", _description = "";
+  private ResourceCategory _category = ResourceCategory.BabyClothing;
+  private int _quantityOnHand, _chapterId;
+  private bool _busy, _saved;
+  private string _error = "";
+  private List<Chapter> _chapters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_name)) { _error = "Item name is required."; return; }
+    if (_chapterId == 0) { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var item = new ResourceItem
+    {
+      Name            = _name,
+      Category        = _category,
+      Unit            = string.IsNullOrWhiteSpace(_unit) ? "unit" : _unit,
+      QuantityOnHand  = _quantityOnHand,
+      QuantityReserved = 0,
+      ChapterId       = _chapterId,
+      Description     = string.IsNullOrWhiteSpace(_description) ? null : _description,
+    };
+    var result = await Api.CreateInventoryItemAsync(item);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo($"/admin/inventory/{result.Id}");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

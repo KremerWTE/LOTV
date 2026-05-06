@@ -1,0 +1,179 @@
+@page "/admin/chapters/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Chapter — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Chapter</h2><p>@(_chapter?.Name ?? $"Chapter #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapters" class="btn btn-sm">← Chapters</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_chapter is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Chapter #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Chapter updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Chapter Information</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Chapter Name *</label>
+            <input class="form-input" @bind="_name" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">City *</label>
+            <input class="form-input" @bind="_city" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">State *</label>
+            <input class="form-input" @bind="_state" maxlength="2" />
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" @bind="_isActive" style="width:16px;height:16px;" />
+              <span>Active Chapter</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Chapter Contact</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Contact Name *</label>
+            <input class="form-input" @bind="_contactName" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Contact Email *</label>
+            <input class="form-input" type="email" @bind="_contactEmail" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Contact Phone</label>
+            <input class="form-input" type="tel" @bind="_contactPhone" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Auto-Assignment Settings</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Max Cases / Volunteer</label>
+            <input class="form-input" type="number" min="1" max="20" @bind="_maxCases" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Acceptance Window (hrs)</label>
+            <input class="form-input" type="number" min="1" @bind="_acceptanceHrs" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Urgent Window (hrs)</label>
+            <input class="form-input" type="number" min="1" @bind="_urgentHrs" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Service Radius (miles)</label>
+            <input class="form-input" type="number" min="1" step="5" @bind="_radiusMiles" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+    <a href="/admin/chapters" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Chapter? _chapter;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private string _name = "", _city = "", _state = "", _contactName = "", _contactEmail = "", _contactPhone = "";
+  private bool _isActive = true;
+  private int _maxCases = 6, _acceptanceHrs = 24, _urgentHrs = 4;
+  private double _radiusMiles = 25.0;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetChaptersAdminAsync();
+    _chapter = all.FirstOrDefault(c => c.Id == Id);
+    if (_chapter is not null)
+    {
+      _name          = _chapter.Name;
+      _city          = _chapter.City;
+      _state         = _chapter.State;
+      _contactName   = _chapter.ContactName;
+      _contactEmail  = _chapter.ContactEmail;
+      _contactPhone  = _chapter.ContactPhone ?? "";
+      _isActive      = _chapter.IsActive;
+      _maxCases      = _chapter.MaxActiveCasesPerVolunteer;
+      _acceptanceHrs = _chapter.AcceptanceWindowHours;
+      _urgentHrs     = _chapter.UrgentAcceptanceWindowHours;
+      _radiusMiles   = _chapter.DefaultServiceRadiusMiles;
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_name))         { _error = "Chapter name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_city))         { _error = "City is required."; return; }
+    if (string.IsNullOrWhiteSpace(_state))        { _error = "State is required."; return; }
+    if (string.IsNullOrWhiteSpace(_contactName))  { _error = "Contact name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_contactEmail)) { _error = "Contact email is required."; return; }
+
+    _busy = true;
+    var updated = new Chapter
+    {
+      Id                           = Id,
+      Name                         = _name,
+      City                         = _city,
+      State                        = _state.ToUpper().Trim(),
+      ContactName                  = _contactName,
+      ContactEmail                 = _contactEmail,
+      ContactPhone                 = string.IsNullOrWhiteSpace(_contactPhone) ? null : _contactPhone,
+      IsActive                     = _isActive,
+      MaxActiveCasesPerVolunteer   = _maxCases,
+      AcceptanceWindowHours        = _acceptanceHrs,
+      UrgentAcceptanceWindowHours  = _urgentHrs,
+      DefaultServiceRadiusMiles    = _radiusMiles,
+      CreatedAt                    = _chapter!.CreatedAt,
+    };
+    var ok = await Api.UpdateChapterAsync(Id, updated);
+    _busy = false;
+    if (ok) { _saved = true; _chapter = updated; }
+    else _error = "Save failed. Please try again.";
+  }
+}

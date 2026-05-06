@@ -1,0 +1,238 @@
+@page "/admin/donations/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Donation — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Log Donation</h2><p>Record a new gift from a donor</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donations" class="btn btn-sm">← Donations</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Donation recorded. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Donation Details</h3></div>
+      <div class="panel-body">
+        <!-- Donor search -->
+        <div class="form-group">
+          <label class="form-label">Donor *</label>
+          <div style="position:relative;">
+            <input class="form-input" value="@_donorSearch"
+                   @oninput='e => { _donorSearch = e.Value?.ToString() ?? ""; FilterDonors(); }'
+                   placeholder="Search by name or email…" autocomplete="off" />
+            @if (_donorSuggestions.Any())
+            {
+              <ul style="position:absolute;z-index:50;background:white;border:1px solid var(--border);border-radius:6px;width:100%;list-style:none;margin:2px 0 0;padding:4px 0;box-shadow:0 4px 12px rgba(0,0,0,.1);">
+                @foreach (var d in _donorSuggestions)
+                {
+                  var dCopy = d;
+                  <li @onmousedown='() => SelectDonor(dCopy)'
+                      style="padding:8px 14px;cursor:pointer;font-size:.84rem;">
+                    @d.FullName <span style="color:var(--text-light);font-size:.76rem;">— @d.Email</span>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+          @if (_selectedDonorId.HasValue)
+          {
+            <div style="margin-top:5px;font-size:.78rem;color:var(--green);">✓ @_selectedDonorName</div>
+          }
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+          <div class="form-group">
+            <label class="form-label">Amount *</label>
+            <input class="form-input" type="number" step="1" min="0" @bind="_amount" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date *</label>
+            <input class="form-input" type="date" @bind="_date" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+          <div class="form-group">
+            <label class="form-label">Channel</label>
+            <select class="form-input" @bind="_channel">
+              @foreach (var ch in Enum.GetValues<DonationChannel>())
+              {
+                <option value="@ch">@ch.ToDisplayName()</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contribution Status</label>
+            <select class="form-input" @bind="_contribStatus">
+              <option value="@ContributionStatus.Processed">Processed</option>
+              <option value="@ContributionStatus.Pending">Pending</option>
+              <option value="@ContributionStatus.Failed">Failed</option>
+              <option value="@ContributionStatus.Refunded">Refunded</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Campaign / Fund</label>
+          <input class="form-input" @bind="_campaign" placeholder="General, Building Fund…" />
+        </div>
+
+        @if (_channel == DonationChannel.Check)
+        {
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Check Number</label>
+            <input class="form-input" @bind="_checkNumber" placeholder="e.g. 4821" />
+          </div>
+        }
+
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="3" @bind="_notes" placeholder="Any additional context…"></textarea>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" @bind="_isRecurring" style="width:16px;height:16px;" />
+            <span>Part of a recurring gift</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Assignment</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name</option>
+            }
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Allocation Status</label>
+          <select class="form-input" @bind="_allocStatus">
+            <option value="@AllocationStatus.Unallocated">Unallocated</option>
+            <option value="@AllocationStatus.PendingReview">Pending Review</option>
+            <option value="@AllocationStatus.Allocated">Allocated</option>
+            <option value="@AllocationStatus.Restricted">Restricted</option>
+          </select>
+        </div>
+        @if (_allocStatus == AllocationStatus.Allocated || _allocStatus == AllocationStatus.Restricted)
+        {
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Allocated To</label>
+            <input class="form-input" @bind="_allocatedTo" placeholder="Fund or program name" />
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+  <a href="/admin/donations" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Record Donation")</button>
+</div>
+
+@code {
+  private string _donorSearch = "", _selectedDonorName = "", _campaign = "", _notes = "", _checkNumber = "", _allocatedTo = "";
+  private DonationChannel _channel = DonationChannel.Check;
+  private ContributionStatus _contribStatus = ContributionStatus.Processed;
+  private AllocationStatus _allocStatus = AllocationStatus.Unallocated;
+  private decimal _amount;
+  private DateTime _date = DateTime.Today;
+  private int _chapterId;
+  private int? _selectedDonorId;
+  private bool _isRecurring, _busy, _saved;
+  private string _error = "";
+
+  private List<Chapter> _chapters = [];
+  private List<Donor> _allDonors = [];
+  private List<Donor> _donorSuggestions = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var chapTask  = Api.GetChaptersAdminAsync();
+    var donorTask = Api.GetDonorsAsync();
+    await Task.WhenAll(chapTask, donorTask);
+    _chapters  = await chapTask;
+    _allDonors = await donorTask;
+  }
+
+  private void FilterDonors()
+  {
+    if (string.IsNullOrWhiteSpace(_donorSearch) || _donorSearch.Length < 2)
+    { _donorSuggestions = []; return; }
+    _donorSuggestions = _allDonors
+      .Where(d => d.FullName.Contains(_donorSearch, StringComparison.OrdinalIgnoreCase) ||
+                  d.Email.Contains(_donorSearch, StringComparison.OrdinalIgnoreCase))
+      .Take(6).ToList();
+  }
+
+  private void SelectDonor(Donor d)
+  {
+    _selectedDonorId   = d.Id;
+    _selectedDonorName = d.FullName;
+    _donorSearch       = d.FullName;
+    _donorSuggestions  = [];
+    if (_chapterId == 0) _chapterId = d.ChapterId;
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (!_selectedDonorId.HasValue) { _error = "Please select a donor."; return; }
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+    if (_chapterId == 0) { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var donation = new Donation
+    {
+      DonorId             = _selectedDonorId.Value,
+      ChapterId           = _chapterId,
+      Amount              = _amount,
+      Date                = _date,
+      Channel             = _channel,
+      Campaign            = string.IsNullOrWhiteSpace(_campaign) ? null : _campaign,
+      CheckNumber         = string.IsNullOrWhiteSpace(_checkNumber) ? null : _checkNumber,
+      IsRecurring         = _isRecurring,
+      ContributionStatus  = _contribStatus,
+      AllocationStatus    = _allocStatus,
+      AllocatedTo         = string.IsNullOrWhiteSpace(_allocatedTo) ? null : _allocatedTo,
+      Notes               = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+    };
+    var result = await Api.CreateDonationAsync(donation);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/donations");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

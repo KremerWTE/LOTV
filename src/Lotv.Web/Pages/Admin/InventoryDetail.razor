@@ -1,0 +1,235 @@
+@page "/admin/inventory/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Inventory Item — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Inventory Item</h2><p>@(_item?.Name ?? $"Item #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory" class="btn btn-sm">← Inventory</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_item is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Item #@Id not found.</div></div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_msg))
+  {
+    <div class="panel" style="border-left:4px solid @(_msgOk ? "var(--green)" : "var(--red)");margin-bottom:16px;">
+      <div class="panel-body" style="color:@(_msgOk ? "var(--green)" : "var(--red)");font-weight:600;">@_msg</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Item Details</h3></div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:35%;">Name</td>
+                <td style="padding:8px 0;font-size:.9rem;font-weight:700;">@_item.Name</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Category</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_item.Category</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Unit</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_item.Unit</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">On Hand</td>
+                <td style="padding:8px 0;font-size:.86rem;font-weight:600;">@_item.QuantityOnHand</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Reserved</td>
+                <td style="padding:8px 0;font-size:.86rem;color:var(--amber);">@_item.QuantityReserved</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Available</td>
+                <td style="padding:8px 0;font-size:1.1rem;font-weight:800;color:@(_item.QuantityAvailable <= 0 ? "var(--red)" : "var(--green)");">@_item.QuantityAvailable</td>
+              </tr>
+              @if (!string.IsNullOrEmpty(_item.Description))
+              {
+                <tr>
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Description</td>
+                  <td style="padding:8px 0;font-size:.84rem;color:var(--text-mid);">@_item.Description</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Edit Item</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Name *</label>
+              <input class="form-input" @bind="_editName" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Unit</label>
+              <input class="form-input" @bind="_editUnit" placeholder="box, bag, set…" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Category</label>
+              <select class="form-input" @bind="_editCategory">
+                @foreach (var cat in Enum.GetValues<ResourceCategory>())
+                {
+                  <option value="@cat">@cat</option>
+                }
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Quantity On Hand</label>
+              <input class="form-input" type="number" min="0" @bind="_editQty" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Description</label>
+            <textarea class="form-input" rows="2" @bind="_editDescription"></textarea>
+          </div>
+          <div style="margin-top:14px;text-align:right;">
+            <button class="btn btn-primary btn-sm" @onclick="SaveEdit" disabled="@_busy">
+              @(_busy ? "Saving…" : "Save Changes")
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Adjust Stock</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Adjustment (+/-)</label>
+            <input class="form-input" type="number" @bind="_adjustDelta" placeholder="e.g. +5 or -2" />
+            <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">
+              Positive = received, negative = used/lost
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Reason *</label>
+            <input class="form-input" @bind="_adjustReason" placeholder="Donation received, allocated to case…" />
+          </div>
+          <button class="btn btn-sm btn-primary" style="width:100%;margin-top:12px;" @onclick="Adjust" disabled="@_busy">
+            Apply Adjustment
+          </button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Stock Status</h3></div>
+        <div class="panel-body">
+          @{
+            var pct = _item.QuantityOnHand == 0 ? 0 : (int)((double)_item.QuantityAvailable / _item.QuantityOnHand * 100);
+            var barColor = pct > 50 ? "var(--green)" : pct > 20 ? "var(--amber)" : "var(--red)";
+          }
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:6px;">
+            @_item.QuantityAvailable / @_item.QuantityOnHand @(_item.Unit) available
+          </div>
+          <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:@(pct)%;background:@barColor;height:100%;border-radius:4px;transition:.3s;"></div>
+          </div>
+          <div style="font-size:.74rem;color:var(--text-light);margin-top:6px;">@pct% available</div>
+
+          @if (_item.QuantityAvailable == 0)
+          {
+            <div style="margin-top:10px;padding:8px 10px;background:#fef2f2;border-radius:6px;font-size:.78rem;color:var(--red);font-weight:600;">
+              ⚠ Out of stock
+            </div>
+          }
+          else if (_item.QuantityAvailable <= 2)
+          {
+            <div style="margin-top:10px;padding:8px 10px;background:#fffbeb;border-radius:6px;font-size:.78rem;color:var(--amber);font-weight:600;">
+              ⚠ Low stock
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private ResourceItem? _item;
+  private bool _loading = true, _busy;
+  private string _msg = "";
+  private bool _msgOk;
+
+  private string _editName = "", _editUnit = "", _editDescription = "";
+  private ResourceCategory _editCategory;
+  private int _editQty;
+
+  private int _adjustDelta;
+  private string _adjustReason = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _item = await Api.GetInventoryItemAsync(Id);
+    if (_item is not null)
+    {
+      _editName        = _item.Name;
+      _editUnit        = _item.Unit;
+      _editCategory    = _item.Category;
+      _editQty         = _item.QuantityOnHand;
+      _editDescription = _item.Description ?? "";
+    }
+    _loading = false;
+  }
+
+  private async Task SaveEdit()
+  {
+    if (string.IsNullOrWhiteSpace(_editName)) { _msg = "Name is required."; _msgOk = false; return; }
+    _busy = true;
+    var updated = new ResourceItem
+    {
+      Id              = Id,
+      ChapterId       = _item!.ChapterId,
+      Name            = _editName,
+      Unit            = string.IsNullOrWhiteSpace(_editUnit) ? "unit" : _editUnit,
+      Category        = _editCategory,
+      QuantityOnHand  = _editQty,
+      QuantityReserved = _item.QuantityReserved,
+      Description     = string.IsNullOrWhiteSpace(_editDescription) ? null : _editDescription,
+    };
+    var ok = await Api.UpdateInventoryItemAsync(Id, updated);
+    _busy = false;
+    if (ok) { _item = updated; _msg = "Item updated."; _msgOk = true; }
+    else { _msg = "Save failed. Please try again."; _msgOk = false; }
+  }
+
+  private async Task Adjust()
+  {
+    if (_adjustDelta == 0) { _msg = "Adjustment cannot be 0."; _msgOk = false; return; }
+    if (string.IsNullOrWhiteSpace(_adjustReason)) { _msg = "Reason is required."; _msgOk = false; return; }
+    _busy = true;
+    var ok = await Api.AdjustInventoryAsync(Id, _adjustDelta, _adjustReason);
+    _busy = false;
+    if (ok)
+    {
+      _item = await Api.GetInventoryItemAsync(Id);
+      _editQty = _item?.QuantityOnHand ?? _editQty;
+      _adjustDelta = 0; _adjustReason = "";
+      _msg = "Stock adjusted."; _msgOk = true;
+    }
+    else { _msg = "Adjustment failed."; _msgOk = false; }
+  }
+}

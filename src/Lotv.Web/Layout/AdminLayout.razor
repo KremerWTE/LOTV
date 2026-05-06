@@ -742,6 +742,13 @@
       var u when u.Contains("/admin/grants/") && u.EndsWith("/edit")         => "Edit Grant",
       var u when u.Contains("/admin/expenses/") && u.EndsWith("/edit")       => "Edit Expense",
       var u when u.Contains("/admin/announcements/") && u.EndsWith("/edit")  => "Edit Announcement",
+      var u when u.Contains("/admin/inventory/") && u.EndsWith("/edit")      => "Edit Inventory Item",
+      var u when u.EndsWith("/admin/inventory/new")                          => "Add Inventory Item",
+      var u when u.Contains("/admin/inventory/")                             => "Inventory Item Detail",
+      var u when u.EndsWith("/admin/chapters/new")                           => "Create Chapter",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/edit")       => "Edit Chapter",
+      var u when u.EndsWith("/admin/donations/new")                          => "Log Donation",
+      var u when u.Contains("/admin/wishlist/") && !u.EndsWith("/admin/wishlist") && !u.Contains("/analytics") => "Wish List Item Detail",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();
