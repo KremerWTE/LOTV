@@ -1,0 +1,82 @@
+@page "/admin/push/test"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Test Push Notifications — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Test Push Notifications</h2><p>Send test push messages to verify delivery</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/push-subscriptions" class="btn btn-sm">← Push Subscriptions</a>
+  </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_msg))
+{
+  <div class="panel" style="border-left:4px solid @(_msgOk ? "var(--green)" : "var(--red)");margin-bottom:16px;">
+    <div class="panel-body" style="color:@(_msgOk ? "var(--green)" : "var(--red)");font-weight:600;">@_msg</div>
+  </div>
+}
+
+<!-- Broadcast test -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-head"><h3>Broadcast Test</h3></div>
+  <div class="panel-body">
+    <p style="font-size:.84rem;color:var(--text-mid);margin-bottom:16px;">
+      Sends a test push notification to all subscribed browsers in this org.
+      Use this to verify that your VAPID keys and push configuration are working.
+    </p>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn btn-primary" @onclick="SendBroadcast" disabled="@_busyBroadcast">
+        @(_busyBroadcast ? "Sending…" : "Send Broadcast Test")
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Per-user test -->
+<div class="panel">
+  <div class="panel-head"><h3>Test to Specific User</h3></div>
+  <div class="panel-body">
+    <p style="font-size:.84rem;color:var(--text-mid);margin-bottom:16px;">
+      Enter the user's ID (ApplicationUser.Id) to send a targeted test notification.
+    </p>
+    <div style="display:flex;gap:10px;align-items:flex-end;">
+      <div class="form-group" style="flex:1;margin:0;">
+        <label class="form-label">User ID</label>
+        <input class="form-input" @bind="_userId" placeholder="e.g. abc123-def456…" />
+      </div>
+      <button class="btn btn-primary" @onclick="SendToUser" disabled="@_busyUser" style="flex-shrink:0;">
+        @(_busyUser ? "Sending…" : "Send Test")
+      </button>
+    </div>
+    <div style="margin-top:12px;font-size:.76rem;color:var(--text-light);">
+      Tip: Find User IDs in the User Management page.
+    </div>
+  </div>
+</div>
+
+@code {
+  private string _userId = "", _msg = "";
+  private bool _busyBroadcast, _busyUser, _msgOk;
+
+  private async Task SendBroadcast()
+  {
+    _msg = ""; _busyBroadcast = true;
+    var ok = await Api.SendTestPushAsync();
+    _busyBroadcast = false;
+    _msgOk = ok;
+    _msg = ok ? "✓ Broadcast test sent. Check subscribed browsers." : "Broadcast failed. Check VAPID config.";
+  }
+
+  private async Task SendToUser()
+  {
+    _msg = "";
+    if (string.IsNullOrWhiteSpace(_userId)) { _msgOk = false; _msg = "Please enter a user ID."; return; }
+    _busyUser = true;
+    var ok = await Api.SendTestPushToUserAsync(_userId.Trim());
+    _busyUser = false;
+    _msgOk = ok;
+    _msg = ok ? $"✓ Test notification sent to user {_userId.Trim()}." : $"Failed to send to {_userId.Trim()}. Check that the user has an active subscription.";
+  }
+}

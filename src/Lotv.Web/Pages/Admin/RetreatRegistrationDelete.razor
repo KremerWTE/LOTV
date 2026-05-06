@@ -1,0 +1,98 @@
+@page "/admin/retreats/{Id:int}/registrations/{RegId:int}/delete"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Delete Registration — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Delete Registration</h2><p>Retreat #@Id — Registration #@RegId</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/retreats/@Id" class="btn btn-sm">← Retreat</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_reg is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Registration #@RegId not found.</div></div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <!-- Registration summary -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Registrant</div>
+        <div style="font-weight:700;">@_reg.FirstName @_reg.LastName</div>
+        <div style="font-size:.78rem;color:var(--text-light);">@_reg.Email</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Registered</div>
+        <div style="font-size:.84rem;">@_reg.RegisteredAt.ToString("MMM d, yyyy")</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Payment</div>
+        <div style="font-size:.84rem;">@_reg.AmountPaid.ToString("C0") — @_reg.PaymentStatus</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Source</div>
+        <div style="font-size:.84rem;">@_reg.RegistrationSource</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:480px;">
+    <div class="panel" style="border-left:4px solid var(--red);">
+      <div class="panel-head"><h3 style="color:var(--red);">Confirm Deletion</h3></div>
+      <div class="panel-body">
+        <p style="font-size:.84rem;color:var(--text-mid);margin-bottom:16px;">
+          This will permanently remove <strong>@_reg.FirstName @_reg.LastName</strong>'s registration from this retreat.
+          Payment records will not be automatically refunded.
+        </p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <a href="/admin/retreats/@Id" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" style="background:var(--red);" @onclick="Delete" disabled="@_busy">
+            @(_busy ? "Deleting…" : "Delete Registration")
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  [Parameter] public int RegId { get; set; }
+
+  private RetreatRegistrationDto? _reg;
+  private bool _loading = true, _busy;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var regs = await Api.GetRetreatRegistrationsAsync(Id);
+    _reg = regs.FirstOrDefault(r => r.Id == RegId);
+    _loading = false;
+  }
+
+  private async Task Delete()
+  {
+    _error = "";
+    _busy = true;
+    var ok = await Api.DeleteRegistrationAsync(Id, RegId);
+    _busy = false;
+    if (ok) Nav.NavigateTo($"/admin/retreats/{Id}");
+    else _error = "Failed to delete registration. Please try again.";
+  }
+}

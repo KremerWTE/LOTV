@@ -1,0 +1,80 @@
+@page "/admin/webhooks/prune"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Prune Webhooks — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Prune Old Webhooks</h2><p>Delete webhook event records older than a specified age</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/webhooks" class="btn btn-sm">← Webhook Log</a>
+  </div>
+</div>
+
+@if (_done)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">
+      ✓ Pruned @_deleted webhook record(s).
+      <a href="/admin/webhooks" style="color:var(--green);margin-left:8px;">Back to log →</a>
+    </div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="max-width:480px;">
+  <div class="panel">
+    <div class="panel-head"><h3>Prune Settings</h3></div>
+    <div class="panel-body">
+      <p style="font-size:.84rem;color:var(--text-mid);margin-bottom:16px;">
+        This will permanently delete all webhook event records older than the selected age.
+        Processed events are safe to remove; they cannot be replayed after deletion.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">Delete records older than</label>
+        <select class="form-input" @bind="_days">
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days (recommended)</option>
+          <option value="180">180 days</option>
+          <option value="365">1 year</option>
+        </select>
+      </div>
+
+      <div style="margin-top:14px;padding:10px 12px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;font-size:.78rem;color:#92400e;">
+        ⚠ This action is permanent. Deleted records cannot be recovered.
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <a href="/admin/webhooks" class="btn btn-sm">Cancel</a>
+        <button class="btn btn-primary" style="background:var(--red);" @onclick="Prune" disabled="@_busy">
+          @(_busy ? "Pruning…" : $"Delete records older than {_days} days")
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  private int _days = 90;
+  private bool _busy, _done;
+  private int _deleted;
+  private string _error = "";
+
+  private async Task Prune()
+  {
+    _error = "";
+    _busy = true;
+    var result = await Api.PruneWebhooksAsync(_days);
+    _busy = false;
+    if (result.HasValue) { _done = true; _deleted = result.Value; }
+    else _error = "Prune failed. Please try again.";
+  }
+}

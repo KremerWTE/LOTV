@@ -1,0 +1,168 @@
+@page "/admin/retreats/{Id:int}/expenses/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Add Retreat Expense — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Add Expense</h2><p>Retreat #@Id</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/retreats/@Id" class="btn btn-sm">← Retreat</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">
+      ✓ Expense recorded.
+      <a href="/admin/retreats/@Id" style="color:var(--green);margin-left:8px;">Back to retreat →</a>
+      <button class="btn btn-sm" style="margin-left:8px;" @onclick="Reset">Add another</button>
+    </div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+@if (!_saved)
+{
+  <!-- Existing expenses -->
+  @if (_expenses.Any())
+  {
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-head"><h3>Existing Expenses (@_expenses.Count)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 14px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Description</th>
+              <th style="padding:8px 14px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Category</th>
+              <th style="padding:8px 14px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:8px 14px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Paid By</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var e in _expenses.OrderByDescending(e => e.CreatedAt))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 14px;font-size:.84rem;">@e.Description</td>
+                <td style="padding:8px 14px;font-size:.82rem;color:var(--text-light);">@e.Category</td>
+                <td style="padding:8px 14px;font-size:.88rem;font-weight:700;text-align:right;color:var(--navy);">@e.Amount.ToString("C0")</td>
+                <td style="padding:8px 14px;font-size:.82rem;color:var(--text-light);">@(e.PaidBy ?? "—")</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
+              <td colspan="2" style="padding:8px 14px;font-size:.84rem;">Total</td>
+              <td style="padding:8px 14px;font-size:.88rem;text-align:right;color:var(--navy);">@_expenses.Sum(e => e.Amount).ToString("C0")</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- Add form -->
+  <div style="max-width:520px;">
+    <div class="panel">
+      <div class="panel-head"><h3>New Expense</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Description *</label>
+          <input class="form-input" @bind="_description" placeholder="e.g. Catering for Saturday dinner, Venue rental…" />
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select class="form-input" @bind="_category">
+              <option value="Venue">Venue</option>
+              <option value="Catering">Catering</option>
+              <option value="Transportation">Transportation</option>
+              <option value="Materials">Materials</option>
+              <option value="Speaker">Speaker</option>
+              <option value="Lodging">Lodging</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount *</label>
+            <input class="form-input" type="number" step="0.01" min="0" @bind="_amount" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">Paid Date</label>
+            <input class="form-input" type="date" @bind="_paidAt" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Paid By</label>
+            <input class="form-input" @bind="_paidBy" placeholder="Staff name or vendor" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="2" @bind="_notes" placeholder="Receipt reference, approval notes…"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/retreats/@Id" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Add Expense")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private List<RetreatExpenseDto> _expenses = [];
+  private string _description = "", _category = "Other", _paidBy = "", _notes = "";
+  private decimal _amount;
+  private DateTime? _paidAt;
+  private bool _busy, _saved;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _expenses = await Api.GetRetreatExpensesAsync(Id);
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_description)) { _error = "Description is required."; return; }
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+    _busy = true;
+    var body = new
+    {
+      Description = _description.Trim(),
+      Category    = _category,
+      Amount      = _amount,
+      PaidAt      = _paidAt,
+      PaidBy      = string.IsNullOrWhiteSpace(_paidBy) ? null : _paidBy.Trim(),
+      Notes       = string.IsNullOrWhiteSpace(_notes) ? null : _notes.Trim()
+    };
+    var result = await Api.AddExpenseAsync(Id, body);
+    _busy = false;
+    if (result is not null) { _saved = true; _expenses.Add(result); }
+    else _error = "Failed to add expense. Please try again.";
+  }
+
+  private void Reset()
+  {
+    _saved = false; _description = ""; _category = "Other"; _amount = 0;
+    _paidAt = null; _paidBy = ""; _notes = "";
+  }
+}

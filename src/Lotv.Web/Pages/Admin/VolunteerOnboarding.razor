@@ -1,0 +1,186 @@
+@page "/admin/volunteer/onboarding"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Onboarding — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Onboarding</h2><p>Complete your volunteer profile to get started</p></div>
+</div>
+
+@if (_done)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">
+      ✓ Volunteer profile complete! You're ready to receive assignments.
+      <a href="/admin" style="color:var(--green);margin-left:8px;">Go to dashboard →</a>
+    </div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+@if (!_done)
+{
+  <div style="max-width:600px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Your Information</h3></div>
+      <div class="panel-body">
+        <p style="font-size:.82rem;color:var(--text-light);margin-bottom:16px;">
+          This information helps us match you to cases in your area and schedule you appropriately.
+        </p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input class="form-input" @bind="_firstName" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name *</label>
+            <input class="form-input" @bind="_lastName" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Phone *</label>
+          <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 555-5555" />
+        </div>
+
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">Street Address *</label>
+            <input class="form-input" @bind="_street" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">City *</label>
+            <input class="form-input" @bind="_city" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">State *</label>
+            <input class="form-input" @bind="_state" placeholder="e.g. IL" maxlength="2" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">ZIP *</label>
+            <input class="form-input" @bind="_zip" placeholder="60601" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var ch in _chapters)
+            {
+              <option value="@ch.Id">@ch.Name (@ch.City, @ch.State)</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label">Available Days</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+            @foreach (var day in _allDays)
+            {
+              var dayCopy = day;
+              <label style="display:flex;align-items:center;gap:5px;font-size:.84rem;cursor:pointer;">
+                <input type="checkbox"
+                       checked="@_availableDays.Contains(dayCopy)"
+                       @onchange='e => ToggleDay(dayCopy, (bool)(e.Value ?? false))' />
+                @day
+              </label>
+            }
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label">Skills</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+            @foreach (var skill in _allSkills)
+            {
+              var skillCopy = skill;
+              <label style="display:flex;align-items:center;gap:5px;font-size:.84rem;cursor:pointer;">
+                <input type="checkbox"
+                       checked="@_skills.Contains(skillCopy)"
+                       @onchange='e => ToggleSkill(skillCopy, (bool)(e.Value ?? false))' />
+                @skill
+              </label>
+            }
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Max Assignments Per Month</label>
+          <select class="form-input" @bind="_maxPerMonth">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5 or more</option>
+          </select>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">
+            @(_busy ? "Saving…" : "Complete Onboarding")
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private List<Chapter> _chapters = [];
+  private readonly string[] _allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  private readonly string[] _allSkills = ["Driving", "Infant CPR", "Bilingual", "Counseling", "Packaging", "Photography", "Administration", "Translation"];
+  private HashSet<string> _availableDays = [], _skills = [];
+  private string _firstName = "", _lastName = "", _phone = "", _street = "", _city = "", _state = "", _zip = "";
+  private int _chapterId, _maxPerMonth = 2;
+  private bool _busy, _done;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private void ToggleDay(string day, bool add)
+  {
+    if (add) _availableDays.Add(day); else _availableDays.Remove(day);
+  }
+
+  private void ToggleSkill(string skill, bool add)
+  {
+    if (add) _skills.Add(skill); else _skills.Remove(skill);
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_firstName)) { _error = "First name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_lastName))  { _error = "Last name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_phone))     { _error = "Phone is required."; return; }
+    if (string.IsNullOrWhiteSpace(_street))    { _error = "Street address is required."; return; }
+    if (string.IsNullOrWhiteSpace(_city))      { _error = "City is required."; return; }
+    if (string.IsNullOrWhiteSpace(_state))     { _error = "State is required."; return; }
+    if (string.IsNullOrWhiteSpace(_zip))       { _error = "ZIP is required."; return; }
+    if (_chapterId == 0)                       { _error = "Please select a chapter."; return; }
+    _busy = true;
+    var ok = await Api.CompleteVolunteerOnboardingAsync(
+      _firstName.Trim(), _lastName.Trim(), _phone.Trim(),
+      _street.Trim(), _city.Trim(), _state.Trim().ToUpper(), _zip.Trim(),
+      _availableDays, _skills, _maxPerMonth, _chapterId);
+    _busy = false;
+    if (ok) _done = true;
+    else _error = "Failed to complete onboarding. Please try again.";
+  }
+}

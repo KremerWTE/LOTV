@@ -791,6 +791,12 @@
       var u when u.Contains("/admin/pledges/") && u.EndsWith("/payment")                                                       => "Apply Payment",
       var u when u.Contains("/admin/events/") && u.Contains("/auction/close")                                                  => "Close Auction",
       var u when u == "/admin/staff/onboarding"                                                                               => "Staff Onboarding",
+      var u when u == "/admin/webhooks/prune"                                                                                  => "Prune Webhooks",
+      var u when u.Contains("/admin/retreats/") && u.Contains("/registrations/") && u.EndsWith("/delete")                     => "Delete Registration",
+      var u when u.Contains("/admin/retreats/") && u.EndsWith("/expenses/new")                                                 => "Add Retreat Expense",
+      var u when u == "/admin/volunteer/onboarding"                                                                            => "Volunteer Onboarding",
+      var u when u == "/admin/push/test"                                                                                       => "Test Push Notifications",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/avatar")                                                        => "Update Donor Avatar",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();
