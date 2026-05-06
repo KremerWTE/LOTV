@@ -1,0 +1,153 @@
+@page "/admin/chapters/{Id:int}/cases"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Chapter Cases — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Cases</h2><p>@(_chapter?.Name ?? $"Chapter #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapters/@Id" class="btn btn-sm">← Chapter</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <!-- KPIs -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-label">Total Cases</div>
+      <div class="kpi-value" style="color:var(--navy)">@_cases.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9200;</div>
+      <div class="kpi-label">Open</div>
+      <div class="kpi-value" style="color:var(--amber)">@_cases.Count(c => c.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#10003;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_cases.Count(c => c.Status == CaseStatus.Fulfilled)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_cases.Count(c => c.IsOverdue)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Cases (@_cases.Count)</h3>
+      <select class="form-input" style="width:180px;font-size:.82rem;padding:5px 10px;" @bind="_statusFilter">
+        <option value="">All statuses</option>
+        <option value="New">New</option>
+        <option value="InProgress">In Progress</option>
+        <option value="AwaitingShipment">Awaiting Shipment</option>
+        <option value="Shipped">Shipped</option>
+        <option value="Fulfilled">Fulfilled</option>
+        <option value="OnHold">On Hold</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">@(_cases.Any() ? "No cases match filter." : "No cases in this chapter.")</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Family</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Reason</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Priority</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Assigned</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var c in Filtered.OrderByDescending(c => c.CreatedAt))
+            {
+              <tr style="border-top:1px solid var(--border);@(c.IsOverdue ? "background:#fffbeb;" : "")">
+                <td style="padding:10px 16px;font-size:.84rem;white-space:nowrap;">@c.CreatedAt.ToString("MMM d")</td>
+                <td style="padding:10px 16px;font-size:.84rem;">
+                  @if (c.Family is not null)
+                  { <a href="/admin/families/@c.FamilyId" style="color:var(--navy);">@c.Family.Parent1LastName</a> }
+                  else
+                  { <span style="color:var(--text-light);">Family #@c.FamilyId</span> }
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@c.Reason</td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@StatusBadge(c.Status)" style="font-size:.68rem;">@c.Status</span>
+                </td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@PriorityBadge(c.Priority)" style="font-size:.68rem;">@c.Priority</span>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(c.AssignedTo ?? "—")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/cases/@c.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Chapter? _chapter;
+  private List<PackageRequest> _cases = [];
+  private string _statusFilter = "";
+  private bool _loading = true;
+
+  private IEnumerable<PackageRequest> Filtered => string.IsNullOrWhiteSpace(_statusFilter)
+    ? _cases
+    : _cases.Where(c => c.Status.ToString() == _statusFilter);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var chapTask = Api.GetChaptersAdminAsync();
+    var caseTask = Api.GetRequestsAsync();
+    await Task.WhenAll(chapTask, caseTask);
+    var chapters = await chapTask;
+    _chapter     = chapters.FirstOrDefault(c => c.Id == Id);
+    var all      = await caseTask;
+    _cases       = all.Where(c => c.ChapterId == Id).ToList();
+    _loading = false;
+  }
+
+  private static string StatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "new",
+    CaseStatus.InProgress       => "onhold",
+    CaseStatus.AwaitingShipment => "pending",
+    CaseStatus.Shipped          => "onhold",
+    CaseStatus.Fulfilled        => "fulfilled",
+    CaseStatus.OnHold           => "cancelled",
+    CaseStatus.Cancelled        => "cancelled",
+    _                           => "new"
+  };
+
+  private static string PriorityBadge(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "cancelled",
+    RequestPriority.High   => "pending",
+    RequestPriority.Normal => "new",
+    RequestPriority.Low    => "onhold",
+    _                      => "new"
+  };
+}

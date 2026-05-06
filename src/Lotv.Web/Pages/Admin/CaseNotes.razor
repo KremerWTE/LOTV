@@ -1,0 +1,103 @@
+@page "/admin/cases/{Id:int}/notes"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Case Notes — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Case Notes</h2><p>Case #@Id</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+    <a href="/admin/cases/@Id/notes/new" class="btn btn-sm btn-primary">+ Add Note</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_msg))
+  {
+    <div class="panel" style="border-left:4px solid @(_msgOk ? "var(--green)" : "var(--red)");margin-bottom:16px;">
+      <div class="panel-body" style="color:@(_msgOk ? "var(--green)" : "var(--red)");font-weight:600;">@_msg</div>
+    </div>
+  }
+
+  <!-- Quick add inline -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>Add Note</h3></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <textarea class="form-input" rows="3" @bind="_newNote" placeholder="Add a staff note…"></textarea>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;">
+          <input type="checkbox" @bind="_isInternal" /> Internal only (not visible to family)
+        </label>
+        <div style="flex:1;"></div>
+        <button class="btn btn-primary" @onclick="AddNote" disabled="@_addBusy">@(_addBusy ? "Saving…" : "Add Note")</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes list -->
+  <div class="panel">
+    <div class="panel-head"><h3>All Notes (@_notes.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_notes.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No notes on this case yet.</div>
+      }
+      else
+      {
+        @foreach (var n in _notes.OrderByDescending(n => n.CreatedAt))
+        {
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <span style="font-size:.78rem;font-weight:600;color:var(--navy);">@n.AuthorName</span>
+              @if (n.IsInternal)
+              {
+                <span class="badge badge-onhold" style="font-size:.6rem;">Internal</span>
+              }
+              <span style="font-size:.74rem;color:var(--text-light);margin-left:auto;">@n.CreatedAt.ToString("MMM d, yyyy h:mm tt")</span>
+            </div>
+            <div style="font-size:.84rem;line-height:1.6;white-space:pre-wrap;color:var(--text-mid);">@n.Content</div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private List<RequestNote> _notes = [];
+  private bool _loading = true, _addBusy, _msgOk, _isInternal = true;
+  private string _newNote = "", _msg = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _notes   = await Api.GetRequestNotesAsync(Id);
+    _loading = false;
+  }
+
+  private async Task AddNote()
+  {
+    _msg = "";
+    if (string.IsNullOrWhiteSpace(_newNote)) { _msgOk = false; _msg = "Note cannot be empty."; return; }
+    _addBusy = true;
+    var ok = await Api.AddRequestNoteAsync(Id, _newNote.Trim(), _isInternal);
+    if (ok)
+    {
+      _msgOk = true; _msg = "Note added.";
+      _notes = await Api.GetRequestNotesAsync(Id);
+      _newNote = "";
+    }
+    else { _msgOk = false; _msg = "Failed to add note. Please try again."; }
+    _addBusy = false;
+  }
+}
