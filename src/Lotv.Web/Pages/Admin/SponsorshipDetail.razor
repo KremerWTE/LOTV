@@ -1,0 +1,151 @@
+@page "/admin/sponsorships/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Sponsor Detail — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Sponsor</h2><p>@(_sponsor?.CompanyName ?? $"Sponsor #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/sponsorships" class="btn btn-sm">← Sponsors</a>
+    <a href="/admin/sponsors/report" class="btn btn-sm">Sponsors Report</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_sponsor is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Sponsor #@Id not found.</div></div>
+}
+else
+{
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <!-- Profile -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head">
+          <h3>@_sponsor.CompanyName</h3>
+          <span class="badge badge-@TierBadge(_sponsor.Tier)" style="font-size:.68rem;">@_sponsor.Tier</span>
+        </div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:35%;">Status</td>
+                <td style="padding:8px 0;">
+                  <span class="badge badge-@(_sponsor.Status == "Active" ? "fulfilled" : "cancelled")" style="font-size:.68rem;">@_sponsor.Status</span>
+                </td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Contact</td>
+                <td style="padding:8px 0;font-size:.86rem;font-weight:600;">@_sponsor.ContactName</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Email</td>
+                <td style="padding:8px 0;font-size:.86rem;">
+                  <a href="mailto:@_sponsor.Email" style="color:var(--navy);">@_sponsor.Email</a>
+                </td>
+              </tr>
+              @if (!string.IsNullOrEmpty(_sponsor.Phone))
+              {
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Phone</td>
+                  <td style="padding:8px 0;font-size:.86rem;">@_sponsor.Phone</td>
+                </tr>
+              }
+              @if (!string.IsNullOrEmpty(_sponsor.Website))
+              {
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Website</td>
+                  <td style="padding:8px 0;font-size:.86rem;">
+                    <a href="@_sponsor.Website" target="_blank" rel="noopener" style="color:var(--navy);">@_sponsor.Website</a>
+                  </td>
+                </tr>
+              }
+              @if (!string.IsNullOrEmpty(_sponsor.TaxId))
+              {
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Tax ID / EIN</td>
+                  <td style="padding:8px 0;font-size:.86rem;font-family:monospace;">@_sponsor.TaxId</td>
+                </tr>
+              }
+              @if (_sponsor.RenewalDate.HasValue)
+              {
+                var daysLeft = (_sponsor.RenewalDate.Value - DateTime.Today).Days;
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Renewal Date</td>
+                  <td style="padding:8px 0;font-size:.86rem;color:@(daysLeft < 0 ? "var(--red)" : daysLeft <= 30 ? "var(--amber)" : "inherit");">
+                    @_sponsor.RenewalDate.Value.ToString("MMM d, yyyy")
+                    @if (daysLeft < 0)
+                    { <span style="font-size:.74rem;"> — EXPIRED @Math.Abs(daysLeft)d ago</span> }
+                    else if (daysLeft <= 30)
+                    { <span style="font-size:.74rem;"> (@daysLeft d remaining)</span> }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          @if (!string.IsNullOrEmpty(_sponsor.Notes))
+          {
+            <div style="margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:6px;font-size:.82rem;color:var(--text-mid);line-height:1.5;">
+              @_sponsor.Notes
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Financial -->
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Financial</h3></div>
+        <div class="panel-body">
+          <div style="font-size:.78rem;color:var(--text-light);">Committed Amount</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--navy);margin-bottom:12px;">@_sponsor.CommittedAmount.ToString("C0")</div>
+
+          <div style="font-size:.78rem;color:var(--text-light);">Paid to Date</div>
+          <div style="font-size:1.2rem;font-weight:700;color:var(--green);margin-bottom:12px;">@_sponsor.PaidToDate.ToString("C0")</div>
+
+          @{
+            var pct = _sponsor.CommittedAmount == 0 ? 0 : (int)(_sponsor.PaidToDate / _sponsor.CommittedAmount * 100);
+            var remaining = _sponsor.CommittedAmount - _sponsor.PaidToDate;
+          }
+          <div style="font-size:.78rem;color:var(--text-light);">Remaining</div>
+          <div style="font-size:1rem;font-weight:600;color:@(remaining > 0 ? "var(--amber)" : "var(--green)");margin-bottom:16px;">@remaining.ToString("C0")</div>
+
+          <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:@(Math.Min(pct, 100))%;background:@(pct >= 100 ? "var(--green)" : "var(--amber)");height:100%;border-radius:4px;transition:.3s;"></div>
+          </div>
+          <div style="font-size:.72rem;color:var(--text-light);margin-top:4px;">@pct% received</div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private SponsorDto? _sponsor;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetSponsorsAsync();
+    _sponsor = all.FirstOrDefault(s => s.Id == Id);
+    _loading = false;
+  }
+
+  private static string TierBadge(string tier) => tier switch
+  {
+    "Platinum" or "Founding" => "fulfilled",
+    "Gold"                   => "onhold",
+    "Silver"                 => "new",
+    _                        => "new"
+  };
+}

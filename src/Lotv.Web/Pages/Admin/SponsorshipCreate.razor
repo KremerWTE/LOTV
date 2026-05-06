@@ -1,0 +1,134 @@
+@page "/admin/sponsorships/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>New Sponsor — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Add Sponsor</h2><p>Record a new corporate or institutional sponsor</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/sponsorships" class="btn btn-sm">← Sponsors</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Sponsor added. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Organization</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Company / Organization Name *</label>
+          <input class="form-input" @bind="_company" placeholder="Acme Corp, Knights of Columbus…" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Contact Name *</label>
+          <input class="form-input" @bind="_contact" placeholder="Full name of primary contact" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Contact Email *</label>
+          <input class="form-input" type="email" @bind="_email" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Phone</label>
+          <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 000-0000" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Website</label>
+          <input class="form-input" type="url" @bind="_website" placeholder="https://…" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Tax ID / EIN</label>
+          <input class="form-input" @bind="_taxId" placeholder="XX-XXXXXXX" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Sponsorship Terms</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Tier</label>
+          <select class="form-input" @bind="_tier">
+            <option value="Bronze">Bronze</option>
+            <option value="Silver">Silver</option>
+            <option value="Gold">Gold</option>
+            <option value="Platinum">Platinum</option>
+            <option value="Founding">Founding Partner</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Committed Amount *</label>
+          <input class="form-input" type="number" step="500" min="0" @bind="_committed" placeholder="0.00" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Renewal Date</label>
+          <input class="form-input" type="date" @bind="_renewalDate" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="4" @bind="_notes" placeholder="Terms, perks, restrictions…"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+  <a href="/admin/sponsorships" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Add Sponsor")</button>
+</div>
+
+@code {
+  private string _company = "", _contact = "", _email = "", _phone = "", _website = "", _taxId = "", _notes = "";
+  private string _tier = "Silver";
+  private decimal _committed;
+  private DateTime? _renewalDate;
+  private bool _busy, _saved;
+  private string _error = "";
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_company))  { _error = "Company name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_contact))  { _error = "Contact name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_email))    { _error = "Contact email is required."; return; }
+    if (_committed <= 0)                      { _error = "Committed amount must be greater than 0."; return; }
+
+    _busy = true;
+    var result = await Api.CreateSponsorAsync(
+      company:   _company,
+      contact:   _contact,
+      email:     _email,
+      phone:     string.IsNullOrWhiteSpace(_phone)   ? null : _phone,
+      website:   string.IsNullOrWhiteSpace(_website) ? null : _website,
+      taxId:     string.IsNullOrWhiteSpace(_taxId)   ? null : _taxId,
+      tier:      _tier,
+      committed: _committed,
+      renewal:   _renewalDate,
+      notes:     string.IsNullOrWhiteSpace(_notes) ? null : _notes);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/sponsorships");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

@@ -749,6 +749,12 @@
       var u when u.Contains("/admin/chapters/") && u.EndsWith("/edit")       => "Edit Chapter",
       var u when u.EndsWith("/admin/donations/new")                          => "Log Donation",
       var u when u.Contains("/admin/wishlist/") && !u.EndsWith("/admin/wishlist") && !u.Contains("/analytics") => "Wish List Item Detail",
+      var u when u.Contains("/admin/donations/") && u.EndsWith("/edit")         => "Edit Donation",
+      var u when u.EndsWith("/admin/sponsorships/new")                          => "Add Sponsor",
+      var u when u.Contains("/admin/sponsorships/")                             => "Sponsor Detail",
+      var u when u.EndsWith("/admin/retreats/new")                              => "Create Retreat",
+      var u when u.Contains("/admin/retreats/") && u.EndsWith("/edit")          => "Edit Retreat",
+      var u when u.Contains("/certifications/") && u.EndsWith("/edit")          => "Edit Certification",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

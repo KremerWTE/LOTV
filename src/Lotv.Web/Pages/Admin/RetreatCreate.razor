@@ -1,0 +1,165 @@
+@page "/admin/retreats/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Retreat — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Create Retreat</h2><p>Schedule a new ministry retreat</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/retreats" class="btn btn-sm">← Retreats</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Retreat created. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Retreat Information</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input class="form-input" @bind="_title" placeholder="e.g. Spring Healing Retreat 2026" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Description</label>
+          <textarea class="form-input" rows="4" @bind="_description" placeholder="Purpose, theme, audience…"></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+          <div class="form-group">
+            <label class="form-label">Start Date *</label>
+            <input class="form-input" type="date" @bind="_date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input class="form-input" type="date" @bind="_endDate" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Location &amp; Capacity</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Venue Name *</label>
+          <input class="form-input" @bind="_location" placeholder="Retreat house name" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Address</label>
+          <input class="form-input" @bind="_address" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input class="form-input" @bind="_city" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">State</label>
+            <input class="form-input" @bind="_state" maxlength="2" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Capacity</label>
+          <input class="form-input" type="number" min="1" @bind="_capacity" />
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Financial</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Ticket Price ($)</label>
+          <input class="form-input" type="number" step="10" min="0" @bind="_ticketPrice" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Revenue Goal ($)</label>
+          <input class="form-input" type="number" step="100" min="0" @bind="_goalAmount" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+  <a href="/admin/retreats" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Create Retreat")</button>
+</div>
+
+@code {
+  private string _title = "", _description = "", _location = "", _address = "", _city = "", _state = "";
+  private DateTime _date = DateTime.Today.AddMonths(2);
+  private DateTime? _endDate;
+  private int _capacity = 30, _chapterId;
+  private decimal _ticketPrice, _goalAmount;
+  private bool _busy, _saved;
+  private string _error = "";
+  private List<Chapter> _chapters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_title))    { _error = "Title is required."; return; }
+    if (string.IsNullOrWhiteSpace(_location)) { _error = "Venue name is required."; return; }
+    if (_chapterId == 0) { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var body = new
+    {
+      Title       = _title,
+      Description = string.IsNullOrWhiteSpace(_description) ? (string?)null : _description,
+      Date        = _date,
+      EndDate     = _endDate,
+      Location    = _location,
+      Address     = string.IsNullOrWhiteSpace(_address) ? (string?)null : _address,
+      City        = string.IsNullOrWhiteSpace(_city)    ? (string?)null : _city,
+      State       = string.IsNullOrWhiteSpace(_state)   ? (string?)null : _state,
+      Capacity    = _capacity,
+      TicketPrice = _ticketPrice,
+      GoalAmount  = _goalAmount,
+      Status      = "Upcoming",
+      ChapterId   = _chapterId,
+    };
+    var result = await Api.CreateRetreatAsync(body);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/retreats");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

@@ -1,0 +1,128 @@
+@page "/admin/volunteers/{VolId:int}/certifications/{CertId:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Edit Certification — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Certification</h2><p>Volunteer #@VolId</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers/@VolId" class="btn btn-sm">← Volunteer</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_cert is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Certification #@CertId not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Certification updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="max-width:560px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Certification Details</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Certification Type *</label>
+          <select class="form-input" @bind="_certType">
+            <option value="CPR">CPR / First Aid</option>
+            <option value="ChildSafety">Child Safety Training</option>
+            <option value="GriefSupport">Grief Support Training</option>
+            <option value="HospitalVisitor">Hospital Visitor Training</option>
+            <option value="BackgroundCheck">Background Check</option>
+            <option value="HIPAA">HIPAA Compliance</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+          <div class="form-group">
+            <label class="form-label">Issue Date *</label>
+            <input class="form-input" type="date" @bind="_issuedDate" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expiry Date</label>
+            <input class="form-input" type="date" @bind="_expiresDate" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" @bind="_isVerified" style="width:16px;height:16px;" />
+            <span>Verified by staff</span>
+          </label>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="3" @bind="_notes" placeholder="Issuing organization, certificate #, etc."></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/volunteers/@VolId" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int VolId  { get; set; }
+  [Parameter] public int CertId { get; set; }
+
+  private VolCertDto? _cert;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private string _certType = "CPR", _notes = "";
+  private DateTime _issuedDate;
+  private DateTime? _expiresDate;
+  private bool _isVerified;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var certs = await Api.GetVolunteerCertificationsAsync(VolId);
+    _cert = certs.FirstOrDefault(c => c.Id == CertId);
+    if (_cert is not null)
+    {
+      _certType    = _cert.CertType;
+      _issuedDate  = _cert.IssuedDate;
+      _expiresDate = _cert.ExpiresDate;
+      _isVerified  = _cert.IsVerified;
+      _notes       = _cert.Notes ?? "";
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    _busy = true;
+    var updated = new VolCertDto(
+      Id: CertId, VolunteerId: VolId,
+      CertType: _certType,
+      IssuedDate: _issuedDate,
+      ExpiresDate: _expiresDate,
+      IsVerified: _isVerified,
+      Notes: string.IsNullOrWhiteSpace(_notes) ? null : _notes);
+    var ok = await Api.UpdateCertificationAsync(VolId, CertId, updated);
+    _busy = false;
+    if (ok) { _saved = true; _cert = updated; }
+    else _error = "Save failed. Please try again.";
+  }
+}

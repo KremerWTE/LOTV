@@ -1,0 +1,190 @@
+@page "/admin/retreats/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Retreat — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Retreat</h2><p>@(_retreat?.Title ?? $"Retreat #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/retreats" class="btn btn-sm">← Retreats</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_retreat is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Retreat #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Retreat updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Retreat Information</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Title *</label>
+            <input class="form-input" @bind="_title" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Description</label>
+            <textarea class="form-input" rows="4" @bind="_description"></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+            <div class="form-group">
+              <label class="form-label">Start Date *</label>
+              <input class="form-input" type="date" @bind="_date" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">End Date</label>
+              <input class="form-input" type="date" @bind="_endDate" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Status</label>
+            <select class="form-input" @bind="_status">
+              <option value="Upcoming">Upcoming</option>
+              <option value="Open">Open for Registration</option>
+              <option value="Full">Full</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Location</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Venue Name *</label>
+            <input class="form-input" @bind="_location" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Address</label>
+            <input class="form-input" @bind="_address" />
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+            <div class="form-group">
+              <label class="form-label">City</label>
+              <input class="form-input" @bind="_city" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">State</label>
+              <input class="form-input" @bind="_state" maxlength="2" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Capacity</label>
+            <input class="form-input" type="number" min="1" @bind="_capacity" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Financial</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Ticket Price ($)</label>
+            <input class="form-input" type="number" step="10" min="0" @bind="_ticketPrice" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Revenue Goal ($)</label>
+            <input class="form-input" type="number" step="100" min="0" @bind="_goalAmount" />
+          </div>
+          <div style="margin-top:12px;font-size:.76rem;color:var(--text-light);">Chapter #@_retreat.ChapterId</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+    <a href="/admin/retreats" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private RetreatListDto? _retreat;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private string _title = "", _description = "", _location = "", _address = "", _city = "", _state = "", _status = "Upcoming";
+  private DateTime _date;
+  private DateTime? _endDate;
+  private int _capacity;
+  private decimal _ticketPrice, _goalAmount;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _retreat = await Api.GetRetreatAsync(Id);
+    if (_retreat is not null)
+    {
+      _title       = _retreat.Title;
+      _description = _retreat.Description ?? "";
+      _location    = _retreat.Location;
+      _address     = _retreat.Address ?? "";
+      _city        = _retreat.City ?? "";
+      _state       = _retreat.State ?? "";
+      _status      = _retreat.Status;
+      _date        = _retreat.Date;
+      _endDate     = _retreat.EndDate;
+      _capacity    = _retreat.Capacity;
+      _ticketPrice = _retreat.TicketPrice;
+      _goalAmount  = _retreat.GoalAmount;
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (string.IsNullOrWhiteSpace(_title))    { _error = "Title is required."; return; }
+    if (string.IsNullOrWhiteSpace(_location)) { _error = "Venue name is required."; return; }
+
+    _busy = true;
+    var body = new
+    {
+      Title       = _title,
+      Description = string.IsNullOrWhiteSpace(_description) ? (string?)null : _description,
+      Date        = _date,
+      EndDate     = _endDate,
+      Location    = _location,
+      Address     = string.IsNullOrWhiteSpace(_address) ? (string?)null : _address,
+      City        = string.IsNullOrWhiteSpace(_city)    ? (string?)null : _city,
+      State       = string.IsNullOrWhiteSpace(_state)   ? (string?)null : _state,
+      Capacity    = _capacity,
+      TicketPrice = _ticketPrice,
+      GoalAmount  = _goalAmount,
+      Status      = _status,
+      ChapterId   = _retreat!.ChapterId,
+    };
+    var ok = await Api.UpdateRetreatAsync(Id, body);
+    _busy = false;
+    if (ok) { _saved = true; _retreat = _retreat with { Title = _title, Status = _status }; }
+    else _error = "Save failed. Please try again.";
+  }
+}

@@ -1,0 +1,207 @@
+@page "/admin/donations/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Edit Donation — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Donation</h2><p>@(_donation is not null ? $"${_donation.Amount:N0} gift" : $"Donation #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donations" class="btn btn-sm">← Donations</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_donation is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Donation #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Donation updated.</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Donation Details</h3></div>
+        <div class="panel-body">
+          <div style="margin-bottom:10px;padding:10px 12px;background:var(--bg);border-radius:6px;font-size:.82rem;">
+            Donor: <strong>@(_donation.Donor?.FullName ?? $"Donor #{_donation.DonorId}")</strong>
+            <span style="color:var(--text-light);margin-left:8px;">ID #@_donation.DonorId</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Amount *</label>
+              <input class="form-input" type="number" step="1" min="0" @bind="_amount" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date *</label>
+              <input class="form-input" type="date" @bind="_date" />
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+            <div class="form-group">
+              <label class="form-label">Channel</label>
+              <select class="form-input" @bind="_channel">
+                @foreach (var ch in Enum.GetValues<DonationChannel>())
+                {
+                  <option value="@ch">@ch.ToDisplayName()</option>
+                }
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Contribution Status</label>
+              <select class="form-input" @bind="_contribStatus">
+                <option value="@ContributionStatus.Processed">Processed</option>
+                <option value="@ContributionStatus.Pending">Pending</option>
+                <option value="@ContributionStatus.Failed">Failed</option>
+                <option value="@ContributionStatus.Refunded">Refunded</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Campaign / Fund</label>
+            <input class="form-input" @bind="_campaign" />
+          </div>
+
+          @if (_channel == DonationChannel.Check)
+          {
+            <div class="form-group" style="margin-top:10px;">
+              <label class="form-label">Check Number</label>
+              <input class="form-input" @bind="_checkNumber" />
+            </div>
+          }
+
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Notes</label>
+            <textarea class="form-input" rows="3" @bind="_notes"></textarea>
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" @bind="_isRecurring" style="width:16px;height:16px;" />
+              <span>Part of a recurring gift</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Allocation</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Allocation Status</label>
+            <select class="form-input" @bind="_allocStatus">
+              <option value="@AllocationStatus.Unallocated">Unallocated</option>
+              <option value="@AllocationStatus.PendingReview">Pending Review</option>
+              <option value="@AllocationStatus.Allocated">Allocated</option>
+              <option value="@AllocationStatus.Restricted">Restricted</option>
+            </select>
+          </div>
+          @if (_allocStatus == AllocationStatus.Allocated || _allocStatus == AllocationStatus.Restricted)
+          {
+            <div class="form-group" style="margin-top:10px;">
+              <label class="form-label">Allocated To</label>
+              <input class="form-input" @bind="_allocatedTo" placeholder="Fund or program name" />
+            </div>
+          }
+          <div style="margin-top:14px;font-size:.76rem;color:var(--text-light);">
+            Recorded @_donation.Date.ToString("MMM d, yyyy") &bull; Chapter #@_donation.ChapterId
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+    <a href="/admin/donations" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Save Changes")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Donation? _donation;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private decimal _amount;
+  private DateTime _date;
+  private DonationChannel _channel;
+  private ContributionStatus _contribStatus;
+  private AllocationStatus _allocStatus;
+  private string _campaign = "", _checkNumber = "", _notes = "", _allocatedTo = "";
+  private bool _isRecurring;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetDonationsAsync();
+    _donation = all.FirstOrDefault(d => d.Id == Id);
+    if (_donation is not null)
+    {
+      _amount        = _donation.Amount;
+      _date          = _donation.Date;
+      _channel       = _donation.Channel;
+      _contribStatus = _donation.ContributionStatus;
+      _allocStatus   = _donation.AllocationStatus;
+      _campaign      = _donation.Campaign ?? "";
+      _checkNumber   = _donation.CheckNumber ?? "";
+      _notes         = _donation.Notes ?? "";
+      _allocatedTo   = _donation.AllocatedTo ?? "";
+      _isRecurring   = _donation.IsRecurring;
+    }
+    _loading = false;
+  }
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+
+    _busy = true;
+    var updated = new Donation
+    {
+      Id                  = Id,
+      DonorId             = _donation!.DonorId,
+      ChapterId           = _donation.ChapterId,
+      Amount              = _amount,
+      Date                = _date,
+      Channel             = _channel,
+      Campaign            = string.IsNullOrWhiteSpace(_campaign) ? null : _campaign,
+      CheckNumber         = string.IsNullOrWhiteSpace(_checkNumber) ? null : _checkNumber,
+      IsRecurring         = _isRecurring,
+      ContributionStatus  = _contribStatus,
+      AllocationStatus    = _allocStatus,
+      AllocatedTo         = string.IsNullOrWhiteSpace(_allocatedTo) ? null : _allocatedTo,
+      Notes               = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+      StripePaymentIntentId = _donation.StripePaymentIntentId,
+      GiveButterTransactionId = _donation.GiveButterTransactionId,
+    };
+    var result = await Api.UpdateDonationAsync(Id, updated);
+    _busy = false;
+    if (result is not null) { _saved = true; _donation = result; }
+    else _error = "Save failed. Please try again.";
+  }
+}
