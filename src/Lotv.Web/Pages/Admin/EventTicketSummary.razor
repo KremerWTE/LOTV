@@ -1,0 +1,143 @@
+@page "/admin/events/{EventId:int}/tickets"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Ticket Summary — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Ticket Summary</h2><p>@(_event?.Title ?? $"Event #{EventId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events/@EventId/attendees" class="btn btn-sm">Attendees</a>
+    <a href="/admin/events/@EventId/checkin" class="btn btn-sm">Check-in</a>
+    <a href="/admin/events/@EventId" class="btn btn-sm">← Event</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <!-- KPIs -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127929;</div>
+      <div class="kpi-label">Registrations</div>
+      <div class="kpi-value" style="color:var(--navy)">@_attendees.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Revenue</div>
+      <div class="kpi-value" style="color:var(--green)">@_attendees.Sum(a => a.AmountPaid).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Checked In</div>
+      <div class="kpi-value" style="color:var(--amber)">@_attendees.Count(a => a.CheckedIn)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#127920;</div>
+      <div class="kpi-label">Total Tickets</div>
+      <div class="kpi-value">@_attendees.Sum(a => a.TicketCount)</div>
+    </div>
+  </div>
+
+  @if (_event is not null && _event.Capacity.HasValue)
+  {
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-body">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:.84rem;font-weight:600;">Capacity</div>
+          <div style="font-size:.84rem;color:var(--text-light);">@_attendees.Count / @_event.Capacity</div>
+        </div>
+        <div style="background:var(--bg);border-radius:4px;height:10px;overflow:hidden;">
+          @{ var pct = _event.Capacity > 0 ? Math.Min(100, _attendees.Count * 100 / _event.Capacity.Value) : 0; }
+          <div style="height:100%;background:@(pct >= 90 ? "var(--red)" : pct >= 70 ? "var(--amber)" : "var(--green)");width:@pct%;transition:width .4s;"></div>
+        </div>
+        <div style="font-size:.72rem;color:var(--text-light);margin-top:4px;">@pct% full — @(_event.Capacity.Value - _attendees.Count) spots remaining</div>
+      </div>
+    </div>
+  }
+
+  <!-- Channel breakdown -->
+  @if (_attendees.Any())
+  {
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Sales by Channel</h3></div>
+      <div class="panel-body" style="padding:0;">
+        @foreach (var g in _attendees.GroupBy(a => a.PaymentChannel).OrderByDescending(g => g.Count()))
+        {
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:.84rem;">@g.Key.ToDisplayName()</div>
+            <div style="display:flex;gap:20px;font-size:.82rem;">
+              <span>@g.Count() registrations</span>
+              <span style="font-weight:700;color:var(--green);">@g.Sum(a => a.AmountPaid).ToString("C0")</span>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Attendee list -->
+  <div class="panel">
+    <div class="panel-head"><h3>Registrants</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_attendees.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No registrations yet.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);">Tickets</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Paid</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Registered</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);">Checked In</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var a in _attendees.OrderBy(a => a.RegisteredAt))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@a.DonorId" style="color:var(--navy);">@(a.Donor?.FullName ?? $"Donor #{a.DonorId}")</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.84rem;text-align:center;">@a.TicketCount</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@a.AmountPaid.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@a.RegisteredAt.ToString("MMM d")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  @if (a.CheckedIn) { <span style="color:var(--green);font-size:1rem;">✓</span> }
+                  else { <span style="color:var(--text-light);font-size:.8rem;">—</span> }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int EventId { get; set; }
+
+  private MinistryEvent? _event;
+  private List<EventAttendee> _attendees = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var evtTask = Api.GetEventAsync(EventId);
+    var attTask = Api.GetAttendeesAsync(EventId);
+    await Task.WhenAll(evtTask, attTask);
+    _event     = await evtTask;
+    _attendees = await attTask;
+    _loading = false;
+  }
+}

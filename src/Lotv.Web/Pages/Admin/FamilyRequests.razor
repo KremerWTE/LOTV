@@ -1,0 +1,130 @@
+@page "/admin/families/{Id:int}/requests"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Family Requests — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Family Requests</h2><p>@(_family is not null ? $"{_family.Parent1FirstName} {_family.Parent1LastName}" : $"Family #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/families/@Id" class="btn btn-sm">← Family Profile</a>
+    <a href="/admin/requests/new" class="btn btn-sm btn-primary">+ New Request</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <!-- KPIs -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-label">Total Requests</div>
+      <div class="kpi-value" style="color:var(--navy)">@_requests.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9200;</div>
+      <div class="kpi-label">Open</div>
+      <div class="kpi-value" style="color:var(--amber)">@_requests.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#10003;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_requests.Count(r => r.Status == CaseStatus.Fulfilled)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128666;</div>
+      <div class="kpi-label">Shipped</div>
+      <div class="kpi-value">@_requests.Count(r => r.Status == CaseStatus.Shipped)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Requests (@_requests.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_requests.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No requests on file for this family.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Reason</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Category</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Priority</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Assigned To</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var r in _requests.OrderByDescending(r => r.CreatedAt))
+            {
+              <tr style="border-top:1px solid var(--border);@(r.IsOverdue ? "background:#fffbeb;" : "")">
+                <td style="padding:10px 16px;font-size:.84rem;white-space:nowrap;">@r.CreatedAt.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.84rem;">@r.Reason</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.Category</td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@StatusBadge(r.Status)" style="font-size:.68rem;">@r.Status</span>
+                </td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@PriorityBadge(r.Priority)" style="font-size:.68rem;">@r.Priority</span>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(r.AssignedTo ?? "—")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/cases/@r.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Family? _family;
+  private List<PackageRequest> _requests = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var familyTask  = Api.GetFamilyAsync(Id);
+    var requestTask = Api.GetRequestsAsync(familyId: Id);
+    await Task.WhenAll(familyTask, requestTask);
+    _family   = await familyTask;
+    _requests = await requestTask;
+    _loading = false;
+  }
+
+  private static string StatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "new",
+    CaseStatus.InProgress       => "onhold",
+    CaseStatus.AwaitingShipment => "pending",
+    CaseStatus.Shipped          => "onhold",
+    CaseStatus.Fulfilled        => "fulfilled",
+    CaseStatus.OnHold           => "cancelled",
+    CaseStatus.Cancelled        => "cancelled",
+    _                           => "new"
+  };
+
+  private static string PriorityBadge(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "cancelled",
+    RequestPriority.High   => "pending",
+    RequestPriority.Normal => "new",
+    RequestPriority.Low    => "onhold",
+    _                      => "new"
+  };
+}

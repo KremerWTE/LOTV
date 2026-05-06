@@ -802,6 +802,12 @@
       var u when u == "/admin/profile/avatar"                                                                                  => "Update Avatar",
       var u when u == "/admin/vapid/generate"                                                                                  => "VAPID Keys",
       var u when u.Contains("/admin/donors/") && u.EndsWith("/notes")                                                         => "Donor Notes",
+      var u when u.Contains("/admin/families/") && u.EndsWith("/requests")                                                    => "Family Requests",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/pledges")                                                       => "Donor Pledges",
+      var u when u.Contains("/admin/events/") && u.EndsWith("/tickets")                                                       => "Ticket Summary",
+      var u when u.Contains("/admin/allocations/") && !u.EndsWith("/edit") && !u.EndsWith("/new") && !u.EndsWith("/bulk") && !u.EndsWith("/review") => "Allocation Detail",
+      var u when u.Contains("/admin/volunteers/") && u.EndsWith("/assignments")                                               => "Volunteer Assignments",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/recurring") && !u.EndsWith("/recurring/new")                    => "Donor Recurring Gifts",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

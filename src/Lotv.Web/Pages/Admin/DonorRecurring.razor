@@ -1,0 +1,132 @@
+@page "/admin/donors/{DonorId:int}/recurring"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Recurring Gifts — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Recurring Gifts</h2><p>@(_donor?.FullName ?? $"Donor #{DonorId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor Profile</a>
+    <a href="/admin/donors/@DonorId/recurring/new" class="btn btn-sm btn-primary">+ New Schedule</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <!-- KPIs -->
+  @if (_schedules.Any())
+  {
+    <div class="kpi-grid" style="margin-bottom:20px;">
+      <div class="kpi-card kpi-navy">
+        <div class="kpi-icon">&#128260;</div>
+        <div class="kpi-label">Schedules</div>
+        <div class="kpi-value" style="color:var(--navy)">@_schedules.Count</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">&#9989;</div>
+        <div class="kpi-label">Active</div>
+        <div class="kpi-value" style="color:var(--green)">@_schedules.Count(s => s.Status == RecurringStatus.Active)</div>
+      </div>
+      @if (_activeMonthly > 0)
+      {
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-icon">&#128176;</div>
+          <div class="kpi-label">Est. Monthly</div>
+          <div class="kpi-value" style="color:var(--amber)">@_activeMonthly.ToString("C0")</div>
+        </div>
+      }
+    </div>
+  }
+
+  <div class="panel">
+    <div class="panel-head"><h3>Recurring Schedules (@_schedules.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_schedules.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No recurring gift schedules for this donor.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Frequency</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Next Charge</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Last Charged</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Campaign</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var s in _schedules.OrderByDescending(s => s.CreatedAt))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@s.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.84rem;">@s.Frequency.ToDisplayName()</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@s.NextChargeDate.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(s.LastChargedAt?.ToString("MMM d, yyyy") ?? "—")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(s.Campaign ?? "—")</td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@StatusBadge(s.Status)" style="font-size:.68rem;">@s.Status</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;white-space:nowrap;">
+                  <a href="/admin/recurring/@s.Id/manage" style="font-size:.78rem;color:var(--navy);margin-right:6px;">Manage</a>
+                  <a href="/admin/recurring/@s.Id/edit" style="font-size:.78rem;color:var(--text-light);">Edit</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+
+  private Lotv.Core.Models.Donor? _donor;
+  private List<RecurringDonation> _schedules = [];
+  private decimal _activeMonthly;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorTask   = Api.GetDonorAsync(DonorId);
+    var recurTask   = Api.GetAllRecurringAsync();
+    await Task.WhenAll(donorTask, recurTask);
+    _donor     = await donorTask;
+    var all    = await recurTask;
+    _schedules = all.Where(s => s.DonorId == DonorId).ToList();
+    _activeMonthly = _schedules
+      .Where(s => s.Status == RecurringStatus.Active)
+      .Sum(s => s.Frequency switch
+      {
+        RecurringFrequency.Weekly    => s.Amount * 4.33m,
+        RecurringFrequency.BiWeekly  => s.Amount * 2.17m,
+        RecurringFrequency.Monthly   => s.Amount,
+        RecurringFrequency.Quarterly => s.Amount / 3m,
+        RecurringFrequency.Annually  => s.Amount / 12m,
+        _                            => s.Amount
+      });
+    _loading = false;
+  }
+
+  private static string StatusBadge(RecurringStatus s) => s switch
+  {
+    RecurringStatus.Active    => "fulfilled",
+    RecurringStatus.Paused    => "onhold",
+    RecurringStatus.PastDue   => "pending",
+    RecurringStatus.Cancelled => "cancelled",
+    RecurringStatus.Completed => "cancelled",
+    _                         => "new"
+  };
+}
