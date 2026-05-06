@@ -1,0 +1,121 @@
+@page "/admin/webhooks/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Webhook Event — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Webhook Event</h2>
+    <p>@(_event?.EventType ?? $"Event #{Id}") — @(_event?.Source ?? "")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/webhooks" class="btn btn-sm">← Webhook Events</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_event is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Event #@Id not found.</div></div>
+}
+else
+{
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Event Metadata</h3></div>
+      <div class="panel-body">
+        <table style="width:100%;border-collapse:collapse;">
+          <tbody>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:35%;">Event ID</td>
+              <td style="padding:8px 0;font-size:.82rem;font-family:monospace;">@_event.Id</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Source</td>
+              <td style="padding:8px 0;">
+                <span class="badge badge-new" style="font-size:.62rem;">@_event.Source</span>
+              </td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Event Type</td>
+              <td style="padding:8px 0;font-size:.84rem;font-weight:600;">@_event.EventType</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">External ID</td>
+              <td style="padding:8px 0;font-size:.78rem;font-family:monospace;color:var(--text-mid);">@_event.ExternalId</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Received At</td>
+              <td style="padding:8px 0;font-size:.84rem;">@_event.ReceivedAt.ToString("MMM d, yyyy h:mm:ss tt")</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Actions</h3></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:.84rem;color:var(--text-mid);line-height:1.6;">
+          Webhook events are received from external payment providers (Stripe, GiveButter) and logged for audit purposes. They can be replayed if processing failed.
+        </div>
+        <button class="btn btn-sm btn-primary" @onclick="Replay" disabled="@_replayBusy">
+          @(_replayBusy ? "Replaying…" : "🔁 Replay Event")
+        </button>
+        @if (!string.IsNullOrEmpty(_replayResult))
+        {
+          <div style="font-size:.82rem;color:@(_replayOk ? "var(--green)" : "var(--red)");font-weight:600;">@_replayResult</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYLOAD -->
+  @if (!string.IsNullOrEmpty(_event.Payload))
+  {
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Raw Payload</h3>
+        <button class="btn btn-sm" @onclick="CopyPayload">📋 Copy</button>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <pre style="margin:0;padding:16px 18px;font-size:.74rem;line-height:1.5;overflow-x:auto;background:#1e1e2e;color:#cdd6f4;border-radius:0 0 8px 8px;max-height:500px;overflow-y:auto;">@_event.Payload</pre>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  [Inject] private IJSRuntime JS { get; set; } = default!;
+
+  private ApiService.WebhookEventDetail? _event;
+  private bool _loading = true, _replayBusy, _replayOk;
+  private string _replayResult = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _event = await Api.GetWebhookEventAsync(Id);
+    _loading = false;
+  }
+
+  private async Task Replay()
+  {
+    _replayBusy = true;
+    var ok = await Api.ReplayWebhookAsync(Id);
+    _replayOk = ok;
+    _replayResult = ok ? "Event queued for replay." : "Replay failed. Check API logs.";
+    _replayBusy = false;
+  }
+
+  private async Task CopyPayload()
+  {
+    if (!string.IsNullOrEmpty(_event?.Payload))
+      try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", _event.Payload); } catch { }
+  }
+}

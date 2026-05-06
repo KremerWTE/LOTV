@@ -726,6 +726,11 @@
       var u when u.Contains("/admin/families/") && u.EndsWith("/notes") => "Family Notes",
       var u when u.EndsWith("/admin/staff-tasks/new")      => "New Staff Task",
       var u when u.EndsWith("/admin/announcements/new")    => "New Announcement",
+      var u when u.EndsWith("/admin/donors/new")            => "Register Donor",
+      var u when u.Contains("/admin/recurring/")            => "Recurring Donation Detail",
+      var u when u.Contains("/admin/pledges/")              => "Pledge Detail",
+      var u when u.Contains("/admin/webhooks/") && !u.EndsWith("/admin/webhooks") => "Webhook Event Detail",
+      var u when u.Contains("/certifications/new")          => "Add Certification",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

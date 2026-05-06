@@ -1,0 +1,209 @@
+@page "/admin/recurring/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Recurring Donation — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Recurring Donation</h2>
+    <p>@(_rec?.Donor?.FullName ?? $"Recurring #{Id}") — @(_rec?.Frequency.ToDisplayName() ?? "")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/recurring" class="btn btn-sm">← All Recurring</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_rec is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Recurring donation #@Id not found.</div></div>
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Per Cycle</div>
+      <div class="kpi-value" style="color:var(--navy)">@_rec.Amount.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-label">Frequency</div>
+      <div class="kpi-value" style="color:var(--green);font-size:1.1rem;">@_rec.Frequency.ToDisplayName()</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Next Charge</div>
+      <div class="kpi-value" style="color:var(--amber);font-size:1rem;">@_rec.NextChargeDate.ToString("MMM d, yyyy")</div>
+    </div>
+    <div class="kpi-card @(_rec.Status == RecurringStatus.Active ? "kpi-green" : "")">
+      <div class="kpi-icon">&#9899;</div>
+      <div class="kpi-label">Status</div>
+      <div class="kpi-value" style="font-size:1.1rem;color:@StatusColor(_rec.Status)">@_rec.Status</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <!-- DETAILS PANEL -->
+    <div class="panel">
+      <div class="panel-head"><h3>Schedule Details</h3></div>
+      <div class="panel-body">
+        <table style="width:100%;border-collapse:collapse;">
+          <tbody>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:40%;">Donor</td>
+              <td style="padding:8px 0;font-size:.86rem;font-weight:600;">@(_rec.Donor?.FullName ?? "—")</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Channel</td>
+              <td style="padding:8px 0;font-size:.86rem;">@_rec.Channel.ToDisplayName()</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Campaign</td>
+              <td style="padding:8px 0;font-size:.86rem;">@(_rec.Campaign ?? "—")</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Started</td>
+              <td style="padding:8px 0;font-size:.86rem;">@_rec.CreatedAt.ToString("MMM d, yyyy")</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Last Charged</td>
+              <td style="padding:8px 0;font-size:.86rem;">@(_rec.LastChargedAt?.ToString("MMM d, yyyy") ?? "Never")</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Ends On</td>
+              <td style="padding:8px 0;font-size:.86rem;">@(_rec.EndsOn?.ToString("MMM d, yyyy") ?? "Indefinite")</td>
+            </tr>
+            @if (!string.IsNullOrEmpty(_rec.StripeSubscriptionId))
+            {
+              <tr>
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Stripe Sub ID</td>
+                <td style="padding:8px 0;font-size:.74rem;font-family:monospace;">@_rec.StripeSubscriptionId</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (!string.IsNullOrEmpty(_rec.Notes))
+        {
+          <div style="margin-top:14px;padding:10px 14px;background:var(--bg);border-radius:6px;font-size:.82rem;color:var(--text-mid);">
+            <strong>Notes:</strong> @_rec.Notes
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- STATUS ACTIONS -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Actions</h3></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          @if (_rec.Status == RecurringStatus.Active)
+          {
+            <button class="btn btn-sm" style="background:var(--amber);color:white;border:none;" @onclick="Pause" disabled="@_busy">
+              ⏸ Pause Schedule
+            </button>
+            <button class="btn btn-sm" style="background:var(--red);color:white;border:none;" @onclick="Cancel" disabled="@_busy">
+              ✕ Cancel Schedule
+            </button>
+          }
+          else if (_rec.Status == RecurringStatus.Paused)
+          {
+            <button class="btn btn-sm btn-primary" @onclick="Resume" disabled="@_busy">
+              ▶ Resume Schedule
+            </button>
+            <button class="btn btn-sm" style="background:var(--red);color:white;border:none;" @onclick="Cancel" disabled="@_busy">
+              ✕ Cancel Schedule
+            </button>
+          }
+          else
+          {
+            <div style="font-size:.84rem;color:var(--text-light);">
+              This schedule is @_rec.Status.ToString().ToLower() and cannot be modified.
+            </div>
+          }
+          @if (!string.IsNullOrEmpty(_actionResult))
+          {
+            <div style="font-size:.82rem;color:var(--green);font-weight:600;">@_actionResult</div>
+          }
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Annual Estimate</h3></div>
+        <div class="panel-body">
+          @{
+            var annualEst = _rec.Frequency switch
+            {
+              RecurringFrequency.Weekly    => _rec.Amount * 52,
+              RecurringFrequency.BiWeekly  => _rec.Amount * 26,
+              RecurringFrequency.Monthly   => _rec.Amount * 12,
+              RecurringFrequency.Quarterly => _rec.Amount * 4,
+              RecurringFrequency.Annually  => _rec.Amount,
+              _                            => _rec.Amount * 12,
+            };
+          }
+          <div style="font-size:1.6rem;font-weight:800;color:var(--green);">@annualEst.ToString("C0")</div>
+          <div style="font-size:.78rem;color:var(--text-light);margin-top:4px;">Projected per year at @_rec.Frequency.ToDisplayName() cadence</div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private RecurringDonation? _rec;
+  private bool _loading = true, _busy;
+  private string _actionResult = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetAllRecurringAsync();
+    _rec = all.FirstOrDefault(r => r.Id == Id);
+    _loading = false;
+  }
+
+  private async Task Pause()
+  {
+    _busy = true;
+    var ok = await Api.PauseRecurringAdminAsync(Id);
+    if (ok && _rec is not null) _rec.Status = RecurringStatus.Paused;
+    _actionResult = ok ? "Schedule paused." : "Update failed.";
+    _busy = false;
+  }
+
+  private async Task Resume()
+  {
+    _busy = true;
+    var ok = await Api.ResumeRecurringAdminAsync(Id);
+    if (ok && _rec is not null) _rec.Status = RecurringStatus.Active;
+    _actionResult = ok ? "Schedule resumed." : "Update failed.";
+    _busy = false;
+  }
+
+  private async Task Cancel()
+  {
+    _busy = true;
+    var ok = await Api.CancelRecurringAdminAsync(Id);
+    if (ok && _rec is not null) _rec.Status = RecurringStatus.Cancelled;
+    _actionResult = ok ? "Schedule cancelled." : "Update failed.";
+    _busy = false;
+  }
+
+  private static string StatusColor(RecurringStatus s) => s switch
+  {
+    RecurringStatus.Active   => "var(--green)",
+    RecurringStatus.Paused   => "var(--amber)",
+    RecurringStatus.PastDue  => "var(--red)",
+    RecurringStatus.Cancelled => "var(--red)",
+    _                        => "var(--text-mid)"
+  };
+}

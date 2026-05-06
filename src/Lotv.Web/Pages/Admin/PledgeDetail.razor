@@ -1,0 +1,212 @@
+@page "/admin/pledges/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Pledge Detail — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Pledge Detail</h2>
+    <p>@(_pledge?.Donor?.FullName ?? $"Pledge #{Id}") — @(_pledge?.Campaign ?? "General Fund")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/pledges" class="btn btn-sm">← Pledges</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_pledge is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Pledge #@Id not found.</div></div>
+}
+else
+{
+  var pct = _pledge.FulfillmentPercent;
+
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Pledged</div>
+      <div class="kpi-value" style="color:var(--navy)">@_pledge.PledgedAmount.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#10003;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_pledge.FulfilledAmount.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128196;</div>
+      <div class="kpi-label">Remaining</div>
+      <div class="kpi-value" style="color:@(_pledge.IsOverdue ? "var(--red)" : "var(--amber)")">@_pledge.RemainingAmount.ToString("C0")</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Progress</div>
+      <div class="kpi-value" style="color:@(pct >= 100 ? "var(--green)" : pct >= 75 ? "var(--amber)" : "var(--navy)")">@pct.ToString("F0")%</div>
+    </div>
+  </div>
+
+  <!-- PROGRESS BAR -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-body" style="padding:20px 24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:.86rem;color:var(--text-mid);">@_pledge.FulfilledAmount.ToString("C0") of @_pledge.PledgedAmount.ToString("C0") fulfilled</span>
+        <div>
+          <span class="badge badge-@StatusBadge(_pledge.Status)" style="font-size:.68rem;">@_pledge.Status</span>
+          @if (_pledge.IsOverdue)
+          {
+            <span class="badge badge-cancelled" style="font-size:.68rem;margin-left:6px;">OVERDUE</span>
+          }
+        </div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;height:14px;overflow:hidden;">
+        <div style="height:100%;width:@Math.Min((double)pct, 100).ToString("F0")%;background:@(pct >= 100 ? "var(--green)" : "var(--navy)");border-radius:8px;transition:width .5s;"></div>
+      </div>
+      <div style="margin-top:6px;font-size:.74rem;color:var(--text-light);">
+        Target date: @_pledge.TargetDate.ToString("MMM d, yyyy") &bull; Pledge created @_pledge.CreatedAt.ToString("MMM d, yyyy")
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <!-- DETAILS -->
+    <div class="panel">
+      <div class="panel-head"><h3>Pledge Details</h3></div>
+      <div class="panel-body">
+        <table style="width:100%;border-collapse:collapse;">
+          <tbody>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:40%;">Donor</td>
+              <td style="padding:8px 0;font-size:.86rem;font-weight:600;">@(_pledge.Donor?.FullName ?? "—")</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Campaign / Fund</td>
+              <td style="padding:8px 0;font-size:.86rem;">@(_pledge.Campaign ?? "General")</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Target Date</td>
+              <td style="padding:8px 0;font-size:.86rem;">@_pledge.TargetDate.ToString("MMM d, yyyy")</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Created</td>
+              <td style="padding:8px 0;font-size:.86rem;">@_pledge.CreatedAt.ToString("MMM d, yyyy")</td>
+            </tr>
+            @if (_pledge.UpdatedAt.HasValue)
+            {
+              <tr>
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Last Updated</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_pledge.UpdatedAt.Value.ToString("MMM d, yyyy")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (!string.IsNullOrEmpty(_pledge.Notes))
+        {
+          <div style="margin-top:14px;padding:10px 14px;background:var(--bg);border-radius:6px;font-size:.82rem;color:var(--text-mid);">
+            <strong>Notes:</strong> @_pledge.Notes
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div>
+      @if (!_pledge.IsFulfilled && _pledge.Status == PledgeStatus.Active)
+      {
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head"><h3>Record a Payment</h3></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <label class="form-label">Payment Amount</label>
+              <input class="form-input" type="number" step="50" min="0" @bind="_payAmount" placeholder="0.00" />
+            </div>
+            @if (!string.IsNullOrEmpty(_payResult))
+            {
+              <div style="margin-top:8px;font-size:.82rem;color:var(--green);font-weight:600;">@_payResult</div>
+            }
+            <div style="margin-top:12px;">
+              <button class="btn btn-primary btn-sm" @onclick="RecordPayment" disabled="@(_payBusy || _payAmount <= 0)">
+                @(_payBusy ? "Saving…" : "Record Payment")
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <div class="panel">
+        <div class="panel-head"><h3>Status Actions</h3></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          @if (_pledge.Status == PledgeStatus.Active)
+          {
+            <button class="btn btn-sm" style="background:var(--red);color:white;border:none;" @onclick='() => UpdateStatus(PledgeStatus.Cancelled)' disabled="@_statusBusy">
+              ✕ Cancel Pledge
+            </button>
+          }
+          else if (_pledge.Status == PledgeStatus.Cancelled || _pledge.Status == PledgeStatus.Lapsed)
+          {
+            <button class="btn btn-sm btn-primary" @onclick='() => UpdateStatus(PledgeStatus.Active)' disabled="@_statusBusy">
+              ▶ Reactivate Pledge
+            </button>
+          }
+          @if (!string.IsNullOrEmpty(_statusResult))
+          {
+            <div style="font-size:.82rem;color:var(--green);font-weight:600;">@_statusResult</div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private DonorPledge? _pledge;
+  private bool _loading = true, _payBusy, _statusBusy;
+  private string _payResult = "", _statusResult = "";
+  private decimal _payAmount;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetPledgesAsync();
+    _pledge = all.FirstOrDefault(p => p.Id == Id);
+    _loading = false;
+  }
+
+  private async Task RecordPayment()
+  {
+    if (_pledge is null || _payAmount <= 0) return;
+    _payBusy = true;
+    _pledge.FulfilledAmount = Math.Min(_pledge.PledgedAmount, _pledge.FulfilledAmount + _payAmount);
+    if (_pledge.IsFulfilled) _pledge.Status = PledgeStatus.Fulfilled;
+    var ok = await Api.UpdatePledgeAsync(Id, _pledge);
+    _payResult = ok ? $"Payment of {_payAmount.ToString("C0")} recorded." : "Failed to record payment.";
+    _payAmount = 0;
+    _payBusy = false;
+  }
+
+  private async Task UpdateStatus(PledgeStatus status)
+  {
+    if (_pledge is null) return;
+    _statusBusy = true;
+    _pledge.Status = status;
+    var ok = await Api.UpdatePledgeAsync(Id, _pledge);
+    _statusResult = ok ? $"Status updated to {status}." : "Update failed.";
+    _statusBusy = false;
+  }
+
+  private static string StatusBadge(PledgeStatus s) => s switch
+  {
+    PledgeStatus.Fulfilled => "fulfilled",
+    PledgeStatus.Cancelled => "cancelled",
+    PledgeStatus.Overdue   => "cancelled",
+    PledgeStatus.Lapsed    => "cancelled",
+    _                      => "new"
+  };
+}

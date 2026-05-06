@@ -1,0 +1,200 @@
+@page "/admin/donors/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Donor — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Register Donor</h2><p>Add a new donor to the ministry</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/by-donor" class="btn btn-sm">← Donors</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Donor registered. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Personal Information</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input class="form-input" @bind="_firstName" placeholder="First name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name *</label>
+            <input class="form-input" @bind="_lastName" placeholder="Last name" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" @bind="_email" placeholder="email@example.com" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Phone</label>
+          <input class="form-input" @bind="_phone" placeholder="(555) 555-5555" />
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" @bind="_isAnonymous" style="width:16px;height:16px;" />
+            <span>Anonymous donor (hide name on public materials)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Address</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Street Address</label>
+          <input class="form-input" @bind="_streetAddress" placeholder="123 Main St" />
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:10px;">
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input class="form-input" @bind="_city" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">State</label>
+            <input class="form-input" @bind="_state" placeholder="IL" maxlength="2" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Zip</label>
+            <input class="form-input" @bind="_zip" placeholder="60601" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Ministry Connection</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Parish Name</label>
+          <input class="form-input" @bind="_parishName" placeholder="St. Mary's Parish" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Diocese</label>
+          <input class="form-input" @bind="_dioceseName" placeholder="Diocese of Chicago" />
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Chapter *</label>
+          <select class="form-input" @bind="_chapterId">
+            <option value="0">— Select chapter —</option>
+            @foreach (var c in _chapters)
+            {
+              <option value="@c.Id">@c.Name — @c.City, @c.State</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Recurring Donation (optional)</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" @bind="_isRecurring" style="width:16px;height:16px;" />
+            <span>This is a recurring donor</span>
+          </label>
+        </div>
+        @if (_isRecurring)
+        {
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Monthly Amount</label>
+            <input class="form-input" type="number" step="10" min="0" @bind="_recurringAmount" placeholder="0.00" />
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Notes</h3></div>
+      <div class="panel-body">
+        <textarea class="form-input" rows="4" @bind="_notes" placeholder="Internal notes about this donor…"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+  <a href="/admin/by-donor" class="btn btn-sm">Cancel</a>
+  <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Register Donor")</button>
+</div>
+
+@code {
+  private string _firstName = "", _lastName = "", _email = "", _phone = "";
+  private string _streetAddress = "", _city = "", _state = "", _zip = "";
+  private string _parishName = "", _dioceseName = "", _notes = "";
+  private bool _isAnonymous, _isRecurring, _busy, _saved;
+  private decimal _recurringAmount;
+  private int _chapterId;
+  private string _error = "";
+  private List<Chapter> _chapters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
+    { _error = "First and last name are required."; return; }
+    if (string.IsNullOrWhiteSpace(_email))
+    { _error = "Email is required."; return; }
+    if (_chapterId == 0)
+    { _error = "Please select a chapter."; return; }
+
+    _busy = true;
+    var donor = new Donor
+    {
+      FirstName      = _firstName,
+      LastName       = _lastName,
+      Email          = _email,
+      Phone          = string.IsNullOrWhiteSpace(_phone) ? null : _phone,
+      StreetAddress  = string.IsNullOrWhiteSpace(_streetAddress) ? null : _streetAddress,
+      City           = string.IsNullOrWhiteSpace(_city) ? null : _city,
+      State          = string.IsNullOrWhiteSpace(_state) ? null : _state,
+      Zip            = string.IsNullOrWhiteSpace(_zip) ? null : _zip,
+      ParishName     = string.IsNullOrWhiteSpace(_parishName) ? null : _parishName,
+      DioceseName    = string.IsNullOrWhiteSpace(_dioceseName) ? null : _dioceseName,
+      ChapterId      = _chapterId,
+      IsAnonymous    = _isAnonymous,
+      IsRecurring    = _isRecurring,
+      RecurringAmount = _isRecurring && _recurringAmount > 0 ? _recurringAmount : null,
+      Notes          = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+      FirstGiftDate  = DateTime.Today,
+      LastGiftDate   = DateTime.Today,
+    };
+    var result = await Api.CreateDonorAsync(donor);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/by-donor");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

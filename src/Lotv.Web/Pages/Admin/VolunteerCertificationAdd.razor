@@ -1,0 +1,161 @@
+@page "/admin/volunteers/{Id:int}/certifications/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Add Certification — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Add Certification</h2>
+    <p>@(_volunteer?.FullName ?? $"Volunteer #{Id}")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteer-certifications" class="btn btn-sm">← Certifications</a>
+    <a href="/admin/volunteers/@Id/edit" class="btn btn-sm">Edit Volunteer</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_volunteer is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Volunteer #@Id not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Certification added. Redirecting…</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Certification Details</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Certification Type *</label>
+            <input class="form-input" @bind="_certType" placeholder='e.g. "Safe Environment Training"' />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Issue Date *</label>
+            <input class="form-input" type="date" @bind="_issuedDate" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Expiration Date</label>
+            <input class="form-input" type="date" @bind="_expiresDate" />
+            <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">Leave blank if certification does not expire.</div>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" @bind="_isVerified" style="width:16px;height:16px;" />
+              <span>Mark as verified</span>
+            </label>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Notes</label>
+            <textarea class="form-input" rows="3" @bind="_notes" placeholder="Training provider, certificate number, etc."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <!-- Existing certs -->
+      <div class="panel">
+        <div class="panel-head"><h3>Existing Certifications</h3></div>
+        <div class="panel-body" style="padding:0;">
+          @if (!_existing.Any())
+          {
+            <div style="padding:20px;text-align:center;font-size:.84rem;color:var(--text-light);">No certifications on file.</div>
+          }
+          else
+          {
+            @foreach (var c in _existing.OrderByDescending(c => c.IssuedDate))
+            {
+              var isExpired = c.ExpiresDate.HasValue && c.ExpiresDate.Value < DateTime.Today;
+              <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <span style="font-size:.84rem;font-weight:600;">@c.CertType</span>
+                  @if (c.IsVerified)
+                  { <span class="badge badge-fulfilled" style="font-size:.58rem;">Verified</span> }
+                  @if (isExpired)
+                  { <span class="badge badge-cancelled" style="font-size:.58rem;">Expired</span> }
+                </div>
+                <div style="font-size:.74rem;color:var(--text-light);">
+                  Issued @c.IssuedDate.ToString("MMM d, yyyy")
+                  @if (c.ExpiresDate.HasValue)
+                  {
+                    <span> &bull; Expires @c.ExpiresDate.Value.ToString("MMM d, yyyy")</span>
+                  }
+                </div>
+                @if (!string.IsNullOrEmpty(c.Notes))
+                {
+                  <div style="font-size:.74rem;color:var(--text-mid);margin-top:2px;">@c.Notes</div>
+                }
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+    <a href="/admin/volunteer-certifications" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Add Certification")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Volunteer? _volunteer;
+  private List<VolCertDto> _existing = [];
+  private bool _loading = true, _busy, _saved, _isVerified;
+  private string _certType = "", _notes = "", _error = "";
+  private DateTime _issuedDate = DateTime.Today;
+  private DateTime? _expiresDate;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var volTask  = Api.GetVolunteerByIdAsync(Id);
+    var certTask = Api.GetVolunteerCertificationsAsync(Id);
+    await Task.WhenAll(volTask, certTask);
+    _volunteer = await volTask;
+    _existing  = await certTask;
+    _loading = false;
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_certType)) { _error = "Certification type is required."; return; }
+
+    _busy = true;
+    var dto = new VolCertDto(
+      Id: 0, VolunteerId: Id, CertType: _certType,
+      IssuedDate: _issuedDate, ExpiresDate: _expiresDate,
+      IsVerified: _isVerified, Notes: string.IsNullOrWhiteSpace(_notes) ? null : _notes);
+    var ok = await Api.CreateCertificationAsync(Id, dto);
+    _busy = false;
+    if (ok)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/volunteer-certifications");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}
