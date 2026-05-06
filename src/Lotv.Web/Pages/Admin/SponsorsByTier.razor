@@ -1,0 +1,131 @@
+@page "/admin/sponsors/by-tier"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Sponsors by Tier — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Sponsors by Tier</h2><p>Corporate and organizational sponsor breakdown</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/sponsors" class="btn btn-sm">← All Sponsors</a>
+    <a href="/admin/sponsors/new" class="btn btn-sm btn-primary">+ Add Sponsor</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127970;</div>
+      <div class="kpi-label">Total Sponsors</div>
+      <div class="kpi-value" style="color:var(--navy)">@_sponsors.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Committed</div>
+      <div class="kpi-value" style="color:var(--green)">@_sponsors.Sum(s => s.CommittedAmount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--amber)">@_sponsors.Count(s => s.Status == "Active")</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-label">Tiers</div>
+      <div class="kpi-value" style="color:var(--navy)">@_sponsors.Select(s => s.Tier).Distinct().Count()</div>
+    </div>
+  </div>
+
+  @foreach (var tierGroup in _sponsors.GroupBy(s => s.Tier).OrderBy(g => TierOrder(g.Key)))
+  {
+    var tierTotal = tierGroup.Sum(s => s.CommittedAmount);
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head" style="background:@TierColor(tierGroup.Key);border-radius:8px 8px 0 0;">
+        <h3 style="color:#fff;">@tierGroup.Key <span style="font-size:.78rem;font-weight:400;opacity:.85;">(@tierGroup.Count() sponsors · @tierTotal.ToString("C0") committed)</span></h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Sponsor</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Contact</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Committed</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Paid</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var s in tierGroup.OrderByDescending(s => s.CommittedAmount))
+            {
+              <tr style="border-top:1px solid var(--border);@(s.Status != "Active" ? "opacity:0.6;" : "")">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/sponsors/@s.Id" style="color:var(--navy);">@s.CompanyName</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@s.ContactName</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@s.CommittedAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@s.PaidToDate.ToString("C0")</td>
+                <td style="padding:10px 16px;">
+                  @if (s.Status == "Active")
+                  {
+                    <span class="badge badge-fulfilled" style="font-size:.68rem;">Active</span>
+                  }
+                  else
+                  {
+                    <span class="badge badge-cancelled" style="font-size:.68rem;">@s.Status</span>
+                  }
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/sponsors/@s.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_sponsors.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No sponsors found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<SponsorDto> _sponsors = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _sponsors = await Api.GetSponsorsAsync();
+    _loading = false;
+  }
+
+  private static int TierOrder(string tier) => tier switch
+  {
+    "Platinum"  => 0,
+    "Gold"      => 1,
+    "Silver"    => 2,
+    "Bronze"    => 3,
+    "Community" => 4,
+    _           => 99
+  };
+
+  private static string TierColor(string tier) => tier switch
+  {
+    "Platinum"  => "#64748b",
+    "Gold"      => "#d97706",
+    "Silver"    => "#6b7280",
+    "Bronze"    => "#b45309",
+    "Community" => "var(--navy)",
+    _           => "var(--navy)"
+  };
+}

@@ -1,0 +1,122 @@
+@page "/admin/donors/{DonorId:int}/events"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donor Events — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Events</h2><p>@(_donor?.FullName ?? $"Donor #{DonorId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor</a>
+    <a href="/admin/events" class="btn btn-sm">All Events</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-label">Events Attended</div>
+      <div class="kpi-value" style="color:var(--navy)">@_rows.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Given</div>
+      <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.TotalGiven).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg per Event</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_rows.Any() ? (_rows.Sum(r => r.TotalGiven) / _rows.Count).ToString("C0") : "—")</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Events (@_rows.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_rows.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No event donations recorded for this donor.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Event</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Gifts</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var r in _rows.OrderByDescending(r => r.EventDate))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/events/@r.EventId" style="color:var(--navy);">@r.EventName</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.EventDate.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.GiftCount</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.TotalGiven.ToString("C0")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/events/@r.EventId" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
+              <td colspan="3" style="padding:10px 16px;font-size:.84rem;">Total</td>
+              <td style="padding:10px 16px;font-size:.92rem;text-align:right;color:var(--green);">@_rows.Sum(r => r.TotalGiven).ToString("C0")</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+
+  private Donor? _donor;
+  private List<EventRow> _rows = [];
+  private bool _loading = true;
+
+  private record EventRow(int EventId, string EventName, DateTime EventDate, int GiftCount, decimal TotalGiven);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorTask = Api.GetDonorAsync(DonorId);
+    var donTask   = Api.GetDonationsAsync();
+    var evtTask   = Api.GetEventsAsync();
+    await Task.WhenAll(donorTask, donTask, evtTask);
+    _donor = await donorTask;
+    var donations = await donTask;
+    var events    = await evtTask;
+    var forDonor  = donations.Where(d => d.DonorId == DonorId && d.EventId.HasValue).ToList();
+    _rows = forDonor
+      .GroupBy(d => d.EventId!.Value)
+      .Select(g =>
+      {
+        var evt = events.FirstOrDefault(e => e.Id == g.Key);
+        return new EventRow(
+          g.Key,
+          evt?.Title ?? $"Event #{g.Key}",
+          evt?.Date ?? g.Min(d => d.Date),
+          g.Count(),
+          g.Sum(d => d.Amount));
+      })
+      .ToList();
+    _loading = false;
+  }
+}

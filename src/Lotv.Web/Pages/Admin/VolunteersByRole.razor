@@ -1,0 +1,115 @@
+@page "/admin/volunteers/by-role"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Volunteers by Role — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteers by Role</h2><p>Role distribution across the volunteer network</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← All Volunteers</a>
+    <a href="/admin/volunteers/new" class="btn btn-sm btn-primary">+ Add Volunteer</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Total Volunteers</div>
+      <div class="kpi-value" style="color:var(--navy)">@_volunteers.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--green)">@_volunteers.Count(v => v.Status == VolunteerStatus.Active)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-label">Roles Filled</div>
+      <div class="kpi-value" style="color:var(--amber)">@_volunteers.Select(v => v.Role).Distinct().Count()</div>
+    </div>
+  </div>
+
+  @foreach (var roleGroup in _volunteers.GroupBy(v => v.Role).OrderByDescending(g => g.Count()))
+  {
+    var active = roleGroup.Count(v => v.Status == VolunteerStatus.Active);
+    var total  = roleGroup.Count();
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>@roleGroup.Key <span style="font-size:.78rem;font-weight:400;color:var(--text-light);">(@total volunteers · @active active)</span></h3>
+        <div style="display:flex;align-items:center;gap:8px;min-width:200px;">
+          <div style="flex:1;background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
+            <div style="background:var(--green);height:6px;width:@(total > 0 ? (active * 100 / total) : 0)%;"></div>
+          </div>
+          <span style="font-size:.74rem;color:var(--text-light);">@(total > 0 ? (active * 100 / total) : 0)% active</span>
+        </div>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Name</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Chapter</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Active Cases</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Since</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var v in roleGroup.OrderBy(v => v.FullName))
+            {
+              <tr style="border-top:1px solid var(--border);@(v.Status != VolunteerStatus.Active ? "opacity:0.6;" : "")">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/volunteers/@v.Id" style="color:var(--navy);">@v.FullName</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(v.ChapterId > 0 ? $"Chapter #{v.ChapterId}" : "—")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@v.ActiveCases</td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@StatusClass(v.Status)" style="font-size:.68rem;">@v.Status</span>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@v.JoinedDate.ToString("MMM yyyy")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/volunteers/@v.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (!_volunteers.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No volunteers found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<Volunteer> _volunteers = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _volunteers = await Api.GetVolunteersAsync();
+    _loading = false;
+  }
+
+  private static string StatusClass(VolunteerStatus status) => status switch
+  {
+    VolunteerStatus.Active      => "fulfilled",
+    VolunteerStatus.Inactive    => "cancelled",
+    VolunteerStatus.Onboarding  => "new",
+    _                           => "new"
+  };
+}

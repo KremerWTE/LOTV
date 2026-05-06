@@ -1,0 +1,124 @@
+@page "/admin/events/{EventId:int}/donors"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Event Donors — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Event Donors</h2><p>@(_event?.Title ?? $"Event #{EventId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events/@EventId" class="btn btn-sm">← Event</a>
+    <a href="/admin/donors" class="btn btn-sm">All Donors</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Donors</div>
+      <div class="kpi-value" style="color:var(--navy)">@_rows.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Given</div>
+      <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.Total).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg Gift</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_rows.Any() ? (_rows.Sum(r => r.Total) / _rows.Sum(r => r.Count)).ToString("C0") : "—")</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-label">Repeat Donors</div>
+      <div class="kpi-value" style="color:var(--navy)">@_rows.Count(r => r.Count > 1)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Donors (@_rows.Count)</h3>
+      <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 10px;"
+             placeholder="Search…" @bind="_search" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No donors match.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Gifts</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Last Gift</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var r in Filtered)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@r.DonorId" style="color:var(--navy);">@r.DonorName</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.Count</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.Total.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.LastGift.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/donors/@r.DonorId" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int EventId { get; set; }
+
+  private MinistryEvent? _event;
+  private List<DonorRow> _rows = [];
+  private string _search = "";
+  private bool _loading = true;
+
+  private record DonorRow(int DonorId, string DonorName, int Count, decimal Total, DateTime LastGift);
+
+  private IEnumerable<DonorRow> Filtered => _rows
+    .Where(r => string.IsNullOrEmpty(_search) || r.DonorName.Contains(_search, StringComparison.OrdinalIgnoreCase))
+    .OrderByDescending(r => r.Total);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var evtTask = Api.GetEventsAsync();
+    var donTask = Api.GetDonationsAsync();
+    await Task.WhenAll(evtTask, donTask);
+    var events   = await evtTask;
+    _event       = events.FirstOrDefault(e => e.Id == EventId);
+    var all      = await donTask;
+    var forEvent = all.Where(d => d.EventId == EventId).ToList();
+    _rows = forEvent
+      .GroupBy(d => d.DonorId)
+      .Select(g => new DonorRow(
+        g.Key,
+        g.First().Donor?.FullName ?? $"Donor #{g.Key}",
+        g.Count(),
+        g.Sum(d => d.Amount),
+        g.Max(d => d.Date)))
+      .ToList();
+    _loading = false;
+  }
+}

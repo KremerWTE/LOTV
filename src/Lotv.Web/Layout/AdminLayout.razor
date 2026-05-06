@@ -841,6 +841,12 @@
       var u when u == "/admin/staff-tasks/today"                                                                             => "Tasks Due Today",
       var u when u.Contains("/admin/chapters/") && u.EndsWith("/staff-tasks")                                               => "Chapter Staff Tasks",
       var u when u.Contains("/admin/campaigns/") && u.EndsWith("/donors")                                                   => "Campaign Donors",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/expenses")                                                 => "Chapter Expenses",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/campaigns")                                                => "Chapter Campaigns",
+      var u when u.Contains("/admin/events/") && u.EndsWith("/donors")                                                     => "Event Donors",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/events")                                                     => "Donor Events",
+      var u when u == "/admin/sponsors/by-tier"                                                                            => "Sponsors by Tier",
+      var u when u == "/admin/volunteers/by-role"                                                                          => "Volunteers by Role",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

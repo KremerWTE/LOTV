@@ -1,0 +1,138 @@
+@page "/admin/chapters/{Id:int}/expenses"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Chapter Expenses — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Chapter Expenses</h2><p>@(_chapter?.Name ?? $"Chapter #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapters/@Id" class="btn btn-sm">← Chapter</a>
+    <a href="/admin/expenses" class="btn btn-sm">All Expenses</a>
+    <a href="/admin/expenses/new" class="btn btn-sm btn-primary">+ Log Expense</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Spent</div>
+      <div class="kpi-value" style="color:var(--red)">@_expenses.Sum(e => e.Amount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Entries</div>
+      <div class="kpi-value" style="color:var(--navy)">@_expenses.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg Expense</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_expenses.Any() ? (_expenses.Sum(e => e.Amount) / _expenses.Count).ToString("C0") : "—")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-label">Categories</div>
+      <div class="kpi-value" style="color:var(--green)">@_expenses.Select(e => e.Category).Distinct().Count()</div>
+    </div>
+  </div>
+
+  <!-- Category breakdown -->
+  @if (_expenses.Any())
+  {
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>By Category</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tbody>
+            @foreach (var g in _expenses.GroupBy(e => e.Category).OrderByDescending(g => g.Sum(e => e.Amount)))
+            {
+              var pct = _expenses.Sum(e => e.Amount) > 0 ? g.Sum(e => e.Amount) / _expenses.Sum(e => e.Amount) * 100m : 0m;
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;width:160px;">@g.Key</td>
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:700;color:var(--red);text-align:right;width:120px;">@g.Sum(e => e.Amount).ToString("C0")</td>
+                <td style="padding:10px 16px;">
+                  <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
+                    <div style="background:var(--red);height:6px;width:@pct.ToString("F1")%;"></div>
+                  </div>
+                </td>
+                <td style="padding:10px 16px;font-size:.78rem;color:var(--text-light);text-align:right;width:60px;">@pct.ToString("F1")%</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <div class="panel">
+    <div class="panel-head"><h3>Expenses (@_expenses.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_expenses.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No expenses recorded for this chapter.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Description</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Category</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var e in _expenses.OrderByDescending(e => e.PaidAt))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;white-space:nowrap;">@e.PaidAt.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@e.Description</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@e.Category</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--red);">@e.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/expenses/@e.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
+              <td colspan="3" style="padding:10px 16px;font-size:.84rem;">Total</td>
+              <td style="padding:10px 16px;font-size:.92rem;text-align:right;color:var(--red);">@_expenses.Sum(e => e.Amount).ToString("C0")</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Chapter? _chapter;
+  private List<Expense> _expenses = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var chapTask = Api.GetChaptersAdminAsync();
+    var expTask  = Api.GetExpensesAsync();
+    await Task.WhenAll(chapTask, expTask);
+    var chapters = await chapTask;
+    _chapter     = chapters.FirstOrDefault(c => c.Id == Id);
+    var all      = await expTask;
+    _expenses    = all.Where(e => e.ChapterId == Id).ToList();
+    _loading = false;
+  }
+}
