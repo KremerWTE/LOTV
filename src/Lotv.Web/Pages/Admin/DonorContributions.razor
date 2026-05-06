@@ -1,0 +1,124 @@
+@page "/admin/donors/{DonorId:int}/contributions"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donor Contributions — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Contributions</h2><p>@(_donor?.FullName ?? $"Donor #{DonorId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor Profile</a>
+    <a href="/admin/donations/new" class="btn btn-sm btn-primary">+ Log Donation</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Given</div>
+      <div class="kpi-value" style="color:var(--navy)">@_totalGiven.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-label">Gift Count</div>
+      <div class="kpi-value" style="color:var(--green)">@_donations.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Average Gift</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_donations.Count > 0 ? (_totalGiven / _donations.Count).ToString("C0") : "—")</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Last Gift</div>
+      <div class="kpi-value" style="font-size:.9rem;">@(_lastGift?.ToString("MMM d, yyyy") ?? "—")</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>All Gifts (@_donations.Count)</h3>
+      <select class="form-input" style="font-size:.82rem;padding:5px 10px;width:160px;" @bind="_channelFilter">
+        <option value="">All channels</option>
+        @foreach (var ch in Enum.GetValues<DonationChannel>())
+        {
+          <option value="@ch">@ch.ToDisplayName()</option>
+        }
+      </select>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No contributions found.</div>
+      }
+      else
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Channel</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Campaign</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var d in Filtered.OrderByDescending(d => d.Date))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;">@d.Date.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.84rem;">@d.Channel.ToDisplayName()</td>
+                <td style="padding:10px 16px;font-size:.84rem;color:var(--text-light);">@(d.Campaign ?? "—")</td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@(d.ContributionStatus == ContributionStatus.Processed ? "fulfilled" : d.ContributionStatus == ContributionStatus.Pending ? "pending" : d.ContributionStatus == ContributionStatus.Failed ? "cancelled" : "new")" style="font-size:.6rem;">@d.ContributionStatus</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/donations/@d.Id/edit" style="font-size:.78rem;color:var(--navy);">Edit</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+
+  private Donor? _donor;
+  private List<Donation> _donations = [];
+  private bool _loading = true;
+  private string _channelFilter = "";
+
+  private decimal _totalGiven;
+  private DateTime? _lastGift;
+
+  private IEnumerable<Donation> Filtered => string.IsNullOrEmpty(_channelFilter)
+    ? _donations
+    : _donations.Where(d => d.Channel.ToString() == _channelFilter);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorTask = Api.GetDonorAsync(DonorId);
+    var giftsTask = Api.GetDonorContributionsAsync(DonorId);
+    await Task.WhenAll(donorTask, giftsTask);
+    _donor     = await donorTask;
+    _donations = await giftsTask;
+    _totalGiven = _donations.Sum(d => d.Amount);
+    _lastGift   = _donations.Count > 0 ? _donations.Max(d => d.Date) : null;
+    _loading = false;
+  }
+}

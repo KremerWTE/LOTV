@@ -766,6 +766,12 @@
       var u when u.Contains("/admin/inventory/") && u.EndsWith("/allocate")     => "Allocate Resource",
       var u when u.EndsWith("/admin/donors/bulk-portal-links")                  => "Bulk Portal Links",
       var u when u.Contains("/admin/recurring/") && u.EndsWith("/edit")         => "Edit Recurring Gift",
+      var u when u.Contains("/admin/grants/") && !u.EndsWith("/edit") && !u.EndsWith("/calendar") => "Grant Detail",
+      var u when u.Contains("/admin/announcements/") && !u.EndsWith("/edit") && !u.EndsWith("/new") => "Announcement Detail",
+      var u when u.Contains("/admin/expenses/") && !u.EndsWith("/edit") && !u.EndsWith("/new") => "Expense Detail",
+      var u when u.Contains("/admin/pledges/") && u.EndsWith("/edit")           => "Edit Pledge",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/contributions")   => "Donor Contributions",
+      var u when u.Contains("/admin/donations/") && !u.EndsWith("/edit") && !u.EndsWith("/new") && !u.EndsWith("/bulk-channel") => "Donation Detail",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

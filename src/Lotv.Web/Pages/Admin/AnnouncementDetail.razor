@@ -1,0 +1,117 @@
+@page "/admin/announcements/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Announcement Detail — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Announcement</h2><p>@(_ann?.Title ?? $"Announcement #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/announcements" class="btn btn-sm">← Announcements</a>
+    @if (_ann is not null)
+    {
+      <a href="/admin/announcements/@Id/edit" class="btn btn-sm btn-primary">Edit</a>
+    }
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_ann is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Announcement #@Id not found.</div></div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <h3>@_ann.Title</h3>
+          <div style="display:flex;gap:6px;align-items:center;">
+            @if (_ann.IsPinned)
+            {
+              <span class="badge badge-fulfilled" style="font-size:.6rem;">📌 Pinned</span>
+            }
+            @if (_ann.ExpiresAt.HasValue && _ann.ExpiresAt.Value < DateTime.UtcNow)
+            {
+              <span class="badge badge-cancelled" style="font-size:.6rem;">Expired</span>
+            }
+          </div>
+        </div>
+        <div class="panel-body">
+          <div style="font-size:.86rem;line-height:1.7;white-space:pre-wrap;color:var(--text-mid);">@_ann.Body</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Metadata</h3></div>
+        <div class="panel-body">
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Author</div>
+          <div style="font-size:.86rem;font-weight:600;margin-bottom:12px;">@_ann.AuthorName</div>
+
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Audience</div>
+          <div style="font-size:.86rem;margin-bottom:12px;">@_ann.Audience</div>
+
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Created</div>
+          <div style="font-size:.86rem;margin-bottom:12px;">@_ann.CreatedAt.ToString("MMM d, yyyy h:mm tt")</div>
+
+          @if (_ann.ExpiresAt.HasValue)
+          {
+            <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Expires</div>
+            <div style="font-size:.86rem;margin-bottom:12px;color:@(_ann.ExpiresAt.Value < DateTime.UtcNow ? "var(--red)" : "inherit");">
+              @_ann.ExpiresAt.Value.ToString("MMM d, yyyy")
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Actions</h3></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          <a href="/admin/announcements/@Id/edit" class="btn btn-sm btn-primary" style="text-align:center;">Edit Announcement</a>
+          <button class="btn btn-sm" style="background:var(--red);color:white;border:none;"
+                  @onclick="Delete" disabled="@_deleteBusy">
+            @(_deleteBusy ? "Deleting…" : "Delete Announcement")
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private AnnouncementDto? _ann;
+  private bool _loading = true, _deleteBusy;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetAnnouncementsAsync();
+    _ann = all.FirstOrDefault(a => a.Id == Id);
+    _loading = false;
+  }
+
+  private async Task Delete()
+  {
+    _deleteBusy = true;
+    var ok = await Api.DeleteAnnouncementAsync(Id);
+    _deleteBusy = false;
+    if (ok) Nav.NavigateTo("/admin/announcements");
+    else _error = "Delete failed. Please try again.";
+  }
+}

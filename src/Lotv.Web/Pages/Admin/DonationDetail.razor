@@ -1,0 +1,168 @@
+@page "/admin/donations/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donation Detail — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donation Detail</h2><p>@(_donation?.Donor?.FullName ?? $"Donation #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donations" class="btn btn-sm">← Donations</a>
+    @if (_donation is not null)
+    {
+      <a href="/admin/donations/@Id/edit" class="btn btn-sm btn-primary">Edit</a>
+    }
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_donation is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Donation #@Id not found.</div></div>
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Amount</div>
+      <div class="kpi-value" style="color:var(--green)">@_donation.Amount.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Date</div>
+      <div class="kpi-value" style="color:var(--navy);font-size:1rem;">@_donation.Date.ToString("MMM d, yyyy")</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#128279;</div>
+      <div class="kpi-label">Channel</div>
+      <div class="kpi-value" style="font-size:.9rem;">@_donation.Channel.ToDisplayName()</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#9899;</div>
+      <div class="kpi-label">Status</div>
+      <div class="kpi-value" style="font-size:.9rem;color:@StatusColor(_donation.ContributionStatus);">@_donation.ContributionStatus</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Donation Details</h3></div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);width:35%;">Donor</td>
+                <td style="padding:8px 0;font-size:.86rem;font-weight:600;">
+                  @if (_donation.DonorId > 0)
+                  {
+                    <a href="/admin/donors/@_donation.DonorId" style="color:var(--navy);">@(_donation.Donor?.FullName ?? $"Donor #{_donation.DonorId}")</a>
+                  }
+                  else
+                  {
+                    @(_donation.Donor?.FullName ?? "—")
+                  }
+                </td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Date</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_donation.Date.ToString("MMMM d, yyyy")</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Channel</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_donation.Channel.ToDisplayName()</td>
+              </tr>
+              @if (!string.IsNullOrEmpty(_donation.Campaign))
+              {
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Campaign</td>
+                  <td style="padding:8px 0;font-size:.86rem;">@_donation.Campaign</td>
+                </tr>
+              }
+              @if (!string.IsNullOrEmpty(_donation.CheckNumber))
+              {
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Check #</td>
+                  <td style="padding:8px 0;font-size:.86rem;font-family:monospace;">@_donation.CheckNumber</td>
+                </tr>
+              }
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Recurring</td>
+                <td style="padding:8px 0;font-size:.86rem;">@(_donation.IsRecurring ? "Yes" : "No")</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Contribution Status</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_donation.ContributionStatus</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Allocation Status</td>
+                <td style="padding:8px 0;font-size:.86rem;">@_donation.AllocationStatus</td>
+              </tr>
+              @if (!string.IsNullOrEmpty(_donation.AllocatedTo))
+              {
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Allocated To</td>
+                  <td style="padding:8px 0;font-size:.86rem;">@_donation.AllocatedTo</td>
+                </tr>
+              }
+              <tr>
+                <td style="padding:8px 0;font-size:.78rem;color:var(--text-light);">Donation ID</td>
+                <td style="padding:8px 0;font-size:.86rem;font-family:monospace;">#@_donation.Id</td>
+              </tr>
+            </tbody>
+          </table>
+
+          @if (!string.IsNullOrEmpty(_donation.Notes))
+          {
+            <div style="margin-top:14px;padding:10px 14px;background:var(--bg);border-radius:6px;font-size:.82rem;color:var(--text-mid);">
+              <strong>Notes:</strong> @_donation.Notes
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Actions</h3></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          <a href="/admin/donations/@Id/edit" class="btn btn-sm btn-primary" style="text-align:center;">Edit Donation</a>
+          <a href="/admin/allocations/new" class="btn btn-sm" style="text-align:center;">Create Allocation</a>
+          @if (_donation.DonorId > 0)
+          {
+            <a href="/admin/donors/@_donation.DonorId/contributions" class="btn btn-sm" style="text-align:center;">All Donor Gifts</a>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private Donation? _donation;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetDonationsAsync();
+    _donation = all.FirstOrDefault(d => d.Id == Id);
+    _loading = false;
+  }
+
+  private static string StatusColor(ContributionStatus s) => s switch
+  {
+    ContributionStatus.Processed  => "var(--green)",
+    ContributionStatus.Failed     => "var(--red)",
+    ContributionStatus.Refunded   => "var(--red)",
+    ContributionStatus.Pending    => "var(--amber)",
+    _                             => "inherit"
+  };
+}
