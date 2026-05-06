@@ -1,0 +1,132 @@
+@page "/admin/grants/pipeline"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Grant Pipeline — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Grant Pipeline</h2><p>Funnel view of grants across lifecycle stages</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/grants" class="btn btn-sm">← All Grants</a>
+    <a href="/admin/grants/by-status" class="btn btn-sm">By Status</a>
+    <a href="/admin/grants/calendar" class="btn btn-sm">Calendar</a>
+    <a href="/admin/grants/new" class="btn btn-sm btn-primary">+ Add Grant</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Grants</div>
+      <div class="kpi-value" style="color:var(--navy)">@_grants.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">In Pipeline</div>
+      <div class="kpi-value" style="color:var(--amber)">@_grants.Count(g => g.Status is "Applied" or "Pending")</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Active Awards</div>
+      <div class="kpi-value" style="color:var(--green)">@_grants.Where(g => g.Status is "Awarded" or "Active").Sum(g => g.Amount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#128196;</div>
+      <div class="kpi-label">Reports Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_grants.Count(g => g.ReportDueDate.HasValue && g.ReportDueDate.Value.Date < DateTime.Today && g.Status != "Closed")</div>
+    </div>
+  </div>
+
+  @foreach (var stage in _stages)
+  {
+    var stageGrants = _grants.Where(g => g.Status == stage.Status).ToList();
+    var stageTotal  = stageGrants.Sum(g => g.Amount);
+    var pct         = _grants.Count > 0 ? stageGrants.Count * 100m / _grants.Count : 0;
+    <div class="panel" style="margin-bottom:12px;border-left:4px solid @stage.Color;">
+      <div class="panel-head">
+        <h3>
+          <span class="badge badge-@stage.Badge" style="font-size:.72rem;margin-right:8px;">@stage.Status</span>
+          <span style="font-size:.84rem;">@stageGrants.Count grants</span>
+          @if (stageTotal > 0) { <span style="font-size:.8rem;color:var(--text-light);margin-left:8px;">· @stageTotal.ToString("C0")</span> }
+        </h3>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:120px;background:var(--bg);border-radius:4px;height:6px;overflow:hidden;">
+            <div style="background:@stage.Color;height:100%;width:@Math.Min(100,pct).ToString("F0")%;"></div>
+          </div>
+          <span style="font-size:.74rem;color:var(--text-light);">@pct.ToString("F0")%</span>
+        </div>
+      </div>
+      @if (stageGrants.Any())
+      {
+        <div class="panel-body" style="padding:0;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:var(--bg);">
+                <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Grant</th>
+                <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Funder</th>
+                <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+                <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Next Date</th>
+                <th style="padding:8px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var g in stageGrants.OrderByDescending(g => g.Amount))
+              {
+                var reportSoon = g.ReportDueDate.HasValue && (g.ReportDueDate.Value - DateTime.Today).TotalDays <= 30 && g.ReportDueDate.Value >= DateTime.Today;
+                var reportOverdue = g.ReportDueDate.HasValue && g.ReportDueDate.Value.Date < DateTime.Today;
+                <tr style="border-top:1px solid var(--border);@(reportOverdue ? "background:#fef2f2;" : reportSoon ? "background:#fffbeb;" : "")">
+                  <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@g.Purpose</td>
+                  <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@g.GrantorName</td>
+                  <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@g.Amount.ToString("C0")</td>
+                  <td style="padding:8px 16px;font-size:.82rem;color:@(reportOverdue ? "var(--red)" : reportSoon ? "var(--amber)" : "var(--text-light)");">
+                    @if (g.ReportDueDate.HasValue)
+                    {
+                      <span>Report: @g.ReportDueDate.Value.ToString("MMM d, yyyy") @(reportOverdue ? "⚠" : reportSoon ? "⚡" : "")</span>
+                    }
+                    else
+                    {
+                      <span>Awarded: @g.AwardedDate.ToString("MMM d, yyyy")</span>
+                    }
+                  </td>
+                  <td style="padding:8px 16px;text-align:center;">
+                    <a href="/admin/grants/@g.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+}
+
+@code {
+  private List<GrantDto> _grants = [];
+  private bool _loading = true;
+
+  private record StageInfo(string Status, string Color, string Badge);
+
+  private static readonly StageInfo[] _stages =
+  [
+    new("Applied",   "var(--amber)", "new"),
+    new("Pending",   "var(--amber)", "new"),
+    new("Awarded",   "var(--green)", "fulfilled"),
+    new("Active",    "var(--green)", "fulfilled"),
+    new("Reporting", "var(--navy)",  "onhold"),
+    new("Closed",    "var(--border)","cancelled"),
+    new("Declined",  "var(--red)",   "cancelled"),
+  ];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _grants  = await Api.GetGrantsAsync();
+    _loading = false;
+  }
+}

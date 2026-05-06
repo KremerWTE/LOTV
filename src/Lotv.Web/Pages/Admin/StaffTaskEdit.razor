@@ -1,0 +1,157 @@
+@page "/admin/staff-tasks/{Id:int}/edit"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Edit Staff Task — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Edit Staff Task</h2><p>Update task details and assignment</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/staff-tasks/@Id" class="btn btn-sm">← Task Detail</a>
+    <a href="/admin/staff-tasks" class="btn btn-sm">All Tasks</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_task == null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Task not found.</div></div>
+}
+else
+{
+  <div class="panel" style="max-width:720px;">
+    <div class="panel-body">
+      <div style="display:grid;gap:20px;">
+        <div>
+          <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px;">Title <span style="color:var(--red);">*</span></label>
+          <input type="text" @bind="_title" maxlength="200" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;" />
+        </div>
+        <div>
+          <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px;">Description</label>
+          <textarea @bind="_description" rows="4" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;resize:vertical;"></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px;">Priority</label>
+            <select @bind="_priority" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;">
+              <option value="Low">Low</option>
+              <option value="Normal">Normal</option>
+              <option value="High">High</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px;">Status</label>
+            <select @bind="_status" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;">
+              <option value="Open">Open</option>
+              <option value="InProgress">In Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px;">Due Date</label>
+          <input type="date" @bind="_dueDate" style="width:220px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px;">Linked Case ID</label>
+            <input type="number" @bind="_linkedCaseId" placeholder="Optional" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;" />
+          </div>
+          <div>
+            <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px;">Linked Donor ID</label>
+            <input type="number" @bind="_linkedDonorId" placeholder="Optional" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;" />
+          </div>
+        </div>
+
+        @if (_error != null)
+        {
+          <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:12px 16px;font-size:.84rem;color:var(--red);">@_error</div>
+        }
+        @if (_success)
+        {
+          <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:12px 16px;font-size:.84rem;color:var(--green);">Task updated successfully.</div>
+        }
+
+        <div style="display:flex;gap:12px;align-items:center;">
+          <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
+            @(_saving ? "Saving…" : "Save Changes")
+          </button>
+          <a href="/admin/staff-tasks/@Id" class="btn btn-sm" style="color:var(--text-light);">Cancel</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="max-width:720px;margin-top:16px;border-left:4px solid var(--border);">
+    <div class="panel-head"><h3 style="color:var(--text-light);">Read-Only Info</h3></div>
+    <div class="panel-body" style="display:grid;grid-template-columns:auto 1fr;gap:8px 24px;font-size:.84rem;">
+      <span style="color:var(--text-light);">Created by</span><span>@_task.CreatedByName</span>
+      <span style="color:var(--text-light);">Assigned to</span><span>@_task.AssignedToName</span>
+      <span style="color:var(--text-light);">Created at</span><span>@_task.CreatedAt.ToString("MMM d, yyyy h:mm tt")</span>
+      @if (_task.CompletedAt.HasValue)
+      {
+        <span style="color:var(--text-light);">Completed at</span><span>@_task.CompletedAt.Value.ToString("MMM d, yyyy h:mm tt")</span>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  private StaffTaskDto? _task;
+  private bool _loading = true;
+  private bool _saving;
+  private bool _success;
+  private string? _error;
+
+  private string _title = "";
+  private string? _description;
+  private string _priority = "Normal";
+  private string _status = "Open";
+  private DateTime? _dueDate;
+  private int? _linkedCaseId;
+  private int? _linkedDonorId;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all  = await Api.GetStaffTasksAsync();
+    _task    = all.FirstOrDefault(t => t.Id == Id);
+    if (_task != null)
+    {
+      _title        = _task.Title;
+      _description  = _task.Description;
+      _priority     = _task.Priority;
+      _status       = _task.Status;
+      _dueDate      = _task.DueDate;
+      _linkedCaseId = _task.LinkedCaseId;
+      _linkedDonorId = _task.LinkedDonorId;
+    }
+    _loading = false;
+  }
+
+  private async Task SaveAsync()
+  {
+    if (string.IsNullOrWhiteSpace(_title)) { _error = "Title is required."; return; }
+    _saving = true; _error = null; _success = false;
+    var dto = _task! with
+    {
+      Title        = _title.Trim(),
+      Description  = _description?.Trim(),
+      Priority     = _priority,
+      Status       = _status,
+      DueDate      = _dueDate,
+      LinkedCaseId = _linkedCaseId,
+      LinkedDonorId = _linkedDonorId
+    };
+    var ok = await Api.UpdateStaffTaskAsync(Id, dto);
+    _saving = false;
+    if (ok) { _success = true; }
+    else    { _error   = "Save failed. Please try again."; }
+  }
+}

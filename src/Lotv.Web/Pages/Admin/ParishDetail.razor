@@ -1,0 +1,147 @@
+@page "/admin/parishes/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>@(_parish?.Name ?? "Parish") — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>@(_parish?.Name ?? "Parish")</h2>
+    <p>@(_parish?.DioceseName ?? "")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/parishes" class="btn btn-sm">← All Parishes</a>
+    @if (_parish != null)
+    {
+      <a href="/admin/dioceses/@_parish.DioceseId" class="btn btn-sm">Diocese</a>
+    }
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_parish == null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Parish not found.</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Active Cases</div>
+      <div class="kpi-value" style="color:var(--amber)">@_parish.ActiveCases</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Cases Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_parish.TotalCasesFulfilled</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-label">Certification</div>
+      <div class="kpi-value" style="color:var(--navy);font-size:1rem;">@_parish.CertificationLevel</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid @StatusColor(_parish.Status);">
+      <div class="kpi-icon">&#128994;</div>
+      <div class="kpi-label">Status</div>
+      <div class="kpi-value" style="font-size:1rem;">
+        <span class="badge badge-@StatusClass(_parish.Status)">@_parish.Status</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Liaison</h3></div>
+      <div class="panel-body">
+        @if (_parish.LiaisonName != null)
+        {
+          <div style="font-size:.88rem;font-weight:600;margin-bottom:4px;">@_parish.LiaisonName</div>
+          @if (_parish.LiaisonEmail != null)
+          {
+            <a href="mailto:@_parish.LiaisonEmail" style="font-size:.82rem;color:var(--navy);">@_parish.LiaisonEmail</a>
+          }
+        }
+        else
+        {
+          <span style="color:var(--text-light);font-size:.84rem;">No liaison assigned</span>
+        }
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Details</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:.84rem;">
+          <span style="color:var(--text-light);">Diocese</span>
+          <a href="/admin/dioceses/@_parish.DioceseId" style="color:var(--navy);">@_parish.DioceseName</a>
+          <span style="color:var(--text-light);">Chapter</span>
+          <a href="/admin/chapters/@_parish.ChapterId" style="color:var(--navy);">#@_parish.ChapterId</a>
+          <span style="color:var(--text-light);">Enrolled</span>
+          <span>@_parish.EnrolledDate.ToString("MMMM d, yyyy")</span>
+          <span style="color:var(--text-light);">Certification</span>
+          <span>@_parish.CertificationLevel</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Cases from this Parish</h3></div>
+    <div class="panel-body">
+      <div style="font-size:.84rem;color:var(--text-light);">
+        <a href="/admin/chapters/@_parish.ChapterId/cases" style="color:var(--navy);">View all cases for Chapter #@_parish.ChapterId →</a>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:24px;">
+        <div style="text-align:center;">
+          <div style="font-size:1.4rem;font-weight:700;color:var(--amber);">@_parish.ActiveCases</div>
+          <div style="font-size:.76rem;color:var(--text-light);">Active</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:1.4rem;font-weight:700;color:var(--green);">@_parish.TotalCasesFulfilled</div>
+          <div style="font-size:.76rem;color:var(--text-light);">Fulfilled (all time)</div>
+        </div>
+        @if (_parish.ActiveCases + _parish.TotalCasesFulfilled > 0)
+        {
+          var pct = _parish.TotalCasesFulfilled * 100m / (_parish.ActiveCases + _parish.TotalCasesFulfilled);
+          <div style="text-align:center;">
+            <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@pct.ToString("F0")%</div>
+            <div style="font-size:.76rem;color:var(--text-light);">Fulfillment rate</div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  private Parish? _parish;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all  = await Api.GetParishesAsync();
+    _parish  = all.FirstOrDefault(p => p.Id == Id);
+    _loading = false;
+  }
+
+  private static string StatusClass(ParishStatus s) => s switch
+  {
+    ParishStatus.Active   => "fulfilled",
+    ParishStatus.Inactive => "cancelled",
+    ParishStatus.Pending  => "new",
+    _                     => "new"
+  };
+
+  private static string StatusColor(ParishStatus s) => s switch
+  {
+    ParishStatus.Active   => "var(--green)",
+    ParishStatus.Inactive => "var(--red)",
+    ParishStatus.Pending  => "var(--amber)",
+    _                     => "var(--border)"
+  };
+}

@@ -1,0 +1,158 @@
+@page "/admin/dioceses/{Id:int}"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>@(_diocese?.Name ?? "Diocese") — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>@(_diocese?.Name ?? "Diocese")</h2>
+    <p>@(_diocese != null ? $"{_diocese.City}, {_diocese.State}{(_diocese.Region != null ? $" · {_diocese.Region}" : "")}" : "")</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/dioceses" class="btn btn-sm">← All Dioceses</a>
+    <a href="/admin/parishes" class="btn btn-sm">All Parishes</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_diocese == null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Diocese not found.</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Total Parishes</div>
+      <div class="kpi-value" style="color:var(--navy)">@_diocese.TotalParishes</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Active Parishes</div>
+      <div class="kpi-value" style="color:var(--green)">@_diocese.ActiveParishes</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Cases Fulfilled</div>
+      <div class="kpi-value" style="color:var(--amber)">@_diocese.TotalCasesFulfilled</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--green)">@_diocese.TotalDonations.ToString("C0")</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Coordinator</h3></div>
+      <div class="panel-body">
+        @if (_diocese.CoordinatorName != null)
+        {
+          <div style="font-size:.88rem;font-weight:600;margin-bottom:4px;">@_diocese.CoordinatorName</div>
+          @if (_diocese.CoordinatorEmail != null)
+          {
+            <a href="mailto:@_diocese.CoordinatorEmail" style="font-size:.82rem;color:var(--navy);">@_diocese.CoordinatorEmail</a>
+          }
+        }
+        else
+        {
+          <span style="color:var(--text-light);font-size:.84rem;">No coordinator assigned</span>
+        }
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Location</h3></div>
+      <div class="panel-body">
+        <div style="font-size:.88rem;font-weight:600;">@_diocese.City, @_diocese.State</div>
+        @if (_diocese.Region != null)
+        {
+          <div style="font-size:.82rem;color:var(--text-light);margin-top:4px;">Region: @_diocese.Region</div>
+        }
+        @if (_diocese.Chapter != null)
+        {
+          <div style="font-size:.82rem;margin-top:4px;">
+            Chapter: <a href="/admin/chapters/@_diocese.ChapterId" style="color:var(--navy);">@_diocese.Chapter.Name</a>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Parishes <span style="font-size:.78rem;font-weight:400;color:var(--text-light);">(@_parishes.Count)</span></h3>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (_parishes.Any())
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Parish</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Liaison</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Active Cases</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Fulfilled</th>
+              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var p in _parishes.OrderBy(p => p.Name))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/parishes/@p.Id" style="color:var(--navy);">@p.Name</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(p.LiaisonName ?? "—")</td>
+                <td style="padding:10px 16px;">
+                  <span class="badge badge-@StatusClass(p.Status)" style="font-size:.68rem;">@p.Status</span>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@p.ActiveCases</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green);">@p.TotalCasesFulfilled</td>
+                <td style="padding:10px 16px;text-align:center;">
+                  <a href="/admin/parishes/@p.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+      else
+      {
+        <div style="padding:32px;text-align:center;color:var(--text-light);font-size:.84rem;">No parishes found for this diocese.</div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  private Diocese? _diocese;
+  private List<Parish> _parishes = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var diocTask  = Api.GetDiocesesAsync();
+    var parTask   = Api.GetParishesAsync();
+    await Task.WhenAll(diocTask, parTask);
+    _diocese  = (await diocTask).FirstOrDefault(d => d.Id == Id);
+    _parishes = (await parTask).Where(p => p.DioceseId == Id).ToList();
+    _loading  = false;
+  }
+
+  private static string StatusClass(ParishStatus s) => s switch
+  {
+    ParishStatus.Active   => "fulfilled",
+    ParishStatus.Inactive => "cancelled",
+    ParishStatus.Pending  => "new",
+    _                     => "new"
+  };
+}

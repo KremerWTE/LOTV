@@ -1,0 +1,174 @@
+@page "/admin/chapters/{Id:int}/metrics"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Chapter Metrics — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>@(_row?.Name ?? $"Chapter #{Id}") — Metrics</h2><p>Performance analytics for this chapter</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapters/@Id" class="btn btn-sm">← Chapter</a>
+    <a href="/admin/chapters/comparison" class="btn btn-sm">Compare All</a>
+    <a href="/admin/chapter-analytics" class="btn btn-sm">Analytics</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_row == null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Chapter not found.</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Open Cases</div>
+      <div class="kpi-value" style="color:var(--amber)">@_row.OpenCases</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_row.OverdueCases</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Fulfilled MTD</div>
+      <div class="kpi-value" style="color:var(--green)">@_row.FulfilledMtd</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Active Volunteers</div>
+      <div class="kpi-value" style="color:var(--navy)">@_row.ActiveVols</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--green)">@_row.TotalDonations.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128204;</div>
+      <div class="kpi-label">Active Pledges</div>
+      <div class="kpi-value" style="color:var(--amber)">@_row.ActivePledges</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Case Load</h3></div>
+      <div class="panel-body">
+        <div style="margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+            <span>Overdue vs Open</span>
+            <span style="color:@(_row.OpenCases > 0 ? "var(--red)" : "var(--green)");">@(_row.OpenCases > 0 ? $"{_row.OverdueCases * 100 / _row.OpenCases}%" : "—")</span>
+          </div>
+          @if (_row.OpenCases > 0)
+          {
+            var overdPct = Math.Min(100, _row.OverdueCases * 100 / _row.OpenCases);
+            <div style="background:var(--bg);border-radius:4px;height:8px;overflow:hidden;">
+              <div style="background:var(--red);height:100%;width:@overdPct%;"></div>
+            </div>
+          }
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:.84rem;text-align:center;">
+          <div>
+            <div style="font-size:1.4rem;font-weight:700;color:var(--amber);">@_row.OpenCases</div>
+            <div style="color:var(--text-light);">Open</div>
+          </div>
+          <div>
+            <div style="font-size:1.4rem;font-weight:700;color:var(--green);">@_row.FulfilledMtd</div>
+            <div style="color:var(--text-light);">Fulfilled this month</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Volunteer Efficiency</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:.84rem;text-align:center;">
+          <div>
+            <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">@_row.ActiveVols</div>
+            <div style="color:var(--text-light);">Active volunteers</div>
+          </div>
+          <div>
+            <div style="font-size:1.4rem;font-weight:700;color:var(--amber);">@(_row.ActiveVols > 0 ? (_row.OpenCases / (decimal)_row.ActiveVols).ToString("F1") : "—")</div>
+            <div style="color:var(--text-light);">Cases per volunteer</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head"><h3>Peer Ranking</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Chapter</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Location</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Open</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Fulfilled MTD</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Vols</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Donations</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var r in _all.OrderByDescending(r => r.FulfilledMtd))
+          {
+            var isCurrent = r.Id == Id;
+            <tr style="border-top:1px solid var(--border);@(isCurrent ? "background:var(--bg);font-weight:600;" : "")">
+              <td style="padding:10px 16px;font-size:.84rem;">
+                @if (isCurrent)
+                {
+                  <span style="color:var(--navy);">▶ @r.Name</span>
+                }
+                else
+                {
+                  <a href="/admin/chapters/@r.Id/metrics" style="color:var(--text-light);">@r.Name</a>
+                }
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.City, @r.State</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:@(r.OverdueCases > 0 ? "var(--red)" : "var(--text-light)");">@r.OpenCases</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green);">@r.FulfilledMtd</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.ActiveVols</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green);">@r.TotalDonations.ToString("C0")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Quick Actions</h3></div>
+    <div class="panel-body" style="display:flex;flex-wrap:wrap;gap:8px;">
+      <a href="/admin/chapters/@Id/cases"      class="btn btn-sm">Cases</a>
+      <a href="/admin/chapters/@Id/volunteers" class="btn btn-sm">Volunteers</a>
+      <a href="/admin/chapters/@Id/donors"     class="btn btn-sm">Donors</a>
+      <a href="/admin/chapters/@Id/donations"  class="btn btn-sm">Donations</a>
+      <a href="/admin/chapters/@Id/pledges"    class="btn btn-sm">Pledges</a>
+      <a href="/admin/chapters/@Id/events"     class="btn btn-sm">Events</a>
+      <a href="/admin/chapters/@Id/grants"     class="btn btn-sm">Grants</a>
+      <a href="/admin/chapters/@Id/expenses"   class="btn btn-sm">Expenses</a>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  private ChapterAnalyticsDto? _row;
+  private List<ChapterAnalyticsDto> _all = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all     = await Api.GetChapterAnalyticsAsync();
+    _row     = _all.FirstOrDefault(r => r.Id == Id);
+    _loading = false;
+  }
+}

@@ -1,0 +1,123 @@
+@page "/admin/dioceses"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Dioceses — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Dioceses</h2><p>Diocese network supporting LOTV chapters</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/parishes" class="btn btn-sm">Parishes</a>
+    <a href="/admin/chapter-analytics" class="btn btn-sm">Chapter Analytics</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#9962;</div>
+      <div class="kpi-label">Dioceses</div>
+      <div class="kpi-value" style="color:var(--navy)">@_dioceses.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Total Parishes</div>
+      <div class="kpi-value" style="color:var(--green)">@_dioceses.Sum(d => d.TotalParishes)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Cases Fulfilled</div>
+      <div class="kpi-value" style="color:var(--amber)">@_dioceses.Sum(d => d.TotalCasesFulfilled)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--green)">@_dioceses.Sum(d => d.TotalDonations).ToString("C0")</div>
+    </div>
+  </div>
+
+  @if (_search.Length > 0)
+  {
+    <div style="margin-bottom:12px;">
+      <input type="search" placeholder="Search dioceses…" @bind="_search" @bind:event="oninput"
+             style="width:280px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;" />
+    </div>
+  }
+  else
+  {
+    <div style="margin-bottom:12px;">
+      <input type="search" placeholder="Search dioceses…" @bind="_search" @bind:event="oninput"
+             style="width:280px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;" />
+    </div>
+  }
+
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Diocese</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Location</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Region</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Coordinator</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Parishes</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Active</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Cases</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Donations</th>
+            <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var d in Filtered.OrderBy(d => d.State).ThenBy(d => d.Name))
+          {
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                <a href="/admin/dioceses/@d.Id" style="color:var(--navy);">@d.Name</a>
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.City, @d.State</td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(d.Region ?? "—")</td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(d.CoordinatorName ?? "—")</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@d.TotalParishes</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green);">@d.ActiveParishes</td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@d.TotalCasesFulfilled</td>
+              <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.TotalDonations.ToString("C0")</td>
+              <td style="padding:10px 16px;text-align:center;">
+                <a href="/admin/dioceses/@d.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (!Filtered.Any())
+    {
+      <div style="padding:32px;text-align:center;color:var(--text-light);font-size:.84rem;">No dioceses match your search.</div>
+    }
+  </div>
+}
+
+@code {
+  private List<Diocese> _dioceses = [];
+  private string _search = "";
+  private bool _loading = true;
+
+  private IEnumerable<Diocese> Filtered => string.IsNullOrWhiteSpace(_search)
+    ? _dioceses
+    : _dioceses.Where(d =>
+        d.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+        d.City.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+        d.State.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+        (d.CoordinatorName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false));
+
+  protected override async Task OnInitializedAsync()
+  {
+    _dioceses = await Api.GetDiocesesAsync();
+    _loading = false;
+  }
+}
