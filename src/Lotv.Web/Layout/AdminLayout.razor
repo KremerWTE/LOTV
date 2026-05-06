@@ -755,6 +755,11 @@
       var u when u.EndsWith("/admin/retreats/new")                              => "Create Retreat",
       var u when u.Contains("/admin/retreats/") && u.EndsWith("/edit")          => "Edit Retreat",
       var u when u.Contains("/certifications/") && u.EndsWith("/edit")          => "Edit Certification",
+      var u when u.Contains("/admin/retreats/") && u.EndsWith("/registrations") => "Retreat Registrations",
+      var u when u.Contains("/admin/retreats/") && u.EndsWith("/expenses")      => "Retreat Expenses",
+      var u when u.Contains("/registrations/new")                               => "Add Event Attendee",
+      var u when u.EndsWith("/admin/allocations/new")                           => "Create Fund Allocation",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/recurring/new")   => "Set Up Recurring Gift",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

@@ -1,0 +1,152 @@
+@page "/admin/donors/{DonorId:int}/recurring/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Recurring Gift — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Set Up Recurring Gift</h2><p>@(_donor?.FullName ?? $"Donor #{DonorId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor Profile</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_donor is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Donor #@DonorId not found.</div></div>
+}
+else
+{
+  @if (_saved)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">Recurring gift created. Redirecting…</div>
+    </div>
+  }
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h3>Gift Schedule</h3></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Amount per Period *</label>
+              <input class="form-input" type="number" step="10" min="1" @bind="_amount" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Frequency *</label>
+              <select class="form-input" @bind="_frequency">
+                <option value="Weekly">Weekly</option>
+                <option value="BiWeekly">Bi-Weekly</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Annually">Annually</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">Start Date</label>
+            <input class="form-input" type="date" @bind="_startDate" />
+            <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">Leave as today to start immediately.</div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Campaign / Fund</label>
+            <input class="form-input" @bind="_campaign" placeholder="General, Building Fund…" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Donor</h3></div>
+        <div class="panel-body" style="font-size:.84rem;">
+          <div style="font-weight:700;font-size:.96rem;margin-bottom:4px;">@_donor.FullName</div>
+          <div style="color:var(--text-light);">@_donor.Email</div>
+          @if (_donor.TotalGiven > 0)
+          {
+            <div style="margin-top:8px;font-size:.78rem;color:var(--text-light);">Total given: <strong>@_donor.TotalGiven.ToString("C0")</strong></div>
+          }
+        </div>
+      </div>
+
+      @{
+        var annualEst = _frequency switch
+        {
+          "Weekly"    => _amount * 52,
+          "BiWeekly"  => _amount * 26,
+          "Monthly"   => _amount * 12,
+          "Quarterly" => _amount * 4,
+          _           => _amount
+        };
+      }
+      @if (_amount > 0)
+      {
+        <div class="panel" style="background:#f0fff4;border-left:3px solid var(--green);">
+          <div class="panel-body" style="font-size:.82rem;">
+            <div style="color:var(--text-light);">Annual estimate</div>
+            <div style="font-size:1.3rem;font-weight:800;color:var(--green);">@annualEst.ToString("C0")/yr</div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">Cancel</a>
+    <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Create Recurring Gift")</button>
+  </div>
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+
+  private Donor? _donor;
+  private bool _loading = true, _busy, _saved;
+  private string _error = "";
+
+  private decimal _amount;
+  private string _frequency = "Monthly", _campaign = "";
+  private DateTime _startDate = DateTime.Today;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donor   = await Api.GetDonorAsync(DonorId);
+    _loading = false;
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+
+    _busy = true;
+    var result = await Api.CreateDonorRecurringAsync(
+      donorId:   DonorId,
+      amount:    _amount,
+      frequency: _frequency,
+      startDate: _startDate,
+      campaign:  string.IsNullOrWhiteSpace(_campaign) ? null : _campaign);
+    _busy = false;
+    if (result.HasValue)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo($"/admin/donors/{DonorId}");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

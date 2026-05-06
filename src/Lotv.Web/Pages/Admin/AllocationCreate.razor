@@ -1,0 +1,152 @@
+@page "/admin/allocations/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>New Fund Allocation — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Create Allocation</h2><p>Allocate a donation to a program or case</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/allocations" class="btn btn-sm">← Allocations</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Allocation created. Redirecting…</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="max-width:640px;">
+  <div class="panel">
+    <div class="panel-head"><h3>Allocation Details</h3></div>
+    <div class="panel-body">
+      <!-- Donation search -->
+      <div class="form-group">
+        <label class="form-label">Source Donation *</label>
+        <div style="position:relative;">
+          <input class="form-input" value="@_donationSearch"
+                 @oninput='e => { _donationSearch = e.Value?.ToString() ?? ""; FilterDonations(); }'
+                 placeholder="Search by donor name or donation ID…" autocomplete="off" />
+          @if (_donationSuggestions.Any())
+          {
+            <ul style="position:absolute;z-index:50;background:white;border:1px solid var(--border);border-radius:6px;width:100%;list-style:none;margin:2px 0 0;padding:4px 0;box-shadow:0 4px 12px rgba(0,0,0,.1);">
+              @foreach (var d in _donationSuggestions)
+              {
+                var dCopy = d;
+                <li @onmousedown='() => SelectDonation(dCopy)'
+                    style="padding:8px 14px;cursor:pointer;font-size:.84rem;">
+                  <span style="font-weight:600;">@(d.Donor?.FullName ?? $"Donor #{d.DonorId}")</span>
+                  <span style="color:var(--text-light);font-size:.76rem;"> — @d.Amount.ToString("C0") on @d.Date.ToString("MMM d, yyyy")</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        @if (_selectedDonationId.HasValue)
+        {
+          <div style="margin-top:5px;font-size:.78rem;color:var(--green);">✓ @_selectedDonationDesc</div>
+        }
+      </div>
+
+      <div class="form-group" style="margin-top:12px;">
+        <label class="form-label">Allocated To *</label>
+        <input class="form-input" @bind="_allocatedTo" placeholder="Case #123, Building Fund, Program name…" />
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label class="form-label">Amount *</label>
+        <input class="form-input" type="number" step="10" min="0" @bind="_amount" />
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label class="form-label">Status</label>
+        <select class="form-input" @bind="_status">
+          <option value="@AllocationStatus.PendingReview">Pending Review</option>
+          <option value="@AllocationStatus.Allocated">Allocated</option>
+          <option value="@AllocationStatus.Restricted">Restricted</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" rows="3" @bind="_notes" placeholder="Conditions, approver, reason…"></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <a href="/admin/allocations" class="btn btn-sm">Cancel</a>
+        <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Create Allocation")</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  private string _donationSearch = "", _selectedDonationDesc = "", _allocatedTo = "", _notes = "";
+  private AllocationStatus _status = AllocationStatus.PendingReview;
+  private decimal _amount;
+  private int? _selectedDonationId;
+  private bool _busy, _saved;
+  private string _error = "";
+
+  private List<Donation> _allDonations = [];
+  private List<Donation> _donationSuggestions = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _allDonations = await Api.GetDonationsAsync();
+  }
+
+  private void FilterDonations()
+  {
+    if (string.IsNullOrWhiteSpace(_donationSearch) || _donationSearch.Length < 2)
+    { _donationSuggestions = []; return; }
+    var q = _donationSearch;
+    _donationSuggestions = _allDonations
+      .Where(d => (d.Donor?.FullName.Contains(q, StringComparison.OrdinalIgnoreCase) == true) ||
+                  d.Id.ToString().Contains(q))
+      .Take(6).ToList();
+  }
+
+  private void SelectDonation(Donation d)
+  {
+    _selectedDonationId   = d.Id;
+    _selectedDonationDesc = $"{d.Donor?.FullName ?? $"Donor #{d.DonorId}"} — {d.Amount:C0} ({d.Date:MMM d, yyyy})";
+    _donationSearch       = _selectedDonationDesc;
+    _donationSuggestions  = [];
+    if (_amount == 0) _amount = d.Amount;
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (!_selectedDonationId.HasValue) { _error = "Please select a source donation."; return; }
+    if (string.IsNullOrWhiteSpace(_allocatedTo)) { _error = "Allocated To is required."; return; }
+    if (_amount <= 0) { _error = "Amount must be greater than 0."; return; }
+
+    _busy = true;
+    var alloc = new FundAllocation
+    {
+      DonationId  = _selectedDonationId.Value,
+      AllocatedTo = _allocatedTo,
+      Amount      = _amount,
+      Status      = _status,
+      Notes       = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+    };
+    var result = await Api.CreateAllocationAsync(alloc);
+    _busy = false;
+    if (result is not null)
+    {
+      _saved = true;
+      await Task.Delay(700);
+      Nav.NavigateTo("/admin/allocations");
+    }
+    else _error = "Save failed. Please try again.";
+  }
+}

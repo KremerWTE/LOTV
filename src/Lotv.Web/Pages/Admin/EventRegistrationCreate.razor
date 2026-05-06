@@ -1,0 +1,156 @@
+@page "/admin/events/{EventId:int}/registrations/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Add Attendee — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Add Event Attendee</h2><p>@(_event?.Title ?? $"Event #{EventId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events/@EventId/attendees" class="btn btn-sm">← Attendee List</a>
+    <a href="/admin/events/@EventId" class="btn btn-sm">Event Detail</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">Attendee registered. <a href="/admin/events/@EventId/attendees" style="color:var(--green);">View attendees →</a></div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="max-width:560px;">
+  <div class="panel">
+    <div class="panel-head"><h3>Attendee Details</h3></div>
+    <div class="panel-body">
+      <!-- Donor search -->
+      <div class="form-group">
+        <label class="form-label">Donor *</label>
+        <div style="position:relative;">
+          <input class="form-input" value="@_donorSearch"
+                 @oninput='e => { _donorSearch = e.Value?.ToString() ?? ""; FilterDonors(); }'
+                 placeholder="Search by name or email…" autocomplete="off" />
+          @if (_donorSuggestions.Any())
+          {
+            <ul style="position:absolute;z-index:50;background:white;border:1px solid var(--border);border-radius:6px;width:100%;list-style:none;margin:2px 0 0;padding:4px 0;box-shadow:0 4px 12px rgba(0,0,0,.1);">
+              @foreach (var d in _donorSuggestions)
+              {
+                var dCopy = d;
+                <li @onmousedown='() => SelectDonor(dCopy)'
+                    style="padding:8px 14px;cursor:pointer;font-size:.84rem;">
+                  @d.FullName <span style="color:var(--text-light);font-size:.76rem;">— @d.Email</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        @if (_selectedDonorId.HasValue)
+        {
+          <div style="margin-top:5px;font-size:.78rem;color:var(--green);">✓ @_selectedDonorName</div>
+        }
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+        <div class="form-group">
+          <label class="form-label">Ticket Count</label>
+          <input class="form-input" type="number" min="1" max="20" @bind="_ticketCount" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount Paid ($)</label>
+          <input class="form-input" type="number" step="5" min="0" @bind="_amountPaid" />
+          @if (_event is not null && _event.TicketPrice > 0)
+          {
+            <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">Ticket price: @(_event.TicketPrice?.ToString("C0"))</div>
+          }
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label class="form-label">Payment Channel</label>
+        <select class="form-input" @bind="_payChannel">
+          @foreach (var ch in Enum.GetValues<DonationChannel>())
+          {
+            <option value="@ch">@ch.ToDisplayName()</option>
+          }
+        </select>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <a href="/admin/events/@EventId/attendees" class="btn btn-sm">Cancel</a>
+        <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Register Attendee")</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  [Parameter] public int EventId { get; set; }
+
+  private MinistryEvent? _event;
+  private bool _busy, _saved;
+  private string _error = "";
+
+  private string _donorSearch = "", _selectedDonorName = "";
+  private int? _selectedDonorId;
+  private int _ticketCount = 1;
+  private decimal _amountPaid;
+  private DonationChannel _payChannel = DonationChannel.Cash;
+
+  private List<Donor> _allDonors = [];
+  private List<Donor> _donorSuggestions = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var evtTask   = Api.GetEventAsync(EventId);
+    var donorTask = Api.GetDonorsAsync();
+    await Task.WhenAll(evtTask, donorTask);
+    _event     = await evtTask;
+    _allDonors = await donorTask;
+    if (_event is not null) _amountPaid = _event.TicketPrice ?? 0m;
+  }
+
+  private void FilterDonors()
+  {
+    if (string.IsNullOrWhiteSpace(_donorSearch) || _donorSearch.Length < 2)
+    { _donorSuggestions = []; return; }
+    _donorSuggestions = _allDonors
+      .Where(d => d.FullName.Contains(_donorSearch, StringComparison.OrdinalIgnoreCase) ||
+                  d.Email.Contains(_donorSearch, StringComparison.OrdinalIgnoreCase))
+      .Take(6).ToList();
+  }
+
+  private void SelectDonor(Donor d)
+  {
+    _selectedDonorId   = d.Id;
+    _selectedDonorName = d.FullName;
+    _donorSearch       = d.FullName;
+    _donorSuggestions  = [];
+  }
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (!_selectedDonorId.HasValue) { _error = "Please select a donor."; return; }
+    _busy = true;
+    var attendee = new EventAttendee
+    {
+      EventId        = EventId,
+      DonorId        = _selectedDonorId.Value,
+      TicketCount    = _ticketCount,
+      AmountPaid     = _amountPaid,
+      PaymentChannel = _payChannel,
+    };
+    var result = await Api.CreateAttendeeAsync(EventId, attendee);
+    _busy = false;
+    if (result is not null) { _saved = true; _selectedDonorId = null; _donorSearch = ""; _amountPaid = _event?.TicketPrice ?? 0m; }
+    else _error = "Registration failed. Please try again.";
+  }
+}

@@ -1,0 +1,197 @@
+@page "/admin/retreats/{Id:int}/registrations"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Retreat Registrations — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Retreat Registrations</h2><p>@(_title ?? $"Retreat #{Id}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/retreats/@Id" class="btn btn-sm">← Retreat Dashboard</a>
+    <a href="/admin/retreats" class="btn btn-sm">All Retreats</a>
+  </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_msg))
+{
+  <div class="panel" style="border-left:4px solid @(_msgOk ? "var(--green)" : "var(--red)");margin-bottom:16px;">
+    <div class="panel-body" style="color:@(_msgOk ? "var(--green)" : "var(--red)");font-weight:600;">@_msg</div>
+  </div>
+}
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+  <!-- Registration list -->
+  <div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Registrations (@_regs.Count)</h3>
+        <div style="display:flex;gap:8px;">
+          <select class="form-input" style="font-size:.8rem;padding:4px 8px;height:auto;"
+                  value="@_filterStatus" @onchange='e => { _filterStatus = e.Value?.ToString() ?? ""; }'>
+            <option value="">All statuses</option>
+            <option value="Paid">Paid</option>
+            <option value="Unpaid">Unpaid</option>
+            <option value="Partial">Partial</option>
+            <option value="Complimentary">Complimentary</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (_loading)
+        {
+          <div style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div>
+        }
+        else
+        {
+          var visible = string.IsNullOrEmpty(_filterStatus)
+            ? _regs
+            : _regs.Where(r => r.PaymentStatus == _filterStatus).ToList();
+
+          @if (!visible.Any())
+          {
+            <div style="padding:24px;text-align:center;color:var(--text-light);font-size:.86rem;">No registrations found.</div>
+          }
+          else
+          {
+            <table style="width:100%;border-collapse:collapse;font-size:.84rem;">
+              <thead>
+                <tr style="border-bottom:2px solid var(--border);background:var(--bg);">
+                  <th style="padding:10px 16px;text-align:left;font-size:.74rem;color:var(--text-light);font-weight:600;text-transform:uppercase;">Name</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:.74rem;color:var(--text-light);font-weight:600;text-transform:uppercase;">Email</th>
+                  <th style="padding:10px 16px;text-align:right;font-size:.74rem;color:var(--text-light);font-weight:600;text-transform:uppercase;">Paid</th>
+                  <th style="padding:10px 16px;text-align:center;font-size:.74rem;color:var(--text-light);font-weight:600;text-transform:uppercase;">Status</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:.74rem;color:var(--text-light);font-weight:600;text-transform:uppercase;">Source</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:.74rem;color:var(--text-light);font-weight:600;text-transform:uppercase;">Registered</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach (var r in visible)
+                {
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:10px 16px;font-weight:600;">@r.FirstName @r.LastName</td>
+                    <td style="padding:10px 16px;color:var(--text-mid);">@r.Email</td>
+                    <td style="padding:10px 16px;text-align:right;font-weight:600;color:var(--green);">@r.AmountPaid.ToString("C0")</td>
+                    <td style="padding:10px 16px;text-align:center;">
+                      <span class="badge badge-@PayBadge(r.PaymentStatus)" style="font-size:.66rem;">@r.PaymentStatus</span>
+                    </td>
+                    <td style="padding:10px 16px;color:var(--text-light);font-size:.78rem;">@r.RegistrationSource</td>
+                    <td style="padding:10px 16px;color:var(--text-light);font-size:.78rem;">@r.RegisteredAt.ToString("MMM d")</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Add manual registration -->
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Add Manual Registration</h3></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">First Name *</label>
+          <input class="form-input" @bind="_firstName" />
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label class="form-label">Last Name *</label>
+          <input class="form-input" @bind="_lastName" />
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" @bind="_email" />
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label class="form-label">Phone</label>
+          <input class="form-input" type="tel" @bind="_phone" />
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label class="form-label">Amount Paid ($)</label>
+          <input class="form-input" type="number" step="10" min="0" @bind="_amountPaid" />
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label class="form-label">Payment Status</label>
+          <select class="form-input" @bind="_payStatus">
+            <option value="Paid">Paid</option>
+            <option value="Unpaid">Unpaid</option>
+            <option value="Partial">Partial</option>
+            <option value="Complimentary">Complimentary</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="2" @bind="_regNotes"></textarea>
+        </div>
+        <button class="btn btn-sm btn-primary" style="width:100%;margin-top:12px;"
+                @onclick="AddRegistration" disabled="@_adding">
+          @(_adding ? "Adding…" : "Add Registration")
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private List<RetreatRegistrationDto> _regs = [];
+  private bool _loading = true, _adding;
+  private string? _title;
+  private string _msg = "";
+  private bool _msgOk;
+  private string _filterStatus = "";
+
+  private string _firstName = "", _lastName = "", _email = "", _phone = "", _regNotes = "", _payStatus = "Paid";
+  private decimal _amountPaid;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var retreatTask = Api.GetRetreatAsync(Id);
+    var regsTask   = Api.GetRetreatRegistrationsAsync(Id);
+    await Task.WhenAll(retreatTask, regsTask);
+    _title   = (await retreatTask)?.Title;
+    _regs    = await regsTask;
+    _loading = false;
+  }
+
+  private async Task AddRegistration()
+  {
+    if (string.IsNullOrWhiteSpace(_firstName)) { _msg = "First name is required."; _msgOk = false; return; }
+    if (string.IsNullOrWhiteSpace(_lastName))  { _msg = "Last name is required.";  _msgOk = false; return; }
+    if (string.IsNullOrWhiteSpace(_email))     { _msg = "Email is required.";      _msgOk = false; return; }
+
+    _adding = true;
+    var body = new
+    {
+      FirstName          = _firstName,
+      LastName           = _lastName,
+      Email              = _email,
+      Phone              = string.IsNullOrWhiteSpace(_phone) ? (string?)null : _phone,
+      AmountPaid         = _amountPaid,
+      PaymentStatus      = _payStatus,
+      RegistrationSource = "Manual",
+      Notes              = string.IsNullOrWhiteSpace(_regNotes) ? (string?)null : _regNotes,
+    };
+    var result = await Api.AddManualRegistrationAsync(Id, body);
+    _adding = false;
+    if (result is not null)
+    {
+      _regs = await Api.GetRetreatRegistrationsAsync(Id);
+      _firstName = _lastName = _email = _phone = _regNotes = "";
+      _amountPaid = 0; _payStatus = "Paid";
+      _msg = $"{result.FirstName} {result.LastName} registered."; _msgOk = true;
+    }
+    else { _msg = "Registration failed. Please try again."; _msgOk = false; }
+  }
+
+  private static string PayBadge(string s) => s switch
+  {
+    "Paid"           => "fulfilled",
+    "Partial"        => "onhold",
+    "Complimentary"  => "new",
+    _                => "cancelled"
+  };
+}
