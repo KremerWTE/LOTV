@@ -1,0 +1,178 @@
+@page "/admin/retreats/{Id:int}/registrations/new"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Add Registration — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Add Registration</h2><p>Retreat #@Id — Manual entry</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/retreats/@Id" class="btn btn-sm">← Retreat</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">
+      ✓ Registration added for @_savedName.
+      <a href="/admin/retreats/@Id" style="color:var(--green);margin-left:8px;">Back to retreat →</a>
+      <button class="btn btn-sm" style="margin-left:8px;" @onclick="Reset">Add another</button>
+    </div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+@if (!_saved)
+{
+  <div style="max-width:580px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Registrant Information</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input class="form-input" @bind="_firstName" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name *</label>
+            <input class="form-input" @bind="_lastName" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">Email *</label>
+            <input class="form-input" type="email" @bind="_email" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input class="form-input" type="tel" @bind="_phone" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">Street Address</label>
+            <input class="form-input" @bind="_address" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input class="form-input" @bind="_city" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">State</label>
+            <input class="form-input" @bind="_state" maxlength="2" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Dietary Needs</label>
+          <input class="form-input" @bind="_dietaryNeeds" placeholder="e.g. Vegetarian, gluten-free, nut allergy…" />
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Accessibility Needs</label>
+          <input class="form-input" @bind="_accessibilityNeeds" placeholder="e.g. Wheelchair accessible, hearing loop…" />
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <div class="panel-head"><h3>Payment</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Amount Paid</label>
+            <input class="form-input" type="number" step="0.01" min="0" @bind="_amountPaid" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Status</label>
+            <select class="form-input" @bind="_paymentStatus">
+              <option value="Pending">Pending</option>
+              <option value="Paid">Paid</option>
+              <option value="Partial">Partial</option>
+              <option value="Complimentary">Complimentary</option>
+              <option value="Refunded">Refunded</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Method</label>
+            <select class="form-input" @bind="_paymentMethod">
+              <option value="Cash">Cash</option>
+              <option value="Check">Check</option>
+              <option value="Card">Card</option>
+              <option value="GiveButter">GiveButter</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-input" rows="2" @bind="_notes" placeholder="Internal notes about this registration…"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <a href="/admin/retreats/@Id" class="btn btn-sm">Cancel</a>
+          <button class="btn btn-primary" @onclick="Submit" disabled="@_busy">@(_busy ? "Saving…" : "Add Registration")</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private string _firstName = "", _lastName = "", _email = "", _phone = "";
+  private string _address = "", _city = "", _state = "";
+  private string _dietaryNeeds = "", _accessibilityNeeds = "", _notes = "";
+  private string _paymentStatus = "Pending", _paymentMethod = "Cash";
+  private decimal _amountPaid;
+  private bool _busy, _saved;
+  private string _error = "", _savedName = "";
+
+  private async Task Submit()
+  {
+    _error = "";
+    if (string.IsNullOrWhiteSpace(_firstName)) { _error = "First name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_lastName))  { _error = "Last name is required."; return; }
+    if (string.IsNullOrWhiteSpace(_email))     { _error = "Email is required."; return; }
+    _busy = true;
+    var body = new
+    {
+      FirstName           = _firstName.Trim(),
+      LastName            = _lastName.Trim(),
+      Email               = _email.Trim(),
+      Phone               = string.IsNullOrWhiteSpace(_phone) ? null : _phone.Trim(),
+      Address             = string.IsNullOrWhiteSpace(_address) ? null : _address.Trim(),
+      City                = string.IsNullOrWhiteSpace(_city) ? null : _city.Trim(),
+      State               = string.IsNullOrWhiteSpace(_state) ? null : _state.Trim().ToUpper(),
+      DietaryNeeds        = string.IsNullOrWhiteSpace(_dietaryNeeds) ? null : _dietaryNeeds.Trim(),
+      AccessibilityNeeds  = string.IsNullOrWhiteSpace(_accessibilityNeeds) ? null : _accessibilityNeeds.Trim(),
+      AmountPaid          = _amountPaid,
+      PaymentStatus       = _paymentStatus,
+      PaymentMethod       = _paymentMethod,
+      Notes               = string.IsNullOrWhiteSpace(_notes) ? null : _notes.Trim(),
+      RegistrationSource  = "Manual"
+    };
+    var result = await Api.AddManualRegistrationAsync(Id, body);
+    _busy = false;
+    if (result is not null) { _saved = true; _savedName = $"{_firstName.Trim()} {_lastName.Trim()}"; }
+    else _error = "Failed to add registration. Please try again.";
+  }
+
+  private void Reset()
+  {
+    _saved = false; _firstName = ""; _lastName = ""; _email = ""; _phone = "";
+    _address = ""; _city = ""; _state = ""; _dietaryNeeds = ""; _accessibilityNeeds = "";
+    _notes = ""; _paymentStatus = "Pending"; _paymentMethod = "Cash"; _amountPaid = 0;
+  }
+}

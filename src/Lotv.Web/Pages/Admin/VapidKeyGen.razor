@@ -1,0 +1,110 @@
+@page "/admin/vapid/generate"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>VAPID Keys — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>VAPID Key Management</h2><p>Generate and view Web Push encryption keys</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/push-subscriptions" class="btn btn-sm">← Push Subscriptions</a>
+  </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<!-- Current public key -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-head"><h3>Current Public Key</h3></div>
+  <div class="panel-body">
+    @if (_loadingPublic)
+    {
+      <div style="color:var(--text-light);font-size:.84rem;">Loading…</div>
+    }
+    else if (!string.IsNullOrEmpty(_currentPublicKey))
+    {
+      <div style="font-family:monospace;font-size:.78rem;word-break:break-all;background:var(--bg);padding:10px 14px;border-radius:6px;color:var(--text-mid);">
+        @_currentPublicKey
+      </div>
+      <div style="font-size:.72rem;color:var(--text-light);margin-top:6px;">
+        This key is embedded in browser push subscriptions. Changing it will invalidate all existing subscriptions.
+      </div>
+    }
+    else
+    {
+      <div style="color:var(--text-light);font-size:.84rem;">No public key configured.</div>
+    }
+  </div>
+</div>
+
+<!-- Generate new keys -->
+<div style="max-width:540px;">
+  <div class="panel">
+    <div class="panel-head"><h3>Generate New Key Pair</h3></div>
+    <div class="panel-body">
+      @if (_generated is not null)
+      {
+        <div style="margin-bottom:16px;padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;">
+          <div style="font-size:.78rem;font-weight:600;color:var(--green);margin-bottom:8px;">✓ New VAPID key pair generated</div>
+          <div style="margin-bottom:8px;">
+            <div style="font-size:.72rem;color:var(--text-light);margin-bottom:2px;">Public Key</div>
+            <div style="font-family:monospace;font-size:.74rem;word-break:break-all;background:white;padding:6px 10px;border-radius:4px;">@_generated.PublicKey</div>
+          </div>
+          <div>
+            <div style="font-size:.72rem;color:var(--text-light);margin-bottom:2px;">Private Key</div>
+            <div style="font-family:monospace;font-size:.74rem;word-break:break-all;background:white;padding:6px 10px;border-radius:4px;">@(_showPrivate ? _generated.PrivateKey : "••••••••••••••••••••••••")</div>
+          </div>
+          <button type="button" style="font-size:.72rem;color:var(--navy);background:none;border:none;cursor:pointer;padding:4px 0;margin-top:4px;"
+                  @onclick='() => _showPrivate = !_showPrivate'>
+            @(_showPrivate ? "Hide private key" : "Show private key")
+          </button>
+          <div style="margin-top:10px;font-size:.74rem;color:#166534;">
+            ⚠ Copy these keys now — the private key will not be shown again. Store them securely in your application secrets / environment variables.
+          </div>
+        </div>
+      }
+
+      <p style="font-size:.84rem;color:var(--text-mid);margin-bottom:14px;">
+        Generates a new VAPID (Voluntary Application Server Identification) key pair for web push.
+        You must update your application configuration with the new keys and re-subscribe all browsers.
+      </p>
+
+      <div style="padding:10px 12px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;font-size:.78rem;color:#92400e;margin-bottom:14px;">
+        ⚠ Generating new keys invalidates ALL existing push subscriptions. Users will need to re-subscribe to receive notifications.
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" @onclick="Generate" disabled="@_generating">
+          @(_generating ? "Generating…" : "Generate New Keys")
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  private string _currentPublicKey = "", _error = "";
+  private bool _loadingPublic = true, _generating, _showPrivate;
+  private ApiService.VapidKeyPair? _generated;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _currentPublicKey = await Api.GetVapidPublicKeyAsync() ?? "";
+    _loadingPublic = false;
+  }
+
+  private async Task Generate()
+  {
+    _error = ""; _generated = null;
+    _generating = true;
+    _generated = await Api.GenerateVapidKeysAsync();
+    _generating = false;
+    if (_generated is null) _error = "Failed to generate keys. Please try again.";
+    else _currentPublicKey = _generated.PublicKey;
+  }
+}

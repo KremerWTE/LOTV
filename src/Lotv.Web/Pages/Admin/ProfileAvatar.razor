@@ -1,0 +1,92 @@
+@page "/admin/profile/avatar"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Update Avatar — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Update Your Avatar</h2><p>Change the profile photo shown on your account</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/settings" class="btn btn-sm">← Settings</a>
+  </div>
+</div>
+
+@if (_saved)
+{
+  <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--green);font-weight:600;">✓ Avatar updated successfully.</div>
+  </div>
+}
+@if (!string.IsNullOrEmpty(_error))
+{
+  <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+    <div class="panel-body" style="color:var(--red);">@_error</div>
+  </div>
+}
+
+<div style="max-width:480px;">
+  <div class="panel">
+    <div class="panel-head"><h3>Avatar URL</h3></div>
+    <div class="panel-body">
+      @if (!string.IsNullOrEmpty(_currentUrl))
+      {
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding:12px;background:var(--bg);border-radius:6px;">
+          <img src="@_currentUrl" alt="Current avatar"
+               style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border);"
+               onerror="this.style.display='none'" />
+          <div>
+            <div style="font-size:.78rem;color:var(--text-light);">Current avatar</div>
+            <div style="font-size:.76rem;word-break:break-all;color:var(--text-mid);">@_currentUrl</div>
+          </div>
+        </div>
+      }
+
+      <div class="form-group">
+        <label class="form-label">New Avatar URL</label>
+        <input class="form-input" @bind="_avatarUrl" placeholder="https://example.com/your-photo.jpg" />
+        <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">
+          Must be a publicly accessible HTTPS image URL. Leave blank to remove your avatar.
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        @if (!string.IsNullOrEmpty(_currentUrl))
+        {
+          <button class="btn btn-sm" @onclick="Clear" disabled="@_busy">Remove Avatar</button>
+        }
+        <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_busy ? "Saving…" : "Update Avatar")</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  private string _avatarUrl = "", _currentUrl = "";
+  private bool _busy, _saved;
+  private string _error = "";
+
+  private async Task Save()
+  {
+    _error = ""; _saved = false;
+    var url = string.IsNullOrWhiteSpace(_avatarUrl) ? null : _avatarUrl.Trim();
+    _busy = true;
+    var result = await Api.UpdateAvatarAsync(url);
+    _busy = false;
+    if (result is not null || url is null)
+    {
+      _saved = true;
+      _currentUrl = result ?? "";
+      _avatarUrl = _currentUrl;
+    }
+    else _error = "Failed to update avatar. Please try again.";
+  }
+
+  private async Task Clear()
+  {
+    _error = ""; _saved = false; _avatarUrl = "";
+    _busy = true;
+    var result = await Api.UpdateAvatarAsync(null);
+    _busy = false;
+    _saved = true; _currentUrl = "";
+  }
+}

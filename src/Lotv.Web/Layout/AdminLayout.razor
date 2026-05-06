@@ -797,6 +797,11 @@
       var u when u == "/admin/volunteer/onboarding"                                                                            => "Volunteer Onboarding",
       var u when u == "/admin/push/test"                                                                                       => "Test Push Notifications",
       var u when u.Contains("/admin/donors/") && u.EndsWith("/avatar")                                                        => "Update Donor Avatar",
+      var u when u.Contains("/admin/events/") && u.EndsWith("/cancel")                                                        => "Cancel Event",
+      var u when u.Contains("/admin/retreats/") && u.EndsWith("/registrations/new")                                           => "Add Registration",
+      var u when u == "/admin/profile/avatar"                                                                                  => "Update Avatar",
+      var u when u == "/admin/vapid/generate"                                                                                  => "VAPID Keys",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/notes")                                                         => "Donor Notes",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

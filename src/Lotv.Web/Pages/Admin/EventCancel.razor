@@ -1,0 +1,117 @@
+@page "/admin/events/{EventId:int}/cancel"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Cancel Event — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Cancel Event</h2><p>@(_event?.Title ?? $"Event #{EventId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events/@EventId" class="btn btn-sm">← Event Detail</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_event is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Event #@EventId not found.</div></div>
+}
+else if (_event.Status == EventStatus.Cancelled)
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">
+      This event is already cancelled.
+      <a href="/admin/events/@EventId" style="display:block;margin-top:10px;color:var(--navy);">← Back to event</a>
+    </div>
+  </div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_error))
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">@_error</div>
+    </div>
+  }
+
+  <!-- Event summary -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Title</div>
+        <div style="font-weight:700;">@_event.Title</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Date</div>
+        <div style="font-size:.84rem;">@_event.Date.ToString("MMM d, yyyy")</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Location</div>
+        <div style="font-size:.84rem;">@_event.Location</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Registered</div>
+        <div style="font-weight:700;color:@(_event.Registered > 0 ? "var(--amber)" : "var(--text-mid)");">@_event.Registered attendees</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Status</div>
+        <span class="badge badge-new" style="font-size:.68rem;">@_event.Status</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:520px;">
+    <div class="panel" style="border-left:4px solid var(--red);">
+      <div class="panel-head"><h3 style="color:var(--red);">Confirm Cancellation</h3></div>
+      <div class="panel-body">
+        <p style="font-size:.84rem;color:var(--text-mid);margin-bottom:12px;">
+          This will mark <strong>@_event.Title</strong> as cancelled. Registered attendees will not be automatically notified —
+          use the broadcast tool to communicate the cancellation if needed.
+        </p>
+
+        @if (_event.Registered > 0)
+        {
+          <div style="margin-bottom:14px;padding:10px 12px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;font-size:.78rem;color:#92400e;">
+            ⚠ @_event.Registered attendee(s) are registered for this event.
+          </div>
+        }
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <a href="/admin/events/@EventId" class="btn btn-sm">Keep Event</a>
+          <button class="btn btn-primary" style="background:var(--red);" @onclick="Cancel" disabled="@_busy">
+            @(_busy ? "Cancelling…" : "Cancel Event")
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int EventId { get; set; }
+
+  private MinistryEvent? _event;
+  private bool _loading = true, _busy;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _event = await Api.GetEventAsync(EventId);
+    _loading = false;
+  }
+
+  private async Task Cancel()
+  {
+    _error = "";
+    _busy = true;
+    var ok = await Api.CancelEventAsync(EventId);
+    _busy = false;
+    if (ok) Nav.NavigateTo($"/admin/events/{EventId}");
+    else _error = "Failed to cancel event. Please try again.";
+  }
+}

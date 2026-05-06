@@ -1,0 +1,123 @@
+@page "/admin/donors/{DonorId:int}/notes"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Donor Notes — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Notes</h2><p>@(_donor?.FullName ?? $"Donor #{DonorId}")</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor Profile</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_donor is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--red);">Donor #@DonorId not found.</div></div>
+}
+else
+{
+  <!-- Donor quick info -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Email</div>
+        <div style="font-size:.84rem;"><a href="mailto:@_donor.Email" style="color:var(--navy);">@_donor.Email</a></div>
+      </div>
+      @if (!string.IsNullOrEmpty(_donor.Phone))
+      {
+        <div>
+          <div style="font-size:.78rem;color:var(--text-light);">Phone</div>
+          <div style="font-size:.84rem;">@_donor.Phone</div>
+        </div>
+      }
+      <div>
+        <div style="font-size:.78rem;color:var(--text-light);">Total Given</div>
+        <div style="font-weight:700;color:var(--green);">@_donor.TotalGiven.ToString("C0")</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes editor -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>Internal Staff Notes</h3></div>
+    <div class="panel-body">
+      @if (!string.IsNullOrEmpty(_result))
+      {
+        <div style="color:var(--green);font-size:.82rem;font-weight:600;margin-bottom:10px;">@_result</div>
+      }
+      <p style="font-size:.82rem;color:var(--text-light);margin-bottom:12px;">
+        Notes are internal only — never shared with the donor. Use for context, communication history, preferences, or relationship details.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">New Note *</label>
+        <textarea class="form-input" rows="4" @bind="_newNote"
+                  placeholder="e.g. Prefers phone contact, interested in memorial package sponsorship, previously donated in-kind…"></textarea>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <button class="btn btn-primary" @onclick="AppendNote" disabled="@_busy">
+          @(_busy ? "Saving…" : "Save Note")
+        </button>
+      </div>
+
+      @if (!string.IsNullOrEmpty(_donor.Notes))
+      {
+        <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:8px;">Existing Notes</div>
+          <div style="font-size:.84rem;line-height:1.7;white-space:pre-wrap;color:var(--text-mid);background:var(--bg);border-radius:6px;padding:10px 14px;">@_donor.Notes</div>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+
+  private Lotv.Core.Models.Donor? _donor;
+  private bool _loading = true, _busy;
+  private string _newNote = "", _result = "";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donor = await Api.GetDonorAsync(DonorId);
+    _loading = false;
+  }
+
+  private async Task AppendNote()
+  {
+    if (string.IsNullOrWhiteSpace(_newNote) || _donor is null) return;
+    _busy = true;
+    var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+    var separator = string.IsNullOrEmpty(_donor.Notes) ? "" : "\n\n";
+    var updatedNotes = $"{_donor.Notes}{separator}[{timestamp}] {_newNote.Trim()}";
+    var updated = new Lotv.Core.Models.Donor
+    {
+      Id            = _donor.Id,
+      FirstName     = _donor.FirstName,
+      LastName      = _donor.LastName,
+      Email         = _donor.Email,
+      Phone         = _donor.Phone,
+      ChapterId     = _donor.ChapterId,
+      StreetAddress = _donor.StreetAddress,
+      City          = _donor.City,
+      State         = _donor.State,
+      Zip           = _donor.Zip,
+      DioceseName   = _donor.DioceseName,
+      DioceseId     = _donor.DioceseId,
+      ParishName    = _donor.ParishName,
+      Notes         = updatedNotes,
+      AvatarUrl     = _donor.AvatarUrl,
+    };
+    var result = await Api.UpdateDonorAsync(DonorId, updated);
+    if (result is not null) { _donor = result; _result = "Note saved."; _newNote = ""; }
+    else _result = "Save failed.";
+    _busy = false;
+  }
+}
