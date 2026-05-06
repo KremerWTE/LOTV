@@ -1,0 +1,153 @@
+@page "/admin/volunteers/leaderboard"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Leaderboard — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Leaderboard</h2><p>Top volunteers ranked by cases fulfilled</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← All Volunteers</a>
+    <a href="/admin/volunteers/by-role" class="btn btn-sm">By Role</a>
+    <a href="/admin/volunteers/by-chapter" class="btn btn-sm">By Chapter</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-label">Active Volunteers</div>
+      <div class="kpi-value" style="color:var(--navy)">@_active.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-label">Total Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_active.Sum(v => v.TotalCasesFulfilled)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Active Cases</div>
+      <div class="kpi-value" style="color:var(--amber)">@_active.Sum(v => v.ActiveCases)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@(_active.Any() ? (_active.Average(v => v.TotalCasesFulfilled)).ToString("F1") : "—")</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+    @{
+      int podiumRank = 0;
+    }
+    @foreach (var v in _active.OrderByDescending(v => v.TotalCasesFulfilled).Take(3))
+    {
+      podiumRank++;
+      var medal = podiumRank switch { 1 => "🥇", 2 => "🥈", 3 => "🥉", _ => "" };
+      <div class="panel" style="text-align:center;border-top:4px solid @PodiumColor(podiumRank);">
+        <div class="panel-body">
+          <div style="font-size:2rem;margin-bottom:4px;">@medal</div>
+          <div style="font-size:.72rem;color:var(--text-light);margin-bottom:8px;">#@podiumRank</div>
+          <a href="/admin/volunteers/@v.Id" style="font-size:.92rem;font-weight:700;color:var(--navy);text-decoration:none;">@v.FullName</a>
+          <div style="font-size:.78rem;color:var(--text-light);margin:4px 0;">@v.Role</div>
+          <div style="font-size:1.6rem;font-weight:700;color:@PodiumColor(podiumRank);margin-top:8px;">@v.TotalCasesFulfilled</div>
+          <div style="font-size:.72rem;color:var(--text-light);">cases fulfilled</div>
+          @if (v.ActiveCases > 0)
+          {
+            <div style="font-size:.74rem;color:var(--amber);margin-top:4px;">@v.ActiveCases active</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Full Rankings</h3>
+      <label style="font-size:.8rem;display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" @bind="_activeOnly" /> Active only
+      </label>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);width:48px;">Rank</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Volunteer</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Role</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Active</th>
+            <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Fulfilled</th>
+            <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @{
+            int tableRank = 0;
+            var shown = _activeOnly
+              ? _active.OrderByDescending(v => v.TotalCasesFulfilled)
+              : _volunteers.OrderByDescending(v => v.TotalCasesFulfilled);
+          }
+          @foreach (var v in shown)
+          {
+            tableRank++;
+            <tr style="border-top:1px solid var(--border);@(tableRank <= 3 ? "background:var(--bg);" : "")">
+              <td style="padding:10px 16px;text-align:center;font-size:.82rem;font-weight:700;color:@(tableRank <= 3 ? "var(--navy)" : "var(--text-light)");">
+                @(tableRank <= 3 ? (tableRank == 1 ? "🥇" : tableRank == 2 ? "🥈" : "🥉") : $"#{tableRank}")
+              </td>
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                <a href="/admin/volunteers/@v.Id" style="color:var(--navy);">@v.FullName</a>
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@v.Role</td>
+              <td style="padding:10px 16px;">
+                <span class="badge badge-@StatusClass(v.Status)" style="font-size:.68rem;">@v.Status</span>
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--amber);">@v.ActiveCases</td>
+              <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@v.TotalCasesFulfilled</td>
+              <td style="padding:10px 16px;text-align:center;">
+                <a href="/admin/volunteers/@v.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<Volunteer> _volunteers = [];
+  private List<Volunteer> _active = [];
+  private bool _activeOnly = true;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _volunteers = await Api.GetVolunteersAsync();
+    _active     = _volunteers.Where(v => v.Status == VolunteerStatus.Active).ToList();
+    _loading    = false;
+  }
+
+  private static string PodiumColor(int rank) => rank switch
+  {
+    1 => "#FFD700",
+    2 => "#C0C0C0",
+    3 => "#CD7F32",
+    _ => "var(--border)"
+  };
+
+  private static string StatusClass(VolunteerStatus s) => s switch
+  {
+    VolunteerStatus.Active     => "fulfilled",
+    VolunteerStatus.Inactive   => "cancelled",
+    VolunteerStatus.Onboarding => "new",
+    _                          => "new"
+  };
+}

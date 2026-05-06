@@ -1,0 +1,126 @@
+@page "/admin/inventory/low-stock"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Low Stock Inventory — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Low Stock Inventory</h2><p>Items at or below the minimum threshold</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory" class="btn btn-sm">← All Inventory</a>
+    <a href="/admin/inventory/by-category" class="btn btn-sm">By Category</a>
+    <a href="/admin/wishlist" class="btn btn-sm">Wish List</a>
+    <a href="/admin/inventory/new" class="btn btn-sm btn-primary">+ Add Item</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-label">Out of Stock</div>
+      <div class="kpi-value" style="color:var(--red)">@_items.Count(i => i.QuantityAvailable <= 0)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Critical (≤ 2)</div>
+      <div class="kpi-value" style="color:var(--amber)">@_items.Count(i => i.QuantityAvailable > 0 && i.QuantityAvailable <= 2)</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-label">Low (≤ 5)</div>
+      <div class="kpi-value" style="color:var(--navy)">@_items.Count(i => i.QuantityAvailable > 2 && i.QuantityAvailable <= 5)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Chapters Affected</div>
+      <div class="kpi-value" style="color:var(--amber)">@_items.Select(i => i.ChapterId).Distinct().Count()</div>
+    </div>
+  </div>
+
+  @if (!_items.Any())
+  {
+    <div class="panel" style="border-left:4px solid var(--green);">
+      <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+        ✓ All inventory items are adequately stocked.
+      </div>
+    </div>
+  }
+  else
+  {
+    @foreach (var grp in _items.GroupBy(i => i.Category).OrderBy(g => g.Min(i => i.QuantityAvailable)))
+    {
+      var hasZero = grp.Any(i => i.QuantityAvailable <= 0);
+      <div class="panel" style="margin-bottom:16px;border-left:4px solid @(hasZero ? "var(--red)" : "var(--amber)");">
+        <div class="panel-head">
+          <h3>
+            @grp.Key
+            @if (hasZero) { <span class="badge badge-cancelled" style="font-size:.68rem;margin-left:8px;">OUT OF STOCK</span> }
+          </h3>
+          <a href="/admin/inventory/by-category" style="font-size:.8rem;color:var(--navy);">View category →</a>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:var(--bg);">
+                <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Item</th>
+                <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">On Hand</th>
+                <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Reserved</th>
+                <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Available</th>
+                <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Chapter</th>
+                <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var item in grp.OrderBy(i => i.QuantityAvailable))
+              {
+                var outOfStock = item.QuantityAvailable <= 0;
+                var critical   = item.QuantityAvailable > 0 && item.QuantityAvailable <= 2;
+                <tr style="border-top:1px solid var(--border);background:@(outOfStock ? "#fef2f2" : critical ? "#fffbeb" : "")">
+                  <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                    <a href="/admin/inventory/@item.Id" style="color:var(--navy);">@item.Name</a>
+                    @if (item.Description != null)
+                    {
+                      <div style="font-size:.74rem;color:var(--text-light);font-weight:400;">@item.Description</div>
+                    }
+                  </td>
+                  <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@item.QuantityOnHand @item.Unit</td>
+                  <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--amber);">@item.QuantityReserved</td>
+                  <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:@(outOfStock ? "var(--red)" : critical ? "var(--amber)" : "var(--text-light)");">
+                    @item.QuantityAvailable
+                    @if (outOfStock) { <span style="font-size:.7rem;"> ⚠</span> }
+                  </td>
+                  <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">
+                    <a href="/admin/chapters/@item.ChapterId" style="color:var(--text-light);">#@item.ChapterId</a>
+                  </td>
+                  <td style="padding:10px 16px;text-align:center;white-space:nowrap;">
+                    <a href="/admin/inventory/@item.Id/adjust" style="font-size:.78rem;color:var(--navy);margin-right:6px;">Adjust</a>
+                    <a href="/admin/inventory/@item.Id" style="font-size:.78rem;color:var(--text-light);">View</a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+}
+
+@code {
+  private List<ResourceItem> _items = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all  = await Api.GetInventoryAsync();
+    _items   = all.Where(i => i.QuantityAvailable <= 5).ToList();
+    _loading = false;
+  }
+}

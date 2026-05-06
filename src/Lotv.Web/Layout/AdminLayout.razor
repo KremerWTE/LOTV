@@ -877,6 +877,12 @@
       var u when u.StartsWith("/admin/chapters/") && u.EndsWith("/metrics")                                               => "Chapter Metrics",
       var u when u == "/admin/grants/pipeline"                                                                             => "Grant Pipeline",
       var u when u.StartsWith("/admin/staff-tasks/") && u.EndsWith("/edit")                                               => "Edit Staff Task",
+      var u when u.StartsWith("/admin/retreats/") && u.EndsWith("/dashboard")                                             => "Retreat Dashboard",
+      var u when u == "/admin/volunteers/leaderboard"                                                                      => "Volunteer Leaderboard",
+      var u when u == "/admin/donors/tier-analytics"                                                                       => "Donor Tier Analytics",
+      var u when u == "/admin/cases/unassigned"                                                                            => "Unassigned Cases",
+      var u when u == "/admin/events/calendar"                                                                             => "Events Calendar",
+      var u when u == "/admin/inventory/low-stock"                                                                         => "Low Stock Inventory",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();

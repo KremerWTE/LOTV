@@ -1,0 +1,131 @@
+@page "/admin/retreats/{Id:int}/dashboard"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>@(_dash?.Title ?? "Retreat") Dashboard — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>@(_dash?.Title ?? $"Retreat #{Id}") — Dashboard</h2><p>Registration, revenue, and expense overview</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/retreats/@Id" class="btn btn-sm">← Retreat Detail</a>
+    <a href="/admin/retreats/@Id/registrations" class="btn btn-sm">Registrations</a>
+    <a href="/admin/retreats/@Id/expenses" class="btn btn-sm">Expenses</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_dash == null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Retreat not found.</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Registered</div>
+      <div class="kpi-value" style="color:var(--navy)">@_dash.TotalRegistered / @_dash.Capacity</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value" style="color:var(--green)">@_dash.TotalRevenue.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Costs</div>
+      <div class="kpi-value" style="color:var(--amber)">@_dash.TotalCosts.ToString("C0")</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid @(_dash.NetPosition >= 0 ? "var(--green)" : "var(--red)");">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Net Position</div>
+      <div class="kpi-value" style="color:@(_dash.NetPosition >= 0 ? "var(--green)" : "var(--red)")">@_dash.NetPosition.ToString("C0")</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Capacity</h3></div>
+      <div class="panel-body">
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px;">
+          <span>@_dash.TotalRegistered of @_dash.Capacity seats</span>
+          <span style="font-weight:600;color:@(_dash.CapacityPct >= 90 ? "var(--red)" : "var(--navy)");">@_dash.CapacityPct.ToString("F0")%</span>
+        </div>
+        <div style="background:var(--bg);border-radius:4px;height:10px;overflow:hidden;margin-bottom:16px;">
+          <div style="background:@(_dash.CapacityPct >= 90 ? "var(--red)" : "var(--green)");height:100%;width:@Math.Min(100,_dash.CapacityPct).ToString("F0")%;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center;font-size:.78rem;">
+          <div><div style="font-size:1.1rem;font-weight:700;color:var(--green);">@_dash.PaidCount</div><div style="color:var(--text-light);">Paid</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700;color:var(--amber);">@_dash.PartialCount</div><div style="color:var(--text-light);">Partial</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700;color:var(--red);">@_dash.UnpaidCount</div><div style="color:var(--text-light);">Unpaid</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700;color:var(--navy);">@_dash.ComplimentaryCount</div><div style="color:var(--text-light);">Comp</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Revenue vs Goal</h3></div>
+      <div class="panel-body">
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px;">
+          <span>@_dash.TotalRevenue.ToString("C0") of @_dash.GoalAmount.ToString("C0")</span>
+          <span style="font-weight:600;color:@(_dash.RevenuePct >= 100 ? "var(--green)" : "var(--amber)");">@_dash.RevenuePct.ToString("F0")%</span>
+        </div>
+        <div style="background:var(--bg);border-radius:4px;height:10px;overflow:hidden;margin-bottom:16px;">
+          <div style="background:@(_dash.RevenuePct >= 100 ? "var(--green)" : "var(--navy)");height:100%;width:@Math.Min(100,_dash.RevenuePct).ToString("F0")%;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;font-size:.78rem;">
+          <div><div style="font-size:1rem;font-weight:700;color:var(--navy);">@_dash.FromManual</div><div style="color:var(--text-light);">Manual</div></div>
+          <div><div style="font-size:1rem;font-weight:700;color:var(--navy);">@_dash.FromGiveButter</div><div style="color:var(--text-light);">GiveButter</div></div>
+          <div><div style="font-size:1rem;font-weight:700;color:var(--navy);">@_dash.FromDuda</div><div style="color:var(--text-light);">Duda</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (_dash.RecentExpenses.Any())
+  {
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Recent Expenses</h3>
+        <a href="/admin/retreats/@Id/expenses" style="font-size:.8rem;color:var(--navy);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Description</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Category</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var e in _dash.RecentExpenses)
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@e.Description</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@e.Category</td>
+                <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--amber);">@e.Amount.ToString("C0")</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@(e.PaidAt?.ToString("MMM d, yyyy") ?? "Pending")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  private RetreatDashboardDto? _dash;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _dash    = await Api.GetRetreatDashboardAsync(Id);
+    _loading = false;
+  }
+}

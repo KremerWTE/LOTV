@@ -1,0 +1,150 @@
+@page "/admin/events/calendar"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Events Calendar — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Events Calendar</h2><p>All events ordered chronologically</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/events" class="btn btn-sm">← All Events</a>
+    <a href="/admin/events/upcoming" class="btn btn-sm">Upcoming</a>
+    <a href="/admin/events/by-type" class="btn btn-sm">By Type</a>
+    <a href="/admin/events/new" class="btn btn-sm btn-primary">+ Add Event</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+    <button class="btn btn-sm @(_filter == "all" ? "btn-primary" : "")" @onclick='() => _filter = "all"'>All</button>
+    <button class="btn btn-sm @(_filter == "upcoming" ? "btn-primary" : "")" @onclick='() => _filter = "upcoming"'>Upcoming</button>
+    <button class="btn btn-sm @(_filter == "past" ? "btn-primary" : "")" @onclick='() => _filter = "past"'>Past</button>
+  </div>
+
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-label">Total Events</div>
+      <div class="kpi-value" style="color:var(--navy)">@Filtered.Count()</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Upcoming</div>
+      <div class="kpi-value" style="color:var(--amber)">@_events.Count(e => e.Date.Date >= DateTime.Today && e.Status != EventStatus.Cancelled)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Total Registered</div>
+      <div class="kpi-value" style="color:var(--green)">@Filtered.Sum(e => e.Registered)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Ticket Revenue</div>
+      <div class="kpi-value" style="color:var(--green)">@Filtered.Sum(e => (e.TicketPrice ?? 0) * e.Registered).ToString("C0")</div>
+    </div>
+  </div>
+
+  @foreach (var monthGrp in Filtered.GroupBy(e => new DateTime(e.Date.Year, e.Date.Month, 1)).OrderBy(g => g.Key))
+  {
+    <div style="margin-bottom:24px;">
+      <div style="font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">
+        @monthGrp.Key.ToString("MMMM yyyy")
+      </div>
+      @foreach (var e in monthGrp.OrderBy(e => e.Date))
+      {
+        var isPast   = e.Date.Date < DateTime.Today;
+        var isFull   = e.Capacity.HasValue && e.Registered >= e.Capacity.Value;
+        var daysUntil = (e.Date.Date - DateTime.Today).Days;
+        <div style="display:flex;gap:16px;margin-bottom:8px;align-items:flex-start;@(isPast ? "opacity:.65;" : "")">
+          <div style="min-width:52px;text-align:center;background:@StatusBg(e.Status);border-radius:8px;padding:6px 8px;">
+            <div style="font-size:.64rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">@e.Date.ToString("MMM")</div>
+            <div style="font-size:1.3rem;font-weight:700;color:var(--navy);line-height:1;">@e.Date.Day</div>
+          </div>
+          <div class="panel" style="flex:1;margin-bottom:0;">
+            <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+              <div>
+                <a href="/admin/events/@e.Id" style="font-size:.88rem;font-weight:600;color:var(--navy);">@e.Title</a>
+                <div style="font-size:.76rem;color:var(--text-light);margin-top:2px;">
+                  @e.Type · @e.Location
+                  @if (e.IsVirtual) { <span> · virtual</span> }
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+                <span class="badge badge-@StatusClass(e.Status)" style="font-size:.64rem;">@e.Status</span>
+                @if (!isPast && daysUntil <= 7 && e.Status != EventStatus.Cancelled)
+                {
+                  <span class="badge badge-cancelled" style="font-size:.64rem;">@(daysUntil == 0 ? "Today" : $"{daysUntil}d")</span>
+                }
+                @if (isFull) { <span class="badge badge-onhold" style="font-size:.64rem;">Full</span> }
+              </div>
+            </div>
+            <div style="padding:0 16px 10px;display:flex;gap:20px;font-size:.76rem;color:var(--text-light);">
+              <span>@e.Date.ToString("h:mm tt")</span>
+              <span>@e.Registered@(e.Capacity.HasValue ? $"/{e.Capacity}" : "") registered</span>
+              @if (e.TicketPrice.HasValue && e.TicketPrice > 0)
+              {
+                <span>@e.TicketPrice.Value.ToString("C0")/ticket</span>
+              }
+              @if (e.GoalAmount.HasValue && e.GoalAmount > 0)
+              {
+                <span>Goal: @e.GoalAmount.Value.ToString("C0")</span>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (!Filtered.Any())
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No events found.</div>
+    </div>
+  }
+}
+
+@code {
+  private List<MinistryEvent> _events = [];
+  private string _filter = "all";
+  private bool _loading = true;
+
+  private IEnumerable<MinistryEvent> Filtered => _filter switch
+  {
+    "upcoming" => _events.Where(e => e.Date.Date >= DateTime.Today && e.Status != EventStatus.Cancelled),
+    "past"     => _events.Where(e => e.Date.Date < DateTime.Today),
+    _          => _events
+  };
+
+  protected override async Task OnInitializedAsync()
+  {
+    _events  = await Api.GetEventsAsync();
+    _loading = false;
+  }
+
+  private static string StatusClass(EventStatus s) => s switch
+  {
+    EventStatus.Published  => "new",
+    EventStatus.Open       => "new",
+    EventStatus.Completed  => "fulfilled",
+    EventStatus.Cancelled  => "cancelled",
+    EventStatus.Draft      => "onhold",
+    EventStatus.Closed     => "onhold",
+    _                      => "new"
+  };
+
+  private static string StatusBg(EventStatus s) => s switch
+  {
+    EventStatus.Published  => "#eff6ff",
+    EventStatus.Open       => "#eff6ff",
+    EventStatus.Completed  => "#f0fdf4",
+    EventStatus.Cancelled  => "#fef2f2",
+    _                      => "var(--bg)"
+  };
+}
