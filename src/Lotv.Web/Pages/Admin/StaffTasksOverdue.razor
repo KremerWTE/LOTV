@@ -1,0 +1,118 @@
+@page "/admin/staff-tasks/overdue"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Overdue Staff Tasks — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Overdue Staff Tasks</h2><p>Tasks with a past due date that are not yet completed</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/staff-tasks" class="btn btn-sm">← All Tasks</a>
+    <a href="/admin/staff-tasks/new" class="btn btn-sm btn-primary">+ New Task</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (!_overdue.Any())
+{
+  <div class="panel" style="border-left:4px solid var(--green);">
+    <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+      ✓ No overdue staff tasks. Great job keeping up with the board!
+    </div>
+  </div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card" style="border-top:3px solid var(--red);">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_overdue.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-label">Critical/High Priority</div>
+      <div class="kpi-value" style="color:var(--amber)">@_overdue.Count(t => t.Priority is "Critical" or "High")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128279;</div>
+      <div class="kpi-label">Linked to Cases</div>
+      <div class="kpi-value" style="color:var(--navy)">@_overdue.Count(t => t.LinkedCaseId.HasValue)</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Overdue Tasks (@_overdue.Count)</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--bg);">
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Task</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Assigned To</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Priority</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Due</th>
+            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Days Late</th>
+            <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var t in _overdue.OrderBy(t => t.DueDate))
+          {
+            var daysLate = t.DueDate.HasValue ? (int)(DateTime.Today - t.DueDate.Value.Date).TotalDays : 0;
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                @t.Title
+                @if (!string.IsNullOrEmpty(t.Description))
+                {
+                  <div style="font-size:.74rem;color:var(--text-light);">@(t.Description.Length > 80 ? t.Description[..80] + "…" : t.Description)</div>
+                }
+                @if (t.LinkedCaseId.HasValue)
+                {
+                  <div style="font-size:.74rem;"><a href="/admin/cases/@t.LinkedCaseId" style="color:var(--navy);">Case #@t.LinkedCaseId</a></div>
+                }
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@t.AssignedToName</td>
+              <td style="padding:10px 16px;">
+                <span class="badge badge-@PriorityClass(t.Priority)" style="font-size:.68rem;">@t.Priority</span>
+              </td>
+              <td style="padding:10px 16px;font-size:.82rem;color:var(--red);">@(t.DueDate?.ToString("MMM d, yyyy") ?? "—")</td>
+              <td style="padding:10px 16px;font-size:.84rem;font-weight:700;color:var(--red);">@daysLate d</td>
+              <td style="padding:10px 16px;text-align:center;">
+                <a href="/admin/staff-tasks/@t.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<StaffTaskDto> _overdue = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetStaffTasksAsync();
+    _overdue = all.Where(t =>
+        t.DueDate.HasValue &&
+        t.DueDate.Value.Date < DateTime.Today &&
+        t.Status != "Completed" &&
+        t.Status != "Cancelled")
+      .ToList();
+    _loading = false;
+  }
+
+  private static string PriorityClass(string priority) => priority switch
+  {
+    "Critical" => "cancelled",
+    "High"     => "onhold",
+    "Medium"   => "new",
+    "Low"      => "fulfilled",
+    _          => "new"
+  };
+}

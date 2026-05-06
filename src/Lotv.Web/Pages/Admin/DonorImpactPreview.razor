@@ -1,0 +1,132 @@
+@page "/admin/donors/{DonorId:int}/impact"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donor Impact — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Impact</h2><p>@(_donor?.FullName ?? $"Donor #{DonorId}") — portal impact view</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor Profile</a>
+    <a href="/admin/donors/@DonorId/contributions" class="btn btn-sm">All Gifts</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_impact is null)
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No impact data available for this donor.</div>
+  </div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Given</div>
+      <div class="kpi-value" style="color:var(--green)">@_impact.TotalGiven.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-label">Gifts</div>
+      <div class="kpi-value" style="color:var(--navy)">@_impact.GiftCount</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Families Helped</div>
+      <div class="kpi-value" style="color:var(--amber)">@_impact.FamiliesHelped</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Chapters Served</div>
+      <div class="kpi-value">@_impact.ChaptersServed</div>
+    </div>
+  </div>
+
+  @if (_impact.CategoryBreakdown.Any())
+  {
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Giving by Category</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Category</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Share</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var cat in _impact.CategoryBreakdown.OrderByDescending(c => c.Amount))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@cat.Category</td>
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:700;text-align:right;color:var(--green);">@cat.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@cat.Percentage.ToString("F1")%</td>
+                <td style="padding:10px 16px;">
+                  <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
+                    <div style="background:var(--green);height:6px;width:@cat.Percentage.ToString("F1")%;"></div>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (_impact.DonationHistory.Any())
+  {
+    <div class="panel">
+      <div class="panel-head"><h3>Donation History (@_impact.DonationHistory.Count)</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Channel</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var d in _impact.DonationHistory.OrderByDescending(d => d.Date))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;white-space:nowrap;">@d.Date.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.Channel</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.Status</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+
+  private Donor? _donor;
+  private PublicDonorImpactDto? _impact;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorTask  = Api.GetDonorAsync(DonorId);
+    var impactTask = Api.GetPublicDonorImpactAsync(DonorId);
+    await Task.WhenAll(donorTask, impactTask);
+    _donor  = await donorTask;
+    _impact = await impactTask;
+    _loading = false;
+  }
+}

@@ -1,0 +1,116 @@
+@page "/admin/donors/tiers"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donor Tiers — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Tiers</h2><p>Donors grouped by cumulative giving level</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors" class="btn btn-sm">← All Donors</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card" style="border-top:3px solid #6366f1;">
+      <div class="kpi-icon">&#127775;</div>
+      <div class="kpi-label">Benefactors ($5k+)</div>
+      <div class="kpi-value" style="color:#6366f1">@Count(DonorTier.Benefactor)</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127894;</div>
+      <div class="kpi-label">Champions ($1k–4.9k)</div>
+      <div class="kpi-value" style="color:var(--amber)">@Count(DonorTier.Champion)</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128137;</div>
+      <div class="kpi-label">Supporters ($250–999)</div>
+      <div class="kpi-value" style="color:var(--green)">@Count(DonorTier.Supporter)</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128167;</div>
+      <div class="kpi-label">Friends (&lt;$250)</div>
+      <div class="kpi-value" style="color:var(--navy)">@Count(DonorTier.Friend)</div>
+    </div>
+  </div>
+
+  @foreach (var tier in new[] { DonorTier.Benefactor, DonorTier.Champion, DonorTier.Supporter, DonorTier.Friend })
+  {
+    var donors = _donors.Where(d => d.Tier == tier).OrderByDescending(d => d.TotalGiven).ToList();
+    if (!donors.Any()) continue;
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head">
+        <h3>@tier — @donors.Count donors (@donors.Sum(d => d.TotalGiven).ToString("C0") total)</h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total Given</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Gifts</th>
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Last Gift</th>
+              <th style="padding:8px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);">Recurring</th>
+              <th style="padding:8px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var d in donors.Take(50))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@d.Id" style="color:var(--navy);">@d.FullName</a>
+                  @if (!string.IsNullOrEmpty(d.Email))
+                  {
+                    <div style="font-size:.74rem;color:var(--text-light);">@d.Email</div>
+                  }
+                </td>
+                <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.TotalGiven.ToString("C0")</td>
+                <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@d.GiftCount</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@d.LastGiftDate.ToString("MMM d, yyyy")</td>
+                <td style="padding:8px 16px;text-align:center;">
+                  @if (d.IsRecurring)
+                  {
+                    <span class="badge badge-fulfilled" style="font-size:.64rem;">✓</span>
+                  }
+                </td>
+                <td style="padding:8px 16px;text-align:center;">
+                  <a href="/admin/donors/@d.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                </td>
+              </tr>
+            }
+            @if (donors.Count > 50)
+            {
+              <tr style="border-top:1px solid var(--border);background:var(--bg);">
+                <td colspan="6" style="padding:10px 16px;text-align:center;font-size:.78rem;color:var(--text-light);">
+                  … and @(donors.Count - 50) more. <a href="/admin/donors" style="color:var(--navy);">View all donors →</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<Donor> _donors = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donors = await Api.GetDonorsAsync();
+    _loading = false;
+  }
+
+  private int Count(DonorTier tier) => _donors.Count(d => d.Tier == tier);
+}

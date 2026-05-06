@@ -831,6 +831,11 @@
       var u when u.Contains("/admin/chapters/") && u.EndsWith("/inventory")                                                  => "Chapter Inventory",
       var u when u.Contains("/admin/families/") && u.EndsWith("/volunteers")                                                 => "Family Volunteers",
       var u when u == "/admin/volunteers/geography"                                                                          => "Volunteer Geography",
+      var u when u == "/admin/donors/tiers"                                                                                  => "Donor Tiers",
+      var u when u.Contains("/admin/donors/") && u.EndsWith("/impact")                                                       => "Donor Impact Preview",
+      var u when u.Contains("/admin/chapters/") && u.EndsWith("/grants")                                                     => "Chapter Grants",
+      var u when u == "/admin/pledges/lapsed"                                                                                => "Lapsed Pledges",
+      var u when u == "/admin/staff-tasks/overdue"                                                                           => "Overdue Staff Tasks",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();
