@@ -1,0 +1,196 @@
+@page "/admin/chapters/{Id:int}/finances"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Chapter Finances — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>@(_chapterName) — Finances</h2><p>Donations, pledges, grants, and expenses for this chapter</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/chapters/@Id" class="btn btn-sm">← Chapter</a>
+    <a href="/admin/chapters/@Id/donations" class="btn btn-sm">Donations</a>
+    <a href="/admin/chapters/@Id/grants" class="btn btn-sm">Grants</a>
+    <a href="/admin/chapters/@Id/expenses" class="btn btn-sm">Expenses</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Donations</div>
+      <div class="kpi-value" style="color:var(--green)">@_donations.Sum(d => d.Amount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Expenses</div>
+      <div class="kpi-value" style="color:var(--amber)">@_expenses.Sum(e => e.Amount).ToString("C0")</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid @(NetPosition >= 0 ? "var(--green)" : "var(--red)");">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Net Position</div>
+      <div class="kpi-value" style="color:@(NetPosition >= 0 ? "var(--green)" : "var(--red)")">@NetPosition.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Active Pledges</div>
+      <div class="kpi-value" style="color:var(--navy)">@_pledges.Count(p => p.Status == PledgeStatus.Active)</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Donations by Channel</h3>
+        <a href="/admin/chapters/@Id/donations" style="font-size:.8rem;color:var(--navy);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Channel</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Count</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var grp in _donations.GroupBy(d => d.Channel).OrderByDescending(g => g.Sum(d => d.Amount)))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@grp.Key</td>
+                <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@grp.Count()</td>
+                <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@grp.Sum(d => d.Amount).ToString("C0")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Expenses by Category</h3>
+        <a href="/admin/chapters/@Id/expenses" style="font-size:.8rem;color:var(--navy);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Category</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Count</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var grp in _expenses.GroupBy(e => e.Category).OrderByDescending(g => g.Sum(e => e.Amount)))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@grp.Key</td>
+                <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@grp.Count()</td>
+                <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--amber);">@grp.Sum(e => e.Amount).ToString("C0")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head">
+      <h3>Grants</h3>
+      <a href="/admin/chapters/@Id/grants" style="font-size:.8rem;color:var(--navy);">View all →</a>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (_grants.Any())
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <tbody>
+            @foreach (var g in _grants.OrderByDescending(g => g.Amount).Take(5))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@g.Purpose</td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@g.GrantorName</td>
+                <td style="padding:8px 16px;"><span class="badge badge-new" style="font-size:.68rem;">@g.Status</span></td>
+                <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@g.Amount.ToString("C0")</td>
+                <td style="padding:8px 16px;text-align:center;"><a href="/admin/grants/@g.Id" style="font-size:.78rem;color:var(--navy);">View</a></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+      else
+      {
+        <div style="padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">No grants for this chapter.</div>
+      }
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Active Pledges</h3>
+      <a href="/admin/chapters/@Id/pledges" style="font-size:.8rem;color:var(--navy);">View all →</a>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (_pledges.Any(p => p.Status == PledgeStatus.Active))
+      {
+        <table style="width:100%;border-collapse:collapse;">
+          <tbody>
+            @foreach (var p in _pledges.Where(p => p.Status == PledgeStatus.Active).OrderByDescending(p => p.RemainingAmount).Take(5))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@p.DonorId" style="color:var(--navy);">Donor #@p.DonorId</a>
+                </td>
+                <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">Pledged: @p.PledgedAmount.ToString("C0")</td>
+                <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--amber);">@p.RemainingAmount.ToString("C0") left</td>
+                <td style="padding:8px 16px;text-align:center;"><a href="/admin/pledges/@p.Id" style="font-size:.78rem;color:var(--navy);">View</a></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+      else
+      {
+        <div style="padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">No active pledges for this chapter.</div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  private string _chapterName = "Chapter";
+  private List<Donation> _donations = [];
+  private List<Expense> _expenses = [];
+  private List<GrantDto> _grants = [];
+  private List<DonorPledge> _pledges = [];
+  private bool _loading = true;
+
+  private decimal NetPosition => _donations.Sum(d => d.Amount) - _expenses.Sum(e => e.Amount);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var chapTask = Api.GetChaptersAdminAsync();
+    var donTask  = Api.GetDonationsAsync();
+    var expTask  = Api.GetExpensesAsync();
+    var grantTask = Api.GetGrantsAsync();
+    var pledgeTask = Api.GetPledgesAsync();
+    await Task.WhenAll(chapTask, donTask, expTask, grantTask, pledgeTask);
+    var chapters = await chapTask;
+    _chapterName = chapters.FirstOrDefault(c => c.Id == Id)?.Name ?? $"Chapter #{Id}";
+    var allDon   = await donTask;
+    _donations   = allDon.Where(d => d.ChapterId == Id).ToList();
+    var allExp   = await expTask;
+    _expenses    = allExp.Where(e => e.ChapterId == Id).ToList();
+    var allGrants = await grantTask;
+    _grants      = allGrants.Where(g => g.ChapterId == Id).ToList();
+    _pledges     = await pledgeTask;
+    _loading     = false;
+  }
+}

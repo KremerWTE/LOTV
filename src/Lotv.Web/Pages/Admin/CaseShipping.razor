@@ -1,0 +1,171 @@
+@page "/admin/cases/{Id:int}/shipping"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Case Shipping — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Case #@Id — Shipping</h2><p>Tracking and shipment details</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+    <a href="/admin/cases/@Id/tracking" class="btn btn-sm">Update Tracking</a>
+    <a href="/admin/cases/@Id/status" class="btn btn-sm">Update Status</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_case == null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Case not found.</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Status</div>
+      <div class="kpi-value" style="font-size:1rem;">
+        <span class="badge badge-@StatusClass(_case.Status)">@_case.Status</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128337;</div>
+      <div class="kpi-label">Due Date</div>
+      <div class="kpi-value" style="color:var(--amber);font-size:1rem;">@(_case.DueDate?.ToString("MMM d, yyyy") ?? "—")</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid @(_case.ShippedDate.HasValue ? "var(--green)" : "var(--border)");">
+      <div class="kpi-icon">&#128666;</div>
+      <div class="kpi-label">Shipped</div>
+      <div class="kpi-value" style="color:@(_case.ShippedDate.HasValue ? "var(--green)" : "var(--text-light)");font-size:1rem;">
+        @(_case.ShippedDate?.ToString("MMM d, yyyy") ?? "Not yet")
+      </div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid @(_case.TrackingNumber != null ? "var(--green)" : "var(--border)");">
+      <div class="kpi-icon">&#128269;</div>
+      <div class="kpi-label">Tracking</div>
+      <div class="kpi-value" style="font-size:.78rem;color:var(--navy);word-break:break-all;">
+        @(_case.TrackingNumber ?? "None")
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Family</h3></div>
+      <div class="panel-body">
+        <div style="font-size:.88rem;font-weight:600;margin-bottom:8px;">
+          <a href="/admin/families/@_case.FamilyId" style="color:var(--navy);">@(_case.Family?.FullName ?? $"Family #{_case.FamilyId}")</a>
+        </div>
+        <div style="font-size:.82rem;color:var(--text-light);">Priority: @_case.Priority</div>
+        <div style="font-size:.82rem;color:var(--text-light);">Category: @_case.Category</div>
+        @if (_case.ChildrenInitials != null)
+        {
+          <div style="font-size:.82rem;color:var(--text-light);">Children: @_case.ChildrenInitials</div>
+        }
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Assignment</h3></div>
+      <div class="panel-body">
+        @if (_case.AssignedTo != null)
+        {
+          <div style="font-size:.88rem;font-weight:600;margin-bottom:4px;">@_case.AssignedTo</div>
+          <div style="font-size:.82rem;color:var(--text-light);">Assigned volunteer</div>
+        }
+        else
+        {
+          <span style="color:var(--text-light);font-size:.84rem;">Unassigned</span>
+          <div style="margin-top:8px;">
+            <a href="/admin/cases/@_case.Id/assign" class="btn btn-sm">Assign →</a>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head"><h3>Shipment Timeline</h3></div>
+    <div class="panel-body">
+      <div style="display:flex;flex-direction:column;gap:0;">
+        @{
+          var steps = new[]
+          {
+            (Label: "Request Created", Date: (DateTime?)_case.CreatedAt, Done: true),
+            (Label: "Assigned to Volunteer", Date: (DateTime?)null, Done: _case.AssignedTo != null),
+            (Label: "Awaiting Shipment", Date: (DateTime?)null, Done: _case.Status == CaseStatus.AwaitingShipment || _case.Status == CaseStatus.Shipped || _case.Status == CaseStatus.Fulfilled),
+            (Label: "Shipped", Date: _case.ShippedDate, Done: _case.ShippedDate.HasValue),
+            (Label: "Fulfilled", Date: (DateTime?)null, Done: _case.Status == CaseStatus.Fulfilled),
+          };
+        }
+        @foreach (var step in steps)
+        {
+          <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:12px;">
+            <div style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;margin-top:2px;background:@(step.Done ? "var(--green)" : "var(--bg)");border:2px solid @(step.Done ? "var(--green)" : "var(--border)");color:@(step.Done ? "white" : "var(--text-light)");">
+              @(step.Done ? "✓" : "○")
+            </div>
+            <div>
+              <div style="font-size:.84rem;font-weight:@(step.Done ? "600" : "400");color:@(step.Done ? "inherit" : "var(--text-light)");">@step.Label</div>
+              @if (step.Date.HasValue)
+              {
+                <div style="font-size:.76rem;color:var(--text-light);">@step.Date.Value.ToString("MMM d, yyyy")</div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (_case.TrackingNumber != null)
+  {
+    <div class="panel">
+      <div class="panel-head"><h3>Tracking Information</h3></div>
+      <div class="panel-body">
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:.74rem;color:var(--text-light);margin-bottom:2px;">Tracking Number</div>
+            <div style="font-size:.96rem;font-weight:700;font-family:monospace;">@_case.TrackingNumber</div>
+          </div>
+          <a href="/admin/cases/@Id/tracking" class="btn btn-sm">Update</a>
+        </div>
+      </div>
+    </div>
+  }
+  else
+  {
+    <div class="panel" style="border-left:4px solid var(--amber);">
+      <div class="panel-body" style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:.84rem;color:var(--text-light);">No tracking number added yet.</span>
+        <a href="/admin/cases/@Id/tracking" class="btn btn-sm btn-primary">Add Tracking</a>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  private PackageRequest? _case;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _case    = await Api.GetRequestAsync(Id);
+    _loading = false;
+  }
+
+  private static string StatusClass(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "new",
+    CaseStatus.InProgress       => "onhold",
+    CaseStatus.AwaitingShipment => "onhold",
+    CaseStatus.Shipped          => "new",
+    CaseStatus.Fulfilled        => "fulfilled",
+    CaseStatus.OnHold           => "onhold",
+    CaseStatus.Cancelled        => "cancelled",
+    _                           => "new"
+  };
+}

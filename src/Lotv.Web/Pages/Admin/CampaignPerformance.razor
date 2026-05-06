@@ -1,0 +1,167 @@
+@page "/admin/campaigns/{Id:int}/performance"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Campaign Performance — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>@(_campaign?.Name ?? $"Campaign #{Id}") — Performance</h2><p>Giving analytics and donor breakdown</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/campaigns/@Id" class="btn btn-sm">← Campaign</a>
+    <a href="/admin/campaigns/@Id/donations" class="btn btn-sm">All Gifts</a>
+    <a href="/admin/campaigns/@Id/donors" class="btn btn-sm">Donors</a>
+    <a href="/admin/campaigns" class="btn btn-sm">All Campaigns</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_campaign == null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Campaign not found.</div></div>
+}
+else
+{
+  var pct = _campaign.GoalAmount > 0 ? _campaign.Raised / _campaign.GoalAmount * 100m : 0m;
+
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Raised</div>
+      <div class="kpi-value" style="color:var(--green)">@_campaign.Raised.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127919;</div>
+      <div class="kpi-label">Goal</div>
+      <div class="kpi-value" style="color:var(--amber)">@_campaign.GoalAmount.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-label">Gift Count</div>
+      <div class="kpi-value" style="color:var(--navy)">@_campaign.GiftCount</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid @(pct >= 100 ? "var(--green)" : "var(--amber)");">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Progress</div>
+      <div class="kpi-value" style="color:@(pct >= 100 ? "var(--green)" : "var(--amber)")">@pct.ToString("F0")%</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head"><h3>Goal Progress</h3></div>
+    <div class="panel-body">
+      <div style="background:var(--bg);border-radius:6px;height:16px;overflow:hidden;margin-bottom:8px;">
+        <div style="background:@(pct >= 100 ? "var(--green)" : "var(--navy)");height:100%;width:@Math.Min(100,pct).ToString("F0")%;transition:width .4s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-light);">
+        <span>@_campaign.Raised.ToString("C0") raised</span>
+        <span>@(_campaign.GoalAmount - _campaign.Raised).ToString("C0") remaining</span>
+        <span>@_campaign.GoalAmount.ToString("C0") goal</span>
+      </div>
+    </div>
+  </div>
+
+  @if (_donations.Any())
+  {
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="panel">
+        <div class="panel-head"><h3>By Channel</h3></div>
+        <div class="panel-body" style="padding:0;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              @foreach (var grp in _donations.GroupBy(d => d.Channel).OrderByDescending(g => g.Sum(d => d.Amount)))
+              {
+                var chPct = _donations.Sum(d => d.Amount) > 0 ? grp.Sum(d => d.Amount) / _donations.Sum(d => d.Amount) * 100m : 0;
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@grp.Key</td>
+                  <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@grp.Count()</td>
+                  <td style="padding:8px 16px;font-size:.84rem;font-weight:700;text-align:right;color:var(--green);">@grp.Sum(d => d.Amount).ToString("C0")</td>
+                  <td style="padding:8px 16px;font-size:.76rem;text-align:right;color:var(--text-light);">@chPct.ToString("F0")%</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>By Month</h3></div>
+        <div class="panel-body" style="padding:0;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              @foreach (var grp in _donations.GroupBy(d => new DateTime(d.Date.Year, d.Date.Month, 1)).OrderByDescending(g => g.Key).Take(6))
+              {
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@grp.Key.ToString("MMM yyyy")</td>
+                  <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@grp.Count()</td>
+                  <td style="padding:8px 16px;font-size:.84rem;font-weight:700;text-align:right;color:var(--green);">@grp.Sum(d => d.Amount).ToString("C0")</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Top Gifts</h3>
+        <a href="/admin/campaigns/@Id/donations" style="font-size:.8rem;color:var(--navy);">All gifts →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Donor</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Channel</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Date</th>
+              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var d in _donations.OrderByDescending(d => d.Amount).Take(10))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
+                  <a href="/admin/donors/@d.DonorId" style="color:var(--navy);">@(d.Donor?.FullName ?? $"Donor #{d.DonorId}")</a>
+                </td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.Channel</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.Amount.ToString("C0")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+  else
+  {
+    <div class="panel">
+      <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No gifts recorded for this campaign yet.</div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+  private CampaignDto? _campaign;
+  private List<Donation> _donations = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var campTask = Api.GetCampaignsAsync();
+    var donTask  = Api.GetDonationsAsync();
+    await Task.WhenAll(campTask, donTask);
+    var camps    = await campTask;
+    _campaign    = camps.FirstOrDefault(c => c.Id == Id);
+    var allDon   = await donTask;
+    _donations   = _campaign != null
+      ? allDon.Where(d => d.Campaign == _campaign.Name).ToList()
+      : [];
+    _loading = false;
+  }
+}

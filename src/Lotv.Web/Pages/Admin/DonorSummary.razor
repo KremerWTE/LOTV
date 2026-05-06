@@ -1,0 +1,202 @@
+@page "/admin/donors/{DonorId:int}/summary"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Donor Summary — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>@(_donor?.FullName ?? $"Donor #{DonorId}") — 360° Summary</h2><p>Complete giving history and engagement overview</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors/@DonorId" class="btn btn-sm">← Donor Detail</a>
+    <a href="/admin/donors/@DonorId/contributions" class="btn btn-sm">All Gifts</a>
+    <a href="/admin/donors/@DonorId/pledges" class="btn btn-sm">Pledges</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_donor == null)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Donor not found.</div></div>
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-label">Total Given</div>
+      <div class="kpi-value" style="color:var(--green)">@_donor.TotalGiven.ToString("C0")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-label">Gift Count</div>
+      <div class="kpi-value" style="color:var(--navy)">@_donations.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg Gift</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_donations.Any() ? _donations.Average(d => d.Amount).ToString("C0") : "—")</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid @TierColor(_donor.Tier);">
+      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-label">Tier</div>
+      <div class="kpi-value" style="color:@TierColor(_donor.Tier);font-size:1rem;">@_donor.Tier</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel">
+      <div class="panel-head"><h3>Donor Profile</h3></div>
+      <div class="panel-body" style="display:grid;grid-template-columns:auto 1fr;gap:8px 20px;font-size:.84rem;">
+        <span style="color:var(--text-light);">Email</span><span>@_donor.Email</span>
+        @if (_donor.Phone != null) { <span style="color:var(--text-light);">Phone</span><span>@_donor.Phone</span> }
+        @if (_donor.ParishName != null) { <span style="color:var(--text-light);">Parish</span><span>@_donor.ParishName</span> }
+        @if (_donor.DioceseName != null) { <span style="color:var(--text-light);">Diocese</span><span>@_donor.DioceseName</span> }
+        @if (_donor.City != null) { <span style="color:var(--text-light);">City</span><span>@_donor.City, @_donor.State</span> }
+        <span style="color:var(--text-light);">First Gift</span><span>@_donor.FirstGiftDate.ToString("MMM d, yyyy")</span>
+        <span style="color:var(--text-light);">Last Gift</span><span>@_donor.LastGiftDate.ToString("MMM d, yyyy")</span>
+        <span style="color:var(--text-light);">Recurring</span><span>@(_donor.IsRecurring ? $"Yes — {_donor.RecurringAmount?.ToString("C0")}/mo" : "No")</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Annual Giving Trend</h3></div>
+      <div class="panel-body" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:8px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Year</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Gifts</th>
+              <th style="padding:8px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var yr in _donations.GroupBy(d => d.Date.Year).OrderByDescending(g => g.Key).Take(5))
+            {
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:8px 16px;font-size:.82rem;font-weight:600;">@yr.Key</td>
+                <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@yr.Count()</td>
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:700;text-align:right;color:var(--green);">@yr.Sum(d => d.Amount).ToString("C0")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Recent Gifts</h3>
+        <a href="/admin/donors/@DonorId/contributions" style="font-size:.8rem;color:var(--navy);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (_donations.Any())
+        {
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              @foreach (var d in _donations.OrderByDescending(d => d.Date).Take(5))
+              {
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
+                  <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@d.Channel</td>
+                  <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.Amount.ToString("C0")</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+        else
+        {
+          <div style="padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">No gifts recorded.</div>
+        }
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Pledges</h3>
+        <a href="/admin/donors/@DonorId/pledges" style="font-size:.8rem;color:var(--navy);">View all →</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (_pledges.Any())
+        {
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody>
+              @foreach (var p in _pledges.OrderByDescending(p => p.PledgedAmount).Take(5))
+              {
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:8px 16px;">
+                    <span class="badge badge-@PledgeStatusClass(p.Status)" style="font-size:.68rem;">@p.Status</span>
+                  </td>
+                  <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@p.TargetDate.ToString("MMM d, yyyy")</td>
+                  <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--amber);">@p.RemainingAmount.ToString("C0") left</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+        else
+        {
+          <div style="padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">No pledges on record.</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Quick Actions</h3></div>
+    <div class="panel-body" style="display:flex;flex-wrap:wrap;gap:8px;">
+      <a href="/admin/donors/@DonorId" class="btn btn-sm">Profile</a>
+      <a href="/admin/donors/@DonorId/edit" class="btn btn-sm">Edit</a>
+      <a href="/admin/donors/@DonorId/contributions" class="btn btn-sm">Contributions</a>
+      <a href="/admin/donors/@DonorId/pledges" class="btn btn-sm">Pledges</a>
+      <a href="/admin/donors/@DonorId/recurring" class="btn btn-sm">Recurring</a>
+      <a href="/admin/donors/@DonorId/events" class="btn btn-sm">Events</a>
+      <a href="/admin/donors/@DonorId/year-end" class="btn btn-sm">Year-End Letter</a>
+      <a href="/admin/donors/@DonorId/touchpoints" class="btn btn-sm">Touchpoints</a>
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public int DonorId { get; set; }
+  private Donor? _donor;
+  private List<Donation> _donations = [];
+  private List<DonorPledge> _pledges = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorTask   = Api.GetDonorAsync(DonorId);
+    var donTask     = Api.GetDonorContributionsAsync(DonorId);
+    var pledgeTask  = Api.GetPledgesAsync();
+    await Task.WhenAll(donorTask, donTask, pledgeTask);
+    _donor    = await donorTask;
+    _donations = await donTask;
+    var allPledges = await pledgeTask;
+    _pledges   = allPledges.Where(p => p.DonorId == DonorId).ToList();
+    _loading   = false;
+  }
+
+  private static string TierColor(DonorTier t) => t switch
+  {
+    DonorTier.Benefactor => "#6366f1",
+    DonorTier.Champion   => "#d97706",
+    DonorTier.Supporter  => "#6b7280",
+    DonorTier.Friend     => "var(--green)",
+    _                    => "var(--border)"
+  };
+
+  private static string PledgeStatusClass(PledgeStatus s) => s switch
+  {
+    PledgeStatus.Active    => "new",
+    PledgeStatus.Fulfilled => "fulfilled",
+    PledgeStatus.Overdue   => "cancelled",
+    PledgeStatus.Lapsed    => "cancelled",
+    PledgeStatus.Cancelled => "cancelled",
+    _                      => "new"
+  };
+}

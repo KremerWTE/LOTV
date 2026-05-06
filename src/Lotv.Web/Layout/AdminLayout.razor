@@ -883,6 +883,11 @@
       var u when u == "/admin/cases/unassigned"                                                                            => "Unassigned Cases",
       var u when u == "/admin/events/calendar"                                                                             => "Events Calendar",
       var u when u == "/admin/inventory/low-stock"                                                                         => "Low Stock Inventory",
+      var u when u.StartsWith("/admin/chapters/") && u.EndsWith("/finances")                                               => "Chapter Finances",
+      var u when u.StartsWith("/admin/volunteers/") && u.EndsWith("/cases")                                                => "Volunteer Cases",
+      var u when u.StartsWith("/admin/donors/") && u.EndsWith("/summary")                                                  => "Donor Summary",
+      var u when u.StartsWith("/admin/cases/") && u.EndsWith("/shipping")                                                  => "Case Shipping",
+      var u when u.StartsWith("/admin/campaigns/") && u.EndsWith("/performance")                                           => "Campaign Performance",
       _ => "LOTV Staff Portal"
     };
     StateHasChanged();
