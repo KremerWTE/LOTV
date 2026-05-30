@@ -1,0 +1,211 @@
+@page "/admin/cases/geo-map"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Cases Map — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Cases Map</h2><p>Geographic distribution of cases by state — open, fulfilled, and total</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+    <a href="/admin/families/by-state" class="btn btn-sm">Families by State</a>
+    <a href="/admin/impact" class="btn btn-sm">Impact Dashboard</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading geographic data…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127758;</div>
+      <div class="kpi-label">States Reached</div>
+      <div class="kpi-value" style="color:var(--navy)">@_byState.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-label">Total Cases Mapped</div>
+      <div class="kpi-value" style="color:var(--amber)">@_totalMapped</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_byState.Sum(s => s.Fulfilled)</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-label">Top State</div>
+      <div class="kpi-value" style="font-size:1.4rem;color:var(--blush)">@(_byState.FirstOrDefault()?.State ?? "—")</div>
+      <div class="kpi-change">@(_byState.FirstOrDefault()?.Total ?? 0) cases</div>
+    </div>
+  </div>
+
+  <!-- MAP VIEW MODE CHIPS -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-mid);">Map shows:</span>
+    @foreach (var m in new[] { "Total", "Open", "Fulfilled" })
+    {
+      <button class="chip @(_mapMode == m ? "chip-active" : "")" @onclick="() => SetMode(m)">@m</button>
+    }
+  </div>
+
+  <!-- LEAFLET MAP -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>@_mapMode Cases by State</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">Circle size = case volume</span>
+    </div>
+    <div class="panel-body">
+      <LeafletMap Markers="_markers" Height="420px" />
+    </div>
+  </div>
+
+  <!-- STATE TABLE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Cases by State (@_byState.Count states)</h3>
+      <input type="search" class="form-input" placeholder="Filter state…"
+             style="width:140px;font-size:.82rem;padding:5px 10px;"
+             @bind="_search" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="cursor:pointer;" @onclick='() => SortBy("state")'>State @Icon("state")</th>
+            <th style="text-align:right;cursor:pointer;" @onclick='() => SortBy("total")'>Total @Icon("total")</th>
+            <th style="text-align:right;cursor:pointer;" @onclick='() => SortBy("open")'>Open @Icon("open")</th>
+            <th style="text-align:right;cursor:pointer;" @onclick='() => SortBy("fulfilled")'>Fulfilled @Icon("fulfilled")</th>
+            <th style="text-align:right;">Fulfillment Rate</th>
+            <th>Top Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var s in FilteredSorted)
+          {
+            var rate = s.Total > 0 ? (int)(s.Fulfilled * 100.0 / s.Total) : 0;
+            <tr>
+              <td style="font-weight:700;color:var(--navy);">@s.State</td>
+              <td style="text-align:right;">@s.Total</td>
+              <td style="text-align:right;color:var(--amber);">@s.Open</td>
+              <td style="text-align:right;color:var(--green);font-weight:600;">@s.Fulfilled</td>
+              <td style="text-align:right;">
+                <span style="font-weight:700;color:@(rate >= 70 ? "var(--green)" : rate >= 40 ? "var(--amber)" : "var(--red)");">@rate%</span>
+              </td>
+              <td style="font-size:.76rem;color:var(--text-mid);">@s.TopReason</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private record StateRow(string State, int Total, int Open, int Fulfilled, string TopReason);
+
+  private bool _loading = true;
+  private string _mapMode = "Total";
+  private string _search = "";
+  private string _sortCol = "total";
+  private bool _sortAsc;
+  private int _totalMapped;
+  private List<StateRow> _byState = [];
+  private List<MapMarker> _markers = [];
+
+  // US state → approx centroid coordinates
+  private static readonly Dictionary<string, (double Lat, double Lng)> StateCentroids = new()
+  {
+    ["AL"]=(32.8,-86.8),["AK"]=(64.2,-153.4),["AZ"]=(34.3,-111.1),["AR"]=(34.8,-92.2),["CA"]=(37.2,-119.7),
+    ["CO"]=(39.0,-105.5),["CT"]=(41.6,-72.7),["DE"]=(39.0,-75.5),["FL"]=(27.8,-81.6),["GA"]=(32.7,-83.4),
+    ["HI"]=(20.8,-156.3),["ID"]=(44.4,-114.6),["IL"]=(40.0,-89.2),["IN"]=(39.9,-86.3),["IA"]=(42.1,-93.5),
+    ["KS"]=(38.5,-98.4),["KY"]=(37.5,-85.3),["LA"]=(31.2,-92.1),["ME"]=(44.7,-69.4),["MD"]=(39.1,-76.8),
+    ["MA"]=(42.2,-71.5),["MI"]=(44.2,-85.4),["MN"]=(46.4,-93.2),["MS"]=(32.7,-89.7),["MO"]=(38.5,-92.5),
+    ["MT"]=(46.9,-110.5),["NE"]=(41.5,-99.9),["NV"]=(39.3,-116.6),["NH"]=(43.7,-71.6),["NJ"]=(40.1,-74.5),
+    ["NM"]=(34.8,-106.2),["NY"]=(42.9,-75.5),["NC"]=(35.6,-79.8),["ND"]=(47.5,-100.5),["OH"]=(40.4,-82.8),
+    ["OK"]=(35.6,-96.9),["OR"]=(44.1,-120.5),["PA"]=(40.9,-77.8),["RI"]=(41.7,-71.5),["SC"]=(33.8,-80.9),
+    ["SD"]=(44.4,-100.3),["TN"]=(35.7,-86.7),["TX"]=(31.1,-97.6),["UT"]=(39.3,-111.1),["VT"]=(44.1,-72.7),
+    ["VA"]=(37.5,-78.8),["WA"]=(47.4,-120.5),["WV"]=(38.6,-80.5),["WI"]=(44.3,-89.8),["WY"]=(43.0,-107.6),
+    ["DC"]=(38.9,-77.0)
+  };
+
+  private IEnumerable<StateRow> FilteredSorted
+  {
+    get
+    {
+      var q = string.IsNullOrWhiteSpace(_search)
+          ? _byState
+          : _byState.Where(s => s.State.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return (_sortCol, _sortAsc) switch
+      {
+        ("state",    true)  => q.OrderBy(s => s.State),
+        ("state",   false)  => q.OrderByDescending(s => s.State),
+        ("open",     true)  => q.OrderBy(s => s.Open),
+        ("open",    false)  => q.OrderByDescending(s => s.Open),
+        ("fulfilled",true)  => q.OrderBy(s => s.Fulfilled),
+        ("fulfilled",false) => q.OrderByDescending(s => s.Fulfilled),
+        (_,          true)  => q.OrderBy(s => s.Total),
+        _                   => q.OrderByDescending(s => s.Total)
+      };
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    var families = await Api.GetFamiliesAsync();
+    var cases    = await Api.GetRequestsAsync();
+
+    // Group cases by family state
+    var familyState = families.Where(f => !string.IsNullOrWhiteSpace(f.State))
+                              .ToDictionary(f => f.Id, f => f.State!);
+
+    var casesWithState = cases.Where(c => familyState.ContainsKey(c.FamilyId)).ToList();
+    _totalMapped = casesWithState.Count;
+
+    _byState = casesWithState
+      .GroupBy(c => familyState[c.FamilyId])
+      .Select(g =>
+      {
+        var open      = g.Count(c => c.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.OnHold);
+        var fulfilled = g.Count(c => c.Status == CaseStatus.Fulfilled);
+        var topReason = g.GroupBy(c => c.Reason)
+                         .OrderByDescending(r => r.Count())
+                         .FirstOrDefault()?.Key.ToDisplayName() ?? "—";
+        return new StateRow(g.Key, g.Count(), open, fulfilled, topReason);
+      })
+      .OrderByDescending(s => s.Total)
+      .ToList();
+
+    BuildMarkers();
+    _loading = false;
+  }
+
+  private void SetMode(string mode) { _mapMode = mode; BuildMarkers(); }
+
+  private void BuildMarkers()
+  {
+    _markers = _byState
+      .Where(s => StateCentroids.ContainsKey(s.State))
+      .Select(s =>
+      {
+        var val   = _mapMode == "Open" ? s.Open : _mapMode == "Fulfilled" ? s.Fulfilled : s.Total;
+        var color = _mapMode == "Open" ? "#f59e0b" : _mapMode == "Fulfilled" ? "#16a34a" : "#2d469d";
+        var (lat, lng) = StateCentroids[s.State];
+        return new MapMarker(s.State, s.State, val, color, $"{s.State}: {val} {_mapMode.ToLower()} cases");
+      })
+      .ToList();
+  }
+
+  private void SortBy(string col)
+  {
+    if (_sortCol == col) _sortAsc = !_sortAsc;
+    else { _sortCol = col; _sortAsc = false; }
+  }
+
+  private string Icon(string col) => _sortCol == col ? (_sortAsc ? "▲" : "▼") : "";
+}

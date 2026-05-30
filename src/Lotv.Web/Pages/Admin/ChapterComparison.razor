@@ -1,105 +1,162 @@
 @page "/admin/chapters/comparison"
 @layout AdminLayout
 @inject ApiService Api
+@inject NavigationManager Nav
 @using Lotv.Core.Models
 @using Lotv.Core.Reporting
 
 <PageTitle>Chapter Comparison — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
-  <div><h2>Chapter Comparison</h2><p>Side-by-side performance metrics across all chapters</p></div>
+  <div><h2>Chapter Comparison</h2><p>Side-by-side performance ranking across all chapters</p></div>
   <div class="page-hd-actions">
     <a href="/admin/hq" class="btn btn-sm">← HQ Dashboard</a>
-    <a href="/admin/chapter-analytics" class="btn btn-sm">Chapter Analytics</a>
+    <a href="/admin/chapter-analytics" class="btn btn-sm">Analytics</a>
     <a href="/admin/chapters/health" class="btn btn-sm">Health Scores</a>
   </div>
 </div>
 
 @if (_loading)
 {
-  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+  <Loading Message="Comparing chapters…" />
 }
 else
 {
+  <!-- ORG KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
-    <div class="kpi-card kpi-navy">
+    <a class="kpi-card kpi-navy" href="/admin/chapters" style="text-decoration:none;cursor:pointer;">
       <div class="kpi-icon">&#127968;</div>
       <div class="kpi-label">Chapters</div>
       <div class="kpi-value" style="color:var(--navy)">@_summary.Count</div>
-    </div>
+    </a>
     <div class="kpi-card kpi-green">
       <div class="kpi-icon">&#9989;</div>
-      <div class="kpi-label">Fulfilled (Period)</div>
+      <div class="kpi-label">Total Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@_summary.Sum(r => r.FulfilledThisPeriod)</div>
     </div>
     <div class="kpi-card kpi-amber">
       <div class="kpi-icon">&#128149;</div>
-      <div class="kpi-label">Open Requests</div>
+      <div class="kpi-label">Total Open</div>
       <div class="kpi-value" style="color:var(--amber)">@_summary.Sum(r => r.OpenRequests)</div>
+      <div class="kpi-change change-down">@_summary.Sum(r => r.OverdueRequests) overdue</div>
     </div>
-    <div class="kpi-card">
+    <a class="kpi-card kpi-blush" href="/admin/donations" style="text-decoration:none;cursor:pointer;">
       <div class="kpi-icon">&#128176;</div>
       <div class="kpi-label">Total Donations</div>
-      <div class="kpi-value" style="color:var(--navy)">@_summary.Sum(r => r.TotalDonations).ToString("C0")</div>
+      <div class="kpi-value" style="color:var(--blush)"><Money Amount="@_summary.Sum(r => r.TotalDonations)" /></div>
+    </a>
+  </div>
+
+  <!-- SORT + METRIC SELECTOR -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-mid);">Rank by:</span>
+    @foreach (var (key, label) in new[] { ("donations","Donations"), ("fulfilled","Fulfilled"), ("open","Open Cases"), ("overdue","Overdue"), ("volunteers","Volunteers"), ("name","Name") })
+    {
+      <button class="chip @(_sortBy == key ? "chip-active" : "")" @onclick="() => _sortBy = key">@label</button>
+    }
+  </div>
+
+  <!-- VISUAL RANK BARS -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>@SortLabel Ranking</h3></div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+      @{
+        var ranked = Sorted.ToList();
+        var maxVal = _sortBy switch
+        {
+          "donations"  => (double)ranked.Max(r => r.TotalDonations),
+          "fulfilled"  => (double)ranked.Max(r => r.FulfilledThisPeriod),
+          "open"       => (double)ranked.Max(r => r.OpenRequests),
+          "overdue"    => (double)ranked.Max(r => r.OverdueRequests),
+          "volunteers" => (double)ranked.Max(r => r.ActiveVolunteers),
+          _            => 1.0
+        };
+        if (maxVal == 0) maxVal = 1;
+      }
+      @for (int i = 0; i < ranked.Count; i++)
+      {
+        var r    = ranked[i];
+        var rank = i + 1;
+        var val  = _sortBy switch
+        {
+          "donations"  => (double)r.TotalDonations,
+          "fulfilled"  => (double)r.FulfilledThisPeriod,
+          "open"       => (double)r.OpenRequests,
+          "overdue"    => (double)r.OverdueRequests,
+          "volunteers" => (double)r.ActiveVolunteers,
+          _            => 0.0
+        };
+        var pct      = (int)(val * 100.0 / maxVal);
+        var barColor = rank == 1 ? "var(--gold)" : rank == 2 ? "var(--text-mid)" : rank <= 3 ? "var(--amber)" : "var(--green)";
+        var rankBadge = rank == 1 ? "🥇" : rank == 2 ? "🥈" : rank == 3 ? "🥉" : $"#{rank}";
+        <div style="display:flex;gap:12px;align-items:center;cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/chapters/{r.ChapterId}")'>
+          <div style="width:28px;text-align:center;font-size:@(rank <= 3 ? "1.1rem" : ".78rem");font-weight:700;color:var(--text-light);flex-shrink:0;">@rankBadge</div>
+          <div style="width:130px;font-size:.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;">@r.ChapterName</div>
+          <div style="flex:1;">
+            <div class="progress-bar" style="height:12px;border-radius:6px;">
+              <div class="progress-fill" style="width:@pct%;background:@barColor;height:12px;border-radius:6px;"></div>
+            </div>
+          </div>
+          <div style="width:80px;text-align:right;font-size:.84rem;font-weight:700;color:@barColor;flex-shrink:0;">
+            @(_sortBy == "donations" ? r.TotalDonations.ToString("C0") : val.ToString("F0"))
+          </div>
+        </div>
+      }
     </div>
   </div>
 
+  <!-- FULL COMPARISON TABLE -->
   <div class="panel">
-    <div class="panel-head">
-      <h3>Chapter Metrics (@_summary.Count)</h3>
-      <select class="form-input" style="width:180px;font-size:.82rem;padding:5px 10px;" @bind="_sortBy">
-        <option value="families">Sort: Fulfilled</option>
-        <option value="cases">Sort: Open Requests</option>
-        <option value="donations">Sort: Donations</option>
-        <option value="volunteers">Sort: Volunteers</option>
-        <option value="name">Sort: Name</option>
-      </select>
-    </div>
-    <div class="panel-body" style="padding:0;">
-      @if (!Sorted.Any())
-      {
-        <div style="padding:40px;text-align:center;color:var(--text-light);">No chapters found.</div>
-      }
-      else
-      {
-        var maxDonations = Sorted.Max(r => r.TotalDonations);
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr style="background:var(--bg);">
-              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Chapter</th>
-              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Open Requests</th>
-              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Overdue</th>
-              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Volunteers</th>
-              <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Donations</th>
-              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Giving</th>
-              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);"></th>
+    <div class="panel-head"><h3>Full Metrics Table</h3></div>
+    <div class="panel-body" style="padding:0;overflow-x:auto;">
+      <table class="data-table" style="min-width:700px;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Chapter</th>
+            <th style="text-align:right;">Open</th>
+            <th style="text-align:right;">Overdue</th>
+            <th style="text-align:right;">Fulfilled</th>
+            <th style="text-align:right;">Volunteers</th>
+            <th style="text-align:right;">Donations</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @{ int pos = 0; }
+          @foreach (var r in Sorted)
+          {
+            pos++;
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/chapters/{r.ChapterId}")'>
+              <td style="font-weight:700;color:var(--text-light);font-size:.78rem;">@pos</td>
+              <td style="font-weight:700;">@r.ChapterName</td>
+              <td style="text-align:right;color:@(r.OpenRequests > 10 ? "var(--amber)" : "var(--text-mid)");">@r.OpenRequests</td>
+              <td style="text-align:right;font-weight:@(r.OverdueRequests > 0 ? "700" : "400");color:@(r.OverdueRequests > 0 ? "var(--red)" : "var(--text-light)");">@r.OverdueRequests</td>
+              <td style="text-align:right;color:var(--green);font-weight:700;">@r.FulfilledThisPeriod</td>
+              <td style="text-align:right;color:var(--text-mid);">@r.ActiveVolunteers</td>
+              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@r.TotalDonations" /></td>
+              <td>
+                <div style="display:flex;gap:6px;">
+                  <a href="/admin/chapters/@r.ChapterId/metrics" style="font-size:.7rem;color:var(--green);" @onclick:stopPropagation>Metrics</a>
+                  <a href="/admin/chapters/@r.ChapterId/staff" style="font-size:.7rem;color:var(--navy);" @onclick:stopPropagation>Staff</a>
+                </div>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            @foreach (var r in Sorted)
-            {
-              var barPct = maxDonations > 0 ? r.TotalDonations / maxDonations * 100m : 0m;
-              <tr style="border-top:1px solid var(--border);">
-                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
-                  <a href="/admin/chapters/@r.ChapterId" style="color:var(--navy);">@r.ChapterName</a>
-                </td>
-                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.OpenRequests</td>
-                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:@(r.OverdueRequests > 0 ? "var(--red)" : "var(--text-light)");">@r.OverdueRequests</td>
-                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.ActiveVolunteers</td>
-                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.TotalDonations.ToString("C0")</td>
-                <td style="padding:10px 16px;min-width:120px;">
-                  <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
-                    <div style="background:var(--green);height:6px;width:@barPct.ToString("F1")%;"></div>
-                  </div>
-                </td>
-                <td style="padding:10px 16px;text-align:center;">
-                  <a href="/admin/chapters/@r.ChapterId" style="font-size:.78rem;color:var(--navy);">View</a>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
+          }
+        </tbody>
+        <tfoot>
+          <tr style="font-weight:700;background:var(--bg);">
+            <td></td>
+            <td>Total</td>
+            <td style="text-align:right;">@_summary.Sum(r => r.OpenRequests)</td>
+            <td style="text-align:right;color:var(--red);">@_summary.Sum(r => r.OverdueRequests)</td>
+            <td style="text-align:right;color:var(--green);">@_summary.Sum(r => r.FulfilledThisPeriod)</td>
+            <td style="text-align:right;">@_summary.Sum(r => r.ActiveVolunteers)</td>
+            <td style="text-align:right;color:var(--green);"><Money Amount="@_summary.Sum(r => r.TotalDonations)" /></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   </div>
 }
@@ -109,10 +166,21 @@ else
   private string _sortBy = "donations";
   private bool _loading = true;
 
+  private string SortLabel => _sortBy switch
+  {
+    "donations"  => "Donations",
+    "fulfilled"  => "Cases Fulfilled",
+    "open"       => "Open Cases",
+    "overdue"    => "Overdue Cases",
+    "volunteers" => "Active Volunteers",
+    _            => "Chapter Name"
+  };
+
   private IEnumerable<ChapterSummaryRow> Sorted => _sortBy switch
   {
-    "families"   => _summary.OrderByDescending(r => r.FulfilledThisPeriod),
-    "cases"      => _summary.OrderByDescending(r => r.OpenRequests),
+    "fulfilled"  => _summary.OrderByDescending(r => r.FulfilledThisPeriod),
+    "open"       => _summary.OrderByDescending(r => r.OpenRequests),
+    "overdue"    => _summary.OrderByDescending(r => r.OverdueRequests),
     "volunteers" => _summary.OrderByDescending(r => r.ActiveVolunteers),
     "name"       => _summary.OrderBy(r => r.ChapterName),
     _            => _summary.OrderByDescending(r => r.TotalDonations)
