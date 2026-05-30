@@ -1,0 +1,273 @@
+@page "/admin/reports/weekly"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Weekly Digest — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Weekly Digest</h2><p>What happened this week across the ministry</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/dashboard" class="btn btn-sm">← Dashboard</a>
+    <a href="/admin/timeline" class="btn btn-sm">Monthly Timeline</a>
+    <a href="/admin/reports/schedule" class="btn btn-sm">Scheduled Reports</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Assembling digest…" />
+}
+else
+{
+  <!-- WEEK HEADER -->
+  <div class="panel" style="margin-bottom:20px;border-left:4px solid var(--green);">
+    <div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="font-size:1.5rem;">&#128149;</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:1rem;">Week of @_weekStart.ToString("MMMM d") – @_weekEnd.ToString("MMMM d, yyyy")</div>
+        <div style="font-size:.82rem;color:var(--text-light);margin-top:2px;">@_weekLabel — @_headline</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm" @onclick="PrevWeek">&#8592; Prev</button>
+        <button class="btn btn-sm" @onclick="NextWeek" disabled="@(_weekOffset == 0)">Next &#8594;</button>
+        @if (_weekOffset != 0)
+        {
+          <button class="btn btn-sm btn-primary" @onclick="() => { _weekOffset = 0; Compute(); }">This Week</button>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-label">New Cases</div>
+      <div class="kpi-value" style="color:var(--blush)">@_newCases</div>
+      <div class="kpi-change @(_newCases > _prevNewCases ? "change-up" : "change-down")">
+        @TrendArrow(_newCases, _prevNewCases) vs. last week
+      </div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Cases Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_fulfilled</div>
+      <div class="kpi-change @(_fulfilled > _prevFulfilled ? "change-up" : "change-down")">
+        @TrendArrow(_fulfilled, _prevFulfilled) vs. last week
+      </div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Donations Received</div>
+      <div class="kpi-value" style="color:var(--navy)"><Money Amount="@_donated" /></div>
+      <div class="kpi-change @(_donated > _prevDonated ? "change-up" : "change-down")">
+        @TrendArrow((int)_donated, (int)_prevDonated) vs. last week
+      </div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue Cases</div>
+      <div class="kpi-value" style="color:var(--amber)">@_overdue</div>
+      <div class="kpi-change @(_overdue > 0 ? "change-down" : "change-up")">
+        @(_overdue > 0 ? "need attention" : "all clear ✓")
+      </div>
+    </div>
+  </div>
+
+  <!-- TWO-COLUMN SUMMARY -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+    <!-- CASES THIS WEEK -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Cases This Week</h3>
+        <a href="/admin/cases" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Cases &rarr;</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_weekCases.Any())
+        {
+          <div style="padding:30px;text-align:center;color:var(--text-light);">No cases this week.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>Family</th><th>Reason</th><th>Status</th></tr></thead>
+            <tbody>
+              @foreach (var c in _weekCases.Take(8))
+              {
+                <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")'>
+                  <td><strong>@c.Family?.FullName</strong></td>
+                  <td style="font-size:.76rem;color:var(--text-mid);">@c.Reason.ToDisplayName()</td>
+                  <td><span class="badge @StatusBadge(c.Status)" style="font-size:.6rem;">@c.Status</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (_weekCases.Count > 8)
+          {
+            <div style="padding:8px 14px;font-size:.76rem;color:var(--text-light);">+@(_weekCases.Count - 8) more</div>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- DONATIONS THIS WEEK -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Donations This Week</h3>
+        <a href="/admin/donations" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Donations &rarr;</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_weekDonations.Any())
+        {
+          <div style="padding:30px;text-align:center;color:var(--text-light);">No donations this week.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>Donor</th><th>Channel</th><th style="text-align:right;">Amount</th></tr></thead>
+            <tbody>
+              @foreach (var d in _weekDonations.OrderByDescending(d => d.Amount).Take(8))
+              {
+                <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/donors/{d.DonorId}/summary")'>
+                  <td style="font-size:.82rem;color:var(--text-mid);">@DonorName(d.DonorId)</td>
+                  <td style="font-size:.72rem;color:var(--text-light);">@d.Channel</td>
+                  <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@d.Amount" /></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (_weekDonations.Count > 8)
+          {
+            <div style="padding:8px 14px;font-size:.76rem;color:var(--text-light);">+@(_weekDonations.Count - 8) more · <strong><Money Amount="@_donated" /></strong> total</div>
+          }
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BY-REASON BREAKDOWN (cases opened this week) -->
+  @if (_byReason.Any())
+  {
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-head"><h3>New Cases by Reason This Week</h3></div>
+      <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;">
+        @foreach (var r in _byReason)
+        {
+          <div style="flex:1;min-width:100px;text-align:center;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+            <div style="font-size:1.2rem;font-weight:700;color:var(--navy);">@r.Count</div>
+            <div style="font-size:.68rem;color:var(--text-mid);margin-top:2px;">@r.Label</div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- OVERDUE ALERT -->
+  @if (_overdue > 0)
+  {
+    <div class="panel" style="border:1px solid var(--amber);">
+      <div class="panel-head" style="background:#fff3cd;">
+        <h3 style="color:#856404;">&#9888; @_overdue Overdue Case@(_overdue == 1 ? "" : "s") Needing Action</h3>
+        <a href="/admin/cases/overdue" class="btn btn-sm" style="font-size:.72rem;">View All &rarr;</a>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private record ReasonRow(string Label, int Count);
+
+  private bool _loading = true;
+  private int _weekOffset;
+  private DateTime _weekStart, _weekEnd;
+  private string _weekLabel = "", _headline = "";
+  private int _newCases, _prevNewCases, _fulfilled, _prevFulfilled, _overdue;
+  private decimal _donated, _prevDonated;
+  private List<PackageRequest> _weekCases = [];
+  private List<Donation> _weekDonations = [];
+  private List<ReasonRow> _byReason = [];
+  private List<Donor> _donors = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var casesTask  = Api.GetRequestsAsync();
+    var donTask    = Api.GetDonationsAsync();
+    var donorTask  = Api.GetDonorsAsync();
+    await Task.WhenAll(casesTask, donTask, donorTask);
+    _donors = await donorTask;
+    Compute(await casesTask, await donTask);
+    _loading = false;
+  }
+
+  private List<PackageRequest>? _allCases;
+  private List<Donation>? _allDonations;
+
+  private async Task PrevWeek() { _weekOffset--; await ReloadAndCompute(); }
+  private async Task NextWeek() { if (_weekOffset < 0) { _weekOffset++; await ReloadAndCompute(); } }
+
+  private async Task ReloadAndCompute()
+  {
+    _allCases     ??= await Api.GetRequestsAsync();
+    _allDonations ??= await Api.GetDonationsAsync();
+    Compute(_allCases, _allDonations);
+  }
+
+  private void Compute(List<PackageRequest>? cases = null, List<Donation>? donations = null)
+  {
+    _allCases     = cases ?? _allCases ?? [];
+    _allDonations = donations ?? _allDonations ?? [];
+
+    var now  = DateTime.UtcNow.AddDays(_weekOffset * 7);
+    var dow  = (int)now.DayOfWeek;
+    _weekStart = now.AddDays(-dow).Date;
+    _weekEnd   = _weekStart.AddDays(6).Date.AddHours(23).AddMinutes(59);
+    var prevStart = _weekStart.AddDays(-7);
+    var prevEnd   = _weekStart.AddTicks(-1);
+
+    _weekLabel = _weekOffset == 0 ? "This Week" : _weekOffset == -1 ? "Last Week" : $"{Math.Abs(_weekOffset)} weeks ago";
+
+    _weekCases    = _allCases.Where(c => c.CreatedAt >= _weekStart && c.CreatedAt <= _weekEnd).ToList();
+    _newCases     = _weekCases.Count;
+    _prevNewCases = _allCases.Count(c => c.CreatedAt >= prevStart && c.CreatedAt <= prevEnd);
+
+    _fulfilled    = _allCases.Count(c => c.Status == CaseStatus.Fulfilled && c.UpdatedAt >= _weekStart && c.UpdatedAt <= _weekEnd);
+    _prevFulfilled= _allCases.Count(c => c.Status == CaseStatus.Fulfilled && c.UpdatedAt >= prevStart && c.UpdatedAt <= prevEnd);
+
+    _weekDonations= _allDonations.Where(d => d.Date >= _weekStart && d.Date <= _weekEnd).ToList();
+    _donated      = _weekDonations.Sum(d => d.Amount);
+    _prevDonated  = _allDonations.Where(d => d.Date >= prevStart && d.Date <= prevEnd).Sum(d => d.Amount);
+
+    _overdue = _allCases.Count(c => c.IsOverdue && c.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment);
+
+    _byReason = _weekCases
+      .GroupBy(c => c.Reason.ToDisplayName())
+      .Select(g => new ReasonRow(g.Key, g.Count()))
+      .OrderByDescending(r => r.Count)
+      .ToList();
+
+    _headline = _newCases == 0 && _donated == 0
+      ? "Quiet week."
+      : $"{_newCases} new case{(_newCases == 1 ? "" : "s")}, {_fulfilled} fulfilled, {_donated.ToString("C0")} raised.";
+  }
+
+  private static string TrendArrow(int current, int prev) =>
+      current > prev ? $"▲ {current - prev}" : current < prev ? $"▼ {prev - current}" : "→ flat";
+
+  private string DonorName(int id) =>
+      _donors.FirstOrDefault(d => d.Id == id)?.FullName ?? $"Donor #{id}";
+
+  private static string StatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.Fulfilled        => "badge-fulfilled",
+    CaseStatus.OnHold           => "badge-onhold",
+    _                           => ""
+  };
+}

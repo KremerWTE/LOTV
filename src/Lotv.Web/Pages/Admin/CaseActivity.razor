@@ -1,70 +1,99 @@
 @page "/admin/cases/{Id:int}/activity"
 @layout AdminLayout
 @inject ApiService Api
+@inject NavigationManager Nav
 @using Lotv.Core.Models
 
 <PageTitle>Case Activity — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
-  <div><h2>Case Activity Log</h2><p>@(_case is null ? $"Case #{Id}" : (_case.Family?.Parent1FirstName + " " + _case.Family?.Parent1LastName).Trim())</p></div>
+  <div>
+    <h2>Case Activity Log</h2>
+    <p>@(_case?.Family?.FullName ?? $"Case #{Id}") — full event timeline</p>
+  </div>
   <div class="page-hd-actions">
     <a href="/admin/cases/@Id" class="btn btn-sm">← Case Detail</a>
+    <a href="/admin/cases/@Id/notes" class="btn btn-sm">Notes</a>
   </div>
 </div>
 
 @if (_loading)
 {
-  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
-}
-else if (!_activity.Any())
-{
-  <div class="panel">
-    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No activity recorded for this case.</div>
-  </div>
+  <Loading Message="Loading activity…" />
 }
 else
 {
-  <div class="panel">
-    <div class="panel-head"><h3>Activity (@_activity.Count events)</h3></div>
-    <div class="panel-body" style="padding:0;">
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr style="background:var(--bg);">
-            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">When</th>
-            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Actor</th>
-            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Event</th>
-            <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Details</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach (var a in _activity.OrderByDescending(a => a.Timestamp))
+  <!-- CASE QUICK SUMMARY -->
+  @if (_case is not null)
+  {
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-body" style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+        <div style="flex:1;min-width:160px;">
+          <div style="font-weight:700;font-size:.95rem;">@_case.Family?.FullName</div>
+          <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@_case.Reason.ToDisplayName() &bull; <span class="badge @StatusBadge(_case.Status)" style="font-size:.62rem;">@_case.Status</span></div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.78rem;color:var(--text-mid);">
+          <span>Opened: <strong>@_case.CreatedAt.ToString("MMM d, yyyy")</strong></span>
+          @if (_case.AssignedTo is not null)
+          { <span>Assigned: <strong>@_case.AssignedTo</strong></span> }
+          @if (_case.DueDate.HasValue)
+          { <span>Due: <strong style="color:@(_case.IsOverdue ? "var(--red)" : "inherit")">@_case.DueDate.Value.ToString("MMM d, yyyy")</strong></span> }
+        </div>
+        <div style="font-size:.76rem;color:var(--text-light);">@_activity.Count event@(_activity.Count == 1 ? "" : "s")</div>
+      </div>
+    </div>
+  }
+
+  @if (!_activity.Any())
+  {
+    <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No activity recorded yet.</div></div>
+  }
+  else
+  {
+    <!-- VISUAL TIMELINE -->
+    <div class="panel">
+      <div class="panel-head"><h3>Timeline — @_activity.Count events</h3></div>
+      <div class="panel-body">
+        <div style="position:relative;padding-left:36px;">
+          <!-- vertical line -->
+          <div style="position:absolute;left:15px;top:8px;bottom:8px;width:2px;background:var(--border);"></div>
+
+          @foreach (var a in _activity.OrderBy(a => a.Timestamp))
           {
-            <tr style="border-top:1px solid var(--border);">
-              <td style="padding:10px 16px;font-size:.82rem;white-space:nowrap;color:var(--text-light);">
-                @a.Timestamp.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
-              </td>
-              <td style="padding:10px 16px;font-size:.82rem;font-weight:600;">@a.ActorName</td>
-              <td style="padding:10px 16px;">
-                <span class="badge badge-@BadgeClass(a.ActivityType)" style="font-size:.68rem;">@a.ActivityType</span>
-              </td>
-              <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">
+            var icon  = EventIcon(a.ActivityType);
+            var color = EventColor(a.ActivityType);
+            <div style="position:relative;margin-bottom:20px;">
+              <!-- dot -->
+              <div style="position:absolute;left:-28px;top:2px;width:16px;height:16px;border-radius:50%;background:@color;display:flex;align-items:center;justify-content:center;font-size:.6rem;z-index:1;">
+                @icon
+              </div>
+              <div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid @color;border-radius:0 8px 8px 0;padding:10px 14px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                  <div>
+                    <span class="badge badge-@BadgeClass(a.ActivityType)" style="font-size:.62rem;margin-right:6px;">@a.ActivityType</span>
+                    <span style="font-size:.82rem;font-weight:600;">@a.ActorName</span>
+                  </div>
+                  <span style="font-size:.72rem;color:var(--text-light);white-space:nowrap;">@a.Timestamp.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                </div>
                 @if (!string.IsNullOrEmpty(a.OldValue) && !string.IsNullOrEmpty(a.NewValue))
                 {
-                  <span style="color:var(--red);">@a.OldValue</span>
-                  <span style="margin:0 4px;">→</span>
-                  <span style="color:var(--green);">@a.NewValue</span>
+                  <div style="font-size:.8rem;margin-top:5px;color:var(--text-mid);">
+                    <span style="background:#fee2e2;color:var(--red);border-radius:4px;padding:1px 6px;">@a.OldValue</span>
+                    <span style="margin:0 5px;color:var(--text-light);">→</span>
+                    <span style="background:#dcfce7;color:var(--green);border-radius:4px;padding:1px 6px;">@a.NewValue</span>
+                  </div>
                 }
-                else
+                else if (!string.IsNullOrEmpty(a.Details ?? a.NewValue))
                 {
-                  @(a.Details ?? a.NewValue ?? "—")
+                  <div style="font-size:.8rem;margin-top:5px;color:var(--text-mid);">@(a.Details ?? a.NewValue)</div>
                 }
-              </td>
-            </tr>
+              </div>
+            </div>
           }
-        </tbody>
-      </table>
+        </div>
+      </div>
     </div>
-  </div>
+  }
 }
 
 @code {
@@ -76,26 +105,65 @@ else
 
   protected override async Task OnInitializedAsync()
   {
-    var caseTask    = Api.GetRequestAsync(Id);
-    var actTask     = Api.GetRequestActivityAsync(Id);
+    var caseTask = Api.GetRequestAsync(Id);
+    var actTask  = Api.GetRequestActivityAsync(Id);
     await Task.WhenAll(caseTask, actTask);
     _case    = await caseTask;
     _activity = await actTask;
     _loading = false;
   }
 
+  private static string EventIcon(ActivityType t) => t switch
+  {
+    ActivityType.Created       => "✨",
+    ActivityType.Fulfilled     => "✅",
+    ActivityType.Assigned      => "👤",
+    ActivityType.Reassigned    => "🔄",
+    ActivityType.StatusChanged => "🔀",
+    ActivityType.NoteAdded     => "📝",
+    ActivityType.Escalated     => "🚨",
+    ActivityType.Cancelled     => "❌",
+    ActivityType.DueDateSet    => "📅",
+    _                          => "•"
+  };
+
+  private static string EventColor(ActivityType t) => t switch
+  {
+    ActivityType.Created       => "var(--navy)",
+    ActivityType.Fulfilled     => "var(--green)",
+    ActivityType.Assigned      => "var(--blush)",
+    ActivityType.Reassigned    => "var(--blush)",
+    ActivityType.StatusChanged => "var(--amber)",
+    ActivityType.NoteAdded     => "var(--text-mid)",
+    ActivityType.Escalated     => "var(--red)",
+    ActivityType.Cancelled     => "var(--red)",
+    _                          => "var(--border)"
+  };
+
   private static string BadgeClass(ActivityType t) => t switch
   {
-    ActivityType.StatusChanged    => "onhold",
-    ActivityType.Assigned         => "new",
-    ActivityType.Reassigned       => "new",
-    ActivityType.NoteAdded        => "fulfilled",
-    ActivityType.DueDateSet       => "onhold",
-    ActivityType.PriorityChanged  => "onhold",
-    ActivityType.Fulfilled        => "fulfilled",
-    ActivityType.Cancelled        => "cancelled",
-    ActivityType.Escalated        => "cancelled",
-    ActivityType.Created          => "new",
-    _                             => "new"
+    ActivityType.StatusChanged  => "onhold",
+    ActivityType.Assigned       => "new",
+    ActivityType.Reassigned     => "new",
+    ActivityType.NoteAdded      => "fulfilled",
+    ActivityType.DueDateSet     => "onhold",
+    ActivityType.PriorityChanged=> "onhold",
+    ActivityType.Fulfilled      => "fulfilled",
+    ActivityType.Cancelled      => "cancelled",
+    ActivityType.Escalated      => "cancelled",
+    ActivityType.Created        => "new",
+    _                           => "new"
+  };
+
+  private static string StatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.Fulfilled        => "badge-fulfilled",
+    CaseStatus.OnHold           => "badge-onhold",
+    CaseStatus.Cancelled        => "badge-cancelled",
+    _                           => ""
   };
 }

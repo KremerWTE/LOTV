@@ -1,0 +1,181 @@
+@page "/admin/volunteers/recognition"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Recognition — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Recognition</h2><p>Service milestones, achievement badges, and the recognition wall</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← Volunteers</a>
+    <a href="/admin/volunteers/leaderboard" class="btn btn-sm">Leaderboard</a>
+    <a href="/admin/volunteers/availability" class="btn btn-sm">Availability</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Building recognition wall…" />
+}
+else
+{
+  <!-- ORG MILESTONES -->
+  <div class="panel" style="margin-bottom:20px;background:linear-gradient(135deg,var(--green),var(--green-dark));color:white;border:none;">
+    <div class="panel-body" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;padding:20px 24px;">
+      <div style="font-size:2rem;">🌸</div>
+      <div style="flex:1;">
+        <div style="font-size:1.1rem;font-weight:700;margin-bottom:4px;">Together We've Served</div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:.86rem;opacity:.9;">
+          <span><strong style="font-size:1.3rem;">@_totalFulfilled</strong> families helped</span>
+          <span><strong style="font-size:1.3rem;">@_totalVols</strong> active volunteers</span>
+          <span><strong style="font-size:1.3rem;">@_totalMilestones</strong> milestones earned</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MILESTONE LEGEND -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>Badge Milestones</h3></div>
+    <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;">
+      @foreach (var m in _milestones)
+      {
+        var earners = _vols.Count(v => v.TotalCasesFulfilled >= m.Threshold);
+        <div style="text-align:center;padding:12px 16px;background:var(--bg);border-radius:10px;min-width:80px;border:1px solid var(--border);">
+          <div style="font-size:1.6rem;">@m.Badge</div>
+          <div style="font-size:.7rem;font-weight:700;color:var(--text-dark);margin-top:2px;">@m.Name</div>
+          <div style="font-size:.66rem;color:var(--text-light);">@m.Threshold+ cases</div>
+          <div style="font-size:.72rem;font-weight:700;color:var(--green);margin-top:2px;">@earners earned</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- FILTER CHIPS -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    <button class="chip @(_filter == "All" ? "chip-active" : "")" @onclick='() => _filter = "All"'>All (@_vols.Count)</button>
+    @foreach (var m in _milestones)
+    {
+      var cnt = _vols.Count(v => v.TotalCasesFulfilled >= m.Threshold);
+      @if (cnt > 0)
+      {
+        <button class="chip @(_filter == m.Name ? "chip-active" : "")" @onclick="() => _filter = m.Name">
+          @m.Badge @m.Name (@cnt)
+        </button>
+      }
+    }
+  </div>
+
+  <!-- RECOGNITION WALL -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:20px;">
+    @foreach (var v in FilteredVols)
+    {
+      var badges  = _milestones.Where(m => v.TotalCasesFulfilled >= m.Threshold).ToList();
+      var topBadge= badges.LastOrDefault();
+      var borderCol = topBadge?.Color ?? "var(--border)";
+      <div class="panel" style="cursor:pointer;border-top:3px solid @borderCol;text-align:center;"
+           @onclick='() => Nav.NavigateTo($"/admin/volunteers/{v.Id}/impact")'>
+        <div class="panel-body" style="padding:16px;">
+          <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,@borderCol,@borderCol);display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:white;font-weight:700;margin:0 auto 10px;opacity:.9;">
+            @Initials(v.FullName)
+          </div>
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:2px;">@v.FullName</div>
+          <div style="font-size:.72rem;color:var(--text-light);margin-bottom:8px;">@v.Role.ToDisplayName()</div>
+          <!-- BADGES ROW -->
+          <div style="display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin-bottom:8px;">
+            @foreach (var b in badges)
+            {
+              <span title="@b.Name — @b.Threshold+ cases" style="font-size:1.1rem;">@b.Badge</span>
+            }
+            @if (!badges.Any())
+            {
+              <span style="font-size:.72rem;color:var(--text-light);">No badges yet</span>
+            }
+          </div>
+          <div style="font-size:.78rem;font-weight:700;color:var(--green);">@v.TotalCasesFulfilled fulfilled</div>
+          @if (v.ActiveCases > 0)
+          {
+            <div style="font-size:.68rem;color:var(--text-light);margin-top:2px;">@v.ActiveCases active now</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- NEWCOMERS — first case this month -->
+  @if (_newcomers.Any())
+  {
+    <div class="panel">
+      <div class="panel-head">
+        <h3>🌱 New This Month — First Case Completed</h3>
+      </div>
+      <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;">
+        @foreach (var v in _newcomers)
+        {
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--green-pale,#f0fdf4);border:1px solid var(--green);border-radius:8px;">
+            <span style="font-size:1.1rem;">🌱</span>
+            <div>
+              <div style="font-size:.82rem;font-weight:700;">@v.FullName</div>
+              <div style="font-size:.68rem;color:var(--text-light);">First fulfillment this month!</div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private record MilestoneDef(string Name, string Badge, int Threshold, string Color);
+
+  private static readonly MilestoneDef[] _milestones =
+  [
+    new("Beginner",   "🌸", 1,   "var(--blush)"),
+    new("Helper",     "💛", 5,   "var(--gold)"),
+    new("Dedicated",  "💚", 10,  "var(--green)"),
+    new("Champion",   "💙", 25,  "var(--navy)"),
+    new("Hero",       "🌟", 50,  "var(--amber)"),
+    new("Legend",     "👑", 100, "#7c3aed"),
+  ];
+
+  private bool _loading = true;
+  private string _filter = "All";
+  private List<Volunteer> _vols = [];
+  private List<Volunteer> _newcomers = [];
+  private int _totalFulfilled, _totalVols, _totalMilestones;
+
+  private IEnumerable<Volunteer> FilteredVols
+  {
+    get
+    {
+      if (_filter == "All") return _vols.OrderByDescending(v => v.TotalCasesFulfilled);
+      var m = _milestones.FirstOrDefault(m => m.Name == _filter);
+      return m is null ? _vols : _vols.Where(v => v.TotalCasesFulfilled >= m.Threshold)
+                                       .OrderByDescending(v => v.TotalCasesFulfilled);
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    var allVols  = await Api.GetVolunteersAsync();
+    _vols        = allVols.Where(v => v.Status == VolunteerStatus.Active).ToList();
+    _totalVols   = _vols.Count;
+    _totalFulfilled = _vols.Sum(v => v.TotalCasesFulfilled);
+    _totalMilestones= _vols.Sum(v => _milestones.Count(m => v.TotalCasesFulfilled >= m.Threshold));
+
+    // "Newcomers": joined this month and have at least 1 case fulfilled
+    var now = DateTime.UtcNow;
+    _newcomers = _vols.Where(v => v.TotalCasesFulfilled >= 1
+                                && v.JoinedDate.Year == now.Year
+                                && v.JoinedDate.Month == now.Month).ToList();
+    _loading = false;
+  }
+
+  private static string Initials(string name)
+  {
+    var p = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    return p.Length >= 2 ? $"{p[0][0]}{p[^1][0]}" : name.Length > 0 ? name[0].ToString() : "V";
+  }
+}

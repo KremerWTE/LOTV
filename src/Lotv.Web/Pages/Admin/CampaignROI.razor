@@ -1,0 +1,170 @@
+@page "/admin/campaigns/roi"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Campaign ROI — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Campaign ROI</h2><p>Fundraising efficiency — revenue raised vs. estimated cost per campaign</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/campaigns" class="btn btn-sm">← Campaigns</a>
+    <a href="/admin/donors/growth" class="btn btn-sm">Donor Growth</a>
+    <a href="/admin/expenses/summary" class="btn btn-sm">Expenses</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Calculating campaign ROI…" />
+}
+else
+{
+  <!-- PORTFOLIO KPIs -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Raised</div>
+      <div class="kpi-value" style="color:var(--green)"><Money Amount="@_rows.Sum(r => r.Raised)" /></div>
+      <div class="kpi-change">all campaigns</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#127919;</div>
+      <div class="kpi-label">Campaigns</div>
+      <div class="kpi-value" style="color:var(--navy)">@_rows.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Best ROI</div>
+      <div class="kpi-value" style="font-size:1rem;color:var(--green)">@(_rows.OrderByDescending(r => r.Roi).FirstOrDefault()?.Name ?? "—")</div>
+      <div class="kpi-change">@(_rows.Any() ? $"{_rows.Max(r => r.Roi):F1}×" : "—") return</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-label">Goal Attainment</div>
+      <div class="kpi-value" style="color:var(--amber)">@_overGoal of @_rows.Count</div>
+      <div class="kpi-change">campaigns hit goal</div>
+    </div>
+  </div>
+
+  <!-- ROI CHART -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>Revenue vs. Goal by Campaign</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">Bar = actual raised &bull; line = goal</span>
+    </div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+      @foreach (var r in _rows.OrderByDescending(r => r.Raised))
+      {
+        var goalPct   = r.Goal > 0 ? Math.Min((int)(r.Raised / r.Goal * 100m), 150) : 0;
+        var barColor  = r.Raised >= r.Goal ? "var(--green)" : r.Raised >= r.Goal * 0.7m ? "var(--amber)" : "var(--red)";
+        var roiColor  = r.Roi >= 5 ? "var(--green)" : r.Roi >= 2 ? "var(--amber)" : "var(--red)";
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;flex-wrap:wrap;gap:4px;">
+            <span style="font-weight:700;">@r.Name</span>
+            <span style="color:var(--text-mid);font-size:.76rem;">
+              <Money Amount="@r.Raised" /> raised of <Money Amount="@r.Goal" /> goal
+              &bull; @r.GiftCount donors
+              &bull; <span style="font-weight:700;color:@roiColor;">@r.Roi.ToString("F1")× ROI</span>
+            </span>
+          </div>
+          <div style="position:relative;height:12px;">
+            <div class="progress-bar" style="height:12px;border-radius:6px;">
+              <div class="progress-fill" style="width:@Math.Min(goalPct,100)%;background:@barColor;height:12px;border-radius:6px;"></div>
+            </div>
+            @if (r.Goal > 0 && goalPct > 100)
+            {
+              <div style="position:absolute;right:0;top:-4px;font-size:.62rem;color:var(--green);font-weight:700;">+@(goalPct - 100)% over goal</div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- FULL TABLE -->
+  <div class="panel">
+    <div class="panel-head"><h3>Campaign Detail</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Campaign</th>
+            <th>Status</th>
+            <th style="text-align:right;">Goal</th>
+            <th style="text-align:right;">Raised</th>
+            <th style="text-align:right;">Donors</th>
+            <th style="text-align:right;">Avg Gift</th>
+            <th style="text-align:right;">Attainment</th>
+            <th style="text-align:right;">ROI</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var r in _rows.OrderByDescending(r => r.Raised))
+          {
+            var attainPct = r.Goal > 0 ? (int)(r.Raised / r.Goal * 100m) : 0;
+            var roiColor  = r.Roi >= 5 ? "var(--green)" : r.Roi >= 2 ? "var(--amber)" : "var(--red)";
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/campaigns/{r.Id}/performance")'>
+              <td style="font-weight:600;">@r.Name</td>
+              <td><span class="badge badge-@StatusBadge(r.Status)" style="font-size:.62rem;">@r.Status</span></td>
+              <td style="text-align:right;"><Money Amount="@r.Goal" /></td>
+              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@r.Raised" /></td>
+              <td style="text-align:right;color:var(--text-mid);">@r.GiftCount</td>
+              <td style="text-align:right;color:var(--text-mid);"><Money Amount="@r.AvgGift" /></td>
+              <td style="text-align:right;">
+                <span style="font-weight:700;color:@(attainPct >= 100 ? "var(--green)" : attainPct >= 70 ? "var(--amber)" : "var(--red)");">@attainPct%</span>
+              </td>
+              <td style="text-align:right;font-weight:700;color:@roiColor;">@r.Roi.ToString("F1")×</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="font-weight:700;background:var(--bg);">
+            <td>Total</td>
+            <td></td>
+            <td style="text-align:right;"><Money Amount="@_rows.Sum(r => r.Goal)" /></td>
+            <td style="text-align:right;color:var(--green);"><Money Amount="@_rows.Sum(r => r.Raised)" /></td>
+            <td style="text-align:right;">@_rows.Sum(r => r.GiftCount)</td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private record CampaignRow(int Id, string Name, string Status, decimal Goal, decimal Raised,
+      int GiftCount, decimal AvgGift, double Roi);
+
+  private bool _loading = true;
+  private List<CampaignRow> _rows = [];
+  private int _overGoal;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var campaigns = await Api.GetCampaignsAsync();
+
+    _rows = campaigns.Select(c => new CampaignRow(
+        c.Id, c.Name, c.Status, c.GoalAmount, c.Raised, c.GiftCount,
+        c.GiftCount > 0 ? c.Raised / c.GiftCount : 0m,
+        // ROI = raised / goal (proxy; production would use actual expenses)
+        c.GoalAmount > 0 ? (double)(c.Raised / c.GoalAmount) : (c.Raised > 0 ? 999.0 : 0.0)))
+      .ToList();
+
+    _overGoal = _rows.Count(r => r.Raised >= r.Goal);
+    _loading  = false;
+  }
+
+  private static string StatusBadge(string s) => s.ToLower() switch
+  {
+    "active"    => "inprogress",
+    "completed" => "fulfilled",
+    "cancelled" => "cancelled",
+    "draft"     => "new",
+    _           => "new"
+  };
+}

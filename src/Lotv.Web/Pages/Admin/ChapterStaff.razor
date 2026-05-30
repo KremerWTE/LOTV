@@ -1,27 +1,31 @@
 @page "/admin/chapters/{Id:int}/staff"
 @layout AdminLayout
 @inject ApiService Api
+@inject NavigationManager Nav
 @using Lotv.Core.Models
 
 <PageTitle>Chapter Staff — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
-  <div><h2>Chapter Staff</h2><p>@(_chapter?.Name ?? $"Chapter #{Id}")</p></div>
+  <div><h2>Chapter Staff</h2><p>@(_chapter?.Name ?? $"Chapter #{Id}") — team roster and workload</p></div>
   <div class="page-hd-actions">
     <a href="/admin/chapters/@Id" class="btn btn-sm">← Chapter</a>
-    <a href="/admin/users" class="btn btn-sm btn-primary">Manage All Users</a>
+    <a href="/admin/chapters/@Id/metrics" class="btn btn-sm">Metrics</a>
+    <a href="/admin/workload" class="btn btn-sm">Workload View</a>
+    <a href="/admin/users" class="btn btn-sm btn-primary">Manage Users</a>
   </div>
 </div>
 
 @if (_loading)
 {
-  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+  <Loading Message="Loading staff roster…" />
 }
 else
 {
+  <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-icon">&#128101;</div>
       <div class="kpi-label">Total Staff</div>
       <div class="kpi-value" style="color:var(--navy)">@_staff.Count</div>
     </div>
@@ -33,53 +37,117 @@ else
     <div class="kpi-card kpi-amber">
       <div class="kpi-icon">&#128081;</div>
       <div class="kpi-label">Admins</div>
-      <div class="kpi-value" style="color:var(--amber)">@_staff.Count(u => u.Role == UserRole.HQAdmin || u.Role == UserRole.ChapterAdmin)</div>
+      <div class="kpi-value" style="color:var(--amber)">@_staff.Count(u => u.Role is UserRole.HQAdmin or UserRole.ChapterAdmin)</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Open Tasks</div>
+      <div class="kpi-value" style="color:var(--blush)">@_tasks.Count(t => t.Status != "Completed" && t.Status != "Cancelled")</div>
+      <div class="kpi-change">across chapter staff</div>
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-head"><h3>Staff Members (@_staff.Count)</h3></div>
-    <div class="panel-body" style="padding:0;">
-      @if (!_staff.Any())
-      {
-        <div style="padding:40px;text-align:center;color:var(--text-light);">No staff assigned to this chapter.</div>
-      }
-      else
-      {
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr style="background:var(--bg);">
-              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Name</th>
-              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Email</th>
-              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Role</th>
-              <th style="padding:10px 16px;text-align:center;font-size:.74rem;font-weight:600;color:var(--text-light);">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            @foreach (var u in _staff.OrderBy(u => u.FullName))
+  <!-- STAFF CARDS -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:20px;">
+    @foreach (var u in _staff.OrderByDescending(u => u.IsActive).ThenBy(u => u.FullName))
+    {
+      var myTasks    = _tasks.Where(t => t.AssignedToName == u.FullName).ToList();
+      var openTasks  = myTasks.Count(t => t.Status != "Completed" && t.Status != "Cancelled");
+      var overdueTasks = myTasks.Count(t => t.DueDate.HasValue && t.DueDate < DateTime.Now && t.Status != "Completed");
+      var myWorkload = _workload.FirstOrDefault(w => w.FullName == u.FullName);
+      <div class="panel" style="cursor:pointer;opacity:@(u.IsActive ? "1" : ".6");"
+           @onclick='() => Nav.NavigateTo($"/admin/staff/{u.Id}/summary")'>
+        <div class="panel-body" style="padding:14px 16px;">
+          <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;">
+            @if (!string.IsNullOrEmpty(u.AvatarUrl))
             {
-              <tr style="border-top:1px solid var(--border);">
-                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
-                  @if (!string.IsNullOrEmpty(u.AvatarUrl))
-                  {
-                    <img src="@u.AvatarUrl" style="width:24px;height:24px;border-radius:50%;object-fit:cover;margin-right:8px;vertical-align:middle;" />
-                  }
-                  @(u.FullName ?? u.Email ?? $"User {u.Id}")
+              <img src="@u.AvatarUrl" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" />
+            }
+            else
+            {
+              <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--navy),#1e3a5f);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:white;font-weight:700;flex-shrink:0;">
+                @Initials(u.FullName ?? u.Email ?? "?")
+              </div>
+            }
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@(u.FullName ?? u.Email ?? $"User {u.Id}")</div>
+              <div style="font-size:.72rem;color:var(--text-light);">@u.Email</div>
+              <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">
+                <span class="badge badge-@(u.Role is UserRole.HQAdmin or UserRole.ChapterAdmin ? "onhold" : "new")" style="font-size:.58rem;">@u.Role</span>
+                <span class="badge badge-@(u.IsActive ? "fulfilled" : "cancelled")" style="font-size:.58rem;">@(u.IsActive ? "Active" : "Inactive")</span>
+              </div>
+            </div>
+          </div>
+          <!-- WORKLOAD BAR -->
+          @if (myWorkload is not null)
+          {
+            var load    = myWorkload.ActiveCases;
+            var loadPct = Math.Min(load * 20, 100);
+            var loadCol = load >= 5 ? "var(--red)" : load >= 3 ? "var(--amber)" : "var(--green)";
+            <div style="font-size:.72rem;color:var(--text-mid);display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span>Case load</span>
+              <span style="color:@loadCol;font-weight:700;">@load active</span>
+            </div>
+            <div class="progress-bar" style="height:5px;margin-bottom:8px;">
+              <div class="progress-fill" style="width:@loadPct%;background:@loadCol;"></div>
+            </div>
+          }
+          <!-- TASK SUMMARY -->
+          <div style="display:flex;gap:8px;font-size:.72rem;">
+            @if (openTasks > 0)
+            {
+              <span style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:2px 8px;color:var(--text-mid);">@openTasks task@(openTasks == 1 ? "" : "s")</span>
+            }
+            @if (overdueTasks > 0)
+            {
+              <span style="background:#fee2e2;color:var(--red);border-radius:8px;padding:2px 8px;font-weight:600;">@overdueTasks overdue</span>
+            }
+            @if (openTasks == 0 && myWorkload?.ActiveCases == 0)
+            {
+              <span style="color:var(--text-light);">No active work</span>
+            }
+          </div>
+        </div>
+      </div>
+    }
+    @if (!_staff.Any())
+    {
+      <div class="panel" style="grid-column:1/-1;">
+        <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No staff assigned to this chapter.</div>
+      </div>
+    }
+  </div>
+
+  <!-- TASKS FOR THIS CHAPTER -->
+  @if (_tasks.Any())
+  {
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Chapter Tasks (@_tasks.Count(t => t.Status != "Completed"))</h3>
+        <a href="/admin/staff-tasks" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Tasks &rarr;</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Title</th><th>Assigned To</th><th>Priority</th><th>Due</th><th>Status</th></tr></thead>
+          <tbody>
+            @foreach (var t in _tasks.Where(t => t.Status != "Completed").OrderBy(t => t.DueDate ?? DateTime.MaxValue).Take(15))
+            {
+              var isOverdue = t.DueDate.HasValue && t.DueDate < DateTime.Now;
+              <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/staff-tasks/{t.Id}")'>
+                <td style="font-weight:600;">@t.Title</td>
+                <td style="font-size:.78rem;color:var(--text-mid);">@t.AssignedToName</td>
+                <td><span class="badge badge-@PriBadge(t.Priority)" style="font-size:.6rem;">@t.Priority</span></td>
+                <td style="font-size:.74rem;color:@(isOverdue ? "var(--red)" : "var(--text-light)");">
+                  @(t.DueDate.HasValue ? t.DueDate.Value.ToString("MMM d") : "—")
                 </td>
-                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(u.Email ?? "—")</td>
-                <td style="padding:10px 16px;font-size:.82rem;">
-                  <span class="badge badge-@(u.Role == UserRole.HQAdmin || u.Role == UserRole.ChapterAdmin ? "cancelled" : "new")" style="font-size:.68rem;">@u.Role</span>
-                </td>
-                <td style="padding:10px 16px;text-align:center;">
-                  <span class="badge badge-@(u.IsActive ? "fulfilled" : "cancelled")" style="font-size:.68rem;">@(u.IsActive ? "Active" : "Inactive")</span>
-                </td>
+                <td style="font-size:.74rem;color:var(--text-mid);">@t.Status</td>
               </tr>
             }
           </tbody>
         </table>
-      }
+      </div>
     </div>
-  </div>
+  }
 }
 
 @code {
@@ -87,17 +155,38 @@ else
 
   private Chapter? _chapter;
   private List<StaffUserDto> _staff = [];
+  private List<StaffTaskDto> _tasks = [];
+  private List<WorkloadRowDto> _workload = [];
   private bool _loading = true;
 
   protected override async Task OnInitializedAsync()
   {
     var chapTask  = Api.GetChaptersAdminAsync();
     var userTask  = Api.GetUsersAsync();
-    await Task.WhenAll(chapTask, userTask);
-    var chapters  = await chapTask;
-    _chapter      = chapters.FirstOrDefault(c => c.Id == Id);
-    var all       = await userTask;
-    _staff        = all.Where(u => u.ChapterId == Id).ToList();
+    var taskTask  = Api.GetStaffTasksAsync();
+    var wlTask    = Api.GetWorkloadAsync();
+    await Task.WhenAll(chapTask, userTask, taskTask, wlTask);
+
+    var chapters = await chapTask;
+    _chapter     = chapters.FirstOrDefault(c => c.Id == Id);
+    var allUsers = await userTask;
+    _staff       = allUsers.Where(u => u.ChapterId == Id).ToList();
+    var allTasks = await taskTask;
+    _tasks       = allTasks.Where(t => t.ChapterId == Id).ToList();
+    _workload    = await wlTask;
     _loading = false;
   }
+
+  private static string Initials(string name)
+  {
+    var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    return parts.Length >= 2 ? $"{parts[0][0]}{parts[^1][0]}" : name.Length > 0 ? name[0].ToString() : "?";
+  }
+
+  private static string PriBadge(string p) => p.ToLower() switch
+  {
+    "urgent" => "overdue",
+    "high"   => "onhold",
+    _        => "new"
+  };
 }
