@@ -1,0 +1,186 @@
+@page "/admin/families/by-state"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Families by State — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Families by State</h2><p>Geographic reach — families served across the US</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/families" class="btn btn-sm">← All Families</a>
+    <a href="/admin/impact" class="btn btn-sm">Impact Dashboard</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading geographic data…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127758;</div>
+      <div class="kpi-label">States Reached</div>
+      <div class="kpi-value" style="color:var(--green)">@_rows.Count</div>
+      <div class="kpi-change change-up">&#9650; growing reach</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Total Families</div>
+      <div class="kpi-value" style="color:var(--navy)">@_families.Count</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#127970;</div>
+      <div class="kpi-label">Top State</div>
+      <div class="kpi-value" style="font-size:1.4rem;color:var(--blush)">@(_rows.FirstOrDefault()?.State ?? "—")</div>
+      <div class="kpi-change">@(_rows.FirstOrDefault()?.Count ?? 0) families</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg per State</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_rows.Any() ? (int)_rows.Average(r => r.Count) : 0)</div>
+      <div class="kpi-change">families per state</div>
+    </div>
+  </div>
+
+  <!-- BAR CHART -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>Families per State</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">Top @Math.Min(_rows.Count, 20) states</span>
+    </div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
+      @{ var maxCount = _rows.Any() ? _rows.Max(r => r.Count) : 1; }
+      @foreach (var r in _rows.Take(20))
+      {
+        var pct = (int)(r.Count * 100.0 / maxCount);
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;font-size:.78rem;font-weight:700;color:var(--navy);text-align:right;flex-shrink:0;">@r.State</div>
+          <div style="flex:1;">
+            <div class="progress-bar" style="height:18px;border-radius:4px;">
+              <div class="progress-fill" style="width:@pct%;height:18px;border-radius:4px;display:flex;align-items:center;padding-left:6px;">
+                @if (pct > 20)
+                {
+                  <span style="font-size:.68rem;font-weight:700;color:white;">@r.Count</span>
+                }
+              </div>
+            </div>
+          </div>
+          @if (pct <= 20)
+          {
+            <div style="font-size:.74rem;color:var(--text-mid);width:24px;">@r.Count</div>
+          }
+          <div style="font-size:.7rem;color:var(--text-light);width:36px;text-align:right;">@r.ActivePct%<br/><span style="font-size:.6rem;">active</span></div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- FULL TABLE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>All States (@_rows.Count)</h3>
+      <input type="search" class="form-input" placeholder="Filter state…" style="width:160px;font-size:.82rem;padding:5px 10px;"
+             @bind="_search" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="cursor:pointer;" @onclick='() => SortBy("state")'>State @SortIcon("state")</th>
+            <th style="cursor:pointer;" @onclick='() => SortBy("count")'>Families @SortIcon("count")</th>
+            <th style="cursor:pointer;" @onclick='() => SortBy("active")'>Active @SortIcon("active")</th>
+            <th>Top Reason</th>
+            <th>Top City</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var r in Sorted)
+          {
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/families?state={r.State}")'>
+              <td style="font-weight:700;color:var(--navy);">@r.State</td>
+              <td>@r.Count</td>
+              <td>
+                <span style="font-size:.78rem;">@r.Active</span>
+                <div class="progress-bar" style="height:4px;margin-top:3px;width:60px;">
+                  <div class="progress-fill" style="width:@r.ActivePct%;"></div>
+                </div>
+              </td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@r.TopReason</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@r.TopCity</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private record StateRow(
+      string State, int Count, int Active, int ActivePct, string TopReason, string TopCity);
+
+  private bool _loading = true;
+  private List<Family> _families = [];
+  private List<StateRow> _rows = [];
+  private string _search = "";
+  private string _sortCol = "count";
+  private bool _sortAsc;
+
+  private IEnumerable<StateRow> Sorted
+  {
+    get
+    {
+      var filtered = string.IsNullOrWhiteSpace(_search)
+          ? _rows
+          : _rows.Where(r => r.State.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return (_sortCol, _sortAsc) switch
+      {
+        ("state", true)  => filtered.OrderBy(r => r.State),
+        ("state", false) => filtered.OrderByDescending(r => r.State),
+        ("active", true) => filtered.OrderBy(r => r.Active),
+        ("active", false)=> filtered.OrderByDescending(r => r.Active),
+        (_, true)        => filtered.OrderBy(r => r.Count),
+        _                => filtered.OrderByDescending(r => r.Count),
+      };
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    _families = await Api.GetFamiliesAsync();
+
+    _rows = _families
+      .Where(f => !string.IsNullOrWhiteSpace(f.State))
+      .GroupBy(f => f.State)
+      .Select(g =>
+      {
+        var active     = g.Count(f => f.Status == FamilyStatus.Active);
+        var activePct  = g.Any() ? (int)(active * 100.0 / g.Count()) : 0;
+        var topReason  = g.GroupBy(f => f.Reason)
+                          .OrderByDescending(r => r.Count())
+                          .FirstOrDefault()?.Key.ToDisplayName() ?? "—";
+        var topCity    = g.Where(f => !string.IsNullOrWhiteSpace(f.City))
+                          .GroupBy(f => f.City!)
+                          .OrderByDescending(c => c.Count())
+                          .FirstOrDefault()?.Key ?? "—";
+        return new StateRow(g.Key!, g.Count(), active, activePct, topReason, topCity);
+      })
+      .OrderByDescending(r => r.Count)
+      .ToList();
+
+    _loading = false;
+  }
+
+  private void SortBy(string col)
+  {
+    if (_sortCol == col) _sortAsc = !_sortAsc;
+    else { _sortCol = col; _sortAsc = false; }
+  }
+
+  private string SortIcon(string col) => _sortCol == col ? (_sortAsc ? "▲" : "▼") : "";
+}

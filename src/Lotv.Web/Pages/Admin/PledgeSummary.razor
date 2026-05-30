@@ -1,0 +1,233 @@
+@page "/admin/pledges/summary"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Pledge Summary — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Pledge Summary</h2><p>Pledge KPIs, fulfillment rate, and upcoming renewals</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/pledges" class="btn btn-sm">← All Pledges</a>
+    <a href="/admin/pledge-renewals" class="btn btn-sm">Renewals</a>
+    <a href="/admin/donors/growth" class="btn btn-sm">Donor Growth</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading pledge data…" />
+}
+else
+{
+  <!-- KPI STRIP ROW 1 -->
+  <div class="kpi-grid" style="margin-bottom:16px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#129309;</div>
+      <div class="kpi-label">Total Pledges</div>
+      <div class="kpi-value" style="color:var(--navy)">@_pledges.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Total Pledged</div>
+      <div class="kpi-value" style="color:var(--green)"><Money Amount="@_pledges.Sum(p => p.PledgedAmount)" /></div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Total Fulfilled</div>
+      <div class="kpi-value" style="color:var(--blush)"><Money Amount="@_pledges.Sum(p => p.FulfilledAmount)" /></div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Fulfillment Rate</div>
+      <div class="kpi-value" style="color:var(--amber)">@_fulfillmentRate%</div>
+      <div class="kpi-change">of pledged amount received</div>
+    </div>
+  </div>
+
+  <!-- KPI STRIP ROW 2 -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <a class="kpi-card kpi-green" href="/admin/pledges?status=Active" style="text-decoration:none;cursor:pointer;">
+      <div class="kpi-icon">&#9654;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--green)">@_byStat(PledgeStatus.Active)</div>
+    </a>
+    <a class="kpi-card kpi-navy" href="/admin/pledges?status=Fulfilled" style="text-decoration:none;cursor:pointer;">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--navy)">@_byStat(PledgeStatus.Fulfilled)</div>
+    </a>
+    <a class="kpi-card kpi-red" href="/admin/pledges?status=Overdue" style="text-decoration:none;cursor:pointer;">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_byStat(PledgeStatus.Overdue)</div>
+      @if (_byStat(PledgeStatus.Overdue) > 0)
+      { <div class="kpi-change change-down">needs follow-up</div> }
+    </a>
+    <a class="kpi-card kpi-amber" href="/admin/pledges?status=Lapsed" style="text-decoration:none;cursor:pointer;">
+      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-label">Lapsed</div>
+      <div class="kpi-value" style="color:var(--amber)">@_byStat(PledgeStatus.Lapsed)</div>
+    </a>
+  </div>
+
+  <!-- FULFILLMENT PROGRESS -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>Overall Fulfillment Progress</h3></div>
+    <div class="panel-body">
+      @{
+        var totalPledged   = _pledges.Sum(p => p.PledgedAmount);
+        var totalFulfilled = _pledges.Sum(p => p.FulfilledAmount);
+        var remaining      = totalPledged - totalFulfilled;
+        var pct            = totalPledged > 0 ? (int)(totalFulfilled / totalPledged * 100) : 0;
+      }
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px;">
+        <span style="font-weight:600;">Pledged: <Money Amount="@totalPledged" /></span>
+        <span style="font-weight:600;color:var(--green);">Received: <Money Amount="@totalFulfilled" /></span>
+        <span style="color:var(--text-mid);">Remaining: <Money Amount="@remaining" /></span>
+      </div>
+      <div class="progress-bar" style="height:18px;border-radius:8px;">
+        <div class="progress-fill" style="width:@pct%;height:18px;border-radius:8px;"></div>
+      </div>
+      <div style="text-align:center;font-size:.78rem;color:var(--text-light);margin-top:6px;">@pct% received</div>
+    </div>
+  </div>
+
+  <!-- UPCOMING + OVERDUE GRID -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+    <!-- UPCOMING (target date in next 60 days) -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Due in Next 60 Days (@_upcoming.Count)</h3>
+        <a href="/admin/pledge-renewals" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Renewals &rarr;</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_upcoming.Any())
+        {
+          <div style="padding:30px;text-align:center;color:var(--text-light);">No pledges due soon.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>Donor</th><th>Pledged</th><th>Remaining</th><th>Due</th></tr></thead>
+            <tbody>
+              @foreach (var p in _upcoming.Take(10))
+              {
+                var rem  = p.PledgedAmount - p.FulfilledAmount;
+                var days = (int)(p.TargetDate - DateTime.UtcNow).TotalDays;
+                <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/pledges/{p.Id}")'>
+                  <td><strong>@(p.Donor?.FullName ?? $"Donor #{p.DonorId}")</strong></td>
+                  <td><Money Amount="@p.PledgedAmount" /></td>
+                  <td style="color:var(--amber);font-weight:600;"><Money Amount="@rem" /></td>
+                  <td style="font-size:.76rem;color:@(days < 14 ? "var(--red)" : "var(--text-light)");">@p.TargetDate.ToString("MMM d") (@days d)</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+    <!-- OVERDUE -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Overdue Pledges (@_overdue.Count)</h3>
+        <a href="/admin/pledges?status=Overdue" style="font-size:.78rem;color:var(--red);text-decoration:none;font-weight:600;">View All &rarr;</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_overdue.Any())
+        {
+          <div style="padding:30px;text-align:center;color:var(--text-light);">No overdue pledges. Great!</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>Donor</th><th>Pledged</th><th>Fulfilled</th><th>Due Date</th></tr></thead>
+            <tbody>
+              @foreach (var p in _overdue.Take(10))
+              {
+                <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/pledges/{p.Id}")'>
+                  <td>
+                    <strong>@(p.Donor?.FullName ?? $"Donor #{p.DonorId}")</strong>
+                    @if (!string.IsNullOrEmpty(p.Campaign))
+                    { <div style="font-size:.66rem;color:var(--text-light);">@p.Campaign</div> }
+                  </td>
+                  <td><Money Amount="@p.PledgedAmount" /></td>
+                  <td style="color:var(--green);"><Money Amount="@p.FulfilledAmount" /></td>
+                  <td style="font-size:.74rem;color:var(--red);">@p.TargetDate.ToString("MMM d, yyyy")</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BY CAMPAIGN -->
+  @if (_byCampaign.Any())
+  {
+    <div class="panel">
+      <div class="panel-head"><h3>Pledges by Campaign</h3></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        @{ var maxCamp = _byCampaign.Max(c => c.Total); }
+        @foreach (var c in _byCampaign)
+        {
+          var campPct = maxCamp > 0 ? (int)(c.Total / maxCamp * 100m) : 0;
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px;">
+              <span style="font-weight:600;">@c.Name</span>
+              <span style="color:var(--text-mid);"><Money Amount="@c.Total" /> &bull; @c.Count pledges</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:@campPct%;"></div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private record CampRow(string Name, decimal Total, int Count);
+
+  private bool _loading = true;
+  private List<DonorPledge> _pledges = [];
+  private List<DonorPledge> _upcoming = [];
+  private List<DonorPledge> _overdue = [];
+  private List<CampRow> _byCampaign = [];
+  private int _fulfillmentRate;
+
+  private int _byStat(PledgeStatus s) => _pledges.Count(p => p.Status == s);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _pledges  = await Api.GetPledgesAsync();
+    var now   = DateTime.UtcNow;
+
+    var totalPledged   = _pledges.Sum(p => p.PledgedAmount);
+    var totalFulfilled = _pledges.Sum(p => p.FulfilledAmount);
+    _fulfillmentRate   = totalPledged > 0 ? (int)(totalFulfilled / totalPledged * 100) : 0;
+
+    _upcoming = _pledges
+      .Where(p => p.Status == PledgeStatus.Active && p.TargetDate >= now && p.TargetDate <= now.AddDays(60))
+      .OrderBy(p => p.TargetDate).ToList();
+
+    _overdue = _pledges
+      .Where(p => p.Status == PledgeStatus.Overdue)
+      .OrderBy(p => p.TargetDate).ToList();
+
+    _byCampaign = _pledges
+      .Where(p => !string.IsNullOrWhiteSpace(p.Campaign))
+      .GroupBy(p => p.Campaign!)
+      .Select(g => new CampRow(g.Key, g.Sum(p => p.PledgedAmount), g.Count()))
+      .OrderByDescending(c => c.Total)
+      .ToList();
+
+    _loading = false;
+  }
+}

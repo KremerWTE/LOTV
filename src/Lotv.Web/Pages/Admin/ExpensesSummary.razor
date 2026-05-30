@@ -1,0 +1,190 @@
+@page "/admin/expenses/summary"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Expense Summary — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Expense Summary</h2><p>Operational spending by category with monthly trend</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/expenses" class="btn btn-sm">← All Expenses</a>
+    <a href="/admin/budget" class="btn btn-sm">Budget</a>
+    <a href="/admin/reconciliation" class="btn btn-sm">Reconciliation</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading expense data…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">&#129534;</div>
+      <div class="kpi-label">Total This Year</div>
+      <div class="kpi-value" style="color:var(--red)"><Money Amount="@_thisYear" /></div>
+      <div class="kpi-change @(_growth < 0 ? "change-up" : "change-down")">
+        @(_growth >= 0 ? $"▲ {_growth}%" : $"▼ {Math.Abs(_growth)}%") vs. last year
+      </div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">This Month</div>
+      <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_thisMonth" /></div>
+      <div class="kpi-change">@_thisMonthCount transactions</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Categories</div>
+      <div class="kpi-value" style="color:var(--navy)">@_byCategory.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127374;</div>
+      <div class="kpi-label">Largest Category</div>
+      <div class="kpi-value" style="font-size:1rem;color:var(--green)">@(_byCategory.FirstOrDefault()?.Category ?? "—")</div>
+      <div class="kpi-change"><Money Amount="@(_byCategory.FirstOrDefault()?.Total ?? 0)" /></div>
+    </div>
+  </div>
+
+  <!-- CATEGORY BREAKDOWN + MONTHLY TREND -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+    <!-- CATEGORY PIE / BAR -->
+    <div class="panel">
+      <div class="panel-head"><h3>By Category</h3></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        @{ var grandTotal = _byCategory.Sum(c => c.Total); }
+        @foreach (var cat in _byCategory)
+        {
+          var pct = grandTotal > 0 ? (int)(cat.Total / grandTotal * 100m) : 0;
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+              <span style="font-weight:600;">@cat.Category</span>
+              <span style="color:var(--text-mid);"><Money Amount="@cat.Total" /> <span style="color:var(--text-light);font-size:.72rem;">(@pct%)</span></span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:@pct%;background:@CatColor(cat.Category);"></div>
+            </div>
+            <div style="font-size:.68rem;color:var(--text-light);margin-top:2px;">@cat.Count transaction@(cat.Count == 1 ? "" : "s")</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- MONTHLY TREND -->
+    <div class="panel">
+      <div class="panel-head"><h3>Monthly Spend (12 months)</h3></div>
+      <div class="panel-body">
+        @if (!_monthly.Any())
+        {
+          <div style="text-align:center;color:var(--text-light);padding:30px;">No data.</div>
+        }
+        else
+        {
+          var maxM = (double)(_monthly.Max(m => m.Total) > 0 ? _monthly.Max(m => m.Total) : 1);
+          <div style="display:flex;align-items:flex-end;gap:4px;height:130px;margin-bottom:6px;">
+            @foreach (var m in _monthly)
+            {
+              var h = (int)(m.Total / (decimal)maxM * 120);
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;"
+                   title="@m.Label: @m.Total.ToString("C0")">
+                @if (m.Total > 0)
+                {
+                  <div style="font-size:.55rem;color:var(--red);font-weight:700;">@m.Total.ToString("C0").Replace(",000","k")</div>
+                }
+                <div style="width:100%;background:@(m.Total > 0 ? "var(--red)" : "var(--border)");border-radius:3px 3px 0 0;height:@(Math.Max(h,2))px;"></div>
+              </div>
+            }
+          </div>
+          <div style="display:flex;gap:4px;">
+            @foreach (var m in _monthly)
+            {
+              <div style="flex:1;text-align:center;font-size:.55rem;color:var(--text-light);">@m.Label</div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RECENT LARGE EXPENSES -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Largest Expenses</h3>
+      <a href="/admin/expenses" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Expenses &rarr;</a>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Description</th><th>Category</th><th>Amount</th><th>Paid By</th><th>Date</th></tr></thead>
+        <tbody>
+          @foreach (var e in _top20)
+          {
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/expenses/{e.Id}")'>
+              <td style="font-weight:600;">@e.Description</td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@e.Category</td>
+              <td style="font-weight:700;color:var(--red);"><Money Amount="@e.Amount" /></td>
+              <td style="font-size:.76rem;color:var(--text-light);">@e.PaidBy</td>
+              <td style="font-size:.76rem;color:var(--text-light);">@e.PaidAt.ToString("MMM d, yyyy")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private record CatRow(string Category, decimal Total, int Count);
+  private record MonthRow(string Label, decimal Total);
+
+  private bool _loading = true;
+  private List<Expense> _expenses = [];
+  private List<CatRow> _byCategory = [];
+  private List<MonthRow> _monthly = [];
+  private List<Expense> _top20 = [];
+  private decimal _thisYear, _thisMonth, _lastYear;
+  private int _thisMonthCount, _growth;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _expenses = await Api.GetExpensesAsync();
+
+    var now = DateTime.UtcNow;
+    _thisYear       = _expenses.Where(e => e.PaidAt.Year == now.Year).Sum(e => e.Amount);
+    _lastYear       = _expenses.Where(e => e.PaidAt.Year == now.Year - 1).Sum(e => e.Amount);
+    _thisMonth      = _expenses.Where(e => e.PaidAt.Year == now.Year && e.PaidAt.Month == now.Month).Sum(e => e.Amount);
+    _thisMonthCount = _expenses.Count(e => e.PaidAt.Year == now.Year && e.PaidAt.Month == now.Month);
+    _growth = _lastYear > 0 ? (int)((_thisYear - _lastYear) / _lastYear * 100) : 0;
+
+    _byCategory = _expenses
+      .GroupBy(e => string.IsNullOrWhiteSpace(e.Category) ? "Other" : e.Category)
+      .Select(g => new CatRow(g.Key, g.Sum(e => e.Amount), g.Count()))
+      .OrderByDescending(c => c.Total)
+      .ToList();
+
+    _monthly = Enumerable.Range(0, 12)
+      .Select(i => now.AddMonths(-i))
+      .Reverse()
+      .Select(m => new MonthRow(
+          m.ToString("MMM"),
+          _expenses.Where(e => e.PaidAt.Year == m.Year && e.PaidAt.Month == m.Month).Sum(e => e.Amount)))
+      .ToList();
+
+    _top20 = _expenses.OrderByDescending(e => e.Amount).Take(20).ToList();
+    _loading = false;
+  }
+
+  private static string CatColor(string cat) => cat.ToLower() switch
+  {
+    "supplies"  => "var(--navy)",
+    "shipping"  => "var(--green)",
+    "printing"  => "var(--amber)",
+    "staffing"  => "var(--blush)",
+    _           => "var(--text-mid)"
+  };
+}
