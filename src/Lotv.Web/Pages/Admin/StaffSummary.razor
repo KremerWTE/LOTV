@@ -1,0 +1,248 @@
+@page "/admin/staff/{Id}/summary"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Staff Summary — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Staff Summary</h2>
+    <p>@(_staff?.FullName ?? Id) — personal work dashboard</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/users" class="btn btn-sm">← All Users</a>
+    <a href="/admin/workload" class="btn btn-sm">Workload View</a>
+    <a href="/admin/staff-tasks" class="btn btn-sm">All Tasks</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading staff summary…" />
+}
+else
+{
+  <!-- PROFILE CARD -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-body" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+      <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy-dark,#0a1628));display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:white;font-weight:700;flex-shrink:0;">
+        @Initials(_staff?.FullName ?? Id)
+      </div>
+      <div style="flex:1;min-width:160px;">
+        <div style="font-size:1.1rem;font-weight:700;color:var(--text-dark);">@(_staff?.FullName ?? Id)</div>
+        <div style="font-size:.82rem;color:var(--text-light);">@_staff?.Email</div>
+        <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="badge badge-inprogress">@(_staff?.Role.ToString() ?? "Staff")</span>
+          @if (_staff?.IsActive == true)
+          { <span class="badge badge-fulfilled">Active</span> }
+          else
+          { <span class="badge badge-cancelled">Inactive</span> }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-label">Open Cases</div>
+      <div class="kpi-value" style="color:var(--red)">@_openCases.Count</div>
+      <div class="kpi-change">assigned to this member</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Overdue Cases</div>
+      <div class="kpi-value" style="color:var(--amber)">@_openCases.Count(r => r.IsOverdue)</div>
+      <div class="kpi-change @(_openCases.Any(r => r.IsOverdue) ? "change-down" : "change-up")">
+        @(_openCases.Any(r => r.IsOverdue) ? "need attention" : "all on track")
+      </div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Cases Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_fulfilledCount</div>
+      <div class="kpi-change">total completed</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Open Tasks</div>
+      <div class="kpi-value" style="color:var(--navy)">@_tasks.Count(t => t.Status != "Completed" && t.Status != "Cancelled")</div>
+      <div class="kpi-change">@_tasks.Count total tasks</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+    <!-- OPEN CASES -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Open Cases (@_openCases.Count)</h3>
+        <a href="/admin/cases" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Cases &rarr;</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_openCases.Any())
+        {
+          <div style="padding:30px;text-align:center;color:var(--text-light);">No open cases assigned.</div>
+        }
+        else
+        {
+          <table class="data-table">
+            <thead><tr><th>Family</th><th>Reason</th><th>Status</th><th>Due</th></tr></thead>
+            <tbody>
+              @foreach (var c in _openCases.OrderBy(c => c.DueDate ?? DateTime.MaxValue).Take(8))
+              {
+                <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")'>
+                  <td>
+                    <strong>@c.Family?.FullName</strong>
+                    @if (c.IsOverdue)
+                    { <span class="badge badge-overdue" style="margin-left:4px;font-size:.6rem;">Overdue</span> }
+                  </td>
+                  <td style="font-size:.78rem;color:var(--text-mid);">@c.Reason.ToDisplayName()</td>
+                  <td><span class="badge @StatusBadge(c.Status)">@c.Status</span></td>
+                  <td style="font-size:.74rem;color:var(--text-light);">
+                    @(c.DueDate.HasValue ? c.DueDate.Value.ToString("MMM d") : "—")
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+    <!-- STAFF TASKS -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>My Tasks (@_tasks.Count(t => t.Status != "Completed"))</h3>
+        <a href="/admin/staff-tasks" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Tasks &rarr;</a>
+      </div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        @if (!_tasks.Any())
+        {
+          <div style="text-align:center;color:var(--text-light);padding:20px;">No tasks found.</div>
+        }
+        @foreach (var t in _tasks.OrderBy(t => t.DueDate ?? DateTime.MaxValue).Take(6))
+        {
+          <div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;@(t.Status == "Completed" ? "opacity:.5;" : "")">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <div style="font-size:1rem;line-height:1;margin-top:1px;">
+                @(t.Status == "Completed" ? "✅" : t.Priority == "Urgent" ? "🔴" : "⬜")
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.84rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@t.Title</div>
+                @if (t.DueDate.HasValue)
+                {
+                  <div style="font-size:.72rem;color:@(t.DueDate < DateTime.Now && t.Status != "Completed" ? "var(--red)" : "var(--text-light)");">
+                    Due @t.DueDate.Value.ToString("MMM d")
+                  </div>
+                }
+                <div style="margin-top:3px;display:flex;gap:6px;">
+                  <span class="badge badge-@PriorityBadge(t.Priority)" style="font-size:.58rem;">@t.Priority</span>
+                  @if (t.LinkedCaseId.HasValue)
+                  {
+                    <a href="/admin/cases/@t.LinkedCaseId" style="font-size:.66rem;color:var(--green);">Case #@t.LinkedCaseId</a>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RECENT FULFILLED -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Recently Fulfilled (@_recentFulfilled.Count)</h3>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_recentFulfilled.Any())
+      {
+        <div style="padding:30px;text-align:center;color:var(--text-light);">No fulfilled cases yet.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead><tr><th>Family</th><th>Reason</th><th>Fulfilled</th></tr></thead>
+          <tbody>
+            @foreach (var c in _recentFulfilled.Take(10))
+            {
+              <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")'>
+                <td><strong>@c.Family?.FullName</strong></td>
+                <td style="font-size:.78rem;color:var(--text-mid);">@c.Reason.ToDisplayName()</td>
+                <td style="font-size:.76rem;color:var(--text-light);">@c.UpdatedAt.ToString("MMM d, yyyy")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  [Parameter] public string Id { get; set; } = "";
+
+  private bool _loading = true;
+  private StaffUserDto? _staff;
+  private List<PackageRequest> _openCases = [];
+  private List<PackageRequest> _recentFulfilled = [];
+  private List<StaffTaskDto> _tasks = [];
+  private int _fulfilledCount;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var usersTask  = Api.GetUsersAsync();
+    var casesTask  = Api.GetRequestsAsync();
+    var tasksTask  = Api.GetStaffTasksAsync(assignee: Id);
+    await Task.WhenAll(usersTask, casesTask, tasksTask);
+
+    var users = await usersTask;
+    _staff    = users.FirstOrDefault(u => u.Id == Id || u.FullName == Id);
+    _tasks    = await tasksTask;
+
+    var allCases   = await casesTask;
+    _openCases     = allCases.Where(c => c.AssignedTo == (_staff?.FullName ?? Id)
+                                      && c.Status is not CaseStatus.Fulfilled
+                                               and not CaseStatus.Cancelled).ToList();
+    _recentFulfilled = allCases.Where(c => c.AssignedTo == (_staff?.FullName ?? Id)
+                                        && c.Status == CaseStatus.Fulfilled)
+                                .OrderByDescending(c => c.UpdatedAt).ToList();
+    _fulfilledCount = _recentFulfilled.Count;
+    _loading = false;
+  }
+
+  private static string Initials(string name)
+  {
+    var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    return parts.Length >= 2
+      ? $"{parts[0][0]}{parts[^1][0]}"
+      : name.Length > 0 ? name[0].ToString() : "S";
+  }
+
+  private static string StatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.Fulfilled        => "badge-fulfilled",
+    CaseStatus.OnHold           => "badge-onhold",
+    CaseStatus.Cancelled        => "badge-cancelled",
+    _                           => ""
+  };
+
+  private static string PriorityBadge(string p) => p.ToLower() switch
+  {
+    "urgent" => "overdue",
+    "high"   => "onhold",
+    "normal" => "new",
+    _        => "new"
+  };
+}

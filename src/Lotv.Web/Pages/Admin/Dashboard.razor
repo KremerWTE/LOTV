@@ -57,23 +57,23 @@ else
 
 <!-- ROW 1 KPIs -->
 <div class="kpi-grid">
-  <div class="kpi-card kpi-red">
+  <a class="kpi-card kpi-red" href="/admin/cases" style="text-decoration:none;cursor:pointer;">
     <div class="kpi-icon">&#9888;</div>
     <div class="kpi-label">Open Cases</div>
     <div class="kpi-value" style="color:var(--red)">@_stats.OpenCases</div>
     <div class="kpi-change @(_newThisWeek > 0 ? "change-up" : "")">
       @(_newThisWeek > 0 ? $"▲ {_newThisWeek} new this week" : "None new this week")
     </div>
-  </div>
-  <div class="kpi-card kpi-amber">
+  </a>
+  <a class="kpi-card kpi-amber" href="/admin/cases/overdue" style="text-decoration:none;cursor:pointer;">
     <div class="kpi-icon">&#9203;</div>
     <div class="kpi-label">Overdue Requests</div>
     <div class="kpi-value" style="color:var(--amber)">@_stats.OverdueCases</div>
     <div class="kpi-change @(_stats.OverdueCases > 0 ? "change-down" : "change-up")">
       @(_stats.OverdueCases > 0 ? "&#9888; need attention" : "&#10003; none overdue")
     </div>
-  </div>
-  <div class="kpi-card kpi-green">
+  </a>
+  <a class="kpi-card kpi-green" href="/admin/donations" style="text-decoration:none;cursor:pointer;">
     <div class="kpi-icon">&#128184;</div>
     <div class="kpi-label">Donations This Month</div>
     <div class="kpi-value" style="color:var(--green)"><Money Amount="@_stats.DonationsThisMonth" /></div>
@@ -83,41 +83,41 @@ else
     { <div class="kpi-change change-down">&#9660; @Math.Abs(_donationGrowth)% vs. last month</div> }
     else
     { <div class="kpi-change">flat vs. last month</div> }
-  </div>
-  <div class="kpi-card kpi-blush">
+  </a>
+  <a class="kpi-card kpi-blush" href="/admin/families" style="text-decoration:none;cursor:pointer;">
     <div class="kpi-icon">&#128101;</div>
     <div class="kpi-label">Families Served YTD</div>
     <div class="kpi-value" style="color:var(--blush)">@_stats.FamiliesServedYtd</div>
     <div class="kpi-change change-up">&#9650; growing since Jan 1</div>
-  </div>
+  </a>
 </div>
 
 <!-- ROW 2 KPIs -->
 <div class="kpi-grid" style="margin-bottom:28px;">
-  <div class="kpi-card kpi-gold">
+  <a class="kpi-card kpi-gold" href="/admin/events" style="text-decoration:none;cursor:pointer;">
     <div class="kpi-icon">&#127881;</div>
     <div class="kpi-label">Upcoming Events</div>
     <div class="kpi-value" style="color:var(--gold)">@_stats.UpcomingEvents</div>
     <div class="kpi-change">Next: @_nextEvent</div>
-  </div>
-  <div class="kpi-card kpi-green">
+  </a>
+  <a class="kpi-card kpi-green" href="/admin/volunteers" style="text-decoration:none;cursor:pointer;">
     <div class="kpi-icon">&#129309;</div>
     <div class="kpi-label">Active Volunteers</div>
     <div class="kpi-value" style="color:var(--green)">@_stats.ActiveVolunteers</div>
     <div class="kpi-change change-up">&#9650; @_onboarding pending onboarding</div>
-  </div>
-  <div class="kpi-card kpi-green">
+  </a>
+  <a class="kpi-card kpi-green" href="/admin/cases/heat-map" style="text-decoration:none;cursor:pointer;">
     <div class="kpi-icon">&#9745;</div>
     <div class="kpi-label">Cases Fulfilled (30d)</div>
     <div class="kpi-value" style="color:var(--green)">@_stats.CasesFulfilledLast30Days</div>
     <div class="kpi-change change-up">&#9650; packages sent</div>
-  </div>
-  <div class="kpi-card kpi-amber">
+  </a>
+  <a class="kpi-card kpi-amber" href="/admin/allocations/review" style="text-decoration:none;cursor:pointer;">
     <div class="kpi-icon">&#128197;</div>
     <div class="kpi-label">Unallocated Funds</div>
     <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_stats.UnallocatedFunds" /></div>
     <div class="kpi-change">@_stats.PendingAllocations allocations pending review</div>
-  </div>
+  </a>
 </div>
 
 <!-- MONTHLY TREND CHARTS -->
@@ -186,7 +186,7 @@ else
         <tbody>
           @foreach (var r in _recentCases)
           {
-            <tr>
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/cases/{r.Id}")'>
               <td>
                 <strong>@r.Family?.FullName</strong>
                 @if (r.IsOverdue)
@@ -216,7 +216,7 @@ else
           <div class="user-avatar" style="width:32px;height:32px;font-size:.72rem;flex-shrink:0;">@Initials(row.Name)</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-              <span style="font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@row.Name</span>
+              <a href="/admin/volunteers/@row.Id/cases" style="font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-dark);text-decoration:none;">@row.Name</a>
               <span style="font-size:.74rem;color:@(row.Open >= 5 ? "var(--amber)" : "var(--text-mid)");margin-left:8px;white-space:nowrap;">@row.Open open @(row.Overdue > 0 ? $"· {row.Overdue} overdue" : "")</span>
             </div>
             <div class="progress-bar" style="height:5px;">
@@ -244,19 +244,19 @@ else
     <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
       @foreach (var ev in _upcomingEvents)
       {
-        <div style="display:flex;gap:14px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <a href="/admin/events/@ev.Id" style="display:flex;gap:14px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--border);text-decoration:none;cursor:pointer;">
           <div style="min-width:44px;text-align:center;background:var(--green-pale);border-radius:8px;padding:6px 4px;">
             <div style="font-size:.65rem;font-weight:700;color:var(--green);text-transform:uppercase;">@ev.Date.ToString("MMM")</div>
             <div style="font-size:1.2rem;font-weight:700;color:var(--green-dark);line-height:1;">@ev.Date.Day</div>
           </div>
           <div>
-            <div style="font-weight:600;font-size:.88rem;margin-bottom:2px;">@ev.Title</div>
+            <div style="font-weight:600;font-size:.88rem;margin-bottom:2px;color:var(--text-dark);">@ev.Title</div>
             <div style="font-size:.76rem;color:var(--text-light);">
               @(string.IsNullOrEmpty(ev.Location) ? (ev.IsVirtual ? "Online" : "TBD") : ev.Location)
               &bull; @ev.Registered registered
             </div>
           </div>
-        </div>
+        </a>
       }
       @if (!_upcomingEvents.Any())
       { <div style="text-align:center;color:var(--text-light);font-size:.84rem;">No upcoming events</div> }
@@ -406,7 +406,7 @@ else
 } @* end @if (!_loading) *@
 
 @code {
-  private record WorkloadRow(string Name, int Open, int Overdue);
+  private record WorkloadRow(int Id, string Name, int Open, int Overdue);
   private record AllocRow(string Label, int Count, string Color);
   private record DashSummary(
     int OpenCases, int OverdueCases, decimal DonationsThisMonth, decimal DonationsLastMonth,
@@ -489,7 +489,7 @@ else
     _nextEvent = nextEv is null ? "None scheduled" : $"{nextEv.Date:MMM d} — {nextEv.Title}";
 
     _channelBreakdown = channels.Select(c => (c.Channel, c.TotalAmount)).Take(4).ToList();
-    _workloadRows     = workload.Select(w => new WorkloadRow(w.FullName, w.ActiveCases, 0))
+    _workloadRows     = workload.Select(w => new WorkloadRow(w.Id, w.FullName, w.ActiveCases, 0))
                                 .OrderByDescending(w => w.Open).Take(5).ToList();
 
     var pending   = allocs.Count(a => a.Status == AllocationStatus.PendingReview);
