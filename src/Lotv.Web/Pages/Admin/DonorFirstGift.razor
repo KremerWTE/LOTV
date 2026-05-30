@@ -1,0 +1,237 @@
+@page "/admin/donors/first-gift"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>First Gift Analysis — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>First Gift Analysis</h2><p>How and when donors were acquired — channel, amount, and parish source</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors" class="btn btn-sm">← Donors</a>
+    <a href="/admin/donors/growth" class="btn btn-sm">Growth</a>
+    <a href="/admin/by-channel" class="btn btn-sm">By Channel</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Analyzing first gifts…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-label">Donors Acquired</div>
+      <div class="kpi-value" style="color:var(--green)">@_firstGifts.Count</div>
+      <div class="kpi-change">with a recorded first gift</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Avg First Gift</div>
+      <div class="kpi-value" style="color:var(--navy)"><Money Amount="@_avgFirstGift" /></div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#127917;</div>
+      <div class="kpi-label">Top Acquisition Channel</div>
+      <div class="kpi-value" style="font-size:1rem;color:var(--blush)">@(_byChannel.FirstOrDefault()?.Channel ?? "—")</div>
+      <div class="kpi-change">@(_byChannel.FirstOrDefault()?.Count ?? 0) donors</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-label">Became Recurring</div>
+      <div class="kpi-value" style="color:var(--amber)">@_becameRecurring</div>
+      <div class="kpi-change">@_recurringRate% conversion rate</div>
+    </div>
+  </div>
+
+  <!-- BY CHANNEL + BY AMOUNT -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+    <!-- ACQUISITION CHANNEL BREAKDOWN -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>First Gift by Channel</h3>
+        <a href="/admin/by-channel" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Channel Report &rarr;</a>
+      </div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        @{ var maxCh = _byChannel.Any() ? _byChannel.Max(c => c.Count) : 1; }
+        @foreach (var ch in _byChannel)
+        {
+          var pct    = (int)(ch.Count * 100.0 / maxCh);
+          var totPct = _firstGifts.Any() ? (int)(ch.Count * 100.0 / _firstGifts.Count) : 0;
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px;">
+              <span style="font-weight:600;">@ch.Channel</span>
+              <span style="color:var(--text-mid);">@ch.Count donors &bull; <Money Amount="@ch.AvgFirstGift" /> avg &bull; @totPct%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:@pct%;background:var(--navy);"></div></div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- FIRST GIFT AMOUNT BANDS -->
+    <div class="panel">
+      <div class="panel-head"><h3>First Gift Size Distribution</h3></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        @{ var maxB = _byBand.Any() ? _byBand.Max(b => b.Count) : 1; }
+        @foreach (var b in _byBand)
+        {
+          var pct = (int)(b.Count * 100.0 / maxB);
+          var totPct = _firstGifts.Any() ? (int)(b.Count * 100.0 / _firstGifts.Count) : 0;
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px;">
+              <span style="font-weight:600;">@b.Label</span>
+              <span style="color:var(--text-mid);">@b.Count donors (@totPct%)</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:@pct%;background:var(--green);"></div></div>
+          </div>
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MONTHLY ACQUISITION TREND -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>Monthly Acquisition (last 18 months)</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">New donors by first gift month</span>
+    </div>
+    <div class="panel-body">
+      @{ var maxM = _byMonth.Any() ? Math.Max(_byMonth.Max(m => m.Count), 1) : 1; }
+      <div style="display:flex;align-items:flex-end;gap:3px;height:130px;margin-bottom:7px;">
+        @foreach (var m in _byMonth)
+        {
+          var h = (int)(m.Count * 120.0 / maxM);
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;"
+               title="@m.Label: @m.Count new donors">
+            @if (m.Count > 0) { <div style="font-size:.54rem;color:var(--navy);font-weight:700;">@m.Count</div> }
+            <div style="width:100%;background:@(m.Count > 0 ? "var(--navy)" : "var(--border)");border-radius:3px 3px 0 0;height:@(Math.Max(h,2))px;"></div>
+          </div>
+        }
+      </div>
+      <div style="display:flex;gap:3px;">
+        @foreach (var m in _byMonth)
+        {
+          <div style="flex:1;text-align:center;font-size:.5rem;color:var(--text-light);">@m.Label</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- RECENT FIRST-TIME DONORS -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Recent First-Time Donors (last 30 days)</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">@_recentFirstGifters.Count new donors — welcome them!</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!_recentFirstGifters.Any())
+      {
+        <div style="padding:30px;text-align:center;color:var(--text-light);">No new first-time donors in the last 30 days.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead><tr><th>Donor</th><th>Channel</th><th>Parish</th><th style="text-align:right;">First Gift</th><th>Date</th></tr></thead>
+          <tbody>
+            @foreach (var (donor, gift) in _recentFirstGifters)
+            {
+              <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/donors/{donor.Id}/summary")'>
+                <td><strong>@donor.FullName</strong></td>
+                <td style="font-size:.76rem;color:var(--text-mid);">@gift.Channel</td>
+                <td style="font-size:.74rem;color:var(--text-light);">@(donor.ParishName ?? "—")</td>
+                <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@gift.Amount" /></td>
+                <td style="font-size:.74rem;color:var(--text-light);">@gift.Date.ToString("MMM d, yyyy")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private record ChannelRow(string Channel, int Count, decimal AvgFirstGift);
+  private record BandRow(string Label, int Count);
+  private record MonthRow(string Label, int Count);
+
+  private bool _loading = true;
+  private List<Donation> _firstGifts = [];
+  private List<Donor> _donors = [];
+  private decimal _avgFirstGift;
+  private int _becameRecurring, _recurringRate;
+  private List<ChannelRow> _byChannel = [];
+  private List<BandRow> _byBand = [];
+  private List<MonthRow> _byMonth = [];
+  private List<(Donor, Donation)> _recentFirstGifters = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorsTask    = Api.GetDonorsAsync();
+    var donationsTask = Api.GetDonationsAsync();
+    await Task.WhenAll(donorsTask, donationsTask);
+    _donors = await donorsTask;
+    var allDonations = await donationsTask;
+
+    // First gift per donor (earliest donation)
+    var firstByDonor = allDonations
+      .GroupBy(d => d.DonorId)
+      .Select(g => g.OrderBy(d => d.Date).First())
+      .ToList();
+    _firstGifts = firstByDonor;
+
+    _avgFirstGift    = _firstGifts.Any() ? _firstGifts.Average(d => d.Amount) : 0m;
+    _becameRecurring = _donors.Count(d => d.IsRecurring && _firstGifts.Any(f => f.DonorId == d.Id));
+    _recurringRate   = _firstGifts.Any() ? (int)(_becameRecurring * 100.0 / _firstGifts.Count) : 0;
+
+    // By channel
+    _byChannel = _firstGifts
+      .GroupBy(d => d.Channel.ToString())
+      .Select(g => new ChannelRow(g.Key, g.Count(), g.Average(d => d.Amount)))
+      .OrderByDescending(c => c.Count)
+      .ToList();
+
+    // By amount band
+    _byBand =
+    [
+      new("< $25",       _firstGifts.Count(d => d.Amount < 25)),
+      new("$25–$99",     _firstGifts.Count(d => d.Amount >= 25  && d.Amount < 100)),
+      new("$100–$499",   _firstGifts.Count(d => d.Amount >= 100 && d.Amount < 500)),
+      new("$500–$999",   _firstGifts.Count(d => d.Amount >= 500 && d.Amount < 1000)),
+      new("$1,000+",     _firstGifts.Count(d => d.Amount >= 1000)),
+    ];
+
+    // Monthly acquisition trend (18 months)
+    var now = DateTime.UtcNow;
+    _byMonth = Enumerable.Range(0, 18)
+      .Select(i => now.AddMonths(-i))
+      .Reverse()
+      .Select(m => new MonthRow(
+          m.ToString("MMM yy"),
+          _firstGifts.Count(d => d.Date.Year == m.Year && d.Date.Month == m.Month)))
+      .ToList();
+
+    // Recent first-timers (last 30 days)
+    var cutoff = now.AddDays(-30);
+    _recentFirstGifters = _firstGifts
+      .Where(d => d.Date >= cutoff)
+      .Select(d =>
+      {
+        var donor = _donors.FirstOrDefault(dn => dn.Id == d.DonorId);
+        return donor is null ? ((Donor, Donation)?)null : (donor, d);
+      })
+      .Where(x => x.HasValue)
+      .Select(x => x!.Value)
+      .OrderByDescending(x => x.Item2.Date)
+      .ToList();
+
+    _loading = false;
+  }
+}

@@ -1,0 +1,256 @@
+@page "/admin/families/{Id:int}/impact"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Family Impact — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Family Impact</h2><p>@(_family?.FullName ?? $"Family #{Id}") — full service history</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/families" class="btn btn-sm">← Families</a>
+    <a href="/admin/families/@Id/notes" class="btn btn-sm">Notes</a>
+    <a href="/admin/families/@Id/timeline" class="btn btn-sm">Timeline</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading family impact…" />
+}
+else
+{
+  <!-- FAMILY PROFILE CARD -->
+  @if (_family is not null)
+  {
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-body" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+        <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--blush),#c2185b);display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:white;font-weight:700;flex-shrink:0;">
+          &#128149;
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:1.05rem;font-weight:700;">@_family.FullName</div>
+          <div style="font-size:.8rem;color:var(--text-light);margin-top:2px;">
+            @_family.Reason.ToDisplayName() &bull; @_family.City, @_family.State &bull; @(_family.ParishName ?? "No parish on file")
+          </div>
+          <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="badge badge-@(_family.Status == FamilyStatus.Active ? "fulfilled" : "cancelled")" style="font-size:.64rem;">@_family.Status</span>
+            @if (!string.IsNullOrEmpty(_family.DioceseName))
+            { <span style="font-size:.7rem;color:var(--text-mid);">@_family.DioceseName</span> }
+          </div>
+        </div>
+        <div style="text-align:right;font-size:.78rem;color:var(--text-light);">
+          <div>Enrolled @_family.CreatedAt.ToString("MMMM d, yyyy")</div>
+          @if (!string.IsNullOrEmpty(_family.ChildrenInitials))
+          { <div style="margin-top:2px;">Children: @_family.ChildrenInitials</div> }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-label">Cases Opened</div>
+      <div class="kpi-value" style="color:var(--blush)">@_cases.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Fulfilled</div>
+      <div class="kpi-value" style="color:var(--green)">@_cases.Count(c => c.Status == CaseStatus.Fulfilled)</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#129309;</div>
+      <div class="kpi-label">Volunteers Helped</div>
+      <div class="kpi-value" style="color:var(--navy)">@_volunteersWhoHelped</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Notes on File</div>
+      <div class="kpi-value" style="color:var(--amber)">@_notes.Count</div>
+    </div>
+  </div>
+
+  <!-- CASES + NOTES SIDE BY SIDE -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+    <!-- CASE HISTORY -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Case History (@_cases.Count)</h3>
+        <a href="/admin/cases?familyId=@Id" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Cases &rarr;</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_cases.Any())
+        {
+          <div style="padding:30px;text-align:center;color:var(--text-light);">No cases on record.</div>
+        }
+        else
+        {
+          @foreach (var c in _cases.OrderByDescending(c => c.CreatedAt))
+          {
+            var fulfilled = c.Status == CaseStatus.Fulfilled;
+            var days = (int)((c.Status == CaseStatus.Fulfilled ? c.UpdatedAt : DateTime.UtcNow) - c.CreatedAt).TotalDays;
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;"
+                 @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")'>
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                <div>
+                  <div style="font-size:.84rem;font-weight:700;">Case #@c.Id — @c.Reason.ToDisplayName()</div>
+                  <div style="font-size:.72rem;color:var(--text-light);margin-top:2px;">
+                    @c.CreatedAt.ToString("MMM d, yyyy")
+                    @if (!string.IsNullOrEmpty(c.AssignedTo)) { <span> &bull; @c.AssignedTo</span> }
+                  </div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                  <span class="badge @StatusBadge(c.Status)" style="font-size:.62rem;">@c.Status</span>
+                  <div style="font-size:.68rem;color:var(--text-light);margin-top:3px;">@days d@(fulfilled ? " to fulfill" : " open")</div>
+                </div>
+              </div>
+              @if (c.Status != CaseStatus.Fulfilled && c.Status != CaseStatus.Cancelled)
+              {
+                var pct = _cases.Any() ? (int)(_cases.IndexOf(c) * 100.0 / _cases.Count) : 0;
+                <div class="progress-bar" style="height:3px;margin-top:6px;">
+                  <div class="progress-fill" style="width:@(StatusPct(c.Status))%;background:@StatusColor(c.Status);"></div>
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Staff Notes (@_notes.Count)</h3>
+        <a href="/admin/families/@Id/notes" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Notes &rarr;</a>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        @if (!_notes.Any())
+        {
+          <div style="padding:30px;text-align:center;color:var(--text-light);">No notes on file.</div>
+        }
+        else
+        {
+          @foreach (var n in _notes.OrderByDescending(n => n.IsPinned).ThenByDescending(n => n.CreatedAt).Take(6))
+          {
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:.62rem;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:8px;background:@NoteColor(n.NoteType);color:white;">@n.NoteType</span>
+                @if (n.IsPinned) { <span style="font-size:.68rem;color:var(--gold);">📌</span> }
+                <span style="font-size:.7rem;color:var(--text-light);margin-left:auto;">@n.CreatedAt.ToString("MMM d")</span>
+              </div>
+              <div style="font-size:.8rem;color:var(--text-mid);line-height:1.4;
+                          display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">
+                @n.Content
+              </div>
+              <div style="font-size:.68rem;color:var(--text-light);margin-top:3px;">— @n.StaffName</div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- VOLUNTEERS WHO HELPED -->
+  @if (_volunteers.Any())
+  {
+    <div class="panel">
+      <div class="panel-head"><h3>Volunteers Who Served This Family</h3></div>
+      <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;">
+        @foreach (var v in _volunteers)
+        {
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;"
+               @onclick='() => Nav.NavigateTo($"/admin/volunteers/{v.Id}/impact")'>
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:.82rem;color:white;font-weight:700;flex-shrink:0;">
+              @Initials(v.FullName)
+            </div>
+            <div>
+              <div style="font-size:.84rem;font-weight:700;">@v.FullName</div>
+              <div style="font-size:.7rem;color:var(--text-light);">@v.Role.ToDisplayName()</div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+}
+
+@code {
+  [Parameter] public int Id { get; set; }
+
+  private bool _loading = true;
+  private Family? _family;
+  private List<PackageRequest> _cases = [];
+  private List<FamilyNoteDto> _notes = [];
+  private List<Volunteer> _volunteers = [];
+  private int _volunteersWhoHelped;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var famTask   = Api.GetFamilyAsync(Id);
+    var casesTask = Api.GetRequestsAsync(familyId: Id);
+    var notesTask = Api.GetFamilyNotesAsync(Id);
+    var volsTask  = Api.GetVolunteersAsync();
+    await Task.WhenAll(famTask, casesTask, notesTask, volsTask);
+
+    _family = await famTask;
+    _cases  = await casesTask;
+    _notes  = await notesTask;
+    var allVols = await volsTask;
+
+    // volunteers who were assigned to any of this family's cases
+    var assignedIds = _cases.Where(c => c.AssignedToId.HasValue)
+                            .Select(c => c.AssignedToId!.Value).Distinct().ToHashSet();
+    _volunteers         = allVols.Where(v => assignedIds.Contains(v.Id)).ToList();
+    _volunteersWhoHelped= _volunteers.Count;
+    _loading = false;
+  }
+
+  private static string Initials(string name)
+  {
+    var p = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    return p.Length >= 2 ? $"{p[0][0]}{p[^1][0]}" : name.Length > 0 ? name[0].ToString() : "V";
+  }
+
+  private static string StatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.Fulfilled        => "badge-fulfilled",
+    CaseStatus.OnHold           => "badge-onhold",
+    CaseStatus.Cancelled        => "badge-cancelled",
+    _                           => ""
+  };
+
+  private static string StatusColor(CaseStatus s) => s switch
+  {
+    CaseStatus.InProgress       => "var(--navy)",
+    CaseStatus.AwaitingShipment => "var(--amber)",
+    CaseStatus.Shipped          => "var(--green)",
+    _                           => "var(--border)"
+  };
+
+  private static int StatusPct(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => 10,
+    CaseStatus.InProgress       => 40,
+    CaseStatus.AwaitingShipment => 70,
+    CaseStatus.Shipped          => 90,
+    _                           => 0
+  };
+
+  private static string NoteColor(string t) => t switch
+  {
+    "Milestone" => "var(--green)",
+    "Concern"   => "var(--amber)",
+    "FollowUp"  => "var(--navy)",
+    "Outreach"  => "var(--blush)",
+    _           => "var(--text-mid)"
+  };
+}

@@ -1,0 +1,238 @@
+@page "/admin/reports/goals"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Goal Tracker — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Monthly Goal Tracker</h2><p>Track actual performance against donation and case goals for the current year</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/dashboard" class="btn btn-sm">← Dashboard</a>
+    <a href="/admin/timeline" class="btn btn-sm">Timeline</a>
+    <a href="/admin/reports/weekly" class="btn btn-sm">Weekly Digest</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading goal tracker…" />
+}
+else
+{
+  <!-- YEAR SUMMARY STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Donations YTD</div>
+      <div class="kpi-value" style="color:var(--green)"><Money Amount="@_ytdDonations" /></div>
+      <div class="kpi-change @(_donGoalPct >= 100 ? "change-up" : "")">
+        @_donGoalPct% of @_annualDonGoal.ToString("C0") goal
+      </div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Cases Fulfilled YTD</div>
+      <div class="kpi-value" style="color:var(--navy)">@_ytdFulfilled</div>
+      <div class="kpi-change @(_caseGoalPct >= 100 ? "change-up" : "")">
+        @_caseGoalPct% of @_annualCaseGoal goal
+      </div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">New Cases YTD</div>
+      <div class="kpi-value" style="color:var(--blush)">@_ytdNewCases</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">Months Remaining</div>
+      <div class="kpi-value" style="color:var(--amber)">@(12 - DateTime.UtcNow.Month)</div>
+      <div class="kpi-change">to hit annual targets</div>
+    </div>
+  </div>
+
+  <!-- ANNUAL PROGRESS BARS -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>Annual Goal Progress — @DateTime.UtcNow.Year</h3></div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:16px;">
+      @{
+        var donPct  = _annualDonGoal > 0 ? Math.Min((int)(_ytdDonations / _annualDonGoal * 100m), 100) : 0;
+        var casePct = _annualCaseGoal > 0 ? Math.Min((int)(_ytdFulfilled * 100.0 / _annualCaseGoal), 100) : 0;
+      }
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:5px;">
+          <span style="font-weight:700;">Donation Revenue</span>
+          <span style="color:var(--text-mid);"><Money Amount="@_ytdDonations" /> of <Money Amount="@_annualDonGoal" /> goal &bull; <span style="font-weight:700;color:@(donPct >= 100 ? "var(--green)" : "var(--amber)");">@donPct%</span></span>
+        </div>
+        <div class="progress-bar" style="height:12px;border-radius:6px;">
+          <div class="progress-fill" style="width:@donPct%;background:@(donPct >= 100 ? "var(--green)" : "var(--amber)");height:12px;border-radius:6px;"></div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:5px;">
+          <span style="font-weight:700;">Cases Fulfilled</span>
+          <span style="color:var(--text-mid);">@_ytdFulfilled of @_annualCaseGoal goal &bull; <span style="font-weight:700;color:@(casePct >= 100 ? "var(--green)" : "var(--navy)");">@casePct%</span></span>
+        </div>
+        <div class="progress-bar" style="height:12px;border-radius:6px;">
+          <div class="progress-fill" style="width:@casePct%;background:@(casePct >= 100 ? "var(--green)" : "var(--navy)");height:12px;border-radius:6px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MONTH-BY-MONTH TABLE -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>Month-by-Month — @DateTime.UtcNow.Year</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">Monthly target = annual goal ÷ 12</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th style="text-align:right;">Donations</th>
+            <th style="text-align:right;">Don. Target</th>
+            <th>vs. Target</th>
+            <th style="text-align:right;">Fulfilled</th>
+            <th style="text-align:right;">Case Target</th>
+            <th>vs. Target</th>
+            <th>New Cases</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var m in _months)
+          {
+            var isFuture    = m.Month > DateTime.UtcNow.Month;
+            var donDelta    = m.Donations - m.DonTarget;
+            var caseDelta   = m.Fulfilled - m.CaseTarget;
+            var donColor    = isFuture ? "var(--text-light)" : donDelta >= 0 ? "var(--green)" : "var(--red)";
+            var caseColor   = isFuture ? "var(--text-light)" : caseDelta >= 0 ? "var(--green)" : "var(--red)";
+            <tr style="@((isFuture ? "opacity:.5;" : "") + (m.Month == _nowMonth ? "background:var(--green-pale,#f0fdf4);" : ""))">
+              <td style="font-weight:@(m.Month == _nowMonth ? "700" : "400");">
+                @m.Label @(m.Month == _nowMonth ? "← now" : "")
+              </td>
+              <td style="text-align:right;font-weight:700;color:var(--green);">
+                @(isFuture ? "—" : m.Donations.ToString("C0"))
+              </td>
+              <td style="text-align:right;color:var(--text-light);">@m.DonTarget.ToString("C0")</td>
+              <td>
+                @if (!isFuture)
+                {
+                  <span style="font-weight:700;color:@donColor;font-size:.8rem;">
+                    @(donDelta >= 0 ? "▲" : "▼") @Math.Abs(donDelta).ToString("C0")
+                  </span>
+                }
+              </td>
+              <td style="text-align:right;font-weight:700;color:var(--navy);">
+                @(isFuture ? "—" : m.Fulfilled.ToString())
+              </td>
+              <td style="text-align:right;color:var(--text-light);">@m.CaseTarget</td>
+              <td>
+                @if (!isFuture)
+                {
+                  <span style="font-weight:700;color:@caseColor;font-size:.8rem;">
+                    @(caseDelta >= 0 ? "▲" : "▼") @Math.Abs(caseDelta)
+                  </span>
+                }
+              </td>
+              <td style="color:var(--text-mid);">@(isFuture ? "—" : m.NewCases.ToString())</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="font-weight:700;background:var(--bg);">
+            <td>YTD Total</td>
+            <td style="text-align:right;color:var(--green);"><Money Amount="@_ytdDonations" /></td>
+            <td style="text-align:right;color:var(--text-light);">@((_annualDonGoal / 12 * DateTime.UtcNow.Month).ToString("C0"))</td>
+            <td></td>
+            <td style="text-align:right;color:var(--navy);">@_ytdFulfilled</td>
+            <td style="text-align:right;color:var(--text-light);">@(_annualCaseGoal / 12 * DateTime.UtcNow.Month)</td>
+            <td></td>
+            <td>@_ytdNewCases</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- PACE PROJECTION -->
+  <div class="panel">
+    <div class="panel-head"><h3>Year-End Projection at Current Pace</h3></div>
+    <div class="panel-body" style="display:flex;gap:24px;flex-wrap:wrap;">
+      @{
+        var completedMonths  = DateTime.UtcNow.Month;
+        var projDonations    = completedMonths > 0 ? _ytdDonations / completedMonths * 12 : 0m;
+        var projFulfilled    = completedMonths > 0 ? (int)(_ytdFulfilled / (double)completedMonths * 12) : 0;
+        var donShortfall     = _annualDonGoal - projDonations;
+        var caseShortfall    = _annualCaseGoal - projFulfilled;
+      }
+      <div style="flex:1;min-width:180px;text-align:center;padding:16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:6px;">Projected Donations</div>
+        <div style="font-size:1.6rem;font-weight:700;color:var(--text-dark);"><Money Amount="@projDonations" /></div>
+        <div style="font-size:.76rem;color:@(donShortfall <= 0 ? "var(--green)" : "var(--red)");margin-top:4px;">
+          @(donShortfall <= 0 ? $"▲ {Math.Abs(donShortfall).ToString("C0")} over goal" : $"▼ {donShortfall.ToString("C0")} short of goal")
+        </div>
+      </div>
+      <div style="flex:1;min-width:180px;text-align:center;padding:16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--navy);margin-bottom:6px;">Projected Cases Fulfilled</div>
+        <div style="font-size:1.6rem;font-weight:700;color:var(--text-dark);">@projFulfilled</div>
+        <div style="font-size:.76rem;color:@(caseShortfall <= 0 ? "var(--green)" : "var(--red)");margin-top:4px;">
+          @(caseShortfall <= 0 ? $"▲ {Math.Abs(caseShortfall)} over goal" : $"▼ {caseShortfall} short of goal")
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@code {
+  private record MonthRow(string Label, int Month, decimal Donations, decimal DonTarget,
+      int Fulfilled, int CaseTarget, int NewCases);
+
+  // Editable annual goals — in production these would come from Settings API
+  private const decimal _annualDonGoal  = 120_000m;
+  private const int     _annualCaseGoal = 120;
+
+  private bool _loading = true;
+  private int _nowMonth;
+  private decimal _ytdDonations;
+  private int _ytdFulfilled, _ytdNewCases, _donGoalPct, _caseGoalPct;
+  private List<MonthRow> _months = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var casesTask  = Api.GetRequestsAsync();
+    var donTask    = Api.GetDonationsAsync();
+    await Task.WhenAll(casesTask, donTask);
+    var cases     = await casesTask;
+    var donations = await donTask;
+
+    var now       = DateTime.UtcNow;
+    _nowMonth     = now.Month;
+    var yearCases = cases.Where(c => c.CreatedAt.Year == now.Year).ToList();
+    var yearDons  = donations.Where(d => d.Date.Year == now.Year).ToList();
+
+    _ytdDonations = yearDons.Sum(d => d.Amount);
+    _ytdFulfilled = yearCases.Count(c => c.Status == CaseStatus.Fulfilled);
+    _ytdNewCases  = yearCases.Count;
+    _donGoalPct   = _annualDonGoal > 0 ? (int)(_ytdDonations / _annualDonGoal * 100m) : 0;
+    _caseGoalPct  = _annualCaseGoal > 0 ? (int)(_ytdFulfilled * 100.0 / _annualCaseGoal) : 0;
+
+    var monthlyDonTarget  = _annualDonGoal / 12;
+    var monthlyCaseTarget = _annualCaseGoal / 12;
+
+    _months = Enumerable.Range(1, 12)
+      .Select(m =>
+      {
+        var label    = new DateTime(now.Year, m, 1).ToString("MMMM");
+        var donAmt   = yearDons.Where(d => d.Date.Month == m).Sum(d => d.Amount);
+        var ful      = yearCases.Count(c => c.Status == CaseStatus.Fulfilled && c.UpdatedAt.Month == m);
+        var newC     = yearCases.Count(c => c.CreatedAt.Month == m);
+        return new MonthRow(label, m, donAmt, monthlyDonTarget, ful, monthlyCaseTarget, newC);
+      })
+      .ToList();
+
+    _loading = false;
+  }
+}
