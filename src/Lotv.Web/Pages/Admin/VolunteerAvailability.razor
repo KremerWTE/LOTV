@@ -1,0 +1,195 @@
+@page "/admin/volunteers/availability"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Volunteer Availability — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Availability</h2><p>Capacity overview — who can take new cases right now</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/volunteers" class="btn btn-sm">← Volunteers</a>
+    <a href="/admin/workload" class="btn btn-sm">Workload View</a>
+    <a href="/admin/queue" class="btn btn-sm">Unassigned Queue</a>
+    <a href="/admin/volunteers/leaderboard" class="btn btn-sm">Leaderboard</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading availability data…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#129309;</div>
+      <div class="kpi-label">Available Now</div>
+      <div class="kpi-value" style="color:var(--green)">@_available.Count</div>
+      <div class="kpi-change change-up">open capacity</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Near Capacity</div>
+      <div class="kpi-value" style="color:var(--amber)">@_nearCapacity.Count</div>
+      <div class="kpi-change">3–4 active cases</div>
+    </div>
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-label">At Capacity</div>
+      <div class="kpi-value" style="color:var(--red)">@_atCapacity.Count</div>
+      <div class="kpi-change change-down">5+ active cases</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Onboarding</div>
+      <div class="kpi-value" style="color:var(--navy)">@_onboarding.Count</div>
+      <div class="kpi-change">not yet active</div>
+    </div>
+  </div>
+
+  <!-- CAPACITY FILTER CHIPS -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    @foreach (var f in new[] { "All", "Available", "Near Capacity", "At Capacity", "Onboarding" })
+    {
+      <button class="chip @(_filter == f ? "chip-active" : "")" @onclick="() => _filter = f">@f</button>
+    }
+    <input type="search" class="form-input" placeholder="Search name…" style="margin-left:auto;width:180px;font-size:.82rem;padding:5px 10px;"
+           @bind="_search" @bind:event="oninput" />
+  </div>
+
+  <!-- CAPACITY GRID -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:20px;">
+    @foreach (var v in Filtered)
+    {
+      var load     = v.ActiveCases;
+      var capColor = load >= 5 ? "var(--red)" : load >= 3 ? "var(--amber)" : "var(--green)";
+      var capPct   = Math.Min(load * 20, 100);  // 5 cases = 100%
+      var capLabel = load >= 5 ? "At Capacity" : load >= 3 ? "Near Capacity" : "Available";
+      <div class="panel" style="cursor:pointer;border-left:3px solid @capColor;"
+           @onclick='() => Nav.NavigateTo($"/admin/volunteers/{v.Id}")'>
+        <div class="panel-body" style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;">
+          <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,@capColor,@capColor);display:flex;align-items:center;justify-content:center;font-size:.84rem;color:white;font-weight:700;flex-shrink:0;opacity:.85;">
+            @Initials(v.FullName)
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@v.FullName</div>
+            <div style="font-size:.72rem;color:var(--text-light);margin-bottom:6px;">@v.Role.ToDisplayName() &bull; @(v.ParishName ?? "—")</div>
+            <div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:3px;">
+              <span style="color:@capColor;font-weight:700;">@capLabel</span>
+              <span style="color:var(--text-mid);">@load / 5 cases</span>
+            </div>
+            <div class="progress-bar" style="height:6px;">
+              <div class="progress-fill" style="width:@capPct%;background:@capColor;"></div>
+            </div>
+            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+              <span class="badge badge-fulfilled" style="font-size:.58rem;">@v.TotalCasesFulfilled fulfilled</span>
+              @if (load == 0)
+              {
+                <span style="background:#dcfce7;color:#166534;border-radius:10px;padding:1px 8px;font-size:.6rem;font-weight:700;">Ready for assignment</span>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+    @if (!Filtered.Any())
+    {
+      <div class="panel" style="grid-column:1/-1;">
+        <div class="panel-body" style="text-align:center;padding:40px;color:var(--text-light);">No volunteers match this filter.</div>
+      </div>
+    }
+  </div>
+
+  <!-- ROLE BREAKDOWN TABLE -->
+  <div class="panel">
+    <div class="panel-head"><h3>Availability by Role</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Role</th><th>Total</th><th>Available</th><th>Near Cap</th><th>At Cap</th><th>Avg Load</th></tr></thead>
+        <tbody>
+          @foreach (var r in _byRole)
+          {
+            <tr>
+              <td style="font-weight:600;">@r.Role</td>
+              <td>@r.Total</td>
+              <td style="color:var(--green);font-weight:600;">@r.Available</td>
+              <td style="color:var(--amber);">@r.Near</td>
+              <td style="color:var(--red);">@r.Full</td>
+              <td style="color:var(--text-mid);">@r.AvgLoad</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private record RoleRow(string Role, int Total, int Available, int Near, int Full, string AvgLoad);
+
+  private bool _loading = true;
+  private string _filter = "All";
+  private string _search = "";
+  private List<Volunteer> _all = [];
+  private List<Volunteer> _available = [];
+  private List<Volunteer> _nearCapacity = [];
+  private List<Volunteer> _atCapacity = [];
+  private List<Volunteer> _onboarding = [];
+  private List<RoleRow> _byRole = [];
+
+  private IEnumerable<Volunteer> Filtered
+  {
+    get
+    {
+      var pool = _filter switch
+      {
+        "Available"     => _available,
+        "Near Capacity" => _nearCapacity,
+        "At Capacity"   => _atCapacity,
+        "Onboarding"    => _onboarding,
+        _               => _all.Where(v => v.Status == VolunteerStatus.Active || v.Status == VolunteerStatus.Onboarding).ToList()
+      };
+      if (!string.IsNullOrWhiteSpace(_search))
+        pool = pool.Where(v => v.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase)).ToList();
+      return pool.OrderBy(v => v.ActiveCases).ThenBy(v => v.FullName);
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all         = await Api.GetVolunteersAsync();
+    var active   = _all.Where(v => v.Status == VolunteerStatus.Active).ToList();
+    _available   = active.Where(v => v.ActiveCases < 3).ToList();
+    _nearCapacity= active.Where(v => v.ActiveCases is >= 3 and <= 4).ToList();
+    _atCapacity  = active.Where(v => v.ActiveCases >= 5).ToList();
+    _onboarding  = _all.Where(v => v.Status == VolunteerStatus.Onboarding).ToList();
+
+    _byRole = Enum.GetValues<VolunteerRole>()
+      .Select(r =>
+      {
+        var grp = active.Where(v => v.Role == r).ToList();
+        if (!grp.Any()) return null;
+        return new RoleRow(
+            r.ToDisplayName(),
+            grp.Count,
+            grp.Count(v => v.ActiveCases < 3),
+            grp.Count(v => v.ActiveCases is >= 3 and <= 4),
+            grp.Count(v => v.ActiveCases >= 5),
+            grp.Any() ? $"{grp.Average(v => v.ActiveCases):F1}" : "0");
+      })
+      .Where(r => r is not null)
+      .Select(r => r!)
+      .ToList();
+
+    _loading = false;
+  }
+
+  private static string Initials(string name)
+  {
+    var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    return parts.Length >= 2 ? $"{parts[0][0]}{parts[^1][0]}" : name.Length > 0 ? name[0].ToString() : "V";
+  }
+}

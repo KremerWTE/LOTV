@@ -1,0 +1,240 @@
+@page "/admin/cases/intake"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Case Intake — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Case Intake</h2><p>New case volume trends — by week, reason, and day of week</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+    <a href="/admin/cases/by-reason" class="btn btn-sm">By Reason</a>
+    <a href="/admin/cases/heat-map" class="btn btn-sm">Heat Map</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Analyzing intake data…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-label">New This Week</div>
+      <div class="kpi-value" style="color:var(--navy)">@_thisWeek</div>
+      <div class="kpi-change @(_thisWeek > _lastWeek ? "change-up" : "change-down")">
+        @(_thisWeek > _lastWeek ? $"▲ {_thisWeek - _lastWeek}" : $"▼ {_lastWeek - _thisWeek}") vs. last week
+      </div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">New This Month</div>
+      <div class="kpi-value" style="color:var(--blush)">@_thisMonth</div>
+      <div class="kpi-change @(_thisMonth > _lastMonth ? "change-up" : "change-down")">
+        @(_thisMonth > _lastMonth ? $"▲ {_thisMonth - _lastMonth}" : $"▼ {_lastMonth - _thisMonth}") vs. last month
+      </div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">Avg Per Week</div>
+      <div class="kpi-value" style="color:var(--green)">@_avgPerWeek</div>
+      <div class="kpi-change">12-week rolling avg</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-label">YTD Total</div>
+      <div class="kpi-value" style="color:var(--amber)">@_ytd</div>
+      <div class="kpi-change">cases opened this year</div>
+    </div>
+  </div>
+
+  <!-- WEEKLY TREND CHART -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>Weekly Intake — Last 16 Weeks</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">Avg: @_avgPerWeek / week</span>
+    </div>
+    <div class="panel-body">
+      @{ var maxW = _weeklyTrend.Any() ? Math.Max(_weeklyTrend.Max(w => w.Count), 1) : 1; }
+      <div style="display:flex;align-items:flex-end;gap:4px;height:140px;margin-bottom:8px;">
+        @foreach (var w in _weeklyTrend)
+        {
+          var h   = (int)(w.Count * 130.0 / maxW);
+          var isThisWeek = w == _weeklyTrend.Last();
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;"
+               title="Week of @w.Label: @w.Count">
+            @if (w.Count > 0) { <div style="font-size:.58rem;color:var(--navy);font-weight:700;">@w.Count</div> }
+            <div style="width:100%;background:@(isThisWeek ? "var(--blush)" : "var(--navy)");border-radius:3px 3px 0 0;height:@(Math.Max(h,2))px;opacity:@(isThisWeek ? "1" : ".75");"></div>
+          </div>
+        }
+      </div>
+      <div style="display:flex;gap:4px;">
+        @foreach (var w in _weeklyTrend)
+        {
+          <div style="flex:1;text-align:center;font-size:.52rem;color:var(--text-light);">@w.Label</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- REASON + DAY OF WEEK -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+    <!-- BY REASON (this year) -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Intake by Reason (YTD)</h3>
+        <a href="/admin/cases/by-reason" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Detail &rarr;</a>
+      </div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        @{ var maxR = _byReason.Any() ? _byReason.Max(r => r.Count) : 1; }
+        @foreach (var r in _byReason.OrderByDescending(r => r.Count))
+        {
+          var pct = (int)(r.Count * 100.0 / maxR);
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:3px;">
+              <span style="font-weight:600;">@r.Label</span>
+              <span style="color:var(--text-mid);">@r.Count &nbsp;<span style="color:var(--text-light);font-size:.72rem;">(@r.YtdPct%)</span></span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:@pct%;background:var(--navy);"></div></div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- BY DAY OF WEEK -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Intake by Day of Week</h3>
+        <span style="font-size:.78rem;color:var(--text-light);">All time</span>
+      </div>
+      <div class="panel-body">
+        @{ var maxD = _byDow.Any() ? Math.Max(_byDow.Max(d => d.Count), 1) : 1; }
+        <div style="display:flex;align-items:flex-end;gap:6px;height:120px;margin-bottom:8px;">
+          @foreach (var d in _byDow)
+          {
+            var h = (int)(d.Count * 110.0 / maxD);
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;">
+              @if (d.Count > 0) { <div style="font-size:.62rem;color:var(--blush);font-weight:700;">@d.Count</div> }
+              <div style="width:100%;background:var(--blush);border-radius:3px 3px 0 0;height:@(Math.Max(h,2))px;"></div>
+            </div>
+          }
+        </div>
+        <div style="display:flex;gap:6px;">
+          @foreach (var d in _byDow)
+          {
+            <div style="flex:1;text-align:center;font-size:.65rem;color:var(--text-light);">@d.Label</div>
+          }
+        </div>
+        <div style="margin-top:10px;font-size:.76rem;color:var(--text-mid);">
+          Busiest day: <strong style="color:var(--blush);">@(_byDow.OrderByDescending(d => d.Count).FirstOrDefault()?.Label ?? "—")</strong>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RECENT NEW CASES -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Most Recent Intakes</h3>
+      <a href="/admin/cases?status=New" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All New Cases &rarr;</a>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Family</th><th>Reason</th><th>Chapter</th><th>Priority</th><th>Received</th></tr></thead>
+        <tbody>
+          @foreach (var c in _recent)
+          {
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")'>
+              <td><strong>@c.Family?.FullName</strong></td>
+              <td style="font-size:.78rem;color:var(--text-mid);">@c.Reason.ToDisplayName()</td>
+              <td style="font-size:.76rem;color:var(--text-light);">@(c.Chapter?.Name ?? $"Ch#{c.ChapterId}")</td>
+              <td><span class="badge @PriBadge(c.Priority)" style="font-size:.62rem;">@c.Priority</span></td>
+              <td style="font-size:.74rem;color:var(--text-light);">@c.CreatedAt.ToString("MMM d, h:mm tt")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private record WeekBucket(string Label, int Count);
+  private record ReasonBucket(string Label, int Count, int YtdPct);
+  private record DowBucket(string Label, int Count);
+
+  private bool _loading = true;
+  private int _thisWeek, _lastWeek, _thisMonth, _lastMonth, _avgPerWeek, _ytd;
+  private List<WeekBucket> _weeklyTrend = [];
+  private List<ReasonBucket> _byReason = [];
+  private List<DowBucket> _byDow = [];
+  private List<PackageRequest> _recent = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetRequestsAsync();
+    var now = DateTime.UtcNow;
+
+    var weekStart     = now.AddDays(-(int)now.DayOfWeek);
+    var lastWeekStart = weekStart.AddDays(-7);
+    var monthStart    = new DateTime(now.Year, now.Month, 1);
+    var lastMonthStart= monthStart.AddMonths(-1);
+
+    _thisWeek  = all.Count(c => c.CreatedAt >= weekStart);
+    _lastWeek  = all.Count(c => c.CreatedAt >= lastWeekStart && c.CreatedAt < weekStart);
+    _thisMonth = all.Count(c => c.CreatedAt >= monthStart);
+    _lastMonth = all.Count(c => c.CreatedAt >= lastMonthStart && c.CreatedAt < monthStart);
+    _ytd       = all.Count(c => c.CreatedAt.Year == now.Year);
+
+    // 12-week rolling avg
+    var last12Weeks = all.Count(c => c.CreatedAt >= now.AddDays(-84));
+    _avgPerWeek = last12Weeks / 12;
+
+    // Weekly trend: last 16 weeks
+    _weeklyTrend = Enumerable.Range(0, 16)
+      .Select(i => now.AddDays(-7 * i))
+      .Reverse()
+      .Select(wk =>
+      {
+        var wStart = wk.AddDays(-(int)wk.DayOfWeek);
+        var wEnd   = wStart.AddDays(7);
+        return new WeekBucket(wStart.ToString("M/d"), all.Count(c => c.CreatedAt >= wStart && c.CreatedAt < wEnd));
+      })
+      .ToList();
+
+    // By reason YTD
+    var ytdCases  = all.Where(c => c.CreatedAt.Year == now.Year).ToList();
+    var ytdTotal  = ytdCases.Count;
+    _byReason = Enum.GetValues<PackageReason>()
+      .Select(r =>
+      {
+        var cnt = ytdCases.Count(c => c.Reason == r);
+        return new ReasonBucket(r.ToDisplayName(), cnt, ytdTotal > 0 ? (int)(cnt * 100.0 / ytdTotal) : 0);
+      })
+      .Where(r => r.Count > 0)
+      .ToList();
+
+    // By day of week (all time)
+    var days = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    _byDow = days.Select((name, idx) =>
+        new DowBucket(name, all.Count(c => (int)c.CreatedAt.DayOfWeek == idx)))
+      .ToList();
+
+    _recent = all.OrderByDescending(c => c.CreatedAt).Take(15).ToList();
+    _loading = false;
+  }
+
+  private static string PriBadge(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "badge-overdue",
+    RequestPriority.High   => "badge-onhold",
+    _                      => "badge-new"
+  };
+}

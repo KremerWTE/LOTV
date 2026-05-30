@@ -1,0 +1,214 @@
+@page "/admin/donors/touchpoint-log"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Touchpoint Log — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Touchpoint Log</h2><p>All donor outreach and contact attempts across the organization</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors" class="btn btn-sm">← Donors</a>
+    <a href="/admin/donors/outreach" class="btn btn-sm">Outreach Queue</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading touchpoints…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128222;</div>
+      <div class="kpi-label">Total Touchpoints</div>
+      <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-label">This Month</div>
+      <div class="kpi-value" style="color:var(--green)">@_thisMonth</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-label">Donors Contacted</div>
+      <div class="kpi-value" style="color:var(--blush)">@_all.Select(t => t.DonorId).Distinct().Count()</div>
+      <div class="kpi-change">unique donors</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#127775;</div>
+      <div class="kpi-label">Top Type</div>
+      <div class="kpi-value" style="font-size:1rem;color:var(--amber)">@(_byType.FirstOrDefault()?.Type ?? "—")</div>
+      <div class="kpi-change">@(_byType.FirstOrDefault()?.Count ?? 0) contacts</div>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      @foreach (var t in _types)
+      {
+        <button class="chip @(_filterType == t ? "chip-active" : "")" @onclick="() => _filterType = t">@t</button>
+      }
+    </div>
+    <input type="search" class="form-input" placeholder="Search donor or staff…"
+           style="margin-left:auto;width:200px;font-size:.82rem;padding:5px 10px;"
+           @bind="_search" @bind:event="oninput" />
+  </div>
+
+  <!-- TYPE BREAKDOWN + MONTHLY TREND -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+    <div class="panel">
+      <div class="panel-head"><h3>By Touch Type</h3></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
+        @{ var maxT = _byType.Any() ? _byType.Max(t => t.Count) : 1; }
+        @foreach (var t in _byType)
+        {
+          var pct = (int)(t.Count * 100.0 / maxT);
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px;">
+              <span style="font-weight:600;">@t.Type</span>
+              <span style="color:var(--text-mid);">@t.Count</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:@pct%;background:var(--navy);"></div></div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Monthly Volume (12 months)</h3></div>
+      <div class="panel-body">
+        @if (!_monthly.Any())
+        {
+          <div style="text-align:center;color:var(--text-light);">No data.</div>
+        }
+        else
+        {
+          var maxM = Math.Max(_monthly.Max(m => m.Count), 1);
+          <div style="display:flex;align-items:flex-end;gap:4px;height:120px;margin-bottom:6px;">
+            @foreach (var m in _monthly)
+            {
+              var h = (int)(m.Count * 110.0 / maxM);
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;">
+                @if (m.Count > 0) { <div style="font-size:.56rem;color:var(--navy);font-weight:700;">@m.Count</div> }
+                <div style="width:100%;background:@(m.Count > 0 ? "var(--navy)" : "var(--border)");border-radius:3px 3px 0 0;height:@(Math.Max(h,2))px;"></div>
+              </div>
+            }
+          </div>
+          <div style="display:flex;gap:4px;">
+            @foreach (var m in _monthly)
+            {
+              <div style="flex:1;text-align:center;font-size:.56rem;color:var(--text-light);">@m.Label</div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- LOG TABLE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Log (@Filtered.Count() entries)</h3>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:30px;text-align:center;color:var(--text-light);">No touchpoints match this filter.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead><tr><th>Donor</th><th>Type</th><th>Staff</th><th>Notes</th><th>Date</th></tr></thead>
+          <tbody>
+            @foreach (var t in Filtered.OrderByDescending(t => t.TouchDate).Take(100))
+            {
+              <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/donors/{t.DonorId}/touchpoints")'>
+                <td><strong>@(DonorName(t.DonorId))</strong></td>
+                <td><span class="badge badge-new" style="font-size:.62rem;">@t.TouchType</span></td>
+                <td style="font-size:.76rem;color:var(--text-mid);">@t.StaffName</td>
+                <td style="font-size:.76rem;color:var(--text-mid);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@t.Notes">@t.Notes</td>
+                <td style="font-size:.74rem;color:var(--text-light);white-space:nowrap;">@t.TouchDate.ToString("MMM d, yyyy")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (Filtered.Count() > 100)
+        {
+          <div style="padding:10px 18px;font-size:.78rem;color:var(--text-light);">
+            Showing 100 of @Filtered.Count() — use type filter to narrow results.
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private record TypeRow(string Type, int Count);
+  private record MonthRow(string Label, int Count);
+
+  private bool _loading = true;
+  private List<TouchpointDto> _all = [];
+  private List<Donor> _donors = [];
+  private string _filterType = "All";
+  private string _search = "";
+  private int _thisMonth;
+  private List<TypeRow> _byType = [];
+  private List<MonthRow> _monthly = [];
+  private string[] _types = ["All"];
+
+  private IEnumerable<TouchpointDto> Filtered
+  {
+    get
+    {
+      var q = _filterType == "All" ? _all : _all.Where(t => t.TouchType == _filterType);
+      if (!string.IsNullOrWhiteSpace(_search))
+        q = q.Where(t => DonorName(t.DonorId).Contains(_search, StringComparison.OrdinalIgnoreCase)
+                       || t.StaffName.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return q;
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorsTask = Api.GetDonorsAsync();
+    _donors = await donorsTask;
+
+    // Load touchpoints for all donors (fetch top 50 by amount to keep this lean)
+    var topDonors = _donors.OrderByDescending(d => d.TotalGiven).Take(50).ToList();
+    var tasks     = topDonors.Select(d => Api.GetDonorTouchpointsAsync(d.Id)).ToList();
+    var results   = await Task.WhenAll(tasks);
+    _all          = results.SelectMany(r => r).ToList();
+
+    var now      = DateTime.UtcNow;
+    _thisMonth   = _all.Count(t => t.TouchDate.Year == now.Year && t.TouchDate.Month == now.Month);
+
+    _byType = _all
+      .GroupBy(t => string.IsNullOrWhiteSpace(t.TouchType) ? "Other" : t.TouchType)
+      .Select(g => new TypeRow(g.Key, g.Count()))
+      .OrderByDescending(t => t.Count)
+      .ToList();
+
+    _types = ["All", .._byType.Select(t => t.Type)];
+
+    _monthly = Enumerable.Range(0, 12)
+      .Select(i => now.AddMonths(-i))
+      .Reverse()
+      .Select(m => new MonthRow(
+          m.ToString("MMM"),
+          _all.Count(t => t.TouchDate.Year == m.Year && t.TouchDate.Month == m.Month)))
+      .ToList();
+
+    _loading = false;
+  }
+
+  private string DonorName(int id) =>
+      _donors.FirstOrDefault(d => d.Id == id)?.FullName ?? $"Donor #{id}";
+}

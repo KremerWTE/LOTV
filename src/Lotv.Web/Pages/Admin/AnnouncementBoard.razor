@@ -1,0 +1,220 @@
+@page "/admin/announcements/board"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Announcement Board — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Announcement Board</h2><p>Pinned and active announcements for all staff</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/announcements" class="btn btn-sm">← Manage</a>
+    <a href="/admin/announcements/create" class="btn btn-sm btn-primary">+ New</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading announcements…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128226;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--navy)">@_active.Count</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">&#128204;</div>
+      <div class="kpi-label">Pinned</div>
+      <div class="kpi-value" style="color:var(--gold)">@_pinned.Count</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Expiring Soon</div>
+      <div class="kpi-value" style="color:var(--amber)">@_expiringSoon.Count</div>
+      <div class="kpi-change @(_expiringSoon.Any() ? "change-down" : "")">within 7 days</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">HQ-Wide</div>
+      <div class="kpi-value" style="color:var(--blush)">@_all.Count(a => a.Audience == "All" || a.ChapterId is null)</div>
+      <div class="kpi-change">visible to all chapters</div>
+    </div>
+  </div>
+
+  <!-- AUDIENCE FILTER CHIPS -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    @foreach (var a in _audienceFilters)
+    {
+      <button class="chip @(_filter == a ? "chip-active" : "")" @onclick="() => _filter = a">@a</button>
+    }
+  </div>
+
+  <!-- PINNED ANNOUNCEMENTS -->
+  @if (_pinned.Any() && (_filter == "All" || _pinned.Any(a => MatchFilter(a))))
+  {
+    <div style="margin-bottom:20px;">
+      <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--gold);letter-spacing:.06em;margin-bottom:10px;">
+        &#128204; Pinned Announcements
+      </div>
+      @foreach (var a in _pinned.Where(a => MatchFilter(a)))
+      {
+        <div class="panel" style="margin-bottom:10px;border-left:4px solid var(--gold);">
+          <div class="panel-body">
+            @AnnouncementCard(a)
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ACTIVE (NON-PINNED) -->
+  @if (_active.Any(a => !a.IsPinned && MatchFilter(a)))
+  {
+    <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--text-light);letter-spacing:.06em;margin-bottom:10px;">
+      Active Announcements
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+      @foreach (var a in _active.Where(a => !a.IsPinned && MatchFilter(a)))
+      {
+        <div class="panel" style="border-left:3px solid @AudienceColor(a.Audience);">
+          <div class="panel-body">
+            @AnnouncementCard(a)
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (!_active.Any(a => MatchFilter(a)))
+  {
+    <div class="panel">
+      <div class="panel-body" style="text-align:center;padding:40px;color:var(--text-light);">
+        No active announcements for this filter.
+        <div style="margin-top:12px;">
+          <a href="/admin/announcements/create" class="btn btn-sm btn-primary">Create Announcement</a>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- EXPIRING SOON -->
+  @if (_expiringSoon.Any())
+  {
+    <div class="panel" style="margin-bottom:20px;border:1px solid var(--amber);">
+      <div class="panel-head" style="background:#fff3cd;">
+        <h3 style="color:#856404;">&#9203; Expiring Within 7 Days</h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Title</th><th>Audience</th><th>Expires</th><th></th></tr></thead>
+          <tbody>
+            @foreach (var a in _expiringSoon)
+            {
+              var days = a.ExpiresAt.HasValue ? (int)(a.ExpiresAt.Value - DateTime.UtcNow).TotalDays : 0;
+              <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/announcements/{a.Id}")'>
+                <td><strong>@a.Title</strong></td>
+                <td style="font-size:.76rem;color:var(--text-mid);">@a.Audience</td>
+                <td style="font-size:.76rem;color:@(days <= 2 ? "var(--red)" : "var(--amber)");font-weight:600;">
+                  @(days == 0 ? "Today" : days == 1 ? "Tomorrow" : $"In {days} days")
+                </td>
+                <td>
+                  <a href="/admin/announcements/@a.Id/edit" class="btn btn-sm" style="font-size:.7rem;">Renew</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private bool _loading = true;
+  private List<AnnouncementDto> _all = [];
+  private List<AnnouncementDto> _active = [];
+  private List<AnnouncementDto> _pinned = [];
+  private List<AnnouncementDto> _expiringSoon = [];
+  private string _filter = "All";
+  private string[] _audienceFilters = ["All"];
+
+  private bool MatchFilter(AnnouncementDto a) =>
+      _filter == "All" || a.Audience == _filter || (_filter == "HQ" && a.ChapterId is null);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all   = await Api.GetAnnouncementsAsync();
+    var now = DateTime.UtcNow;
+
+    _active      = _all.Where(a => !a.ExpiresAt.HasValue || a.ExpiresAt > now).ToList();
+    _pinned      = _active.Where(a => a.IsPinned).ToList();
+    _expiringSoon= _active.Where(a => a.ExpiresAt.HasValue && a.ExpiresAt <= now.AddDays(7)).ToList();
+
+    var audiences = _all.Select(a => a.Audience).Distinct().OrderBy(x => x).ToList();
+    _audienceFilters = ["All", "HQ", ..audiences];
+
+    _loading = false;
+  }
+
+  private static string AudienceColor(string audience) => audience.ToLower() switch
+  {
+    "all"     => "var(--navy)",
+    "staff"   => "var(--green)",
+    "admin"   => "var(--blush)",
+    "hq"      => "var(--gold)",
+    _         => "var(--text-light)"
+  };
+
+  private RenderFragment AnnouncementCard(AnnouncementDto a) => __builder =>
+  {
+    __builder.OpenElement(0, "div");
+    __builder.AddAttribute(1, "style", "cursor:pointer;");
+    __builder.AddAttribute(2, "onclick", EventCallback.Factory.Create(this, () => Nav.NavigateTo($"/admin/announcements/{a.Id}")));
+
+    __builder.OpenElement(3, "div");
+    __builder.AddAttribute(4, "style", "display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;");
+
+    __builder.OpenElement(5, "div");
+    __builder.AddAttribute(6, "style", "flex:1;min-width:0;");
+    __builder.OpenElement(7, "div");
+    __builder.AddAttribute(8, "style", "font-size:.88rem;font-weight:700;margin-bottom:3px;");
+    __builder.AddContent(9, a.Title);
+    __builder.CloseElement();
+
+    __builder.OpenElement(10, "div");
+    __builder.AddAttribute(11, "style", "font-size:.8rem;color:var(--text-mid);line-height:1.5;");
+    __builder.AddContent(12, a.Body.Length > 200 ? a.Body[..200] + "…" : a.Body);
+    __builder.CloseElement();
+
+    __builder.OpenElement(13, "div");
+    __builder.AddAttribute(14, "style", "display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center;");
+
+    __builder.OpenElement(15, "span");
+    __builder.AddAttribute(16, "style", $"background:{AudienceColor(a.Audience)}22;color:{AudienceColor(a.Audience)};border-radius:10px;padding:1px 8px;font-size:.62rem;font-weight:700;");
+    __builder.AddContent(17, a.Audience);
+    __builder.CloseElement();
+
+    __builder.OpenElement(18, "span");
+    __builder.AddAttribute(19, "style", "font-size:.68rem;color:var(--text-light);");
+    __builder.AddContent(20, $"By {a.AuthorName} · {a.CreatedAt:MMM d}");
+    __builder.CloseElement();
+
+    if (a.ExpiresAt.HasValue)
+    {
+      __builder.OpenElement(21, "span");
+      __builder.AddAttribute(22, "style", "font-size:.66rem;color:var(--text-light);margin-left:auto;");
+      __builder.AddContent(23, $"Expires {a.ExpiresAt.Value:MMM d}");
+      __builder.CloseElement();
+    }
+
+    __builder.CloseElement(); // flex row
+    __builder.CloseElement(); // flex:1
+    __builder.CloseElement(); // outer flex
+    __builder.CloseElement(); // cursor div
+  };
+}

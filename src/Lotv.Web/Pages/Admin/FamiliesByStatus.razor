@@ -1,0 +1,192 @@
+@page "/admin/families/by-status"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Families by Status — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Families by Status</h2><p>Active, closed, follow-up, and referred family breakdown</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/families" class="btn btn-sm">← All Families</a>
+    <a href="/admin/families/by-state" class="btn btn-sm">By State</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading family status data…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value" style="color:var(--green)">@Count(FamilyStatus.Active)</div>
+      <div class="kpi-change">currently receiving support</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128222;</div>
+      <div class="kpi-label">Follow-Up</div>
+      <div class="kpi-value" style="color:var(--amber)">@Count(FamilyStatus.FollowUp)</div>
+      <div class="kpi-change change-down">@(Count(FamilyStatus.FollowUp) > 0 ? "needs outreach" : "none pending")</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128280;</div>
+      <div class="kpi-label">Referred</div>
+      <div class="kpi-value" style="color:var(--navy)">@Count(FamilyStatus.Referred)</div>
+      <div class="kpi-change">sent to partner org</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Closed</div>
+      <div class="kpi-value" style="color:var(--blush)">@Count(FamilyStatus.Closed)</div>
+      <div class="kpi-change">case completed</div>
+    </div>
+  </div>
+
+  <!-- STATUS FILTER CHIPS -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    @foreach (var s in _statuses)
+    {
+      <button class="chip @(_filter == s ? "chip-active" : "")" @onclick="() => _filter = s">
+        @s @(s != "All" ? $"({Count(ParseStatus(s))})" : $"({_families.Count})")
+      </button>
+    }
+    <input type="search" class="form-input" placeholder="Search name or parish…"
+           style="margin-left:auto;width:200px;font-size:.82rem;padding:5px 10px;"
+           @bind="_search" @bind:event="oninput" />
+  </div>
+
+  <!-- PIE VISUAL -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>Status Distribution</h3></div>
+    <div class="panel-body" style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+      <!-- Simple stacked bar -->
+      @{
+        var total = _families.Count;
+        var statItems = new[]
+        {
+          (Status: FamilyStatus.Active,   Color: "var(--green)",   Label: "Active"),
+          (Status: FamilyStatus.FollowUp, Color: "var(--amber)",   Label: "Follow-Up"),
+          (Status: FamilyStatus.Referred, Color: "var(--navy)",    Label: "Referred"),
+          (Status: FamilyStatus.Closed,   Color: "var(--blush)",   Label: "Closed"),
+        };
+      }
+      <div style="flex:1;min-width:200px;">
+        <div style="display:flex;height:24px;border-radius:8px;overflow:hidden;margin-bottom:10px;">
+          @foreach (var item in statItems)
+          {
+            var pct = total > 0 ? (int)(Count(item.Status) * 100.0 / total) : 0;
+            @if (pct > 0)
+            {
+              <div style="width:@pct%;background:@item.Color;" title="@item.Label: @Count(item.Status) (@pct%)"></div>
+            }
+          }
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;">
+          @foreach (var item in statItems)
+          {
+            var cnt = Count(item.Status);
+            var pct = total > 0 ? (int)(cnt * 100.0 / total) : 0;
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="width:10px;height:10px;border-radius:2px;background:@item.Color;flex-shrink:0;"></div>
+              <span style="font-size:.78rem;color:var(--text-mid);">@item.Label: <strong>@cnt</strong> (@pct%)</span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAMILY TABLE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>@_filter Families (@Filtered.Count())</h3>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!Filtered.Any())
+      {
+        <div style="padding:30px;text-align:center;color:var(--text-light);">No families in this category.</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Family</th><th>Reason</th><th>Status</th><th>Parish</th><th>State</th><th>Since</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var f in Filtered.OrderByDescending(f => f.CreatedAt).Take(100))
+            {
+              <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/families/{f.Id}")'>
+                <td><strong>@f.FullName</strong></td>
+                <td style="font-size:.76rem;color:var(--text-mid);">@f.Reason.ToDisplayName()</td>
+                <td><span class="badge @StatusBadge(f.Status)" style="font-size:.62rem;">@f.Status</span></td>
+                <td style="font-size:.74rem;color:var(--text-light);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(f.ParishName ?? "—")</td>
+                <td style="font-size:.74rem;color:var(--text-light);">@f.State</td>
+                <td style="font-size:.72rem;color:var(--text-light);">@f.CreatedAt.ToString("MMM d, yyyy")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (Filtered.Count() > 100)
+        {
+          <div style="padding:10px 18px;font-size:.78rem;color:var(--text-light);">
+            Showing 100 of @Filtered.Count() — use status filter or search to narrow.
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private static readonly string[] _statuses = ["All", "Active", "FollowUp", "Referred", "Closed"];
+
+  private bool _loading = true;
+  private List<Family> _families = [];
+  private string _filter = "All";
+  private string _search = "";
+
+  private int Count(FamilyStatus s) => _families.Count(f => f.Status == s);
+
+  private IEnumerable<Family> Filtered
+  {
+    get
+    {
+      var q = _filter == "All" ? _families : _families.Where(f => f.Status == ParseStatus(_filter));
+      if (!string.IsNullOrWhiteSpace(_search))
+        q = q.Where(f => f.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                       || (f.ParishName ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return q;
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    _families = await Api.GetFamiliesAsync();
+    _loading  = false;
+  }
+
+  private static FamilyStatus ParseStatus(string s) => s switch
+  {
+    "Active"   => FamilyStatus.Active,
+    "FollowUp" => FamilyStatus.FollowUp,
+    "Referred" => FamilyStatus.Referred,
+    _          => FamilyStatus.Closed
+  };
+
+  private static string StatusBadge(FamilyStatus s) => s switch
+  {
+    FamilyStatus.Active   => "badge-fulfilled",
+    FamilyStatus.FollowUp => "badge-onhold",
+    FamilyStatus.Referred => "badge-inprogress",
+    FamilyStatus.Closed   => "badge-cancelled",
+    _                     => "badge-new"
+  };
+}
