@@ -1,0 +1,243 @@
+@page "/admin/health-score"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Ministry Health Score — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Ministry Health Score</h2><p>Composite operational health across all key dimensions</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/dashboard" class="btn btn-sm">← Dashboard</a>
+    <a href="/admin/hq" class="btn btn-sm">HQ View</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Calculating health score…" />
+}
+else
+{
+  <!-- COMPOSITE SCORE BANNER -->
+  <div class="panel" style="margin-bottom:20px;background:linear-gradient(135deg,@ScoreGradient(_score));color:white;border:none;">
+    <div class="panel-body" style="display:flex;align-items:center;gap:30px;flex-wrap:wrap;padding:24px 28px;">
+      <div style="text-align:center;flex-shrink:0;">
+        <div style="font-size:4rem;font-weight:800;line-height:1;">@_score</div>
+        <div style="font-size:.9rem;font-weight:600;opacity:.9;margin-top:2px;">/ 100</div>
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:1.4rem;font-weight:700;margin-bottom:4px;">@ScoreLabel(_score)</div>
+        <div style="font-size:.88rem;opacity:.85;margin-bottom:12px;">@ScoreDescription(_score)</div>
+        <!-- SCORE BAR -->
+        <div style="background:rgba(255,255,255,.3);border-radius:8px;height:12px;overflow:hidden;">
+          <div style="background:white;height:12px;width:@_score%;border-radius:8px;transition:width .6s;"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:.8rem;min-width:200px;">
+        @foreach (var d in _dimensions)
+        {
+          <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;">
+            <div style="opacity:.8;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;">@d.Name</div>
+            <div style="font-size:1.1rem;font-weight:700;">@d.Score<span style="font-size:.7rem;opacity:.7;">/25</span></div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- DIMENSION CARDS -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    @foreach (var d in _dimensions)
+    {
+      var scoreColor = d.Score >= 20 ? "var(--green)" : d.Score >= 13 ? "var(--amber)" : "var(--red)";
+      var scorePct   = d.Score * 4; // out of 25 → percentage
+      <div class="panel" style="border-left:4px solid @scoreColor;">
+        <div class="panel-head">
+          <h3>@d.Icon @d.Name</h3>
+          <span style="font-size:1.1rem;font-weight:800;color:@scoreColor;">@d.Score / 25</span>
+        </div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="progress-bar" style="height:8px;">
+            <div class="progress-fill" style="width:@scorePct%;background:@scoreColor;"></div>
+          </div>
+          @foreach (var m in d.Metrics)
+          {
+            var mColor = m.Good ? "var(--green)" : "var(--red)";
+            <div style="display:flex;justify-content:space-between;font-size:.82rem;align-items:center;">
+              <span style="color:var(--text-mid);">@m.Label</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-weight:700;color:@mColor;">@m.Value</span>
+                <span style="font-size:.8rem;">@(m.Good ? "✅" : "⚠️")</span>
+              </div>
+            </div>
+          }
+          <a href="@d.DrillLink" style="font-size:.74rem;color:var(--green);margin-top:4px;">View detail &rarr;</a>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- RECOMMENDATIONS -->
+  @if (_alerts.Any())
+  {
+    <div class="panel" style="margin-bottom:20px;border:1px solid var(--amber);">
+      <div class="panel-head" style="background:#fff3cd;">
+        <h3 style="color:#856404;">&#9888; Improvement Opportunities</h3>
+      </div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        @foreach (var a in _alerts)
+        {
+          <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 12px;background:var(--bg);border-radius:8px;border-left:3px solid @(a.Severity == "high" ? "var(--red)" : "var(--amber)");">
+            <span style="font-size:1.1rem;flex-shrink:0;">@(a.Severity == "high" ? "🔴" : "🟠")</span>
+            <div style="flex:1;">
+              <div style="font-size:.86rem;font-weight:700;margin-bottom:2px;">@a.Title</div>
+              <div style="font-size:.78rem;color:var(--text-mid);">@a.Detail</div>
+            </div>
+            <a href="@a.Link" class="btn btn-sm" style="font-size:.72rem;white-space:nowrap;">Fix &rarr;</a>
+          </div>
+        }
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private record Metric(string Label, string Value, bool Good);
+  private record Dimension(string Name, string Icon, int Score, List<Metric> Metrics, string DrillLink);
+  private record Alert(string Severity, string Title, string Detail, string Link);
+
+  private bool _loading = true;
+  private int _score;
+  private List<Dimension> _dimensions = [];
+  private List<Alert> _alerts = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var casesTask      = Api.GetRequestsAsync();
+    var volunteersTask = Api.GetVolunteersAsync();
+    var donationsTask  = Api.GetDonationsAsync();
+    var timelineTask   = Api.GetTimelineAsync();
+    var allocsTask     = Api.GetAllocationsAsync();
+    await Task.WhenAll(casesTask, volunteersTask, donationsTask, timelineTask, allocsTask);
+
+    var cases      = await casesTask;
+    var volunteers = await volunteersTask;
+    var donations  = await donationsTask;
+    var timeline   = await timelineTask;
+    var allocs     = await allocsTask;
+    var now        = DateTime.UtcNow;
+
+    // ── DIMENSION 1: Case Health (25 pts) ──────────────────────────────
+    var open      = cases.Count(c => c.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment);
+    var overdue   = cases.Count(c => c.IsOverdue);
+    var unassigned= cases.Count(c => c.Status == CaseStatus.New && c.AssignedToId is null);
+    var fulfilled30 = cases.Count(c => c.Status == CaseStatus.Fulfilled && c.UpdatedAt >= now.AddDays(-30));
+    var overdueRate = open > 0 ? (int)(overdue * 100.0 / open) : 0;
+    int caseScore = 25;
+    if (overdueRate > 20) caseScore -= 10;
+    else if (overdueRate > 10) caseScore -= 5;
+    if (unassigned > 5) caseScore -= 5;
+    else if (unassigned > 2) caseScore -= 2;
+    if (fulfilled30 < 2) caseScore -= 4;
+    caseScore = Math.Max(caseScore, 0);
+    _dimensions.Add(new("Case Health", "📋", caseScore, [
+      new("Overdue rate",        $"{overdueRate}%",     overdueRate <= 10),
+      new("Unassigned open",     unassigned.ToString(), unassigned <= 2),
+      new("Fulfilled last 30d",  fulfilled30.ToString(),fulfilled30 >= 5),
+      new("Total open",          open.ToString(),       open <= 20),
+    ], "/admin/cases"));
+
+    // ── DIMENSION 2: Volunteer Capacity (25 pts) ───────────────────────
+    var active     = volunteers.Count(v => v.Status == VolunteerStatus.Active);
+    var onboarding = volunteers.Count(v => v.Status == VolunteerStatus.Onboarding);
+    var atCap      = volunteers.Count(v => v.Status == VolunteerStatus.Active && v.ActiveCases >= 5);
+    var fillRate   = active > 0 ? (int)(volunteers.Count(v => v.ActiveCases > 0) * 100.0 / active) : 0;
+    int volScore = 25;
+    if (active < 5)   volScore -= 10;
+    else if (active < 10) volScore -= 4;
+    if (atCap > active / 2) volScore -= 6;
+    if (fillRate < 30) volScore -= 5;
+    volScore = Math.Max(volScore, 0);
+    _dimensions.Add(new("Volunteer Capacity", "🤝", volScore, [
+      new("Active volunteers",   active.ToString(),     active >= 10),
+      new("Onboarding pipeline", onboarding.ToString(), onboarding >= 2),
+      new("At capacity (≥5)",    atCap.ToString(),      atCap <= active / 3),
+      new("Fill rate",           $"{fillRate}%",        fillRate >= 50),
+    ], "/admin/volunteers/availability"));
+
+    // ── DIMENSION 3: Donation Momentum (25 pts) ───────────────────────
+    var donThisMonth  = donations.Where(d => d.Date.Year == now.Year && d.Date.Month == now.Month).Sum(d => d.Amount);
+    var donLastMonth  = donations.Where(d => d.Date >= now.AddMonths(-2) && d.Date < now.AddMonths(-1)).Sum(d => d.Amount);
+    var donGrowth     = donLastMonth > 0 ? (int)((donThisMonth - donLastMonth) / donLastMonth * 100) : 0;
+    var recurringCount= donations.Count(d => d.IsRecurring);
+    var uniqueDonors  = donations.Select(d => d.DonorId).Distinct().Count();
+    int donScore = 25;
+    if (donGrowth < -20) donScore -= 8;
+    else if (donGrowth < 0) donScore -= 3;
+    if (recurringCount < 3) donScore -= 5;
+    if (uniqueDonors < 10) donScore -= 6;
+    donScore = Math.Max(donScore, 0);
+    _dimensions.Add(new("Donation Momentum", "💰", donScore, [
+      new("This month",          donThisMonth.ToString("C0"), donThisMonth > 0),
+      new("MoM growth",          $"{donGrowth:+0;-0}%",       donGrowth >= 0),
+      new("Recurring donors",    recurringCount.ToString(),    recurringCount >= 5),
+      new("Unique donors",       uniqueDonors.ToString(),      uniqueDonors >= 15),
+    ], "/admin/donations"));
+
+    // ── DIMENSION 4: Fund Stewardship (25 pts) ────────────────────────
+    var pending     = allocs.Count(a => a.Status == AllocationStatus.PendingReview);
+    var unallocated = allocs.Count(a => a.Status == AllocationStatus.Unallocated);
+    var allocated   = allocs.Count(a => a.Status == AllocationStatus.Allocated);
+    var allocRate   = allocs.Any() ? (int)(allocated * 100.0 / allocs.Count) : 0;
+    int stewScore = 25;
+    if (pending > 10) stewScore -= 8;
+    else if (pending > 5) stewScore -= 4;
+    if (unallocated > 10) stewScore -= 6;
+    else if (unallocated > 5) stewScore -= 3;
+    stewScore = Math.Max(stewScore, 0);
+    _dimensions.Add(new("Fund Stewardship", "🏛", stewScore, [
+      new("Pending review",   pending.ToString(),    pending <= 3),
+      new("Unallocated",      unallocated.ToString(),unallocated <= 5),
+      new("Allocation rate",  $"{allocRate}%",       allocRate >= 70),
+      new("Total allocations",allocated.ToString(),  true),
+    ], "/admin/allocations/review"));
+
+    _score = _dimensions.Sum(d => d.Score);
+
+    // ── ALERTS ───────────────────────────────────────────────────────────
+    if (overdueRate > 15)  _alerts.Add(new("high", $"{overdue} overdue cases", $"{overdueRate}% of open cases are past due — families are waiting.", "/admin/cases/overdue"));
+    if (unassigned > 3)    _alerts.Add(new("high", $"{unassigned} unassigned cases", "Cases in the queue have no volunteer assigned.", "/admin/queue"));
+    if (atCap > 2)         _alerts.Add(new("med", $"{atCap} volunteers at capacity", "Consider onboarding new volunteers to distribute load.", "/admin/volunteers/availability"));
+    if (pending > 5)       _alerts.Add(new("med", $"{pending} allocations pending review", "Fund allocations are waiting for approval.", "/admin/allocations/review"));
+    if (donGrowth < -10)   _alerts.Add(new("high", $"Donations down {Math.Abs(donGrowth)}% MoM", "Giving momentum is declining — consider a donor outreach push.", "/admin/donors/growth"));
+
+    _loading = false;
+  }
+
+  private static string ScoreLabel(int s) => s switch
+  {
+    >= 90 => "Excellent",
+    >= 75 => "Healthy",
+    >= 60 => "Good",
+    >= 45 => "Fair",
+    _     => "Needs Attention"
+  };
+
+  private static string ScoreDescription(int s) => s switch
+  {
+    >= 90 => "Ministry is operating at peak performance across all dimensions.",
+    >= 75 => "Strong performance with minor areas for improvement.",
+    >= 60 => "Generally healthy — a few dimensions need attention.",
+    >= 45 => "Several areas need active improvement to serve families well.",
+    _     => "Multiple critical issues require immediate action."
+  };
+
+  private static string ScoreGradient(int s) => s switch
+  {
+    >= 75 => "#16a34a, #15803d",
+    >= 60 => "#ca8a04, #a16207",
+    _     => "#dc2626, #b91c1c"
+  };
+}

@@ -1,87 +1,142 @@
 @page "/admin/money-flow"
 @layout AdminLayout
 @inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
 
 <PageTitle>Money Flow Dashboard — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
-  <div><h2>Money Flow</h2><p>Donation revenue breakdown by category</p></div>
+  <div><h2>Money Flow</h2><p>Where donations go — allocated by service category</p></div>
   <div class="page-hd-actions">
     <a href="/admin/financial" class="btn btn-sm">← Financial Overview</a>
     <a href="/admin/donations" class="btn btn-sm">All Donations</a>
+    <a href="/admin/allocations" class="btn btn-sm">Allocations</a>
     <a href="/admin/impact" class="btn btn-sm">Impact Dashboard</a>
   </div>
 </div>
 
 @if (_loading)
 {
-  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+  <Loading Message="Loading money flow…" />
 }
 else if (!_flow.Any())
 {
-  <div class="panel">
-    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No money flow data available.</div>
-  </div>
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No money flow data available yet.</div></div>
 }
 else
 {
-  var grandTotal = _flow.Sum(f => f.Amount);
+  var grandTotal  = _flow.Sum(f => f.Amount);
+  var topCategory = _flow.MaxBy(f => f.Amount);
+  var totalReqs   = _flow.Sum(f => f.RequestCount);
+  var avgPerReq   = totalReqs > 0 ? grandTotal / totalReqs : 0m;
 
+  <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
-    <div class="kpi-card kpi-green">
+    <a class="kpi-card kpi-green" href="/admin/allocations" style="text-decoration:none;cursor:pointer;">
       <div class="kpi-icon">&#128176;</div>
-      <div class="kpi-label">Total Flow</div>
-      <div class="kpi-value" style="color:var(--green)">@grandTotal.ToString("C0")</div>
-    </div>
+      <div class="kpi-label">Total Allocated</div>
+      <div class="kpi-value" style="color:var(--green)"><Money Amount="@grandTotal" /></div>
+      <div class="kpi-change">all categories</div>
+    </a>
     <div class="kpi-card kpi-navy">
       <div class="kpi-icon">&#127381;</div>
       <div class="kpi-label">Categories</div>
       <div class="kpi-value" style="color:var(--navy)">@_flow.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128200;</div>
-      <div class="kpi-label">Largest Category</div>
-      <div class="kpi-value" style="font-size:.85rem;color:var(--amber)">@(_flow.MaxBy(f => f.Amount)?.Category ?? "—")</div>
+      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-label">Requests Served</div>
+      <div class="kpi-value" style="color:var(--amber)">@totalReqs</div>
+      <div class="kpi-change">across all categories</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-label">Avg per Request</div>
+      <div class="kpi-value" style="color:var(--blush)"><Money Amount="@avgPerReq" /></div>
+      <div class="kpi-change">cost per case served</div>
     </div>
   </div>
 
+  <!-- HORIZONTAL BAR CHART -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>Allocation by Category</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">Largest: @(topCategory?.Category ?? "—") — <Money Amount="@(topCategory?.Amount ?? 0)" /></span>
+    </div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+      @{ var colors = new[] { "var(--green)", "var(--navy)", "var(--blush)", "var(--amber)", "var(--gold)", "var(--text-mid)" }; }
+      @for (int i = 0; i < _flow.Count; i++)
+      {
+        var f    = _flow.OrderByDescending(x => x.Amount).ElementAt(i);
+        var pct  = grandTotal > 0 ? (int)(f.Amount / grandTotal * 100m) : 0;
+        var col  = colors[i % colors.Length];
+        var aPer = f.RequestCount > 0 ? f.Amount / f.RequestCount : 0m;
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:5px;">
+            <span style="font-weight:700;color:var(--text-dark);">@f.Category</span>
+            <span style="color:var(--text-mid);font-size:.76rem;">
+              <Money Amount="@f.Amount" /> &bull; @f.RequestCount req &bull; <Money Amount="@aPer" />/req &bull; <span style="font-weight:700;color:@col;">@pct%</span>
+            </span>
+          </div>
+          <div class="progress-bar" style="height:12px;border-radius:6px;">
+            <div class="progress-fill" style="width:@pct%;background:@col;height:12px;border-radius:6px;"></div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- CATEGORY CARDS -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
+    @for (int i = 0; i < _flow.Count; i++)
+    {
+      var f   = _flow.OrderByDescending(x => x.Amount).ElementAt(i);
+      var pct = grandTotal > 0 ? (int)(f.Amount / grandTotal * 100m) : 0;
+      var col = new[] { "var(--green)", "var(--navy)", "var(--blush)", "var(--amber)", "var(--gold)", "var(--text-mid)" }[i % 6];
+      <div style="background:var(--bg-card,white);border:1px solid var(--border);border-top:3px solid @col;border-radius:10px;padding:14px 16px;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:@col;margin-bottom:6px;letter-spacing:.05em;">@f.Category</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--text-dark);"><Money Amount="@f.Amount" /></div>
+        <div style="font-size:.72rem;color:var(--text-light);margin-top:3px;">@f.RequestCount request@(f.RequestCount == 1 ? "" : "s") &bull; @pct% of total</div>
+      </div>
+    }
+  </div>
+
+  <!-- DETAIL TABLE -->
   <div class="panel">
-    <div class="panel-head"><h3>Revenue by Category</h3></div>
+    <div class="panel-head"><h3>Full Breakdown</h3></div>
     <div class="panel-body" style="padding:0;">
-      <table style="width:100%;border-collapse:collapse;">
+      <table class="data-table">
         <thead>
-          <tr style="background:var(--bg);">
-            <th style="padding:12px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Category</th>
-            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Total</th>
-            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Count</th>
-            <th style="padding:12px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Share</th>
+          <tr>
+            <th>Category</th>
+            <th style="text-align:right;">Amount</th>
+            <th style="text-align:right;">Requests</th>
+            <th style="text-align:right;">Avg / Req</th>
+            <th style="text-align:right;">Share</th>
           </tr>
         </thead>
         <tbody>
           @foreach (var f in _flow.OrderByDescending(f => f.Amount))
           {
-            var pct = grandTotal > 0 ? f.Amount / grandTotal * 100m : 0m;
-            <tr style="border-top:1px solid var(--border);">
-              <td style="padding:12px 16px;font-size:.84rem;font-weight:600;">@f.Category</td>
-              <td style="padding:12px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@f.Amount.ToString("C0")</td>
-              <td style="padding:12px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@f.RequestCount</td>
-              <td style="padding:12px 16px;min-width:200px;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
-                    <div style="background:var(--green);height:8px;width:@pct.ToString("F1")%;"></div>
-                  </div>
-                  <span style="font-size:.74rem;color:var(--text-light);width:40px;text-align:right;">@pct.ToString("F1")%</span>
-                </div>
-              </td>
+            var pct = grandTotal > 0 ? (int)(f.Amount / grandTotal * 100m) : 0;
+            var avg = f.RequestCount > 0 ? f.Amount / f.RequestCount : 0m;
+            <tr>
+              <td style="font-weight:600;">@f.Category</td>
+              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@f.Amount" /></td>
+              <td style="text-align:right;color:var(--text-mid);">@f.RequestCount</td>
+              <td style="text-align:right;color:var(--text-mid);"><Money Amount="@avg" /></td>
+              <td style="text-align:right;font-weight:700;">@pct%</td>
             </tr>
           }
         </tbody>
         <tfoot>
-          <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
-            <td style="padding:12px 16px;font-size:.84rem;">Total</td>
-            <td style="padding:12px 16px;font-size:.92rem;text-align:right;color:var(--green);">@grandTotal.ToString("C0")</td>
-            <td style="padding:12px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@_flow.Sum(f => f.RequestCount)</td>
-            <td></td>
+          <tr style="font-weight:700;background:var(--bg);">
+            <td>Total</td>
+            <td style="text-align:right;color:var(--green);"><Money Amount="@grandTotal" /></td>
+            <td style="text-align:right;">@totalReqs</td>
+            <td style="text-align:right;"><Money Amount="@avgPerReq" /></td>
+            <td style="text-align:right;">100%</td>
           </tr>
         </tfoot>
       </table>

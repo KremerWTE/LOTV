@@ -1,0 +1,177 @@
+@page "/admin/donors/upgrade-path"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Donor Upgrade Path — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Upgrade Path</h2><p>Donors close to their next tier — prioritize for outreach</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors" class="btn btn-sm">← Donors</a>
+    <a href="/admin/donors/growth" class="btn btn-sm">Growth</a>
+    <a href="/admin/donors/tier-analytics" class="btn btn-sm">Tier Analytics</a>
+    <a href="/admin/donors/outreach" class="btn btn-sm">Outreach Queue</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Analyzing upgrade opportunities…" />
+}
+else
+{
+  <!-- TIER THRESHOLDS LEGEND -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-body" style="display:flex;gap:0;flex-wrap:wrap;">
+      @foreach (var t in _tiers)
+      {
+        <div style="flex:1;min-width:140px;padding:14px 18px;border-right:1px solid var(--border);text-align:center;">
+          <div style="font-size:.66rem;font-weight:700;text-transform:uppercase;color:@t.Color;letter-spacing:.06em;">@t.Name</div>
+          <div style="font-size:1.1rem;font-weight:700;color:var(--text-dark);margin:4px 0;">@t.Range</div>
+          <div style="font-size:.72rem;color:var(--text-light);">@t.Count donors</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- TIER FILTER CHIPS -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-mid);">Show donors near threshold:</span>
+    @foreach (var t in _tiers.Where(t => t.Name != "Benefactor"))
+    {
+      <button class="chip @(_filter == t.Name ? "chip-active" : "")"
+              @onclick="() => _filter = t.Name">
+        @t.Name → @t.NextName (@NearCount(t.Name))
+      </button>
+    }
+    <button class="chip @(_filter == "All" ? "chip-active" : "")" @onclick='() => _filter = "All"'>All (@_upgradeable.Count)</button>
+  </div>
+
+  <!-- GAP THRESHOLD SLIDER LABEL -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:.82rem;color:var(--text-mid);">
+    <span>Showing donors within</span>
+    <strong style="color:var(--navy);">$@_gapThreshold</strong>
+    <span>of next tier</span>
+    <input type="range" min="50" max="500" step="50" value="@_gapThreshold"
+           @onchange="OnGapChanged"
+           style="width:140px;" />
+  </div>
+
+  @if (!Filtered.Any())
+  {
+    <div class="panel"><div class="panel-body" style="text-align:center;padding:40px;color:var(--text-light);">
+      No donors within $@_gapThreshold of their next tier. Try increasing the threshold.
+    </div></div>
+  }
+  else
+  {
+    <!-- UPGRADE CARDS -->
+    @foreach (var tier in _tiers.Where(t => t.Name != "Benefactor"))
+    {
+      var group = Filtered.Where(r => r.CurrentTier == tier.Name).ToList();
+      @if (group.Any())
+      {
+        <div style="margin-bottom:24px;">
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:@tier.Color;letter-spacing:.06em;margin-bottom:10px;">
+            @tier.Name → @tier.NextName upgrades (@group.Count)
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+            @foreach (var r in group.OrderBy(r => r.GapToNext))
+            {
+              var fillPct = r.NextThreshold > 0 ? (int)(r.TotalGiven / r.NextThreshold * 100m) : 0;
+              var urgency = r.GapToNext < 50 ? "var(--green)" : r.GapToNext < 150 ? "var(--amber)" : "var(--text-mid)";
+              <div class="panel" style="cursor:pointer;border-left:3px solid @urgency;"
+                   @onclick='() => Nav.NavigateTo($"/admin/donors/{r.Id}/summary")'>
+                <div class="panel-body" style="padding:12px 14px;">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                    <div>
+                      <div style="font-size:.88rem;font-weight:700;">@r.FullName</div>
+                      <div style="font-size:.72rem;color:var(--text-light);">@r.City &bull; @r.DioceseName</div>
+                    </div>
+                    <span style="font-size:.66rem;font-weight:700;background:@tier.Color;color:white;border-radius:10px;padding:2px 8px;">@r.CurrentTier</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:.76rem;margin-bottom:5px;">
+                    <span style="color:var(--text-mid);">Given: <strong><Money Amount="@r.TotalGiven" /></strong></span>
+                    <span style="color:@urgency;font-weight:700;">$@r.GapToNext to @r.NextTier</span>
+                  </div>
+                  <div class="progress-bar" style="height:8px;border-radius:4px;">
+                    <div class="progress-fill" style="width:@fillPct%;background:@urgency;"></div>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:8px;">
+                    <a href="/admin/donors/@r.Id/touchpoints" class="btn btn-sm" style="font-size:.68rem;" @onclick:stopPropagation>Log Contact</a>
+                    <a href="/admin/donors/@r.Id" class="btn btn-sm" style="font-size:.68rem;" @onclick:stopPropagation>View</a>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    }
+  }
+}
+
+@code {
+  private record TierInfo(string Name, string NextName, string Range, string Color, int Count);
+  private record UpgradeRow(int Id, string FullName, string City, string? DioceseName,
+      decimal TotalGiven, string CurrentTier, string NextTier, decimal GapToNext, decimal NextThreshold);
+
+  private bool _loading = true;
+  private int _gapThreshold = 200;
+  private string _filter = "All";
+  private List<Donor> _donors = [];
+  private List<UpgradeRow> _upgradeable = [];
+  private List<TierInfo> _tiers = [];
+
+  private IEnumerable<UpgradeRow> Filtered =>
+      _filter == "All" ? _upgradeable : _upgradeable.Where(r => r.CurrentTier == _filter);
+
+  private int NearCount(string tier) => _upgradeable.Count(r => r.CurrentTier == tier);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donors = await Api.GetDonorsAsync();
+    BuildUpgradeable();
+    _loading = false;
+  }
+
+  private void OnGapChanged(ChangeEventArgs e)
+  {
+    _gapThreshold = int.TryParse(e.Value?.ToString(), out var v) ? v : 200;
+    BuildUpgradeable();
+  }
+
+  private void BuildUpgradeable()
+  {
+    _upgradeable = _donors
+      .Where(d => d.Tier != DonorTier.Benefactor)
+      .Select(d =>
+      {
+        var (nextTier, nextThreshold) = d.Tier switch
+        {
+          DonorTier.Friend    => ("Supporter", 250m),
+          DonorTier.Supporter => ("Champion",  1000m),
+          DonorTier.Champion  => ("Benefactor", 5000m),
+          _                   => ("—", decimal.MaxValue)
+        };
+        var gap = nextThreshold - d.TotalGiven;
+        return (d, nextTier, nextThreshold, gap);
+      })
+      .Where(x => x.gap > 0 && x.gap <= _gapThreshold)
+      .Select(x => new UpgradeRow(
+          x.d.Id, x.d.FullName, x.d.City ?? "", x.d.DioceseName,
+          x.d.TotalGiven, x.d.Tier.ToString(), x.nextTier, x.gap, x.nextThreshold))
+      .OrderBy(r => r.GapToNext)
+      .ToList();
+
+    _tiers =
+    [
+      new("Friend",     "Supporter", "< $250",        "#6b7280", _donors.Count(d => d.Tier == DonorTier.Friend)),
+      new("Supporter",  "Champion",  "$250–$999",     "var(--navy)",   _donors.Count(d => d.Tier == DonorTier.Supporter)),
+      new("Champion",   "Benefactor","$1,000–$4,999", "var(--green)",  _donors.Count(d => d.Tier == DonorTier.Champion)),
+      new("Benefactor", "—",         "$5,000+",       "var(--gold)",   _donors.Count(d => d.Tier == DonorTier.Benefactor)),
+    ];
+  }
+}

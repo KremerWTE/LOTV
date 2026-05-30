@@ -1,0 +1,189 @@
+@page "/admin/inventory/forecast"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Resource Forecast — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Resource Forecast</h2><p>Projected inventory needs based on intake velocity and current stock</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory" class="btn btn-sm">← Inventory</a>
+    <a href="/admin/inventory/low-stock" class="btn btn-sm">Low Stock</a>
+    <a href="/admin/cases/intake" class="btn btn-sm">Intake Trend</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Running forecast…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-label">Inventory Items</div>
+      <div class="kpi-value" style="color:var(--navy)">@_items.Count</div>
+    </div>
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-label">Critical (&lt; 14d)</div>
+      <div class="kpi-value" style="color:var(--red)">@_rows.Count(r => r.DaysLeft is >= 0 and < 14)</div>
+      <div class="kpi-change change-down">needs reorder now</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Low (&lt; 30d)</div>
+      <div class="kpi-value" style="color:var(--amber)">@_rows.Count(r => r.DaysLeft is >= 14 and < 30)</div>
+      <div class="kpi-change">order soon</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-label">Avg Weekly Cases</div>
+      <div class="kpi-value" style="color:var(--green)">@_avgWeeklyCases</div>
+      <div class="kpi-change">12-week rolling avg</div>
+    </div>
+  </div>
+
+  <!-- PERIOD SELECTOR -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-mid);">Forecast window:</span>
+    @foreach (var d in new[] { 30, 60, 90 })
+    {
+      <button class="chip @(_forecastDays == d ? "chip-active" : "")" @onclick="() => { _forecastDays = d; BuildRows(); }">@d days</button>
+    }
+  </div>
+
+  <!-- FORECAST TABLE -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>@_forecastDays-Day Forecast</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">@_avgWeeklyCases cases/week avg &times; @((_forecastDays / 7.0).ToString("F1")) weeks</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Category</th>
+            <th style="text-align:right;">On Hand</th>
+            <th style="text-align:right;">Reserved</th>
+            <th style="text-align:right;">Available</th>
+            <th style="text-align:right;">Needed (@_forecastDays d)</th>
+            <th style="text-align:right;">Surplus / Gap</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var r in _rows.OrderBy(r => r.DaysLeft ?? int.MaxValue))
+          {
+            var surplus = r.Available - r.ForecastNeed;
+            var statusColor = r.DaysLeft < 14 ? "var(--red)" : r.DaysLeft < 30 ? "var(--amber)" : "var(--green)";
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/inventory/{r.Id}")'>
+              <td style="font-weight:600;">@r.Name</td>
+              <td style="font-size:.76rem;color:var(--text-mid);">@r.Category</td>
+              <td style="text-align:right;">@r.OnHand</td>
+              <td style="text-align:right;color:var(--amber);">@r.Reserved</td>
+              <td style="text-align:right;font-weight:700;">@r.Available</td>
+              <td style="text-align:right;color:var(--navy);">@r.ForecastNeed</td>
+              <td style="text-align:right;font-weight:700;color:@(surplus >= 0 ? "var(--green)" : "var(--red)");">
+                @(surplus >= 0 ? $"+{surplus}" : surplus.ToString())
+              </td>
+              <td>
+                @if (r.DaysLeft is null)
+                {
+                  <span class="badge badge-fulfilled" style="font-size:.62rem;">Sufficient</span>
+                }
+                else if (r.DaysLeft < 14)
+                {
+                  <span class="badge badge-overdue" style="font-size:.62rem;">Critical</span>
+                }
+                else if (r.DaysLeft < 30)
+                {
+                  <span class="badge badge-onhold" style="font-size:.62rem;">Low</span>
+                }
+                else
+                {
+                  <span class="badge badge-inprogress" style="font-size:.62rem;">Watch</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CRITICAL ITEMS -->
+  @if (_rows.Any(r => r.DaysLeft is >= 0 and < 14))
+  {
+    <div class="panel" style="border:2px solid var(--red);">
+      <div class="panel-head" style="background:#fee2e2;">
+        <h3 style="color:var(--red);">&#128683; Critical — Reorder Immediately</h3>
+      </div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+        @foreach (var r in _rows.Where(r => r.DaysLeft is >= 0 and < 14).OrderBy(r => r.DaysLeft))
+        {
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border-radius:8px;border-left:3px solid var(--red);">
+            <div>
+              <div style="font-weight:700;font-size:.88rem;">@r.Name</div>
+              <div style="font-size:.74rem;color:var(--text-mid);">@r.Available available &bull; @r.ForecastNeed needed</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:.82rem;font-weight:700;color:var(--red);">~@r.DaysLeft days left</div>
+              <a href="/admin/inventory/@r.Id" class="btn btn-sm" style="font-size:.7rem;margin-top:4px;">Order &rarr;</a>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private record ForecastRow(int Id, string Name, string Category, int OnHand, int Reserved, int Available, int ForecastNeed, int? DaysLeft);
+
+  private bool _loading = true;
+  private int _forecastDays = 30;
+  private int _avgWeeklyCases;
+  private List<ResourceItem> _items = [];
+  private List<PackageRequest> _cases = [];
+  private List<ForecastRow> _rows = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var itemsTask = Api.GetInventoryAsync();
+    var casesTask = Api.GetRequestsAsync();
+    await Task.WhenAll(itemsTask, casesTask);
+    _items = await itemsTask;
+    _cases = await casesTask;
+
+    var last12Weeks = _cases.Count(c => c.CreatedAt >= DateTime.UtcNow.AddDays(-84));
+    _avgWeeklyCases = last12Weeks / 12;
+
+    BuildRows();
+    _loading = false;
+  }
+
+  private void BuildRows()
+  {
+    var weeksInWindow = _forecastDays / 7.0;
+    // Assume each case uses ~1 unit of each item type (simplified model)
+    var forecastCases = (int)(_avgWeeklyCases * weeksInWindow);
+
+    _rows = _items.Select(item =>
+    {
+      var avail   = item.QuantityAvailable;
+      var needed  = forecastCases; // 1 per case — production: weight by case type
+      int? daysLeft = _avgWeeklyCases > 0 && avail >= 0
+          ? (int)(avail / (_avgWeeklyCases / 7.0))
+          : (int?)null;
+      if (daysLeft > 365) daysLeft = null; // "sufficient" if > a year
+      return new ForecastRow(item.Id, item.Name, item.Category.ToString(), item.QuantityOnHand,
+          item.QuantityReserved, avail, needed, daysLeft);
+    }).ToList();
+  }
+}

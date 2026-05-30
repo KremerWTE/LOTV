@@ -1,0 +1,220 @@
+@page "/admin/cases/escalations"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Cases at Risk — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Cases at Risk</h2><p>Overdue, unassigned, stalled, and urgent cases requiring attention</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+    <a href="/admin/cases/overdue" class="btn btn-sm">Overdue</a>
+    <a href="/admin/queue" class="btn btn-sm">Unassigned Queue</a>
+    <a href="/admin/cases/heat-map" class="btn btn-sm">Heat Map</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Scanning for at-risk cases…" />
+}
+else
+{
+  <!-- RISK KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" style="color:var(--red)">@_overdue.Count</div>
+      <div class="kpi-change change-down">past due date</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128282;</div>
+      <div class="kpi-label">Unassigned</div>
+      <div class="kpi-value" style="color:var(--amber)">@_unassigned.Count</div>
+      <div class="kpi-change change-down">no volunteer yet</div>
+    </div>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#128308;</div>
+      <div class="kpi-label">Urgent Open</div>
+      <div class="kpi-value" style="color:var(--blush)">@_urgentOpen.Count</div>
+      <div class="kpi-change">highest priority</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128336;</div>
+      <div class="kpi-label">Stalled (&gt; 14d)</div>
+      <div class="kpi-value" style="color:var(--navy)">@_stalled.Count</div>
+      <div class="kpi-change">no update in 14+ days</div>
+    </div>
+  </div>
+
+  <!-- RISK TABS -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    @foreach (var tab in new[] { "Overdue", "Unassigned", "Urgent", "Stalled", "On Hold" })
+    {
+      var cnt = tab switch
+      {
+        "Overdue"    => _overdue.Count,
+        "Unassigned" => _unassigned.Count,
+        "Urgent"     => _urgentOpen.Count,
+        "Stalled"    => _stalled.Count,
+        "On Hold"    => _onHold.Count,
+        _            => 0
+      };
+      <button class="chip @(_tab == tab ? "chip-active" : "")" @onclick="() => _tab = tab">
+        @tab (@cnt)
+      </button>
+    }
+  </div>
+
+  <!-- ACTIVE PANEL -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>@_tab Cases (@ActiveList.Count)</h3>
+      @if (_tab == "Overdue")
+      {
+        <span style="font-size:.78rem;color:var(--red);">These families have been waiting — act today.</span>
+      }
+      else if (_tab == "Unassigned")
+      {
+        <a href="/admin/queue" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Open Queue &rarr;</a>
+      }
+    </div>
+    <div class="panel-body" style="padding:0;">
+      @if (!ActiveList.Any())
+      {
+        <div style="padding:40px;text-align:center;color:var(--text-light);">No @_tab.ToLower() cases. ✅</div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Family</th>
+              <th>Reason</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Assigned To</th>
+              <th>@RiskColumnLabel</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var c in ActiveList.Take(50))
+            {
+              var riskVal = _tab switch
+              {
+                "Overdue"  => $"{(int)(DateTime.UtcNow - (c.DueDate ?? c.CreatedAt)).TotalDays}d overdue",
+                "Stalled"  => $"{(int)(DateTime.UtcNow - c.UpdatedAt).TotalDays}d no update",
+                "Unassigned"=> $"{(int)(DateTime.UtcNow - c.CreatedAt).TotalDays}d waiting",
+                "On Hold"  => $"Since {c.UpdatedAt:MMM d}",
+                _          => c.Priority.ToString()
+              };
+              var riskColor = _tab == "Overdue" ? "var(--red)" : _tab == "Urgent" ? "var(--blush)" : "var(--amber)";
+              <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/cases/{c.Id}")'>
+                <td>
+                  <strong>@c.Family?.FullName</strong>
+                  @if (c.IsOverdue && _tab != "Overdue") { <span class="badge badge-overdue" style="margin-left:4px;font-size:.58rem;">OD</span> }
+                </td>
+                <td style="font-size:.76rem;color:var(--text-mid);">@c.Reason.ToDisplayName()</td>
+                <td><span class="badge @PriBadge(c.Priority)" style="font-size:.62rem;">@c.Priority</span></td>
+                <td><span class="badge @StatusBadge(c.Status)" style="font-size:.62rem;">@c.Status</span></td>
+                <td style="font-size:.76rem;color:var(--text-mid);">@(c.AssignedTo ?? "—")</td>
+                <td style="font-weight:700;color:@riskColor;font-size:.78rem;">@riskVal</td>
+                <td>
+                  @if (_tab == "Unassigned")
+                  {
+                    <a href="/admin/cases/@c.Id/assign" class="btn btn-sm" style="font-size:.68rem;" @onclick:stopPropagation>Assign</a>
+                  }
+                  else
+                  {
+                    <a href="/admin/cases/@c.Id" class="btn btn-sm" style="font-size:.68rem;" @onclick:stopPropagation>Review</a>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (ActiveList.Count > 50)
+        {
+          <div style="padding:10px 18px;font-size:.78rem;color:var(--text-light);">
+            Showing 50 of @ActiveList.Count
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private bool _loading = true;
+  private string _tab = "Overdue";
+  private List<PackageRequest> _overdue = [];
+  private List<PackageRequest> _unassigned = [];
+  private List<PackageRequest> _urgentOpen = [];
+  private List<PackageRequest> _stalled = [];
+  private List<PackageRequest> _onHold = [];
+
+  private List<PackageRequest> ActiveList => _tab switch
+  {
+    "Overdue"    => _overdue,
+    "Unassigned" => _unassigned,
+    "Urgent"     => _urgentOpen,
+    "Stalled"    => _stalled,
+    "On Hold"    => _onHold,
+    _            => []
+  };
+
+  private string RiskColumnLabel => _tab switch
+  {
+    "Overdue"    => "Days Overdue",
+    "Stalled"    => "Days Since Update",
+    "Unassigned" => "Days Waiting",
+    _            => "Detail"
+  };
+
+  protected override async Task OnInitializedAsync()
+  {
+    var all = await Api.GetRequestsAsync();
+    var now = DateTime.UtcNow;
+    var openStatuses = new[] { CaseStatus.New, CaseStatus.InProgress, CaseStatus.AwaitingShipment, CaseStatus.Shipped, CaseStatus.OnHold };
+
+    _overdue   = all.Where(c => c.IsOverdue && openStatuses.Contains(c.Status))
+                    .OrderByDescending(c => (now - (c.DueDate ?? c.CreatedAt)).TotalDays).ToList();
+
+    _unassigned= all.Where(c => c.Status == CaseStatus.New && c.AssignedToId is null)
+                    .OrderBy(c => c.CreatedAt).ToList();
+
+    _urgentOpen= all.Where(c => c.Priority == RequestPriority.Urgent && openStatuses.Contains(c.Status))
+                    .OrderBy(c => c.DueDate ?? DateTime.MaxValue).ToList();
+
+    _stalled   = all.Where(c => openStatuses.Contains(c.Status)
+                              && c.Status != CaseStatus.OnHold
+                              && (now - c.UpdatedAt).TotalDays > 14)
+                    .OrderByDescending(c => (now - c.UpdatedAt).TotalDays).ToList();
+
+    _onHold    = all.Where(c => c.Status == CaseStatus.OnHold)
+                    .OrderBy(c => c.UpdatedAt).ToList();
+
+    _loading = false;
+  }
+
+  private static string PriBadge(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "badge-overdue",
+    RequestPriority.High   => "badge-onhold",
+    _                      => "badge-new"
+  };
+
+  private static string StatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.New              => "badge-new",
+    CaseStatus.InProgress       => "badge-inprogress",
+    CaseStatus.AwaitingShipment => "badge-inprogress",
+    CaseStatus.Shipped          => "badge-shipped",
+    CaseStatus.OnHold           => "badge-onhold",
+    _                           => ""
+  };
+}

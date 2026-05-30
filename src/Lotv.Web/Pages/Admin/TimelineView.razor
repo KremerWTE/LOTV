@@ -1,94 +1,167 @@
 @page "/admin/timeline"
 @layout AdminLayout
 @inject ApiService Api
+@using Lotv.Core.Models
 
 <PageTitle>Ministry Timeline — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
-  <div><h2>Ministry Timeline</h2><p>Periodic activity summary across the ministry</p></div>
+  <div><h2>Ministry Timeline</h2><p>Monthly donations, case intake, and fulfillment — last 12 months</p></div>
   <div class="page-hd-actions">
     <a href="/admin/dashboard" class="btn btn-sm">← Dashboard</a>
     <a href="/admin/impact" class="btn btn-sm">Impact Dashboard</a>
     <a href="/admin/money-flow" class="btn btn-sm">Money Flow</a>
+    <a href="/admin/cases/intake" class="btn btn-sm">Intake Trend</a>
   </div>
 </div>
 
 @if (_loading)
 {
-  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+  <Loading Message="Loading timeline…" />
 }
 else if (!_points.Any())
 {
-  <div class="panel">
-    <div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No timeline data available.</div>
-  </div>
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">No timeline data available.</div></div>
 }
 else
 {
   var totalDonations = _points.Sum(p => p.Donations);
   var totalFulfilled = _points.Sum(p => p.RequestsFulfilled);
   var totalNew       = _points.Sum(p => p.NewRequests);
-  var maxDonations   = _points.Max(p => p.Donations);
+  var bestMonth      = _points.MaxBy(p => p.Donations);
+  var lastP          = _points.Last();
+  var prevP          = _points.Count > 1 ? _points[^2] : null;
+  var donGrowth      = prevP is not null && prevP.Donations > 0
+                         ? (int)((lastP.Donations - prevP.Donations) / prevP.Donations * 100)
+                         : 0;
 
+  <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
-    <div class="kpi-card kpi-green">
+    <a class="kpi-card kpi-green" href="/admin/donations" style="text-decoration:none;cursor:pointer;">
       <div class="kpi-icon">&#128176;</div>
       <div class="kpi-label">Total Donations</div>
-      <div class="kpi-value" style="color:var(--green)">@totalDonations.ToString("C0")</div>
-    </div>
-    <div class="kpi-card kpi-navy">
+      <div class="kpi-value" style="color:var(--green)"><Money Amount="@totalDonations" /></div>
+      <div class="kpi-change @(donGrowth >= 0 ? "change-up" : "change-down")">
+        @(donGrowth >= 0 ? $"▲ {donGrowth}%" : $"▼ {Math.Abs(donGrowth)}%") last month
+      </div>
+    </a>
+    <a class="kpi-card kpi-navy" href="/admin/cases" style="text-decoration:none;cursor:pointer;">
       <div class="kpi-icon">&#9989;</div>
       <div class="kpi-label">Cases Fulfilled</div>
       <div class="kpi-value" style="color:var(--navy)">@totalFulfilled</div>
-    </div>
-    <div class="kpi-card kpi-amber">
+      <div class="kpi-change">avg @((_points.Count > 0 ? totalFulfilled / _points.Count : 0))/mo</div>
+    </a>
+    <a class="kpi-card kpi-amber" href="/admin/cases/intake" style="text-decoration:none;cursor:pointer;">
       <div class="kpi-icon">&#128203;</div>
-      <div class="kpi-label">New Requests</div>
+      <div class="kpi-label">New Cases</div>
       <div class="kpi-value" style="color:var(--amber)">@totalNew</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-icon">&#128197;</div>
-      <div class="kpi-label">Periods</div>
-      <div class="kpi-value" style="color:var(--navy)">@_points.Count</div>
+      <div class="kpi-change">avg @((_points.Count > 0 ? totalNew / _points.Count : 0))/mo</div>
+    </a>
+    <div class="kpi-card kpi-blush">
+      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-label">Best Month</div>
+      <div class="kpi-value" style="font-size:1rem;color:var(--blush)">@(bestMonth?.Period.Split(' ')[0] ?? "—")</div>
+      <div class="kpi-change"><Money Amount="@(bestMonth?.Donations ?? 0)" /></div>
     </div>
   </div>
 
+  <!-- DUAL CHART ROW -->
+  <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;margin-bottom:20px;">
+
+    <!-- DONATION LINE CHART -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Donation Trend</h3>
+        <span style="font-size:.78rem;color:var(--text-light);">Monthly giving — last @_points.Count months</span>
+      </div>
+      <div class="panel-body">
+        <LineChart Items="_points"
+                   LabelFunc="p => p.Period.Split(' ')[0]"
+                   ValueFunc="p => (double)p.Donations"
+                   Color="var(--green)"
+                   Height="160"
+                   ShowArea="true"
+                   ShowDots="true" />
+      </div>
+    </div>
+
+    <!-- FULFILLED VS NEW BAR CHART -->
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Cases — New vs. Fulfilled</h3>
+      </div>
+      <div class="panel-body">
+        @{
+          var maxCases = Math.Max(_points.Max(p => Math.Max(p.NewRequests, p.RequestsFulfilled)), 1);
+        }
+        <div style="display:flex;align-items:flex-end;gap:3px;height:140px;margin-bottom:6px;">
+          @foreach (var p in _points)
+          {
+            var hNew = (int)(p.NewRequests * 130.0 / maxCases);
+            var hFul = (int)(p.RequestsFulfilled * 130.0 / maxCases);
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px;">
+              <div style="width:45%;background:var(--amber);border-radius:2px 2px 0 0;height:@(Math.Max(hNew,1))px;display:inline-block;" title="New: @p.NewRequests"></div>
+              <div style="width:45%;background:var(--navy);border-radius:2px 2px 0 0;height:@(Math.Max(hFul,1))px;display:inline-block;" title="Fulfilled: @p.RequestsFulfilled"></div>
+            </div>
+          }
+        </div>
+        <div style="display:flex;gap:3px;margin-bottom:8px;">
+          @foreach (var p in _points)
+          {
+            <div style="flex:1;text-align:center;font-size:.5rem;color:var(--text-light);">@p.Period.Split(' ')[0]</div>
+          }
+        </div>
+        <div style="display:flex;gap:14px;font-size:.72rem;">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:var(--amber);border-radius:2px;display:inline-block;"></span>New</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:var(--navy);border-radius:2px;display:inline-block;"></span>Fulfilled</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FULL DATA TABLE -->
   <div class="panel">
-    <div class="panel-head"><h3>Activity by Period</h3></div>
+    <div class="panel-head"><h3>Monthly Detail</h3></div>
     <div class="panel-body" style="padding:0;">
-      <table style="width:100%;border-collapse:collapse;">
+      <table class="data-table">
         <thead>
-          <tr style="background:var(--bg);">
-            <th style="padding:12px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Period</th>
-            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Donations</th>
-            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">New Requests</th>
-            <th style="padding:12px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Fulfilled</th>
-            <th style="padding:12px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Giving Trend</th>
+          <tr>
+            <th>Period</th>
+            <th style="text-align:right;">Donations</th>
+            <th style="text-align:right;">New Cases</th>
+            <th style="text-align:right;">Fulfilled</th>
+            <th style="text-align:right;">Net Cases</th>
+            <th>Giving Bar</th>
           </tr>
         </thead>
         <tbody>
-          @foreach (var p in _points)
+          @{ var maxD = _points.Max(p => p.Donations); }
+          @foreach (var p in _points.OrderByDescending(p => p.Period))
           {
-            var barPct = maxDonations > 0 ? p.Donations / maxDonations * 100m : 0m;
-            <tr style="border-top:1px solid var(--border);">
-              <td style="padding:12px 16px;font-size:.84rem;font-weight:600;">@p.Period</td>
-              <td style="padding:12px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@p.Donations.ToString("C0")</td>
-              <td style="padding:12px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@p.NewRequests</td>
-              <td style="padding:12px 16px;font-size:.82rem;text-align:right;color:var(--navy);">@p.RequestsFulfilled</td>
-              <td style="padding:12px 16px;min-width:160px;">
-                <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
-                  <div style="background:var(--green);height:8px;width:@barPct.ToString("F1")%;"></div>
+            var barPct = maxD > 0 ? (int)(p.Donations / maxD * 100m) : 0;
+            var net    = p.RequestsFulfilled - p.NewRequests;
+            <tr>
+              <td style="font-weight:600;">@p.Period</td>
+              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@p.Donations" /></td>
+              <td style="text-align:right;color:var(--amber);">@p.NewRequests</td>
+              <td style="text-align:right;color:var(--navy);">@p.RequestsFulfilled</td>
+              <td style="text-align:right;font-size:.78rem;color:@(net >= 0 ? "var(--green)" : "var(--red)");">@(net >= 0 ? $"+{net}" : net.ToString())</td>
+              <td style="min-width:120px;">
+                <div class="progress-bar" style="height:6px;">
+                  <div class="progress-fill" style="width:@barPct%;"></div>
                 </div>
               </td>
             </tr>
           }
         </tbody>
         <tfoot>
-          <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
-            <td style="padding:12px 16px;font-size:.84rem;">Total</td>
-            <td style="padding:12px 16px;font-size:.92rem;text-align:right;color:var(--green);">@totalDonations.ToString("C0")</td>
-            <td style="padding:12px 16px;font-size:.84rem;text-align:right;color:var(--text-light);">@totalNew</td>
-            <td style="padding:12px 16px;font-size:.84rem;text-align:right;color:var(--navy);">@totalFulfilled</td>
+          <tr style="font-weight:700;background:var(--bg);">
+            <td>Total</td>
+            <td style="text-align:right;color:var(--green);"><Money Amount="@totalDonations" /></td>
+            <td style="text-align:right;color:var(--amber);">@totalNew</td>
+            <td style="text-align:right;color:var(--navy);">@totalFulfilled</td>
+            <td style="text-align:right;">@(totalFulfilled - totalNew >= 0 ? $"+{totalFulfilled - totalNew}" : (totalFulfilled - totalNew).ToString())</td>
             <td></td>
           </tr>
         </tfoot>
