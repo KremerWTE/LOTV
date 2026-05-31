@@ -1,0 +1,186 @@
+@page "/admin/volunteers/match-overview"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+@using Lotv.Core.Reporting
+
+<PageTitle>Volunteer Match Overview — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Volunteer Match Overview</h2><p>Unassigned cases with top-scored volunteer candidates — assign in one click</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/queue" class="btn btn-sm">← Unassigned Queue</a>
+    <a href="/admin/volunteers/availability" class="btn btn-sm">Availability</a>
+    <a href="/admin/workload" class="btn btn-sm">Workload</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Scoring candidates…" />
+}
+else if (!_unassigned.Any())
+{
+  <div class="panel" style="border-left:4px solid var(--green);">
+    <div class="panel-body" style="padding:32px;text-align:center;color:var(--green);font-weight:600;">
+      ✅ No unassigned cases right now. Great work!
+    </div>
+  </div>
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon">&#128282;</div>
+      <div class="kpi-label">Unassigned Cases</div>
+      <div class="kpi-value" style="color:var(--amber)">@_unassigned.Count</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">&#129309;</div>
+      <div class="kpi-label">Available Volunteers</div>
+      <div class="kpi-value" style="color:var(--green)">@_availableCount</div>
+      <div class="kpi-change">open capacity</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-label">With Good Match</div>
+      <div class="kpi-value" style="color:var(--navy)">@_withGoodMatch</div>
+      <div class="kpi-change">≥ 70% composite score</div>
+    </div>
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-label">Overdue Unassigned</div>
+      <div class="kpi-value" style="color:var(--red)">@_unassigned.Count(c => c.IsOverdue)</div>
+      <div class="kpi-change change-down">assign immediately</div>
+    </div>
+  </div>
+
+  <!-- ASSIGNMENT CONFIRMATION TOAST -->
+  @if (_assignedMsg is not null)
+  {
+    <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--green);font-weight:600;">✓ @_assignedMsg</div>
+    </div>
+  }
+  @if (_errorMsg is not null)
+  {
+    <div class="panel" style="border-left:4px solid var(--red);margin-bottom:16px;">
+      <div class="panel-body" style="color:var(--red);">⚠️ @_errorMsg</div>
+    </div>
+  }
+
+  <!-- MATCH CARDS -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    @foreach (var item in _items.OrderByDescending(i => i.Case.IsOverdue).ThenBy(i => i.Case.CreatedAt))
+    {
+      var c = item.Case;
+      <div class="panel" style="border-left:4px solid @(c.IsOverdue ? "var(--red)" : "var(--amber)");">
+        <div class="panel-head" style="background:@(c.IsOverdue ? "#fff1f2" : "");">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
+            @if (c.IsOverdue) { <span class="badge badge-overdue" style="font-size:.62rem;">OVERDUE</span> }
+            <h3 style="margin:0;">Case #@c.Id — @(c.Family?.FullName ?? $"Family #{c.FamilyId}")</h3>
+            <span style="font-size:.78rem;color:var(--text-light);">@c.Reason.ToDisplayName() &bull; @c.Priority &bull; @((int)(DateTime.UtcNow - c.CreatedAt).TotalDays)d open</span>
+          </div>
+          <a href="/admin/cases/@c.Id" class="btn btn-sm" style="font-size:.72rem;" @onclick:stopPropagation>View Case</a>
+        </div>
+        <div class="panel-body">
+          @if (!item.Candidates.Any())
+          {
+            <div style="text-align:center;color:var(--text-light);padding:16px;font-size:.84rem;">
+              No scored candidates available. <a href="/admin/cases/@c.Id/assign" style="color:var(--green);">Assign manually &rarr;</a>
+            </div>
+          }
+          else
+          {
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              @foreach (var cand in item.Candidates.Take(3))
+              {
+                var scoreColor = cand.CompositeScore >= 0.7 ? "var(--green)" : cand.CompositeScore >= 0.4 ? "var(--amber)" : "var(--red)";
+                var scorePct   = (int)(cand.CompositeScore * 100);
+                <div style="flex:1;min-width:160px;border:1px solid var(--border);border-radius:10px;padding:12px 14px;@(cand.Recommended ? "border-color:var(--green);background:#f0fdf4;" : "")">
+                  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;">
+                    <div>
+                      <div style="font-size:.84rem;font-weight:700;">@cand.Name</div>
+                      @if (cand.Recommended)
+                      { <span class="badge badge-fulfilled" style="font-size:.58rem;">Best Match</span> }
+                    </div>
+                    <div style="font-size:1rem;font-weight:800;color:@scoreColor;">@scorePct%</div>
+                  </div>
+                  <div class="progress-bar" style="height:5px;margin-bottom:8px;">
+                    <div class="progress-fill" style="width:@scorePct%;background:@scoreColor;"></div>
+                  </div>
+                  <div style="font-size:.68rem;color:var(--text-light);margin-bottom:8px;">
+                    @cand.DistanceMiles.ToString("F1") mi &bull; load @(_workload.FirstOrDefault(w => w.FullName == cand.Name)?.ActiveCases ?? 0)
+                  </div>
+                  <button class="btn btn-sm btn-primary" style="width:100%;font-size:.72rem;"
+                          @onclick="() => Assign(c.Id, cand.VolunteerId, cand.Name)"
+                          disabled="@(_busy == c.Id)">
+                    @(_busy == c.Id && _assigningVol == cand.VolunteerId ? "Assigning…" : "Assign")
+                  </button>
+                </div>
+              }
+              <div style="display:flex;align-items:center;">
+                <a href="/admin/cases/@c.Id/candidates" class="btn btn-sm" style="font-size:.72rem;white-space:nowrap;">All Candidates &rarr;</a>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}
+
+@code {
+  private record MatchItem(PackageRequest Case, List<VolunteerScoreResult> Candidates);
+
+  private bool _loading = true;
+  private int _busy, _assigningVol, _availableCount, _withGoodMatch;
+  private string? _assignedMsg, _errorMsg;
+  private List<PackageRequest> _unassigned = [];
+  private List<MatchItem> _items = [];
+  private List<WorkloadRowDto> _workload = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var casesTask = Api.GetRequestQueueAsync();
+    var wlTask    = Api.GetWorkloadAsync();
+    var volsTask  = Api.GetVolunteersAsync();
+    await Task.WhenAll(casesTask, wlTask, volsTask);
+
+    _unassigned = await casesTask;
+    _workload   = await wlTask;
+    var vols    = await volsTask;
+    _availableCount = vols.Count(v => v.Status == VolunteerStatus.Active && v.ActiveCases < 5);
+
+    // Load candidates for each (cap at 10 cases to avoid too many API calls)
+    var toProcess = _unassigned.OrderByDescending(c => c.IsOverdue).ThenBy(c => c.CreatedAt).Take(10).ToList();
+    var itemList  = new List<MatchItem>();
+    foreach (var c in toProcess)
+    {
+      var cands = await Api.GetVolunteerCandidatesAsync(c.Id);
+      itemList.Add(new MatchItem(c, cands));
+    }
+    _items          = itemList;
+    _withGoodMatch  = _items.Count(i => i.Candidates.Any(c => c.CompositeScore >= 0.7));
+    _loading = false;
+  }
+
+  private async Task Assign(int caseId, int volunteerId, string volunteerName)
+  {
+    _busy = caseId; _assigningVol = volunteerId; _assignedMsg = null; _errorMsg = null;
+    var ok = await Api.AssignRequestAsync(caseId, volunteerId);
+    _busy = 0;
+    if (ok)
+    {
+      _assignedMsg = $"Case #{caseId} assigned to {volunteerName}.";
+      _items  = _items.Where(i => i.Case.Id != caseId).ToList();
+      _unassigned = _unassigned.Where(c => c.Id != caseId).ToList();
+    }
+    else
+    {
+      _errorMsg = $"Failed to assign case #{caseId}. Please try again.";
+    }
+  }
+}

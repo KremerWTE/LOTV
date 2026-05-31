@@ -1,0 +1,213 @@
+@page "/admin/donors/rfv"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Donor RFV — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor RFV Analysis</h2><p>Recency · Frequency · Value — identify your best donors and who needs attention</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors" class="btn btn-sm">← Donors</a>
+    <a href="/admin/donors/segments" class="btn btn-sm">Segments</a>
+    <a href="/admin/donors/upgrade-path" class="btn btn-sm">Upgrade Path</a>
+    <a href="/admin/donors/retention" class="btn btn-sm">Retention</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Scoring donors…" />
+}
+else
+{
+  <!-- SEGMENT KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    @foreach (var seg in _segments)
+    {
+      <div class="kpi-card" style="border-top:3px solid @seg.Color;cursor:pointer;" @onclick="() => _filter = seg.Key">
+        <div style="font-size:1.2rem;">@seg.Icon</div>
+        <div class="kpi-label">@seg.Name</div>
+        <div class="kpi-value" style="color:@seg.Color">@seg.Count</div>
+        <div class="kpi-change" style="font-size:.66rem;">@seg.Description</div>
+      </div>
+    }
+  </div>
+
+  <!-- SEGMENT FILTER -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    <button class="chip @(_filter == "All" ? "chip-active" : "")" @onclick='() => _filter = "All"'>All (@_scored.Count)</button>
+    @foreach (var seg in _segments)
+    {
+      <button class="chip @(_filter == seg.Key ? "chip-active" : "")" @onclick="() => _filter = seg.Key">
+        @seg.Icon @seg.Name (@seg.Count)
+      </button>
+    }
+  </div>
+
+  <!-- SCORE EXPLANATION -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>How RFV Scores Work</h3></div>
+    <div class="panel-body" style="display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--navy);margin-bottom:4px;">R — Recency</div>
+        <div style="font-size:.78rem;color:var(--text-mid);">Days since last gift. 5 = gave in last 30d. 1 = over 2 years ago.</div>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:4px;">F — Frequency</div>
+        <div style="font-size:.78rem;color:var(--text-mid);">Number of gifts. 5 = 10+ gifts. 1 = only 1 gift.</div>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--gold);margin-bottom:4px;">V — Value</div>
+        <div style="font-size:.78rem;color:var(--text-mid);">Total lifetime giving. 5 = $5,000+. 1 = under $25.</div>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--blush);margin-bottom:4px;">Composite</div>
+        <div style="font-size:.78rem;color:var(--text-mid);">Weighted average (R×0.4 + F×0.3 + V×0.3). Max 5.0.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DONOR TABLE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>@(ActiveSegment?.Name ?? "All Donors") (@Filtered.Count())</h3>
+      <input type="search" class="form-input" placeholder="Search name…"
+             style="width:180px;font-size:.82rem;padding:5px 10px;"
+             @bind="_search" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Donor</th>
+            <th style="text-align:center;">R</th>
+            <th style="text-align:center;">F</th>
+            <th style="text-align:center;">V</th>
+            <th style="text-align:center;">Score</th>
+            <th>Segment</th>
+            <th style="text-align:right;">Total Given</th>
+            <th style="text-align:right;">Gifts</th>
+            <th>Last Gift</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var d in Filtered.Take(100))
+          {
+            var seg = GetSegment(d);
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/donors/{d.DonorId}/summary")'>
+              <td style="font-weight:600;">@d.Name</td>
+              <td style="text-align:center;">@ScorePip(d.R)</td>
+              <td style="text-align:center;">@ScorePip(d.F)</td>
+              <td style="text-align:center;">@ScorePip(d.V)</td>
+              <td style="text-align:center;font-weight:700;font-size:.88rem;color:@(d.Composite >= 4 ? "var(--green)" : d.Composite >= 2.5 ? "var(--amber)" : "var(--red)");">
+                @d.Composite.ToString("F1")
+              </td>
+              <td>
+                <span style="font-size:.64rem;font-weight:700;padding:2px 8px;border-radius:10px;background:@seg.Color;color:white;">
+                  @seg.Icon @seg.Name
+                </span>
+              </td>
+              <td style="text-align:right;color:var(--green);font-weight:600;"><Money Amount="@d.TotalGiven" /></td>
+              <td style="text-align:right;color:var(--text-mid);">@d.GiftCount</td>
+              <td style="font-size:.74rem;color:var(--text-light);">@d.LastGift.ToString("MMM d, yyyy")</td>
+              <td><a href="/admin/donors/@d.DonorId/touchpoints" style="font-size:.7rem;color:var(--green);" @onclick:stopPropagation>Contact</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Filtered.Count() > 100)
+      {
+        <div style="padding:10px 18px;font-size:.78rem;color:var(--text-light);">Showing 100 of @Filtered.Count()</div>
+      }
+    </div>
+  </div>
+}
+
+@* Inline pip component *@
+@code {
+  private RenderFragment<int> ScorePip => val => __builder =>
+  {
+    var color = val >= 4 ? "#16a34a" : val >= 3 ? "#d97706" : val >= 2 ? "#f59e0b" : "#dc2626";
+    __builder.OpenElement(0, "span");
+    __builder.AddAttribute(1, "style", $"display:inline-flex;gap:2px;");
+    for (int i = 1; i <= 5; i++)
+    {
+      __builder.OpenElement(2, "span");
+      __builder.AddAttribute(3, "style", $"width:8px;height:8px;border-radius:50%;background:{(i <= val ? color : "#e5e7eb")};");
+      __builder.CloseElement();
+    }
+    __builder.CloseElement();
+  };
+}
+
+@code {
+  private record RFVRow(int DonorId, string Name, int R, int F, int V, double Composite,
+      decimal TotalGiven, int GiftCount, DateTime LastGift);
+  private record Segment(string Key, string Name, string Icon, string Color, string Description,
+      int Count, Func<RFVRow, bool> Match);
+
+  private bool _loading = true;
+  private string _filter = "All";
+  private string _search = "";
+  private List<RFVRow> _scored = [];
+  private List<Segment> _segments = [];
+
+  private Segment? ActiveSegment => _segments.FirstOrDefault(s => s.Key == _filter);
+
+  private IEnumerable<RFVRow> Filtered
+  {
+    get
+    {
+      var q = _filter == "All" ? _scored : _scored.Where(d => GetSegment(d).Key == _filter);
+      if (!string.IsNullOrWhiteSpace(_search))
+        q = q.Where(d => d.Name.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return q.OrderByDescending(d => d.Composite);
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donorsTask = Api.GetDonorsAsync();
+    var donaTask   = Api.GetDonationsAsync();
+    await Task.WhenAll(donorsTask, donaTask);
+    var donors    = await donorsTask;
+    var donations = await donaTask;
+    var now       = DateTime.UtcNow;
+
+    _scored = donors.Select(d =>
+    {
+      var myDons   = donations.Where(dn => dn.DonorId == d.Id).ToList();
+      var lastGift = myDons.Any() ? myDons.Max(dn => dn.Date) : d.FirstGiftDate;
+      var daysSince= (now - lastGift).TotalDays;
+
+      int r = daysSince <= 30  ? 5 : daysSince <= 90  ? 4 : daysSince <= 180 ? 3 : daysSince <= 365*2 ? 2 : 1;
+      int f = d.GiftCount >= 10 ? 5 : d.GiftCount >= 5 ? 4 : d.GiftCount >= 3 ? 3 : d.GiftCount >= 2 ? 2 : 1;
+      int v = d.TotalGiven >= 5000 ? 5 : d.TotalGiven >= 1000 ? 4 : d.TotalGiven >= 250 ? 3 : d.TotalGiven >= 50 ? 2 : 1;
+      var composite = r * 0.4 + f * 0.3 + v * 0.3;
+
+      return new RFVRow(d.Id, d.IsAnonymous ? "Anonymous" : d.FullName, r, f, v, Math.Round(composite, 2),
+          d.TotalGiven, d.GiftCount, lastGift);
+    }).ToList();
+
+    _segments =
+    [
+      new("champions",  "Champions",   "🏆", "#16a34a", "High R+F+V — top donors",    _scored.Count(d => d.R >= 4 && d.F >= 4 && d.V >= 4), d => d.R >= 4 && d.F >= 4 && d.V >= 4),
+      new("loyal",      "Loyal",       "💚", "#2d469d", "High F, gave recently",      _scored.Count(d => d.F >= 4 && d.R >= 3 && d.V < 4),   d => d.F >= 4 && d.R >= 3 && d.V < 4),
+      new("promising",  "Promising",   "⭐", "#d97706", "Recent, haven't given much", _scored.Count(d => d.R >= 4 && d.F <= 2),             d => d.R >= 4 && d.F <= 2),
+      new("atrisk",     "At Risk",     "⚠️", "#f59e0b", "Used to give, not recently", _scored.Count(d => d.R <= 2 && d.F >= 3),             d => d.R <= 2 && d.F >= 3),
+      new("lost",       "Lost",        "💤", "#dc2626", "Low R, F, V — minimal engagement", _scored.Count(d => d.Composite < 2.0),          d => d.Composite < 2.0),
+    ];
+
+    _loading = false;
+  }
+
+  private Segment GetSegment(RFVRow d)
+  {
+    foreach (var seg in _segments)
+      if (seg.Match(d)) return seg;
+    return new Segment("other", "Other", "○", "#6b7280", "", 0, _ => true);
+  }
+}

@@ -1,0 +1,174 @@
+@page "/admin/cases/funnel"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Case Funnel — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Case Funnel</h2><p>How cases flow from intake to fulfillment — conversion rates and drop-off</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+    <a href="/admin/cases/heat-map" class="btn btn-sm">Heat Map</a>
+    <a href="/admin/cases/fulfillment-time" class="btn btn-sm">Fulfillment Time</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Building funnel…" />
+}
+else
+{
+  <!-- PERIOD FILTER -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center;">
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-mid);">Period:</span>
+    @foreach (var (key, label) in new[] { ("all","All Time"), ("ytd","This Year"), ("90d","Last 90d"), ("30d","Last 30d") })
+    {
+      <button class="chip @(_period == key ? "chip-active" : "")" @onclick="() => SetPeriod(key)">@label</button>
+    }
+  </div>
+
+  <!-- FUNNEL VISUAL -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head">
+      <h3>Status Funnel — @_periodLabel</h3>
+      <span style="font-size:.78rem;color:var(--text-light);">@_total total cases in period</span>
+    </div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;padding:24px;">
+      @{
+        var stages = _funnel.ToList();
+        var maxW = stages.Any() ? stages.Max(s => s.Count) : 1;
+      }
+      @for (int i = 0; i < stages.Count; i++)
+      {
+        var s       = stages[i];
+        var widthPct= maxW > 0 ? (int)(s.Count * 100.0 / maxW) : 0;
+        var cvtPct  = i > 0 && stages[i - 1].Count > 0 ? (int)(s.Count * 100.0 / stages[i - 1].Count) : 100;
+        var isLast  = i == stages.Count - 1;
+        <div>
+          @if (i > 0)
+          {
+            <div style="display:flex;justify-content:center;align-items:center;gap:8px;font-size:.72rem;color:var(--text-light);margin:-4px 0;padding:0 @((100 - widthPct) / 2)%;">
+              <div style="flex:1;height:1px;background:var(--border);"></div>
+              <span style="white-space:nowrap;font-weight:600;color:@(cvtPct < 50 ? "var(--red)" : cvtPct < 80 ? "var(--amber)" : "var(--green)");">
+                ▾ @cvtPct% converted
+              </span>
+              <div style="flex:1;height:1px;background:var(--border);"></div>
+            </div>
+          }
+          <div style="display:flex;align-items:center;gap:12px;cursor:pointer;"
+               @onclick='() => Nav.NavigateTo(s.Link)'>
+            <div style="flex:1;display:flex;justify-content:center;">
+              <div style="width:@widthPct%;min-width:80px;background:@s.Color;border-radius:8px;padding:12px 20px;text-align:center;transition:width .4s;">
+                <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:white;opacity:.85;letter-spacing:.05em;">@s.Label</div>
+                <div style="font-size:1.6rem;font-weight:800;color:white;line-height:1.1;">@s.Count</div>
+                @if (_total > 0)
+                {
+                  <div style="font-size:.66rem;color:white;opacity:.75;">@((int)(s.Count * 100.0 / _total))% of total</div>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- STAGE DETAIL CARDS -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
+    @foreach (var s in _funnel)
+    {
+      <div class="panel" style="border-top:3px solid @s.Color;cursor:pointer;" @onclick='() => Nav.NavigateTo(s.Link)'>
+        <div class="panel-body" style="padding:14px 16px;text-align:center;">
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:@s.Color;margin-bottom:4px;">@s.Label</div>
+          <div style="font-size:1.6rem;font-weight:800;color:var(--text-dark);">@s.Count</div>
+          @if (s.AvgDays > 0)
+          {
+            <div style="font-size:.72rem;color:var(--text-light);margin-top:4px;">Avg @s.AvgDays d in stage</div>
+          }
+          <a href="@s.Link" style="font-size:.7rem;color:@s.Color;margin-top:6px;display:block;" @onclick:stopPropagation>View all &rarr;</a>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- DROP-OFF ANALYSIS -->
+  <div class="panel">
+    <div class="panel-head"><h3>Drop-off Analysis</h3></div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+      @{
+        var list = _funnel.ToList();
+        for (int i = 1; i < list.Count - 1; i++)
+        {
+          var from     = list[i - 1];
+          var to       = list[i];
+          var dropped  = from.Count - to.Count;
+          var dropPct  = from.Count > 0 ? (int)(dropped * 100.0 / from.Count) : 0;
+          var dropColor= dropPct > 30 ? "var(--red)" : dropPct > 15 ? "var(--amber)" : "var(--green)";
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="font-size:.82rem;font-weight:600;min-width:120px;">@from.Label → @to.Label</div>
+            <div style="flex:1;min-width:100px;">
+              <div class="progress-bar" style="height:8px;">
+                <div class="progress-fill" style="width:@(100 - dropPct)%;background:@dropColor;"></div>
+              </div>
+            </div>
+            <div style="font-size:.82rem;color:@dropColor;font-weight:700;min-width:80px;text-align:right;">
+              @dropped dropped (@dropPct%)
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private record FunnelStage(string Label, CaseStatus Status, int Count, double AvgDays, string Color, string Link);
+
+  private bool _loading = true;
+  private string _period = "all";
+  private string _periodLabel = "All Time";
+  private int _total;
+  private List<PackageRequest> _all = [];
+  private List<FunnelStage> _funnel = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all = await Api.GetRequestsAsync();
+    BuildFunnel();
+    _loading = false;
+  }
+
+  private void SetPeriod(string p) { _period = p; BuildFunnel(); }
+
+  private void BuildFunnel()
+  {
+    var now   = DateTime.UtcNow;
+    var cases = _period switch
+    {
+      "ytd" => _all.Where(c => c.CreatedAt.Year == now.Year).ToList(),
+      "90d" => _all.Where(c => c.CreatedAt >= now.AddDays(-90)).ToList(),
+      "30d" => _all.Where(c => c.CreatedAt >= now.AddDays(-30)).ToList(),
+      _     => _all
+    };
+    _periodLabel = _period switch
+    {
+      "ytd" => $"YTD {now.Year}", "90d" => "Last 90 Days", "30d" => "Last 30 Days", _ => "All Time"
+    };
+    _total = cases.Count;
+
+    double AvgDays(IEnumerable<PackageRequest> q) =>
+        q.Any() ? Math.Round(q.Average(c => (c.UpdatedAt - c.CreatedAt).TotalDays), 1) : 0;
+
+    _funnel =
+    [
+      new("New",               CaseStatus.New,              cases.Count(c => c.Status == CaseStatus.New),              AvgDays(cases.Where(c => c.Status == CaseStatus.New)),              "var(--blush)",  "/admin/cases?status=New"),
+      new("In Progress",       CaseStatus.InProgress,       cases.Count(c => c.Status == CaseStatus.InProgress),       AvgDays(cases.Where(c => c.Status == CaseStatus.InProgress)),       "var(--navy)",   "/admin/cases?status=InProgress"),
+      new("Awaiting Shipment", CaseStatus.AwaitingShipment, cases.Count(c => c.Status == CaseStatus.AwaitingShipment), AvgDays(cases.Where(c => c.Status == CaseStatus.AwaitingShipment)), "var(--amber)",  "/admin/cases?status=AwaitingShipment"),
+      new("Shipped",           CaseStatus.Shipped,          cases.Count(c => c.Status == CaseStatus.Shipped),          AvgDays(cases.Where(c => c.Status == CaseStatus.Shipped)),          "var(--green)",  "/admin/cases?status=Shipped"),
+      new("Fulfilled",         CaseStatus.Fulfilled,        cases.Count(c => c.Status == CaseStatus.Fulfilled),        AvgDays(cases.Where(c => c.Status == CaseStatus.Fulfilled)),        "#15803d",       "/admin/cases?status=Fulfilled"),
+    ];
+  }
+}

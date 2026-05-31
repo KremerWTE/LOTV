@@ -1,0 +1,208 @@
+@page "/admin/donors/journey"
+@layout AdminLayout
+@inject ApiService Api
+@inject NavigationManager Nav
+@using Lotv.Core.Models
+
+<PageTitle>Donor Journey Map — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Donor Journey Map</h2><p>Where every donor stands in their giving lifecycle</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/donors" class="btn btn-sm">← Donors</a>
+    <a href="/admin/donors/rfv" class="btn btn-sm">RFV Analysis</a>
+    <a href="/admin/donors/retention" class="btn btn-sm">Retention</a>
+    <a href="/admin/donors/upgrade-path" class="btn btn-sm">Upgrade Path</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Mapping donor journeys…" />
+}
+else
+{
+  <!-- JOURNEY FLOW HEADER -->
+  <div class="panel" style="margin-bottom:20px;overflow-x:auto;">
+    <div class="panel-body" style="display:flex;gap:0;min-width:600px;">
+      @foreach (var (stage, idx) in _stages.Select((s, i) => (s, i)))
+      {
+        <div style="flex:1;padding:14px 10px;text-align:center;background:@stage.Bg;@(idx == 0 ? "border-radius:10px 0 0 10px;" : idx == _stages.Count - 1 ? "border-radius:0 10px 10px 0;" : "")cursor:pointer;"
+             @onclick="() => _filter = stage.Key">
+          <div style="font-size:1.4rem;">@stage.Icon</div>
+          <div style="font-size:.72rem;font-weight:700;color:@stage.Color;text-transform:uppercase;letter-spacing:.04em;margin:3px 0;">@stage.Name</div>
+          <div style="font-size:1.4rem;font-weight:800;color:var(--text-dark);">@stage.Count</div>
+          @if (idx < _stages.Count - 1)
+          {
+            // Arrow not supported inline — use border
+          }
+        </div>
+        @if (idx < _stages.Count - 1)
+        {
+          <div style="display:flex;align-items:center;color:var(--text-light);font-size:.8rem;padding:0 2px;background:#f9fafb;">›</div>
+        }
+      }
+    </div>
+  </div>
+
+  <!-- STAGE FILTER + TABLE -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    <button class="chip @(_filter == "All" ? "chip-active" : "")" @onclick='() => _filter = "All"'>All (@_donors.Count)</button>
+    @foreach (var stage in _stages)
+    {
+      <button class="chip @(_filter == stage.Key ? "chip-active" : "")" @onclick="() => _filter = stage.Key">
+        @stage.Icon @stage.Name (@stage.Count)
+      </button>
+    }
+  </div>
+
+  <!-- ACTIVE STAGE DESCRIPTION -->
+  @if (_filter != "All")
+  {
+    var activeStage = _stages.FirstOrDefault(s => s.Key == _filter);
+    @if (activeStage is not null)
+    {
+      <div class="panel" style="margin-bottom:16px;border-left:3px solid @activeStage.Color;background:@activeStage.Bg;">
+        <div class="panel-body" style="padding:12px 16px;font-size:.84rem;color:var(--text-mid);">
+          <strong style="color:@activeStage.Color;">@activeStage.Icon @activeStage.Name:</strong> @activeStage.Description
+          @if (!string.IsNullOrEmpty(activeStage.Action))
+          {
+            <a href="@activeStage.ActionLink" class="btn btn-sm" style="font-size:.72rem;margin-left:10px;">@activeStage.Action &rarr;</a>
+          }
+        </div>
+      </div>
+    }
+  }
+
+  <!-- DONOR TABLE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>@(_filter == "All" ? "All Donors" : _stages.FirstOrDefault(s => s.Key == _filter)?.Name ?? _filter) (@FilteredDonors.Count())</h3>
+      <input type="search" class="form-input" placeholder="Search name…"
+             style="width:180px;font-size:.82rem;padding:5px 10px;"
+             @bind="_search" @bind:event="oninput" />
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Donor</th>
+            <th>Stage</th>
+            <th>Tier</th>
+            <th style="text-align:right;">Total Given</th>
+            <th style="text-align:right;">Gifts</th>
+            <th>First Gift</th>
+            <th>Last Gift</th>
+            <th>Recurring</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var (donor, stage) in FilteredDonors.Take(80))
+          {
+            <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/donors/{donor.Id}/summary")'>
+              <td style="font-weight:600;">@(donor.IsAnonymous ? "Anonymous" : donor.FullName)</td>
+              <td>
+                <span style="font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:10px;background:@stage.Bg;color:@stage.Color;border:1px solid @stage.Color;">
+                  @stage.Icon @stage.Name
+                </span>
+              </td>
+              <td style="font-size:.76rem;color:var(--text-mid);">@donor.Tier</td>
+              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@donor.TotalGiven" /></td>
+              <td style="text-align:right;color:var(--text-mid);">@donor.GiftCount</td>
+              <td style="font-size:.74rem;color:var(--text-light);">@donor.FirstGiftDate.ToString("MMM d, yyyy")</td>
+              <td style="font-size:.74rem;color:@((DateTime.UtcNow - donor.LastGiftDate).TotalDays > 365 ? "var(--red)" : "var(--text-light)");">@donor.LastGiftDate.ToString("MMM d, yyyy")</td>
+              <td style="text-align:center;">@(donor.IsRecurring ? "✅" : "—")</td>
+              <td><a href="/admin/donors/@donor.Id" style="font-size:.7rem;color:var(--green);" @onclick:stopPropagation>View</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (FilteredDonors.Count() > 80)
+      {
+        <div style="padding:10px 18px;font-size:.78rem;color:var(--text-light);">Showing 80 of @FilteredDonors.Count()</div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  private record StageInfo(string Key, string Name, string Icon, string Color, string Bg,
+      int Count, string Description, string? Action = null, string? ActionLink = null);
+
+  private bool _loading = true;
+  private string _filter = "All";
+  private string _search = "";
+  private List<Donor> _donors = [];
+  private List<StageInfo> _stages = [];
+
+  private IEnumerable<(Donor Donor, StageInfo Stage)> FilteredDonors
+  {
+    get
+    {
+      var q = _donors.Select(d => (d, GetStage(d)));
+      if (_filter != "All") q = q.Where(x => x.Item2.Key == _filter);
+      if (!string.IsNullOrWhiteSpace(_search))
+        q = q.Where(x => x.d.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase));
+      return q.OrderByDescending(x => x.d.TotalGiven);
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    _donors = await Api.GetDonorsAsync();
+    var now = DateTime.UtcNow;
+
+    BuildStages(now);
+    _loading = false;
+  }
+
+  private void BuildStages(DateTime now)
+  {
+    _stages =
+    [
+      new("new",       "First Gift",   "🌱", "#15803d", "#f0fdf4",
+          _donors.Count(d => d.GiftCount == 1 && (now - d.LastGiftDate).TotalDays <= 90),
+          "Made their first gift in the last 90 days. Welcome them warmly!",
+          "Outreach Queue", "/admin/donors/outreach"),
+
+      new("growing",   "Growing",      "📈", "#2d469d", "#eff6ff",
+          _donors.Count(d => d.GiftCount is >= 2 and <= 4 && (now - d.LastGiftDate).TotalDays <= 180),
+          "Given 2–4 times, still active. Nurture toward recurring giving.",
+          "Upgrade Path", "/admin/donors/upgrade-path"),
+
+      new("committed", "Committed",    "💚", "#16a34a", "#f0fdf4",
+          _donors.Count(d => d.GiftCount >= 5 && d.IsRecurring),
+          "5+ gifts AND recurring. Your most reliable donors.",
+          "Top Donors", "/admin/donors?sort=total"),
+
+      new("major",     "Major Donor",  "👑", "#b45309", "#fefce8",
+          _donors.Count(d => d.Tier == DonorTier.Benefactor),
+          "$5,000+ lifetime giving. Treat with high personal touch.",
+          "Donor Segments", "/admin/donors/segments"),
+
+      new("lapsing",   "Lapsing",      "⚠️", "#d97706", "#fff7ed",
+          _donors.Count(d => (now - d.LastGiftDate).TotalDays is > 180 and <= 365),
+          "Last gift 6–12 months ago. At risk — reach out now.",
+          "Retention", "/admin/donors/retention"),
+
+      new("lapsed",    "Lapsed",       "💤", "#dc2626", "#fff1f2",
+          _donors.Count(d => (now - d.LastGiftDate).TotalDays > 365),
+          "No gift in over a year. Reactivation campaign needed.",
+          "LYBUNT", "/admin/donors/growth"),
+    ];
+  }
+
+  private StageInfo GetStage(Donor d)
+  {
+    var now = DateTime.UtcNow;
+    var daysSince = (now - d.LastGiftDate).TotalDays;
+
+    if (daysSince > 365) return _stages[5]; // Lapsed
+    if (d.Tier == DonorTier.Benefactor) return _stages[3]; // Major
+    if (d.GiftCount >= 5 && d.IsRecurring) return _stages[2]; // Committed
+    if (daysSince is > 180 and <= 365) return _stages[4]; // Lapsing
+    if (d.GiftCount == 1 && daysSince <= 90) return _stages[0]; // First Gift
+    return _stages[1]; // Growing
+  }
+}
