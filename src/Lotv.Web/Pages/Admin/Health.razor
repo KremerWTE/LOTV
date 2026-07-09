@@ -8,7 +8,7 @@
 <div class="page-hd">
   <div><h2>Platform Health</h2><p>API status, service connectivity, and system diagnostics</p></div>
   <div class="page-hd-actions">
-    <button class="btn btn-primary btn-sm" @onclick="CheckAsync">&#8635; Run Health Check</button>
+    <button class="btn btn-primary btn-sm" @onclick="CheckAsync">↻ Run Health Check</button>
   </div>
 </div>
 
@@ -19,7 +19,7 @@
 else if (!_hasChecked)
 {
   <div class="panel" style="text-align:center;padding:48px;">
-    <div style="font-size:3rem;margin-bottom:12px;">&#128268;</div>
+    <div style="font-size:3rem;margin-bottom:12px;">🔌</div>
     <h3 style="font-family:var(--ff-head);color:var(--navy);">Health Check Ready</h3>
     <p style="color:var(--text-mid);margin-bottom:20px;">Click the button above to run diagnostics against all platform services.</p>
     <button class="btn btn-primary" @onclick="CheckAsync">Run Health Check</button>
@@ -36,22 +36,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#10004;</div>
+      <div class="kpi-icon">✔</div>
       <div class="kpi-label">Healthy</div>
       <div class="kpi-value" style="color:var(--green)">@_checks.Count(c => c.Status == "Healthy")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Degraded</div>
       <div class="kpi-value" style="color:var(--amber)">@_checks.Count(c => c.Status == "Degraded")</div>
     </div>
     <div class="kpi-card kpi-red" style="--kpi-accent:var(--blush);">
-      <div class="kpi-icon">&#10060;</div>
+      <div class="kpi-icon">❌</div>
       <div class="kpi-label">Unhealthy</div>
       <div class="kpi-value" style="color:var(--blush)">@_checks.Count(c => c.Status == "Unhealthy")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128337;</div>
+      <div class="kpi-icon">🕑</div>
       <div class="kpi-label">API Latency</div>
       <div class="kpi-value" style="color:var(--navy)">@_apiLatencyMs ms</div>
     </div>
@@ -133,10 +133,10 @@ else
     <div class="panel">
       <div class="panel-header">Quick Actions</div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
-        <a href="/health" target="_blank" class="btn btn-sm">&#128279; Open API /health endpoint</a>
-        <a href="/admin/audit" class="btn btn-sm">&#128269; View Audit Log</a>
-        <a href="/admin/export" class="btn btn-sm">&#8681; Export Data Backup</a>
-        <button class="btn btn-sm" @onclick="CheckAsync">&#8635; Re-run Health Checks</button>
+        <a href="/health" target="_blank" class="btn btn-sm">🔗 Open API /health endpoint</a>
+        <a href="/admin/audit" class="btn btn-sm">🔍 View Audit Log</a>
+        <a href="/admin/export" class="btn btn-sm">⇩ Export Data Backup</a>
+        <button class="btn btn-sm" @onclick="CheckAsync">↻ Re-run Health Checks</button>
       </div>
     </div>
   </div>
@@ -149,9 +149,9 @@ else
   private bool _hasDegraded => _checks.Any(c => c.Status == "Degraded");
   private bool _hasDown     => _checks.Any(c => c.Status == "Unhealthy");
   private string _bannerBg  => _hasDown ? "var(--blush)" : _hasDegraded ? "var(--amber)" : "var(--green)";
-  private string _bannerMsg => _hasDown ? "&#10060; One or more services are down"
-    : _hasDegraded ? "&#9888; Some services are degraded"
-    : "&#10004; All systems operational";
+  private string _bannerMsg => _hasDown ? "❌ One or more services are down"
+    : _hasDegraded ? "⚠ Some services are degraded"
+    : "✔ All systems operational";
   private DateTime _lastChecked;
   private ApiService.DiagnosticsDto? _diag;
   private long _apiLatencyMs;

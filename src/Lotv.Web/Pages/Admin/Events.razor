@@ -7,29 +7,29 @@
 <div class="page-hd">
   <div><h2>Ministry Events</h2><p>Upcoming trainings, galas, and community events</p></div>
   <div class="page-hd-actions">
-    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">&#43; Add Event</button>
+    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">+ Add Event</button>
   </div>
 </div>
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-icon">📅</div>
     <div class="kpi-label">Total Events</div>
     <div class="kpi-value" style="color:var(--green)">@_events.Count</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-icon">🕐</div>
     <div class="kpi-label">Upcoming</div>
     <div class="kpi-value" style="color:var(--navy)">@_events.Count(e => e.Date >= DateTime.UtcNow)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-icon">👥</div>
     <div class="kpi-label">Total Registered</div>
     <div class="kpi-value" style="color:var(--amber)">@_events.Sum(e => e.Registered)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#127760;</div>
+    <div class="kpi-icon">🌐</div>
     <div class="kpi-label">Virtual Events</div>
     <div class="kpi-value" style="color:var(--gold)">@_events.Count(e => e.IsVirtual)</div>
   </div>
@@ -90,7 +90,7 @@
               <div class="progress-fill" style="width:@pct%;"></div>
             </div>
             @if (pct >= 90 && !isPast)
-            { <div style="font-size:.7rem;color:var(--amber);margin-top:3px;">&#9888; Nearly full</div> }
+            { <div style="font-size:.7rem;color:var(--amber);margin-top:3px;">⚠ Nearly full</div> }
           </div>
         }
         else
@@ -103,9 +103,9 @@
           @if (!isPast)
           {
             <div style="display:flex;align-items:center;gap:6px;flex:1;">
-              <button class="btn btn-sm" style="padding:3px 10px;" @onclick="() => AdjustReg(e, -1)" disabled="@(e.Registered <= 0)">&#8722;</button>
+              <button class="btn btn-sm" style="padding:3px 10px;" @onclick="() => AdjustReg(e, -1)" disabled="@(e.Registered <= 0)">−</button>
               <span style="font-size:.82rem;font-weight:600;min-width:24px;text-align:center;">@e.Registered</span>
-              <button class="btn btn-sm" style="padding:3px 10px;" @onclick="() => AdjustReg(e, +1)" disabled="@(e.Capacity.HasValue && e.Registered >= e.Capacity)">&#43;</button>
+              <button class="btn btn-sm" style="padding:3px 10px;" @onclick="() => AdjustReg(e, +1)" disabled="@(e.Capacity.HasValue && e.Registered >= e.Capacity)">+</button>
               <span style="font-size:.72rem;color:var(--text-light);">registered</span>
             </div>
           }
@@ -129,7 +129,7 @@
   <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
     <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <h3 style="font-family:var(--ff-head);">@(_editing == null ? "Add Event" : "Edit Event")</h3>
-      <button class="btn btn-sm" @onclick="CloseAdd">&#10005;</button>
+      <button class="btn btn-sm" @onclick="CloseAdd">✕</button>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
 
@@ -184,14 +184,14 @@
       </div>
 
       @if (!string.IsNullOrEmpty(_addError))
-      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_addError</div> }
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_addError</div> }
 
       <div style="display:flex;gap:10px;">
         <button class="btn btn-primary" @onclick="SaveEvent">@(_editing == null ? "Create Event" : "Save Changes")</button>
         <button class="btn" @onclick="CloseAdd">Cancel</button>
       </div>
       @if (_addSaved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; @(_wasEditing ? "Event updated." : "Event created.")</div> }
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ @(_wasEditing ? "Event updated." : "Event created.")</div> }
     </div>
   </div>
 }

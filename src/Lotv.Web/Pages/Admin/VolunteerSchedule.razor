@@ -10,11 +10,11 @@
     <p>Calendar view of volunteer availability and upcoming assignments</p>
   </div>
   <div style="display:flex;gap:10px;align-items:center;">
-    <button class="btn" @onclick="PrevWeek">&#8592; Prev</button>
+    <button class="btn" @onclick="PrevWeek">← Prev</button>
     <span style="font-weight:700;color:var(--navy);min-width:200px;text-align:center;font-size:.9rem;">
       @WeekLabel
     </span>
-    <button class="btn" @onclick="NextWeek">Next &#8594;</button>
+    <button class="btn" @onclick="NextWeek">Next →</button>
     <button class="btn" @onclick="GoToday" style="margin-left:4px;">Today</button>
   </div>
 </div>
@@ -192,7 +192,7 @@ else
               <td>
                 @if (a.IsOverdue)
                 {
-                  <span style="color:#b91c1c;font-weight:700;font-size:.8rem;">&#9888; Yes</span>
+                  <span style="color:#b91c1c;font-weight:700;font-size:.8rem;">⚠ Yes</span>
                 }
                 else
                 {

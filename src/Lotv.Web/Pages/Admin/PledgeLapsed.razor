@@ -32,25 +32,25 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-red">
-      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-icon">🚫</div>
       <div class="kpi-label">Lapsed</div>
       <div class="kpi-value" style="color:var(--red)">@_lapsed.Count</div>
       <div class="kpi-change change-down">missed target date</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Recoverable Amount</div>
       <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_totalRemaining" /></div>
       <div class="kpi-change">unfulfilled balance</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Partially Fulfilled</div>
       <div class="kpi-value" style="color:var(--navy)">@_partial</div>
       <div class="kpi-change change-up">already gave something</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127775;</div>
+      <div class="kpi-icon">🌟</div>
       <div class="kpi-label">Avg Fulfillment</div>
       <div class="kpi-value" style="color:var(--green)">@_avgFulfillPct%</div>
       <div class="kpi-change">of pledged amount received</div>

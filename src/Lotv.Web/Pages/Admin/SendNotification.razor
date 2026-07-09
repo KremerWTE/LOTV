@@ -13,7 +13,7 @@
   @if (_sent)
   {
     <div style="background:var(--green-pale);border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
-      <span style="font-size:1.2rem;">&#10003;</span>
+      <span style="font-size:1.2rem;">✓</span>
       <div>
         <strong>Notification sent!</strong>
         <div style="font-size:.82rem;color:var(--green-dark);">Sent to @_recipientCount recipient@(_recipientCount == 1 ? "" : "s") via @_channel</div>
@@ -90,11 +90,11 @@
 
       @if (!string.IsNullOrEmpty(_error))
       {
-        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_error</div>
       }
 
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" @onclick="SendAsync">&#128140; Send Notification</button>
+        <button class="btn btn-primary" @onclick="SendAsync">💌 Send Notification</button>
         <button class="btn" @onclick="Reset">Clear</button>
       </div>
     </div>

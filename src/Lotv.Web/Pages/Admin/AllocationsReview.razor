@@ -15,22 +15,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-icon">⏳</div>
     <div class="kpi-label">Pending Review</div>
     <div class="kpi-value" style="color:var(--amber)">@_pending.Count</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Pending Amount</div>
     <div class="kpi-value" style="color:var(--navy)">@_pending.Sum(a => a.Amount).ToString("C0")</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-icon">✓</div>
     <div class="kpi-label">Approved This Session</div>
     <div class="kpi-value" style="color:var(--green)">@_approvedCount</div>
   </div>
   <div class="kpi-card" style="background:#fff1f2;">
-    <div class="kpi-icon">&#128683;</div>
+    <div class="kpi-icon">🚫</div>
     <div class="kpi-label">Rejected This Session</div>
     <div class="kpi-value" style="color:var(--red)">@_rejectedCount</div>
   </div>
@@ -40,7 +40,7 @@
 {
   <div class="panel">
     <div class="panel-body" style="text-align:center;padding:48px;color:var(--text-light);">
-      <div style="font-size:2rem;margin-bottom:12px;">&#10003;</div>
+      <div style="font-size:2rem;margin-bottom:12px;">✓</div>
       <div style="font-weight:600;font-size:.96rem;">Queue is clear!</div>
       <div style="font-size:.84rem;margin-top:6px;">No fund allocations are pending review.</div>
     </div>
@@ -73,8 +73,8 @@ else
               <td style="font-size:.76rem;color:var(--text-light);">@a.CreatedAt.ToString("MMM d, yyyy")</td>
               <td style="font-size:.74rem;color:var(--text-light);max-width:160px;overflow:hidden;text-overflow:ellipsis;">@(a.Notes ?? "—")</td>
               <td style="display:flex;gap:4px;">
-                <button class="btn btn-sm btn-primary" style="font-size:.7rem;" @onclick="() => Approve(a)" disabled="@_busy">&#10003; Approve</button>
-                <button class="btn btn-sm" style="font-size:.7rem;color:var(--red);" @onclick="() => Reject(a)" disabled="@_busy">&#10005; Reject</button>
+                <button class="btn btn-sm btn-primary" style="font-size:.7rem;" @onclick="() => Approve(a)" disabled="@_busy">✓ Approve</button>
+                <button class="btn btn-sm" style="font-size:.7rem;color:var(--red);" @onclick="() => Reject(a)" disabled="@_busy">✕ Reject</button>
               </td>
             </tr>
           }

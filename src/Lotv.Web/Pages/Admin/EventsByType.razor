@@ -22,22 +22,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-icon">🎉</div>
       <div class="kpi-label">Total Events</div>
       <div class="kpi-value" style="color:var(--navy)">@_events.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-icon">✅</div>
       <div class="kpi-label">Open / Active</div>
       <div class="kpi-value" style="color:var(--green)">@_events.Count(e => e.Status == EventStatus.Open || e.Status == EventStatus.Published)</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-icon">🆕</div>
       <div class="kpi-label">Event Types</div>
       <div class="kpi-value" style="color:var(--amber)">@_events.Select(e => e.Type).Distinct().Count()</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">Total Registered</div>
       <div class="kpi-value" style="color:var(--navy)">@_events.Sum(e => e.Registered)</div>
     </div>

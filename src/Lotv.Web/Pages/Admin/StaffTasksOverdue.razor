@@ -28,17 +28,17 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card" style="border-top:3px solid var(--red);">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Overdue</div>
       <div class="kpi-value" style="color:var(--red)">@_overdue.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-icon">🚨</div>
       <div class="kpi-label">Critical/High Priority</div>
       <div class="kpi-value" style="color:var(--amber)">@_overdue.Count(t => t.Priority is "Critical" or "High")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128279;</div>
+      <div class="kpi-icon">🔗</div>
       <div class="kpi-label">Linked to Cases</div>
       <div class="kpi-value" style="color:var(--navy)">@_overdue.Count(t => t.LinkedCaseId.HasValue)</div>
     </div>

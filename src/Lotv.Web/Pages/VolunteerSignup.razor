@@ -8,7 +8,7 @@
 @if (_submitted)
 {
   <div style="max-width:580px;margin:80px auto;padding:0 24px;text-align:center;">
-    <div style="font-size:3rem;margin-bottom:16px;">&#129309;</div>
+    <div style="font-size:3rem;margin-bottom:16px;">🤝</div>
     <h2 style="font-family:var(--ff-head);font-size:1.8rem;color:var(--navy);margin:0 0 14px;">Welcome to the LOTV family.</h2>
     <p style="color:var(--text-mid);font-size:.96rem;line-height:1.7;margin:0 0 24px;">
       Thank you for your desire to serve. Our volunteer coordinator will be in touch soon to complete your onboarding.
@@ -109,7 +109,7 @@ else
 
       @if (!string.IsNullOrEmpty(_error))
       {
-        <div role="alert" aria-live="assertive" style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
+        <div role="alert" aria-live="assertive" style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">⚠ @_error</div>
       }
 
       <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync">
@@ -136,12 +136,12 @@ else
 
   private static readonly (string role, string icon, string desc)[] _roles =
   [
-    ("Package Assembler", "&#128230;", "Assemble and pack comfort boxes with love and care."),
-    ("Prayer Ambassador", "&#128591;", "Commit to praying daily for assigned families by name."),
-    ("Parish Liaison",    "&#9971;",   "Coordinate between LOTV and your local parish community."),
-    ("Event Helper",      "&#128197;", "Support galas, prayer nights, and community gatherings."),
-    ("Driver",            "&#128663;", "Deliver packages locally when families cannot receive by mail."),
-    ("Admin Support",     "&#9997;",   "Help with case coordination, data entry, and communications."),
+    ("Package Assembler", "📦", "Assemble and pack comfort boxes with love and care."),
+    ("Prayer Ambassador", "🙏", "Commit to praying daily for assigned families by name."),
+    ("Parish Liaison",    "⛳",   "Coordinate between LOTV and your local parish community."),
+    ("Event Helper",      "📅", "Support galas, prayer nights, and community gatherings."),
+    ("Driver",            "🚗", "Deliver packages locally when families cannot receive by mail."),
+    ("Admin Support",     "✍",   "Help with case coordination, data entry, and communications."),
   ];
 
   private async Task SubmitAsync()

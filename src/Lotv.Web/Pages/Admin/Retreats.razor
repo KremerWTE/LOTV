@@ -30,7 +30,7 @@
 else if (!Filtered.Any())
 {
     <div class="empty-state">
-        <div class="empty-icon">&#9670;</div>
+        <div class="empty-icon">◆</div>
         <div class="empty-title">No retreats found</div>
         <p>Create your first retreat to start tracking registrations and planning costs.</p>
         <button class="btn btn-primary" @onclick="() => _showCreate = true">+ Create Retreat</button>
@@ -48,7 +48,7 @@ else
                     <span class="retreat-date">@r.Date.ToString("MMM d, yyyy")</span>
                 </div>
                 <div class="retreat-card-title">@r.Title</div>
-                <div class="retreat-card-location">&#128205; @r.Location@(r.City != null ? $", {r.City}" : "")@(r.State != null ? $", {r.State}" : "")</div>
+                <div class="retreat-card-location">📍 @r.Location@(r.City != null ? $", {r.City}" : "")@(r.State != null ? $", {r.State}" : "")</div>
                 @if (r.Description != null)
                 {
                     <div class="retreat-card-desc">@r.Description</div>
@@ -74,7 +74,7 @@ else
                     }
                 </div>
                 <div class="retreat-card-footer">
-                    <span class="retreat-open-btn">View Dashboard &#8594;</span>
+                    <span class="retreat-open-btn">View Dashboard →</span>
                 </div>
             </div>
         }
@@ -88,7 +88,7 @@ else
     <div class="drawer">
         <div class="drawer-header">
             <h2>Create Retreat</h2>
-            <button class="btn-icon" aria-label="Close" @onclick="() => _showCreate = false">&#10005;</button>
+            <button class="btn-icon" aria-label="Close" @onclick="() => _showCreate = false">✕</button>
         </div>
         <div class="drawer-body">
             @if (!string.IsNullOrEmpty(_createError))

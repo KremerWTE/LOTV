@@ -11,7 +11,7 @@
     <button class="btn btn-sm @(_filter is null ? "btn-primary" : "")" @onclick="() => Apply(null)">All</button>
     <button class="btn btn-sm @(_filter == "stripe" ? "btn-primary" : "")" @onclick='() => Apply("stripe")'>Stripe</button>
     <button class="btn btn-sm @(_filter == "givebutter" ? "btn-primary" : "")" @onclick='() => Apply("givebutter")'>GiveButter</button>
-    <button class="btn btn-sm" @onclick="Load">&#8635; Refresh</button>
+    <button class="btn btn-sm" @onclick="Load">↻ Refresh</button>
     <button class="btn btn-sm" @onclick="Prune">🗑 Prune &gt;90d</button>
   </div>
 </div>
@@ -63,7 +63,7 @@
   <div class="drawer">
     <div class="drawer-head">
       <h3>@_detail.Source — @_detail.EventType</h3>
-      <button class="drawer-close" @onclick="() => _detail = null">&#10005;</button>
+      <button class="drawer-close" @onclick="() => _detail = null">✕</button>
     </div>
     <div class="drawer-body">
       <div style="font-size:.78rem;color:var(--text-light);margin-bottom:8px;">
@@ -95,7 +95,7 @@
   private bool _sortDesc = true;
   private void Sort(string col) { if (_sort == col) _sortDesc = !_sortDesc; else { _sort = col; _sortDesc = true; } }
   private MarkupString Arrow(string col) =>
-    new(_sort == col ? (_sortDesc ? "&#9662;" : "&#9652;") : "");
+    new(_sort == col ? (_sortDesc ? "▾" : "▴") : "");
 
   private List<ApiService.WebhookEventRow> Filtered
   {

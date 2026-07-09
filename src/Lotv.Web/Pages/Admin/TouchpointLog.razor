@@ -23,23 +23,23 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128222;</div>
+      <div class="kpi-icon">📞</div>
       <div class="kpi-label">Total Touchpoints</div>
       <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-icon">📅</div>
       <div class="kpi-label">This Month</div>
       <div class="kpi-value" style="color:var(--green)">@_thisMonth</div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-icon">👤</div>
       <div class="kpi-label">Donors Contacted</div>
       <div class="kpi-value" style="color:var(--blush)">@_all.Select(t => t.DonorId).Distinct().Count()</div>
       <div class="kpi-change">unique donors</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#127775;</div>
+      <div class="kpi-icon">🌟</div>
       <div class="kpi-label">Top Type</div>
       <div class="kpi-value" style="font-size:1rem;color:var(--amber)">@(_byType.FirstOrDefault()?.Type ?? "—")</div>
       <div class="kpi-change">@(_byType.FirstOrDefault()?.Count ?? 0) contacts</div>

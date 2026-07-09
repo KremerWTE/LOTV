@@ -21,22 +21,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-icon">🔄</div>
       <div class="kpi-label">Active</div>
       <div class="kpi-value" style="color:var(--green)">@_recurring.Count(r => r.Status == RecurringStatus.Active)</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Est. Monthly</div>
       <div class="kpi-value" style="color:var(--navy)">@EstimatedMonthly().ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Past Due</div>
       <div class="kpi-value" style="color:var(--amber)">@_recurring.Count(r => r.Status == RecurringStatus.PastDue)</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#9646;</div>
+      <div class="kpi-icon">▮</div>
       <div class="kpi-label">Paused</div>
       <div class="kpi-value">@_recurring.Count(r => r.Status == RecurringStatus.Paused)</div>
     </div>

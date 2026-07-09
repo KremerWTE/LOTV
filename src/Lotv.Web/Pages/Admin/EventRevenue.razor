@@ -24,24 +24,24 @@ else
     <!-- KPI STRIP -->
     <div class="kpi-grid" style="margin-bottom:20px;">
       <div class="kpi-card kpi-navy">
-        <div class="kpi-icon">&#127899;</div>
+        <div class="kpi-icon">🎛</div>
         <div class="kpi-label">Ticket Revenue</div>
         <div class="kpi-value" style="color:var(--navy)">@_revenue.Tickets.ToString("C0")</div>
       </div>
       <div class="kpi-card kpi-amber">
-        <div class="kpi-icon">&#128183;</div>
+        <div class="kpi-icon">💷</div>
         <div class="kpi-label">Auction Revenue</div>
         <div class="kpi-value" style="color:var(--amber)">@_revenue.Auction.ToString("C0")</div>
       </div>
       <div class="kpi-card kpi-green">
-        <div class="kpi-icon">&#128176;</div>
+        <div class="kpi-icon">💰</div>
         <div class="kpi-label">Total Revenue</div>
         <div class="kpi-value" style="color:var(--green);font-size:1.6rem;">@_revenue.Total.ToString("C0")</div>
       </div>
       @if (_event?.GoalAmount > 0)
       {
         <div class="kpi-card">
-          <div class="kpi-icon">&#128200;</div>
+          <div class="kpi-icon">📈</div>
           <div class="kpi-label">Goal Progress</div>
           <div class="kpi-value" style="font-size:1.1rem;color:@(_revenue.Total >= _event.GoalAmount ? "var(--green)" : "var(--amber)");">
             @((_revenue.Total / _event.GoalAmount!.Value * 100m).ToString("F0"))%

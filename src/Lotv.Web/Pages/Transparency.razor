@@ -8,7 +8,7 @@
 <!-- PUBLIC NAV HEADER -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
     <div>
       <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
       <div style="font-size:.7rem;opacity:.7;">Lily of the Valley Catholic Apostolate</div>
@@ -33,7 +33,7 @@
 @if (_loading)
 {
   <div style="text-align:center;padding:60px;color:var(--text-mid);">
-    <div style="font-size:2rem;margin-bottom:10px;">&#127803;</div>
+    <div style="font-size:2rem;margin-bottom:10px;">🌻</div>
     <p>Loading impact data…</p>
   </div>
 }
@@ -44,22 +44,22 @@ else
     <!-- NATIONAL KPI STRIP -->
     <div class="kpi-grid" style="margin-bottom:36px;">
       <div class="kpi-card kpi-gold">
-        <div class="kpi-icon">&#128184;</div>
+        <div class="kpi-icon">💸</div>
         <div class="kpi-label">Total Donated</div>
         <div class="kpi-value" style="color:var(--gold)">@(_impact?.TotalDonations.ToString("C0") ?? "—")</div>
       </div>
       <div class="kpi-card kpi-navy">
-        <div class="kpi-icon">&#128101;</div>
+        <div class="kpi-icon">👥</div>
         <div class="kpi-label">People Helped</div>
         <div class="kpi-value" style="color:var(--navy)">@(_impact?.PeopleHelped ?? 0)</div>
       </div>
       <div class="kpi-card kpi-green">
-        <div class="kpi-icon">&#9989;</div>
+        <div class="kpi-icon">✅</div>
         <div class="kpi-label">Requests Fulfilled</div>
         <div class="kpi-value" style="color:var(--green)">@(_impact?.OpenRequests ?? 0)</div>
       </div>
       <div class="kpi-card kpi-amber">
-        <div class="kpi-icon">&#129309;</div>
+        <div class="kpi-icon">🤝</div>
         <div class="kpi-label">Active Volunteers</div>
         <div class="kpi-value" style="color:var(--amber)">@(_impact?.ActiveVolunteers ?? 0)</div>
       </div>
@@ -133,7 +133,7 @@ else
 
     <!-- MISSION STATEMENT -->
     <div style="background:var(--green-pale,#f0f9f0);border-radius:14px;padding:28px 32px;text-align:center;margin-bottom:32px;">
-      <div style="font-size:1.8rem;margin-bottom:10px;">&#127803;</div>
+      <div style="font-size:1.8rem;margin-bottom:10px;">🌻</div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">Our Mission</h3>
       <p style="color:var(--text-mid);max-width:620px;margin:0 auto;line-height:1.6;">
         LOTV Ministry is a Catholic apostolate dedicated to serving families in need through coordinated distribution of food, clothing, shelter assistance, and other essential resources. Every dollar donated goes directly to serving our neighbors.
@@ -143,17 +143,17 @@ else
     <!-- CTA -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:20px;">
       <a href="/give" style="background:var(--navy);color:white;border-radius:12px;padding:20px 24px;text-decoration:none;display:block;">
-        <div style="font-size:1.4rem;margin-bottom:6px;">&#128184;</div>
+        <div style="font-size:1.4rem;margin-bottom:6px;">💸</div>
         <div style="font-family:var(--ff-head);font-weight:700;margin-bottom:4px;">Make a Donation</div>
         <div style="font-size:.82rem;opacity:.8;">Support families in your community</div>
       </a>
       <a href="/volunteer" style="background:var(--green);color:white;border-radius:12px;padding:20px 24px;text-decoration:none;display:block;">
-        <div style="font-size:1.4rem;margin-bottom:6px;">&#129309;</div>
+        <div style="font-size:1.4rem;margin-bottom:6px;">🤝</div>
         <div style="font-family:var(--ff-head);font-weight:700;margin-bottom:4px;">Become a Volunteer</div>
         <div style="font-size:.82rem;opacity:.8;">Give your time and talents</div>
       </a>
       <a href="/apply" style="background:var(--amber);color:white;border-radius:12px;padding:20px 24px;text-decoration:none;display:block;">
-        <div style="font-size:1.4rem;margin-bottom:6px;">&#128149;</div>
+        <div style="font-size:1.4rem;margin-bottom:6px;">💕</div>
         <div style="font-family:var(--ff-head);font-weight:700;margin-bottom:4px;">Apply for Assistance</div>
         <div style="font-size:.82rem;opacity:.8;">We are here to help</div>
       </a>

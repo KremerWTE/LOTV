@@ -21,14 +21,14 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card" style="border-top:3px solid @(_status?.HasStripeCustomer == true ? "var(--green)" : "var(--red)");">
-      <div class="kpi-icon">&#128179;</div>
+      <div class="kpi-icon">💳</div>
       <div class="kpi-label">Stripe Customer</div>
       <div class="kpi-value" style="font-size:1.1rem;color:@(_status?.HasStripeCustomer == true ? "var(--green)" : "var(--red)");">
         @(_status?.HasStripeCustomer == true ? "✓ Set Up" : "✗ Not Set Up")
       </div>
     </div>
     <div class="kpi-card" style="border-top:3px solid @(_status?.HasActiveRecurring == true ? "var(--green)" : "var(--amber)");">
-      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-icon">🔄</div>
       <div class="kpi-label">Active Recurring Gift</div>
       <div class="kpi-value" style="font-size:1.1rem;color:@(_status?.HasActiveRecurring == true ? "var(--green)" : "var(--amber)");">
         @(_status?.HasActiveRecurring == true ? "✓ Active" : "None")

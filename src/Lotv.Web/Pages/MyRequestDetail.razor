@@ -7,7 +7,7 @@
 <!-- PUBLIC NAV HEADER -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <a href="/my-requests" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">&#8592; My Requests</a>
+    <a href="/my-requests" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">← My Requests</a>
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
@@ -81,7 +81,7 @@
           {
             <div>
               <div class="form-label" style="margin-bottom:4px;">Your Helper</div>
-              <div style="font-weight:600;color:var(--navy);">&#129309; @_request.AssignedTo</div>
+              <div style="font-weight:600;color:var(--navy);">🤝 @_request.AssignedTo</div>
             </div>
           }
           @if (!string.IsNullOrEmpty(_request.TrackingNumber))
@@ -119,8 +119,8 @@
 
     <!-- HELPFUL LINKS -->
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <a href="/my-requests" class="btn">&#8592; All My Requests</a>
-      <a href="/apply" class="btn btn-primary">&#43; Submit Another Request</a>
+      <a href="/my-requests" class="btn">← All My Requests</a>
+      <a href="/apply" class="btn btn-primary">+ Submit Another Request</a>
       <a href="/" class="btn">Home</a>
     </div>
   }

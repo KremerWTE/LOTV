@@ -7,18 +7,18 @@
 <!-- PUBLIC NAV -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
     <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
   </div>
   <div style="display:flex;gap:12px;">
     <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
-    <a href="/give" class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;">Give Again &#9829;</a>
+    <a href="/give" class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;">Give Again ♥</a>
   </div>
 </div>
 
 <!-- HERO -->
 <div style="background:linear-gradient(135deg,var(--gold) 0%,#c8962a 100%);color:white;padding:48px 32px;text-align:center;">
-  <div style="font-size:2.5rem;margin-bottom:10px;">&#9829;</div>
+  <div style="font-size:2.5rem;margin-bottom:10px;">♥</div>
   <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 8px;">Your Impact</h1>
   <p style="font-size:.95rem;opacity:.9;max-width:540px;margin:0 auto;">See how your generous giving has helped real families through LOTV Ministry</p>
 </div>
@@ -41,22 +41,22 @@
     <!-- IMPACT CARDS -->
     <div class="kpi-grid" style="margin-bottom:32px;">
       <div class="kpi-card kpi-gold">
-        <div class="kpi-icon">&#128184;</div>
+        <div class="kpi-icon">💸</div>
         <div class="kpi-label">Total Given</div>
         <div class="kpi-value" style="color:var(--gold)"><Money Amount="@_totalGiven" /></div>
       </div>
       <div class="kpi-card kpi-navy">
-        <div class="kpi-icon">&#127873;</div>
+        <div class="kpi-icon">🎁</div>
         <div class="kpi-label">Total Gifts</div>
         <div class="kpi-value" style="color:var(--navy)">@_giftCount</div>
       </div>
       <div class="kpi-card kpi-green">
-        <div class="kpi-icon">&#127975;</div>
+        <div class="kpi-icon">🏧</div>
         <div class="kpi-label">Families Helped</div>
         <div class="kpi-value" style="color:var(--green)">@_familiesHelped</div>
       </div>
       <div class="kpi-card kpi-amber">
-        <div class="kpi-icon">&#127803;</div>
+        <div class="kpi-icon">🌻</div>
         <div class="kpi-label">Avg Gift</div>
         <div class="kpi-value" style="color:var(--amber)">@if (_giftCount > 0) { <Money Amount="@(_totalGiven / _giftCount)" /> } else { <text>$0</text> }</div>
       </div>
@@ -132,10 +132,10 @@
 
     <!-- THANK YOU + CTA -->
     <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy-dark,#0a1628) 100%);color:white;border-radius:14px;padding:28px 32px;text-align:center;">
-      <div style="font-size:1.8rem;margin-bottom:10px;">&#127800;</div>
+      <div style="font-size:1.8rem;margin-bottom:10px;">🌸</div>
       <h3 style="font-family:var(--ff-head);margin:0 0 8px;">Thank You for Your Generosity</h3>
       <p style="opacity:.85;font-size:.88rem;max-width:500px;margin:0 auto 20px;">Your giving fuels LOTV Ministry's mission to serve families experiencing loss. Every gift is an act of love.</p>
-      <a href="/give" class="btn btn-sm" style="background:var(--gold);color:white;font-weight:700;">&#9829; Give Again</a>
+      <a href="/give" class="btn btn-sm" style="background:var(--gold);color:white;font-weight:700;">♥ Give Again</a>
     </div>
   }
 </div>

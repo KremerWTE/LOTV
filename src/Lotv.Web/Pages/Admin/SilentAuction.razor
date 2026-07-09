@@ -31,22 +31,22 @@
 <!-- KPI strip -->
 <div class="kpi-grid" style="margin-bottom:24px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#127881;</div>
+    <div class="kpi-icon">🎉</div>
     <div class="kpi-label">Total Items</div>
     <div class="kpi-value" style="color:var(--navy);">@_items.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-icon">✓</div>
     <div class="kpi-label">Sold</div>
     <div class="kpi-value" style="color:var(--green);">@_items.Count(i => i.Status == AuctionItemStatus.Sold)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Revenue</div>
     <div class="kpi-value" style="color:var(--amber);">@_items.Sum(i => i.WinningBid ?? 0).ToString("C0")</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128200;</div>
+    <div class="kpi-icon">📈</div>
     <div class="kpi-label">Active Bids</div>
     <div class="kpi-value" style="color:var(--gold);">@_items.Sum(i => i.Bids.Count)</div>
   </div>
@@ -111,7 +111,7 @@
         @if (item.Status == AuctionItemStatus.Sold)
         {
           <div style="padding:8px 14px;background:#f0faf0;border-top:1px solid var(--border);font-size:.78rem;color:#2d6a2d;">
-            &#10003; Won at @(item.WinningBid?.ToString("C0") ?? "—")
+            ✓ Won at @(item.WinningBid?.ToString("C0") ?? "—")
           </div>
         }
       </div>
@@ -163,7 +163,7 @@
               background:var(--navy);color:white;border-radius:10px;padding:14px 24px;
               font-size:.86rem;font-weight:600;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.25);"
        role="status">
-    &#10003; @_closedMsg
+    ✓ @_closedMsg
   </div>
 }
 
@@ -194,7 +194,7 @@
       @if (!string.IsNullOrEmpty(_addError))
       {
         <div role="alert" aria-live="assertive" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:14px;">
-          &#9888; @_addError
+          ⚠ @_addError
         </div>
       }
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">

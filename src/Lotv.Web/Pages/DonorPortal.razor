@@ -12,7 +12,7 @@
   {
     <div class="panel">
       <div class="panel-body" style="text-align:center;padding:48px 24px;">
-        <div style="font-size:2.4rem;margin-bottom:14px;">&#128274;</div>
+        <div style="font-size:2.4rem;margin-bottom:14px;">🔒</div>
         <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 12px;">Sign In Required</h2>
         <p style="color:var(--text-mid);margin:0 0 18px;">Use your magic-link email to access your donor portal.</p>
         <a href="/donor/login" class="btn btn-primary">Go to sign-in</a>
@@ -29,7 +29,7 @@
         }
         else
         {
-          <span style="font-size:1.8rem;color:var(--text-light);">&#128100;</span>
+          <span style="font-size:1.8rem;color:var(--text-light);">👤</span>
         }
       </div>
       <div style="flex:1;">
@@ -80,28 +80,28 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;">
       <a href="/donor/impact?DonorId=@DonorId" class="panel" style="text-decoration:none;">
         <div class="panel-body">
-          <div style="font-size:1.4rem;margin-bottom:8px;">&#128202;</div>
+          <div style="font-size:1.4rem;margin-bottom:8px;">📊</div>
           <strong style="font-family:var(--ff-head);color:var(--navy);">My Impact</strong>
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Full giving history, families helped, category breakdown.</p>
         </div>
       </a>
       <a href="/donor/recurring?DonorId=@DonorId" class="panel" style="text-decoration:none;">
         <div class="panel-body">
-          <div style="font-size:1.4rem;margin-bottom:8px;">&#128260;</div>
+          <div style="font-size:1.4rem;margin-bottom:8px;">🔄</div>
           <strong style="font-family:var(--ff-head);color:var(--navy);">Recurring Gifts</strong>
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Pause, resume, change amount, or cancel monthly gifts.</p>
         </div>
       </a>
       <a href="/donor/receipts?DonorId=@DonorId" class="panel" style="text-decoration:none;">
         <div class="panel-body">
-          <div style="font-size:1.4rem;margin-bottom:8px;">&#128196;</div>
+          <div style="font-size:1.4rem;margin-bottom:8px;">📄</div>
           <strong style="font-family:var(--ff-head);color:var(--navy);">Tax Receipts</strong>
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Download receipts and year-end giving statements.</p>
         </div>
       </a>
       <a href="@($"/my-profile?DonorId={DonorId}")" class="panel" style="text-decoration:none;">
         <div class="panel-body">
-          <div style="font-size:1.4rem;margin-bottom:8px;">&#9881;</div>
+          <div style="font-size:1.4rem;margin-bottom:8px;">⚙</div>
           <strong style="font-family:var(--ff-head);color:var(--navy);">Update Profile</strong>
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Edit your name, email, address, and contact preferences.</p>
         </div>
@@ -109,14 +109,14 @@
 
       <a href="/give" class="panel" style="text-decoration:none;">
         <div class="panel-body">
-          <div style="font-size:1.4rem;margin-bottom:8px;">&#128149;</div>
+          <div style="font-size:1.4rem;margin-bottom:8px;">💕</div>
           <strong style="font-family:var(--ff-head);color:var(--navy);">Make Another Gift</strong>
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Continue supporting families in their hardest moments.</p>
         </div>
       </a>
       <a href="@($"/api/public/v1/donations/year-end/{DonorId}/{DateTime.UtcNow.Year}?format=pdf")" target="_blank" rel="noopener" class="panel" style="text-decoration:none;">
         <div class="panel-body">
-          <div style="font-size:1.4rem;margin-bottom:8px;">&#129303;</div>
+          <div style="font-size:1.4rem;margin-bottom:8px;">🤗</div>
           <strong style="font-family:var(--ff-head);color:var(--navy);">Year-End Statement (@DateTime.UtcNow.Year)</strong>
           <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Download a PDF tax statement for this year's giving.</p>
         </div>
@@ -126,7 +126,7 @@
       {
         <button type="button" class="panel" style="text-align:left;border:1px solid var(--border);background:white;cursor:pointer;" @onclick="OpenBillingPortal">
           <div class="panel-body">
-            <div style="font-size:1.4rem;margin-bottom:8px;">&#128179;</div>
+            <div style="font-size:1.4rem;margin-bottom:8px;">💳</div>
             <strong style="font-family:var(--ff-head);color:var(--navy);">Manage Card &amp; Billing</strong>
             <p style="font-size:.84rem;color:var(--text-mid);margin:6px 0 0;line-height:1.5;">Update your card or view Stripe invoices.</p>
           </div>

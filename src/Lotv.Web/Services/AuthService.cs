@@ -23,8 +23,16 @@ public class AuthService
 
     // ── Public state ──────────────────────────────────────────────────────────
     public bool IsAuthenticated => _authState.GetAccessToken() is not null;
-    public string UserName  => GetClaim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier") is string id
-        ? id : GetClaim(JwtRegisteredClaimNames.Email) ?? "";
+    public string UserName
+    {
+        get
+        {
+            var first = GetClaim(ClaimTypes.GivenName);
+            var last  = GetClaim(ClaimTypes.Surname);
+            var full  = $"{first} {last}".Trim();
+            return full.Length > 0 ? full : GetClaim(JwtRegisteredClaimNames.Email) ?? "";
+        }
+    }
     public string UserEmail => GetClaim(JwtRegisteredClaimNames.Email) ?? "";
     public string UserRole  => GetClaim("role") ?? "";
     public int? ChapterId

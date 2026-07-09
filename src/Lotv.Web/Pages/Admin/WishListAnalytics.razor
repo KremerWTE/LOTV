@@ -15,22 +15,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-icon">📦</div>
     <div class="kpi-label">Total Items</div>
     <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-icon">✓</div>
     <div class="kpi-label">Fulfilled</div>
     <div class="kpi-value" style="color:var(--green)">@_all.Count(i => i.Status == WishListStatus.Fulfilled)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-icon">⏳</div>
     <div class="kpi-label">Open / Partial</div>
     <div class="kpi-value" style="color:var(--amber)">@_all.Count(i => i.Status is WishListStatus.Open or WishListStatus.PartiallyFulfilled)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-icon">📊</div>
     <div class="kpi-label">Fulfillment Rate</div>
     <div class="kpi-value" style="color:var(--gold)">@(_all.Any() ? $"{(double)_all.Count(i => i.Status == WishListStatus.Fulfilled) / _all.Count * 100:F0}%" : "—")</div>
   </div>

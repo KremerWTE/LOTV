@@ -29,22 +29,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Amount</div>
       <div class="kpi-value" style="color:var(--green)">@_donation.Amount.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-icon">📅</div>
       <div class="kpi-label">Date</div>
       <div class="kpi-value" style="color:var(--navy);font-size:1rem;">@_donation.Date.ToString("MMM d, yyyy")</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#128279;</div>
+      <div class="kpi-icon">🔗</div>
       <div class="kpi-label">Channel</div>
       <div class="kpi-value" style="font-size:.9rem;">@_donation.Channel.ToDisplayName()</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#9899;</div>
+      <div class="kpi-icon">⚫</div>
       <div class="kpi-label">Status</div>
       <div class="kpi-value" style="font-size:.9rem;color:@StatusColor(_donation.ContributionStatus);">@_donation.ContributionStatus</div>
     </div>

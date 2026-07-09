@@ -27,7 +27,7 @@ else
     <div class="panel" style="margin-bottom:20px;">
       <div class="panel-body" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
         <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--blush),#c2185b);display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:white;font-weight:700;flex-shrink:0;">
-          &#128149;
+          💕
         </div>
         <div style="flex:1;min-width:180px;">
           <div style="font-size:1.05rem;font-weight:700;">@_family.FullName</div>
@@ -52,22 +52,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-icon">💕</div>
       <div class="kpi-label">Cases Opened</div>
       <div class="kpi-value" style="color:var(--blush)">@_cases.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@_cases.Count(c => c.Status == CaseStatus.Fulfilled)</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#129309;</div>
+      <div class="kpi-icon">🤝</div>
       <div class="kpi-label">Volunteers Helped</div>
       <div class="kpi-value" style="color:var(--navy)">@_volunteersWhoHelped</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">Notes on File</div>
       <div class="kpi-value" style="color:var(--amber)">@_notes.Count</div>
     </div>

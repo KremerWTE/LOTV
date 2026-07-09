@@ -7,7 +7,7 @@
 <!-- PUBLIC NAV HEADER -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
     <div>
       <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
       <div style="font-size:.7rem;opacity:.7;">My Service Requests</div>
@@ -15,7 +15,7 @@
   </div>
   <div style="display:flex;gap:12px;align-items:center;">
     <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
-    <a href="/apply" class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;">&#43; New Request</a>
+    <a href="/apply" class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;">+ New Request</a>
   </div>
 </div>
 
@@ -26,7 +26,7 @@
       <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 4px;">My Assistance Requests</h2>
       <p style="font-size:.84rem;color:var(--text-mid);margin:0;">Track the status of your submitted requests</p>
     </div>
-    <a href="/apply" class="btn btn-primary">&#43; Submit New Request</a>
+    <a href="/apply" class="btn btn-primary">+ Submit New Request</a>
   </div>
 
   @if (_loading)
@@ -36,7 +36,7 @@
   else if (!_requests.Any())
   {
     <div class="panel" style="text-align:center;padding:48px;">
-      <div style="font-size:3rem;margin-bottom:12px;">&#128149;</div>
+      <div style="font-size:3rem;margin-bottom:12px;">💕</div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);">No Requests Yet</h3>
       <p style="color:var(--text-mid);margin-bottom:20px;">You have not submitted any assistance requests.<br>We are here to help — please reach out.</p>
       <a href="/apply" class="btn btn-primary">Apply for Assistance</a>
@@ -66,7 +66,7 @@
             <div style="font-size:.82rem;color:var(--text-mid);">
               Submitted @req.CreatedAt.ToString("MMM d, yyyy")
               @if (req.DueDate.HasValue)
-              { <span style="margin-left:8px;">&#128197; Due @req.DueDate.Value.ToString("MMM d")</span> }
+              { <span style="margin-left:8px;">📅 Due @req.DueDate.Value.ToString("MMM d")</span> }
             </div>
           </div>
           <a href="/my-requests/@req.Id" class="btn btn-sm">View Details</a>
@@ -91,7 +91,7 @@
           @if (!string.IsNullOrEmpty(req.AssignedTo))
           {
             <div style="margin-top:10px;font-size:.78rem;color:var(--text-light);">
-              &#129309; Assigned to <strong style="color:var(--navy);">@req.AssignedTo</strong>
+              🤝 Assigned to <strong style="color:var(--navy);">@req.AssignedTo</strong>
             </div>
           }
         </div>

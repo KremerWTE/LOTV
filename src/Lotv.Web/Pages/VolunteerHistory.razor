@@ -26,22 +26,22 @@
     <!-- KPI STRIP -->
     <div class="kpi-grid" style="margin-bottom:24px;">
       <div class="kpi-card kpi-green">
-        <div class="kpi-icon">&#9989;</div>
+        <div class="kpi-icon">✅</div>
         <div class="kpi-label">Total Fulfilled</div>
         <div class="kpi-value" style="color:var(--green)">@_fulfilled.Count</div>
       </div>
       <div class="kpi-card kpi-navy">
-        <div class="kpi-icon">&#127975;</div>
+        <div class="kpi-icon">🏧</div>
         <div class="kpi-label">Families Served</div>
         <div class="kpi-value" style="color:var(--navy)">@_fulfilled.Select(r => r.FamilyId).Distinct().Count()</div>
       </div>
       <div class="kpi-card kpi-gold">
-        <div class="kpi-icon">&#128197;</div>
+        <div class="kpi-icon">📅</div>
         <div class="kpi-label">Service Since</div>
         <div class="kpi-value" style="color:var(--gold);font-size:1rem;">@(_fulfilled.Any() ? _fulfilled.Min(r => r.CreatedAt).ToString("MMM yyyy") : "—")</div>
       </div>
       <div class="kpi-card kpi-amber">
-        <div class="kpi-icon">&#128149;</div>
+        <div class="kpi-icon">💕</div>
         <div class="kpi-label">Top Category</div>
         <div class="kpi-value" style="color:var(--amber);font-size:.95rem;">@_topCategory</div>
       </div>
@@ -50,7 +50,7 @@
     @if (!_fulfilled.Any())
     {
       <div class="panel" style="text-align:center;padding:40px;">
-        <div style="font-size:2rem;margin-bottom:10px;">&#127803;</div>
+        <div style="font-size:2rem;margin-bottom:10px;">🌻</div>
         <p style="color:var(--text-mid);">No fulfilled requests yet. Accept a request from the Available tab to get started!</p>
         <a href="/volunteer/available" class="btn btn-primary" style="margin-top:12px;">Browse Available Requests</a>
       </div>

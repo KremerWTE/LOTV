@@ -24,23 +24,23 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127880;</div>
+      <div class="kpi-icon">🎈</div>
       <div class="kpi-label">Events Analyzed</div>
       <div class="kpi-value" style="color:var(--navy)">@_eventRows.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">Total Attendees</div>
       <div class="kpi-value" style="color:var(--green)">@_eventRows.Sum(e => e.Registered)</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Checked In</div>
       <div class="kpi-value" style="color:var(--amber)">@_eventRows.Sum(e => e.CheckedIn)</div>
       <div class="kpi-change">@_overallCheckinRate% check-in rate</div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Avg Capacity Fill</div>
       <div class="kpi-value" style="color:var(--blush)">@_avgFillRate%</div>
       <div class="kpi-change">across all events</div>

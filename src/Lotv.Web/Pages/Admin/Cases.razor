@@ -12,7 +12,7 @@
     <p>All active, pending, and fulfilled service requests</p>
   </div>
   <div class="page-hd-actions">
-    <button class="btn btn-sm" @onclick="OpenNew">&#43; New Request</button>
+    <button class="btn btn-sm" @onclick="OpenNew">+ New Request</button>
     <a href="/admin/kanban" class="btn btn-sm">Kanban View</a>
   </div>
 </div>
@@ -20,22 +20,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-icon">📦</div>
     <div class="kpi-label">Open Cases</div>
     <div class="kpi-value" style="color:var(--navy)">@_all.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#9888;</div>
+    <div class="kpi-icon">⚠</div>
     <div class="kpi-label">Overdue</div>
     <div class="kpi-value" style="color:var(--amber)">@_all.Count(r => r.IsOverdue)</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-icon">✅</div>
     <div class="kpi-label">Fulfilled</div>
     <div class="kpi-value" style="color:var(--green)">@_all.Count(r => r.Status == CaseStatus.Fulfilled)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-icon">🕐</div>
     <div class="kpi-label">Avg Age (Open)</div>
     <div class="kpi-value" style="color:var(--gold)">@_avgAgeOpen</div>
   </div>
@@ -47,7 +47,7 @@
   {
     <button class="filter-chip @(_activeFilter == f ? "active" : "")" aria-pressed="@(_activeFilter == f)" @onclick="() => SetFilter(f)">@f</button>
   }
-  <input class="form-input" style="width:220px;padding:5px 12px;font-size:.82rem;" placeholder="&#128269; Search families..." aria-label="Search families" @bind="_search" @bind:event="oninput" />
+  <input class="form-input" style="width:220px;padding:5px 12px;font-size:.82rem;" placeholder="🔍 Search families..." aria-label="Search families" @bind="_search" @bind:event="oninput" />
 </div>
 
 <!-- TABLE -->
@@ -69,7 +69,7 @@
       <tbody>
         @if (!_filtered.Any())
         {
-          <tr><td colspan="8"><div class="empty-state"><div class="icon">&#128149;</div><p>No cases match this filter.</p></div></td></tr>
+          <tr><td colspan="8"><div class="empty-state"><div class="icon">💕</div><p>No cases match this filter.</p></div></td></tr>
         }
         @foreach (var r in _filtered)
         {
@@ -103,20 +103,20 @@
   <div style="position:fixed;right:0;top:0;bottom:0;width:520px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
     <div style="padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <h3 style="font-family:var(--ff-head);">New Resource Request</h3>
-      <button class="btn btn-sm" aria-label="Close" @onclick="CloseNew">&#10005;</button>
+      <button class="btn btn-sm" aria-label="Close" @onclick="CloseNew">✕</button>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
 
       @if (_prefillFamily is not null)
       {
         <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.82rem;color:var(--green-dark);">
-          &#128149; Creating a new case for existing family: <strong>@_prefillFamily.FullName</strong>. A new family record will not be created.
+          💕 Creating a new case for existing family: <strong>@_prefillFamily.FullName</strong>. A new family record will not be created.
         </div>
       }
       else
       {
         <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.82rem;color:var(--green-dark);">
-          &#128149; This form creates a new family intake record and opens a case. The next available volunteer will be auto-assigned.
+          💕 This form creates a new family intake record and opens a case. The next available volunteer will be auto-assigned.
         </div>
       }
 
@@ -193,7 +193,7 @@
       </div>
 
       @if (!string.IsNullOrEmpty(_newError))
-      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_newError</div> }
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_newError</div> }
 
       <div style="display:flex;gap:10px;">
         <button class="btn btn-primary" @onclick="SubmitNewRequestAsync" disabled="@_submitting">@(_submitting ? "Submitting…" : "Submit & Auto-Assign")</button>
@@ -210,7 +210,7 @@
   <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
     <div style="padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <h3 style="font-family:var(--ff-head);">Case #@_selected.Id — @_selected.Family?.FullName</h3>
-      <button class="btn btn-sm" @onclick="CloseCase">&#10005;</button>
+      <button class="btn btn-sm" @onclick="CloseCase">✕</button>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:20px;">
 
@@ -293,7 +293,7 @@
       </div>
 
       @if (_saved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Changes saved.</div> }
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ Changes saved.</div> }
     </div>
   </div>
 }

@@ -7,7 +7,7 @@
 <!-- PUBLIC NAV -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:white;">
-    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;">&#127803;</div>
+    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;">🌻</div>
     <strong style="font-family:var(--ff-head);">LOTV Ministry</strong>
   </a>
   <div style="display:flex;gap:16px;">
@@ -33,7 +33,7 @@
   {
     <!-- SUCCESS STATE -->
     <div class="panel" style="text-align:center;padding:48px;">
-      <div style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#b8860b);display:flex;align-items:center;justify-content:center;font-size:2.2rem;margin:0 auto 20px;">&#127881;</div>
+      <div style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#b8860b);display:flex;align-items:center;justify-content:center;font-size:2.2rem;margin:0 auto 20px;">🎉</div>
       <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">You're Registered!</h2>
       <p style="color:var(--text-mid);margin:0 0 20px;font-size:.94rem;">
         Confirmation sent to <strong>@_email</strong>. We look forward to seeing you at <strong>@_event.Title</strong>!
@@ -84,9 +84,9 @@
             <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:4px;">@_event.Type</div>
             <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 6px;">@_event.Title</h2>
             <div style="display:flex;gap:16px;font-size:.84rem;color:var(--text-mid);">
-              <span>&#128197; @_event.Date.ToString("MMMM d, yyyy")</span>
-              <span>&#9201; @_event.Date.ToString("h:mm tt")</span>
-              <span>&#128205; @(string.IsNullOrEmpty(_event.Location) ? (_event.IsVirtual ? "Online" : "TBD") : _event.Location)</span>
+              <span>📅 @_event.Date.ToString("MMMM d, yyyy")</span>
+              <span>⏱ @_event.Date.ToString("h:mm tt")</span>
+              <span>📍 @(string.IsNullOrEmpty(_event.Location) ? (_event.IsVirtual ? "Online" : "TBD") : _event.Location)</span>
             </div>
             @if (!string.IsNullOrEmpty(_event.Description))
             {
@@ -119,9 +119,9 @@
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
-                <button class="btn btn-sm" @onclick='() => _ticketCount = Math.Max(1, _ticketCount - 1)' style="width:32px;padding:4px 0;font-size:1rem;">&#8722;</button>
+                <button class="btn btn-sm" @onclick='() => _ticketCount = Math.Max(1, _ticketCount - 1)' style="width:32px;padding:4px 0;font-size:1rem;">−</button>
                 <span style="font-size:1.1rem;font-weight:700;min-width:24px;text-align:center;">@_ticketCount</span>
-                <button class="btn btn-sm btn-primary" @onclick='() => _ticketCount = Math.Min(10, _ticketCount + 1)' style="width:32px;padding:4px 0;font-size:1rem;">&#43;</button>
+                <button class="btn btn-sm btn-primary" @onclick='() => _ticketCount = Math.Min(10, _ticketCount + 1)' style="width:32px;padding:4px 0;font-size:1rem;">+</button>
               </div>
             </div>
             @if (_totalPrice > 0)
@@ -169,7 +169,7 @@
             <div class="panel-header">Payment</div>
             <div class="panel-body">
               <div style="background:var(--bg);border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">
-                <div style="font-size:1.4rem;margin-bottom:6px;">&#128179;</div>
+                <div style="font-size:1.4rem;margin-bottom:6px;">💳</div>
                 Stripe secure payment form loads here in production.<br/>
                 <span style="font-size:.76rem;">(@_totalPrice.ToString("C2") will be charged via Stripe)</span>
               </div>
@@ -179,7 +179,7 @@
 
         @if (!string.IsNullOrEmpty(_error))
         {
-          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:14px;">&#9888; @_error</div>
+          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:14px;">⚠ @_error</div>
         }
 
         <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;" @onclick="SubmitAsync" disabled="@_busy">
@@ -210,15 +210,15 @@
 
             @if (_totalPrice == 0)
             {
-              <div style="margin-top:12px;font-size:.78rem;color:var(--green);text-align:center;font-weight:600;">&#127881; Free Event</div>
+              <div style="margin-top:12px;font-size:.78rem;color:var(--green);text-align:center;font-weight:600;">🎉 Free Event</div>
             }
           </div>
         </div>
 
         <div class="panel" style="margin-top:12px;">
           <div class="panel-body" style="font-size:.8rem;color:var(--text-mid);">
-            <div style="margin-bottom:6px;">&#128274; Secure checkout powered by Stripe</div>
-            <div>&#128140; Confirmation email with ticket barcode</div>
+            <div style="margin-bottom:6px;">🔒 Secure checkout powered by Stripe</div>
+            <div>💌 Confirmation email with ticket barcode</div>
           </div>
         </div>
       </div>

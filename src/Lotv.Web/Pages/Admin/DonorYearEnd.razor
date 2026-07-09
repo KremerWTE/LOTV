@@ -37,17 +37,17 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Given @_year</div>
       <div class="kpi-value" style="color:var(--green)">@_summary.TotalGiven.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-icon">🎁</div>
       <div class="kpi-label">Gift Count</div>
       <div class="kpi-value" style="color:var(--navy)">@_summary.GiftCount</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Average Gift</div>
       <div class="kpi-value" style="font-size:1rem;">@(_summary.GiftCount > 0 ? (_summary.TotalGiven / _summary.GiftCount).ToString("C0") : "—")</div>
     </div>

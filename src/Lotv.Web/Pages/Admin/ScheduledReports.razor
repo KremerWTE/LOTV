@@ -11,7 +11,7 @@
   </div>
   <div class="page-hd-actions">
     @if (_saved)
-    { <span class="badge badge-delivered" style="font-size:.74rem;">&#10003; Saved</span> }
+    { <span class="badge badge-delivered" style="font-size:.74rem;">✓ Saved</span> }
     <button class="btn btn-primary btn-sm" @onclick="SaveAsync" disabled="@_saving">
       @(_saving ? "Saving…" : "Save All Changes")
     </button>
@@ -137,9 +137,9 @@ else
                 <td style="font-size:.78rem;color:var(--text-light);">@log.RecipientEmail</td>
                 <td>
                   @if (log.Success)
-                  { <span class="badge badge-delivered" style="font-size:.66rem;">&#10003; Delivered</span> }
+                  { <span class="badge badge-delivered" style="font-size:.66rem;">✓ Delivered</span> }
                   else
-                  { <span class="badge badge-onhold" style="font-size:.66rem;">&#10007; Failed</span> }
+                  { <span class="badge badge-onhold" style="font-size:.66rem;">✗ Failed</span> }
                 </td>
               </tr>
             }

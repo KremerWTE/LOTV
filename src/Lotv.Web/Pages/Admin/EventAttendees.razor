@@ -29,22 +29,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-icon">👤</div>
       <div class="kpi-label">Registered</div>
       <div class="kpi-value" style="color:var(--navy)">@_attendees.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#10003;</div>
+      <div class="kpi-icon">✓</div>
       <div class="kpi-label">Checked In</div>
       <div class="kpi-value" style="color:var(--green)">@_attendees.Count(a => a.CheckedIn)</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-icon">⏳</div>
       <div class="kpi-label">Not Yet Checked In</div>
       <div class="kpi-value" style="color:var(--amber)">@_attendees.Count(a => !a.CheckedIn)</div>
     </div>
     <div class="kpi-card kpi-gold">
-      <div class="kpi-icon">&#128202;</div>
+      <div class="kpi-icon">📊</div>
       <div class="kpi-label">Check-In Rate</div>
       <div class="kpi-value" style="color:var(--gold)">@(_attendees.Any() ? $"{(double)_attendees.Count(a => a.CheckedIn) / _attendees.Count * 100:F0}%" : "—")</div>
     </div>
@@ -53,7 +53,7 @@ else
   <!-- FILTER -->
   <div class="filter-bar" style="margin-bottom:12px;">
     <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
-           placeholder="&#128269; Search by name or email…" @bind="_search" @bind:event="oninput" />
+           placeholder="🔍 Search by name or email…" @bind="_search" @bind:event="oninput" />
     <button class="filter-chip @(_checkinFilter == "all" ? "active" : "")" @onclick='() => _checkinFilter = "all"'>All · @_attendees.Count</button>
     <button class="filter-chip @(_checkinFilter == "in" ? "active" : "")" @onclick='() => _checkinFilter = "in"'>Checked In · @_attendees.Count(a => a.CheckedIn)</button>
     <button class="filter-chip @(_checkinFilter == "out" ? "active" : "")" @onclick='() => _checkinFilter = "out"'>Not In · @_attendees.Count(a => !a.CheckedIn)</button>
@@ -95,7 +95,7 @@ else
                 <td>
                   @if (!a.CheckedIn)
                   {
-                    <button class="btn btn-sm btn-primary" style="font-size:.7rem;" @onclick="() => CheckIn(a)" disabled="@_busy">&#10003; Check In</button>
+                    <button class="btn btn-sm btn-primary" style="font-size:.7rem;" @onclick="() => CheckIn(a)" disabled="@_busy">✓ Check In</button>
                   }
                 </td>
               </tr>

@@ -11,22 +11,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:24px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#9971;</div>
+    <div class="kpi-icon">⛳</div>
     <div class="kpi-label">Dioceses Tracked</div>
     <div class="kpi-value" style="color:var(--navy)">@_dioceses.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#127968;</div>
+    <div class="kpi-icon">🏠</div>
     <div class="kpi-label">Total Parishes</div>
     <div class="kpi-value" style="color:var(--green)">@_parishes.Count</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-icon">✅</div>
     <div class="kpi-label">Active Parishes</div>
     <div class="kpi-value" style="color:var(--amber)">@_parishes.Count(p => p.ActiveCases > 0)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128200;</div>
+    <div class="kpi-icon">📈</div>
     <div class="kpi-label">Engagement Rate</div>
     <div class="kpi-value" style="color:var(--gold)">@(_parishes.Count > 0 ? $"{_parishes.Count(p => p.ActiveCases > 0) * 100 / _parishes.Count}%" : "—")</div>
   </div>

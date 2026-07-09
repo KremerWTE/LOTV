@@ -23,24 +23,24 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127758;</div>
+      <div class="kpi-icon">🌎</div>
       <div class="kpi-label">States Reached</div>
       <div class="kpi-value" style="color:var(--green)">@_rows.Count</div>
-      <div class="kpi-change change-up">&#9650; growing reach</div>
+      <div class="kpi-change change-up">▲ growing reach</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">Total Families</div>
       <div class="kpi-value" style="color:var(--navy)">@_families.Count</div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#127970;</div>
+      <div class="kpi-icon">🏢</div>
       <div class="kpi-label">Top State</div>
       <div class="kpi-value" style="font-size:1.4rem;color:var(--blush)">@(_rows.FirstOrDefault()?.State ?? "—")</div>
       <div class="kpi-change">@(_rows.FirstOrDefault()?.Count ?? 0) families</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Avg per State</div>
       <div class="kpi-value" style="color:var(--amber)">@(_rows.Any() ? (int)_rows.Average(r => r.Count) : 0)</div>
       <div class="kpi-change">families per state</div>

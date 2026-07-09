@@ -23,22 +23,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127758;</div>
+      <div class="kpi-icon">🌎</div>
       <div class="kpi-label">States Reached</div>
       <div class="kpi-value" style="color:var(--navy)">@_byState.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-icon">💕</div>
       <div class="kpi-label">Total Cases Mapped</div>
       <div class="kpi-value" style="color:var(--amber)">@_totalMapped</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@_byState.Sum(s => s.Fulfilled)</div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-icon">🏠</div>
       <div class="kpi-label">Top State</div>
       <div class="kpi-value" style="font-size:1.4rem;color:var(--blush)">@(_byState.FirstOrDefault()?.State ?? "—")</div>
       <div class="kpi-change">@(_byState.FirstOrDefault()?.Total ?? 0) cases</div>

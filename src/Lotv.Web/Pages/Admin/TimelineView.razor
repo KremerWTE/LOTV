@@ -38,7 +38,7 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <a class="kpi-card kpi-green" href="/admin/donations" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Donations</div>
       <div class="kpi-value" style="color:var(--green)"><Money Amount="@totalDonations" /></div>
       <div class="kpi-change @(donGrowth >= 0 ? "change-up" : "change-down")">
@@ -46,19 +46,19 @@ else
       </div>
     </a>
     <a class="kpi-card kpi-navy" href="/admin/cases" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-icon">✅</div>
       <div class="kpi-label">Cases Fulfilled</div>
       <div class="kpi-value" style="color:var(--navy)">@totalFulfilled</div>
       <div class="kpi-change">avg @((_points.Count > 0 ? totalFulfilled / _points.Count : 0))/mo</div>
     </a>
     <a class="kpi-card kpi-amber" href="/admin/cases/intake" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">New Cases</div>
       <div class="kpi-value" style="color:var(--amber)">@totalNew</div>
       <div class="kpi-change">avg @((_points.Count > 0 ? totalNew / _points.Count : 0))/mo</div>
     </a>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-icon">🎉</div>
       <div class="kpi-label">Best Month</div>
       <div class="kpi-value" style="font-size:1rem;color:var(--blush)">@(bestMonth?.Period.Split(' ')[0] ?? "—")</div>
       <div class="kpi-change"><Money Amount="@(bestMonth?.Donations ?? 0)" /></div>

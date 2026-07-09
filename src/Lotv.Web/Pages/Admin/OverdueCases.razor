@@ -16,22 +16,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card" style="background:#fff1f2;">
-    <div class="kpi-icon">&#128680;</div>
+    <div class="kpi-icon">🚨</div>
     <div class="kpi-label">Overdue Cases</div>
     <div class="kpi-value" style="color:var(--red)">@_cases.Count</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-icon">⏳</div>
     <div class="kpi-label">Unassigned</div>
     <div class="kpi-value" style="color:var(--amber)">@_cases.Count(c => c.AssignedToId is null)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-icon">📅</div>
     <div class="kpi-label">Avg Days Open</div>
     <div class="kpi-value" style="color:var(--amber)">@(_cases.Any() ? _cases.Average(c => (DateTime.UtcNow - c.CreatedAt).Days).ToString("F0") : "—")</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128680;</div>
+    <div class="kpi-icon">🚨</div>
     <div class="kpi-label">Urgent Priority</div>
     <div class="kpi-value" style="color:var(--navy)">@_cases.Count(c => c.Priority == RequestPriority.Urgent)</div>
   </div>
@@ -45,7 +45,7 @@ else if (!_cases.Any())
 {
   <div class="panel">
     <div class="panel-body" style="text-align:center;padding:48px;color:var(--text-light);">
-      <div style="font-size:2rem;margin-bottom:12px;">&#10003;</div>
+      <div style="font-size:2rem;margin-bottom:12px;">✓</div>
       <div style="font-weight:600;font-size:.96rem;">No overdue cases right now</div>
       <div style="font-size:.84rem;margin-top:6px;">All open cases are within the 7-day window.</div>
     </div>

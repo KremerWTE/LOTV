@@ -16,22 +16,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-icon">📊</div>
     <div class="kpi-label">Total Donations</div>
     <div class="kpi-value" style="color:var(--navy)">@_donations.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-icon">✓</div>
     <div class="kpi-label">Selected</div>
     <div class="kpi-value" style="color:var(--green)">@_selected.Count</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128176;</div>
+    <div class="kpi-icon">💰</div>
     <div class="kpi-label">Selected Total</div>
     <div class="kpi-value" style="color:var(--amber)">@_selectedTotal.ToString("C0")</div>
   </div>
   <div class="kpi-card">
-    <div class="kpi-icon">&#128203;</div>
+    <div class="kpi-icon">📋</div>
     <div class="kpi-label">Processed</div>
     <div class="kpi-value" style="color:var(--text-mid)">@_processedCount</div>
   </div>
@@ -44,10 +44,10 @@
     <span style="font-weight:600;font-size:.88rem;">@_selected.Count donation(s) selected — @_selectedTotal.ToString("C0")</span>
     <div style="margin-left:auto;display:flex;gap:10px;">
       <button class="btn btn-sm" style="background:var(--green);color:white;border:none;" @onclick='() => ApplyBulk("Allocated")' disabled="@_busy">
-        &#10003; Approve All
+        ✓ Approve All
       </button>
       <button class="btn btn-sm" style="background:var(--red);color:white;border:none;" @onclick='() => ApplyBulk("Restricted")' disabled="@_busy">
-        &#10007; Restrict All
+        ✗ Restrict All
       </button>
       <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:white;border:none;" @onclick="ClearSelection">
         Clear
@@ -66,7 +66,7 @@
 <!-- FILTER BAR -->
 <div class="filter-bar" style="margin-bottom:12px;">
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
-         placeholder="&#128269; Search donor or channel…" @bind="_search" @bind:event="oninput" />
+         placeholder="🔍 Search donor or channel…" @bind="_search" @bind:event="oninput" />
   @foreach (var ch in new[] { "All", "Check", "Cash", "Online", "Card", "ACH" })
   {
     var chVal = ch;

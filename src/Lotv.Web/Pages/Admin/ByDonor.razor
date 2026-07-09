@@ -20,22 +20,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128100;</div>
+    <div class="kpi-icon">👤</div>
     <div class="kpi-label">Donors with Gifts</div>
     <div class="kpi-value" style="color:var(--navy)">@_rows.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Raised</div>
     <div class="kpi-value" style="color:var(--green)"><Money Amount="@_rows.Sum(r => r.Total)" /></div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128200;</div>
+    <div class="kpi-icon">📈</div>
     <div class="kpi-label">Avg Gift Size</div>
     <div class="kpi-value" style="color:var(--amber)">@if (_rows.Sum(r => r.GiftCount) > 0) { <Money Amount="@(_rows.Sum(r => r.Total) / _rows.Sum(r => r.GiftCount))" /> } else { <text>—</text> }</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128260;</div>
+    <div class="kpi-icon">🔄</div>
     <div class="kpi-label">Repeat Donors</div>
     <div class="kpi-value" style="color:var(--gold)">@_rows.Count(r => r.GiftCount > 1)</div>
   </div>
@@ -43,7 +43,7 @@
 
 <!-- SEARCH -->
 <div class="filter-bar">
-  <input class="form-input" style="width:260px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search donor name or email..." @bind="_search" @bind:event="oninput" />
+  <input class="form-input" style="width:260px;font-size:.82rem;padding:5px 12px;" placeholder="🔍 Search donor name or email..." @bind="_search" @bind:event="oninput" />
 </div>
 
 @if (_kebabOpen != 0)
@@ -92,7 +92,7 @@
             <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Total" /></td>
             <td style="font-size:.8rem;">
               @if (d.Donor.IsRecurring)
-              { <span style="color:var(--green);font-weight:700;">&#10003; <Money Amount="@(d.Donor.RecurringAmount ?? 0m)" />/mo</span> }
+              { <span style="color:var(--green);font-weight:700;">✓ <Money Amount="@(d.Donor.RecurringAmount ?? 0m)" />/mo</span> }
               else
               { <span style="color:var(--text-light);">One-time</span> }
             </td>
@@ -100,7 +100,7 @@
             <td style="font-size:.76rem;color:var(--text-mid);">@(d.Donor.ParishName ?? "—")</td>
             <td style="position:relative;">
               <button class="btn btn-sm" @onclick="() => ToggleExpand(d.Donor.Id)">
-                @(_expanded == d.Donor.Id ? "&#9650;" : "Gifts")
+                @(_expanded == d.Donor.Id ? "▲" : "Gifts")
               </button>
               <button class="btn btn-sm" title="More actions" @onclick="() => _kebabOpen = _kebabOpen == d.Donor.Id ? 0 : d.Donor.Id">⋯</button>
               @if (_kebabOpen == d.Donor.Id)
@@ -144,7 +144,7 @@
         }
         @if (!Filtered.Any())
         {
-          <tr><td colspan="8"><div class="empty-state"><div class="icon">&#128100;</div><p>No donors match your search.</p></div></td></tr>
+          <tr><td colspan="8"><div class="empty-state"><div class="icon">👤</div><p>No donors match your search.</p></div></td></tr>
         }
         @if (Filtered.Count() > _visible)
         {
@@ -208,7 +208,7 @@
   }
 
   private MarkupString SortIcon(string col) =>
-    new MarkupString(_sort == col ? (_sortDesc ? "&#9662;" : "&#9652;") : "");
+    new MarkupString(_sort == col ? (_sortDesc ? "▾" : "▴") : "");
 
   private IEnumerable<DonorRow> Filtered
   {

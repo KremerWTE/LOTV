@@ -17,22 +17,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:24px;">
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Raised</div>
     <div class="kpi-value" style="color:var(--green)">@_total.ToString("C0")</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#127873;</div>
+    <div class="kpi-icon">🎁</div>
     <div class="kpi-label">Total Gifts</div>
     <div class="kpi-value" style="color:var(--navy)">@_rows.Sum(r => r.Count)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#127942;</div>
+    <div class="kpi-icon">🏆</div>
     <div class="kpi-label">Top Channel</div>
     <div class="kpi-value" style="color:var(--amber);font-size:1.1rem;">@(_rows.FirstOrDefault()?.Channel ?? "—")</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#9889;</div>
+    <div class="kpi-icon">⚡</div>
     <div class="kpi-label">Avg Gift Size</div>
     <div class="kpi-value" style="color:var(--gold)">@(_rows.Sum(r => r.Count) > 0 ? (_total / _rows.Sum(r => r.Count)).ToString("C0") : "—")</div>
   </div>

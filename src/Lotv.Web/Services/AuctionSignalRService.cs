@@ -21,7 +21,7 @@ public class AuctionSignalRService : IAsyncDisposable
 
     public AuctionSignalRService(IConfiguration config)
     {
-        _apiBaseUrl = config["ApiBaseUrl"] ?? "https://localhost:7100";
+        _apiBaseUrl = config["ApiBaseUrl"] ?? "http://localhost:5275";
     }
 
     public async Task ConnectAsync()

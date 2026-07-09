@@ -8,29 +8,29 @@
 <div class="page-hd">
   <div><h2>Volunteers</h2><p>Manage volunteer roster and assignments</p></div>
   <div class="page-hd-actions">
-    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">&#43; Add Volunteer</button>
+    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">+ Add Volunteer</button>
   </div>
 </div>
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-icon">👥</div>
     <div class="kpi-label">Total Volunteers</div>
     <div class="kpi-value" style="color:var(--green)">@_vols.Count</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-icon">✅</div>
     <div class="kpi-label">Active</div>
     <div class="kpi-value" style="color:var(--navy)">@_vols.Count(v => v.Status == VolunteerStatus.Active)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128203;</div>
+    <div class="kpi-icon">📋</div>
     <div class="kpi-label">Open Cases Assigned</div>
     <div class="kpi-value" style="color:var(--amber)">@_vols.Sum(v => v.ActiveCases)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#127942;</div>
+    <div class="kpi-icon">🏆</div>
     <div class="kpi-label">Cases Fulfilled</div>
     <div class="kpi-value" style="color:var(--gold)">@_vols.Sum(v => v.TotalCasesFulfilled)</div>
   </div>
@@ -40,7 +40,7 @@
 <div class="filter-bar">
   @foreach (var f in new[]{"All","Active","Inactive","Package Assembler","Prayer Ambassador","Parish Liaison","Event Helper","Driver","Admin"})
   { <button class="filter-chip @(_filter == f ? "active" : "")" aria-pressed="@(_filter == f)" @onclick="() => _filter = f">@f</button> }
-  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search name or email..." @bind="_search" @bind:event="oninput" />
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="🔍 Search name or email..." @bind="_search" @bind:event="oninput" />
 </div>
 
 <!-- TABLE -->
@@ -67,7 +67,7 @@
             </td>
             <td>
               @if (v.ActiveCases >= 5)
-              { <span style="color:var(--amber);font-weight:700;">@v.ActiveCases &#9888;</span> }
+              { <span style="color:var(--amber);font-weight:700;">@v.ActiveCases ⚠</span> }
               else
               { <span>@v.ActiveCases</span> }
             </td>
@@ -91,7 +91,7 @@
   <div class="drawer">
     <div class="drawer-head">
       <h3>@(_editing == null ? "Add Volunteer" : "Edit Volunteer")</h3>
-      <button class="drawer-close" @onclick="CloseDrawer">&#10005;</button>
+      <button class="drawer-close" @onclick="CloseDrawer">✕</button>
     </div>
     <div class="drawer-body">
       <div class="form-group">
@@ -129,7 +129,7 @@
         <input class="form-input" @bind="_formParish" />
       </div>
       @if (!string.IsNullOrEmpty(_validationError))
-      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_validationError</div> }
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_validationError</div> }
     </div>
     <div class="drawer-footer">
       <button class="btn btn-primary" @onclick="Save">Save</button>
@@ -141,7 +141,7 @@
 @if (_savedMsg)
 {
   <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
-    &#10003; Volunteer saved
+    ✓ Volunteer saved
   </div>
 }
 

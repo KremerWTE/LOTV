@@ -36,22 +36,22 @@ else if (_ran)
   <!-- Summary strip -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#10003;</div>
+      <div class="kpi-icon">✓</div>
       <div class="kpi-label">Matched</div>
       <div class="kpi-value" style="color:var(--green);">@_matched</div>
     </div>
     <div class="kpi-card kpi-red">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Discrepancies</div>
       <div class="kpi-value" style="color:#b91c1c;">@_discrepancies</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">Stripe Only</div>
       <div class="kpi-value" style="color:var(--amber);">@_stripeOnly</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128209;</div>
+      <div class="kpi-icon">📑</div>
       <div class="kpi-label">Internal Only</div>
       <div class="kpi-value" style="color:var(--navy);">@_internalOnly</div>
     </div>
@@ -61,7 +61,7 @@ else if (_ran)
   {
     <div class="panel">
       <div class="panel-body" style="text-align:center;padding:40px;">
-        <div style="font-size:2rem;margin-bottom:12px;">&#10003;</div>
+        <div style="font-size:2rem;margin-bottom:12px;">✓</div>
         <div style="font-weight:700;color:var(--green);font-size:1rem;">All records match!</div>
         <p style="color:var(--text-light);font-size:.85rem;margin:8px 0 0;">
           @_matched Stripe payment@(_matched != 1 ? "s" : "") reconciled perfectly against internal records for the selected period.
@@ -167,7 +167,7 @@ else
 {
   <div class="panel">
     <div class="panel-body" style="text-align:center;padding:48px 24px;">
-      <div style="font-size:2.5rem;margin-bottom:16px;">&#128290;</div>
+      <div style="font-size:2.5rem;margin-bottom:16px;">🔢</div>
       <div style="font-weight:700;color:var(--navy);font-size:1.1rem;margin-bottom:8px;">Ready to reconcile</div>
       <p style="color:var(--text-light);font-size:.85rem;max-width:420px;margin:0 auto 20px;line-height:1.7;">
         Select a time period above and click <strong>Run Report</strong> to compare Stripe payment records against internal donation entries.

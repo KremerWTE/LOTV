@@ -10,7 +10,7 @@
 {
   <!-- CONFIRMATION -->
   <div style="max-width:600px;margin:80px auto;padding:0 24px;text-align:center;">
-    <div style="font-size:3rem;margin-bottom:16px;">&#128149;</div>
+    <div style="font-size:3rem;margin-bottom:16px;">💕</div>
     <h2 style="font-family:var(--ff-head);font-size:1.8rem;color:var(--navy);margin:0 0 14px;">Your request has been received.</h2>
     <p style="color:var(--text-mid);font-size:.96rem;line-height:1.7;margin:0 0 28px;">
       Thank you for reaching out. A member of our team will review your request and be in touch soon.
@@ -54,7 +54,7 @@ else
                   style="@RadioCardStyle(_forSelf)"
                   aria-pressed="@_forSelf"
                   @onclick='() => _forSelf = true'>
-            <div style="font-size:1.4rem;margin-bottom:6px;">&#128149;</div>
+            <div style="font-size:1.4rem;margin-bottom:6px;">💕</div>
             <div style="font-weight:700;color:var(--navy);font-size:.94rem;">This is for me</div>
             <div style="font-size:.8rem;color:var(--text-mid);margin-top:3px;">I am requesting for myself or my family</div>
           </button>
@@ -62,7 +62,7 @@ else
                   style="@RadioCardStyle(!_forSelf)"
                   aria-pressed="@(!_forSelf)"
                   @onclick='() => _forSelf = false'>
-            <div style="font-size:1.4rem;margin-bottom:6px;">&#128106;</div>
+            <div style="font-size:1.4rem;margin-bottom:6px;">👪</div>
             <div style="font-weight:700;color:var(--navy);font-size:.94rem;">This is for someone else</div>
             <div style="font-size:.8rem;color:var(--text-mid);margin-top:3px;">I know a family who needs support</div>
           </button>
@@ -176,7 +176,7 @@ else
                   style="@PrivacyCardStyle(_f.PrivacyPreference == PrivacyPreference.Public)"
                   aria-pressed="@(_f.PrivacyPreference == PrivacyPreference.Public)"
                   @onclick='() => _f.PrivacyPreference = PrivacyPreference.Public'>
-            <div style="font-size:1.2rem;margin-bottom:4px;">&#127758;</div>
+            <div style="font-size:1.2rem;margin-bottom:4px;">🌎</div>
             <div style="font-weight:700;color:var(--navy);font-size:.85rem;">Public</div>
             <div style="font-size:.72rem;color:var(--text-mid);margin-top:2px;line-height:1.4;">Name visible on our prayer wall</div>
           </button>
@@ -184,7 +184,7 @@ else
                   style="@PrivacyCardStyle(_f.PrivacyPreference == PrivacyPreference.Anonymous)"
                   aria-pressed="@(_f.PrivacyPreference == PrivacyPreference.Anonymous)"
                   @onclick='() => _f.PrivacyPreference = PrivacyPreference.Anonymous'>
-            <div style="font-size:1.2rem;margin-bottom:4px;">&#129664;</div>
+            <div style="font-size:1.2rem;margin-bottom:4px;">🪀</div>
             <div style="font-weight:700;color:var(--navy);font-size:.85rem;">Anonymous</div>
             <div style="font-size:.72rem;color:var(--text-mid);margin-top:2px;line-height:1.4;">On wall but name hidden</div>
           </button>
@@ -192,7 +192,7 @@ else
                   style="@PrivacyCardStyle(_f.PrivacyPreference == PrivacyPreference.Private)"
                   aria-pressed="@(_f.PrivacyPreference == PrivacyPreference.Private)"
                   @onclick='() => _f.PrivacyPreference = PrivacyPreference.Private'>
-            <div style="font-size:1.2rem;margin-bottom:4px;">&#128274;</div>
+            <div style="font-size:1.2rem;margin-bottom:4px;">🔒</div>
             <div style="font-weight:700;color:var(--navy);font-size:.85rem;">Private</div>
             <div style="font-size:.72rem;color:var(--text-mid);margin-top:2px;line-height:1.4;">Prayers only — not listed</div>
           </button>
@@ -223,16 +223,16 @@ else
 
       <!-- ── DONATION PROMPT ─────────────────────────────────────────────── -->
       <div style="background:linear-gradient(135deg,#fef9ee,#fef3d0);border:1px solid #e8c87a;border-radius:10px;padding:18px 22px;margin-bottom:24px;display:flex;gap:14px;align-items:center;">
-        <div style="font-size:1.6rem;flex-shrink:0;">&#127873;</div>
+        <div style="font-size:1.6rem;flex-shrink:0;">🎁</div>
         <div>
           <div style="font-weight:700;color:#7a5a00;font-size:.88rem;margin-bottom:3px;">Consider a $50 donation to cover this package</div>
-          <div style="font-size:.8rem;color:#9a7a20;line-height:1.5;">Each comfort package costs about $50 to assemble and ship. No payment required — but every gift helps us serve the next family. <a href="/give" style="color:var(--green);font-weight:700;text-decoration:none;">Give here &#8594;</a></div>
+          <div style="font-size:.8rem;color:#9a7a20;line-height:1.5;">Each comfort package costs about $50 to assemble and ship. No payment required — but every gift helps us serve the next family. <a href="/give" style="color:var(--green);font-weight:700;text-decoration:none;">Give here →</a></div>
         </div>
       </div>
 
       @if (!string.IsNullOrEmpty(_error))
       {
-        <div role="alert" aria-live="assertive" style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">&#9888; @_error</div>
+        <div role="alert" aria-live="assertive" style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">⚠ @_error</div>
       }
 
       <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync" disabled="@_busy">
@@ -262,10 +262,10 @@ else
 
   private readonly List<PackageOption> _packageOptions =
   [
-    new("Comfort",  "&#129944;", "Comfort Package",  "Prayer cards, essential oil & tea, sacramentals, personalized bracelet"),
-    new("Memory",   "&#128214;", "Memory-Keeping",   "Grief book, memory box, keepsake items for your family"),
-    new("Meals",    "&#127815;", "Meals Support",    "Gift cards or coordination with local parish meal train"),
-    new("AllThree", "&#129502;", "All Three",        "Everything above — full comfort, memory, and meal support"),
+    new("Comfort",  "🮘", "Comfort Package",  "Prayer cards, essential oil & tea, sacramentals, personalized bracelet"),
+    new("Memory",   "📖", "Memory-Keeping",   "Grief book, memory box, keepsake items for your family"),
+    new("Meals",    "🍇", "Meals Support",    "Gift cards or coordination with local parish meal train"),
+    new("AllThree", "🧞", "All Three",        "Everything above — full comfort, memory, and meal support"),
   ];
 
   private async Task SubmitAsync()

@@ -7,7 +7,7 @@
 <div class="page-hd">
   <div><h2>Report Run History</h2><p>Log of all automated report deliveries and their status</p></div>
   <div class="page-hd-actions">
-    <a href="/admin/reports/schedule" class="btn btn-sm">&#8592; Scheduled Reports</a>
+    <a href="/admin/reports/schedule" class="btn btn-sm">← Scheduled Reports</a>
     <select class="form-input" style="font-size:.82rem;padding:5px 12px;width:140px;" @bind="_take" @bind:after="Reload">
       <option value="50">Last 50</option>
       <option value="100">Last 100</option>
@@ -19,22 +19,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-icon">📊</div>
     <div class="kpi-label">Total Runs</div>
     <div class="kpi-value" style="color:var(--navy)">@_logs.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-icon">✓</div>
     <div class="kpi-label">Successful</div>
     <div class="kpi-value" style="color:var(--green)">@_logs.Count(l => l.Success)</div>
   </div>
   <div class="kpi-card" style="background:#fff1f2;">
-    <div class="kpi-icon">&#10005;</div>
+    <div class="kpi-icon">✕</div>
     <div class="kpi-label">Failed</div>
     <div class="kpi-value" style="color:var(--red)">@_logs.Count(l => !l.Success)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128203;</div>
+    <div class="kpi-icon">📋</div>
     <div class="kpi-label">Success Rate</div>
     <div class="kpi-value" style="color:var(--amber)">@(_logs.Any() ? $"{(double)_logs.Count(l => l.Success) / _logs.Count * 100:F0}%" : "—")</div>
   </div>
@@ -43,7 +43,7 @@
 <!-- FILTER BAR -->
 <div class="filter-bar" style="margin-bottom:12px;">
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
-         placeholder="&#128269; Filter by type or email…" @bind="_search" @bind:event="oninput" />
+         placeholder="🔍 Filter by type or email…" @bind="_search" @bind:event="oninput" />
   @foreach (var type in new[] { "All" }.Concat(_types))
   {
     <button class="filter-chip @(_typeFilter == type ? "active" : "")" @onclick="() => _typeFilter = type">

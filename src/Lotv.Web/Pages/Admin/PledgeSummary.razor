@@ -24,22 +24,22 @@ else
   <!-- KPI STRIP ROW 1 -->
   <div class="kpi-grid" style="margin-bottom:16px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#129309;</div>
+      <div class="kpi-icon">🤝</div>
       <div class="kpi-label">Total Pledges</div>
       <div class="kpi-value" style="color:var(--navy)">@_pledges.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-icon">💸</div>
       <div class="kpi-label">Total Pledged</div>
       <div class="kpi-value" style="color:var(--green)"><Money Amount="@_pledges.Sum(p => p.PledgedAmount)" /></div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Total Fulfilled</div>
       <div class="kpi-value" style="color:var(--blush)"><Money Amount="@_pledges.Sum(p => p.FulfilledAmount)" /></div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Fulfillment Rate</div>
       <div class="kpi-value" style="color:var(--amber)">@_fulfillmentRate%</div>
       <div class="kpi-change">of pledged amount received</div>
@@ -49,24 +49,24 @@ else
   <!-- KPI STRIP ROW 2 -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <a class="kpi-card kpi-green" href="/admin/pledges?status=Active" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#9654;</div>
+      <div class="kpi-icon">▶</div>
       <div class="kpi-label">Active</div>
       <div class="kpi-value" style="color:var(--green)">@_byStat(PledgeStatus.Active)</div>
     </a>
     <a class="kpi-card kpi-navy" href="/admin/pledges?status=Fulfilled" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Fulfilled</div>
       <div class="kpi-value" style="color:var(--navy)">@_byStat(PledgeStatus.Fulfilled)</div>
     </a>
     <a class="kpi-card kpi-red" href="/admin/pledges?status=Overdue" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-icon">⏳</div>
       <div class="kpi-label">Overdue</div>
       <div class="kpi-value" style="color:var(--red)">@_byStat(PledgeStatus.Overdue)</div>
       @if (_byStat(PledgeStatus.Overdue) > 0)
       { <div class="kpi-change change-down">needs follow-up</div> }
     </a>
     <a class="kpi-card kpi-amber" href="/admin/pledges?status=Lapsed" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-icon">🚫</div>
       <div class="kpi-label">Lapsed</div>
       <div class="kpi-value" style="color:var(--amber)">@_byStat(PledgeStatus.Lapsed)</div>
     </a>

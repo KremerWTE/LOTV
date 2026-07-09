@@ -81,3 +81,6 @@ scripts/*.log
 # ── GitHub Actions — ignore any local act runner artifacts ────────────────────
 .actrc
 .act/
+
+# ── Playwright MCP tool artifacts ──────────────────────────────────────────────
+.playwright-mcp/

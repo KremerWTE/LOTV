@@ -10,29 +10,29 @@
     <p>All recorded donors and giving history</p>
   </div>
   <div class="page-hd-actions">
-    <button class="btn btn-primary btn-sm" @onclick='() => EditAsync(new Donor())'>&#43; Add Donor</button>
+    <button class="btn btn-primary btn-sm" @onclick='() => EditAsync(new Donor())'>+ Add Donor</button>
   </div>
 </div>
 
 <!-- SUMMARY STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128100;</div>
+    <div class="kpi-icon">👤</div>
     <div class="kpi-label">Total Donors</div>
     <div class="kpi-value" style="color:var(--green)">@_donors.Count</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Given (All Time)</div>
     <div class="kpi-value" style="color:var(--navy)">@_donors.Sum(d => d.TotalGiven).ToString("C0")</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128260;</div>
+    <div class="kpi-icon">🔄</div>
     <div class="kpi-label">Recurring Donors</div>
     <div class="kpi-value" style="color:var(--gold)">@_donors.Count(d => d.IsRecurring)</div>
   </div>
   <div class="kpi-card kpi-blush">
-    <div class="kpi-icon">&#127873;</div>
+    <div class="kpi-icon">🎁</div>
     <div class="kpi-label">Recurring MRR</div>
     <div class="kpi-value" style="color:var(--blush)">@_donors.Where(d => d.IsRecurring).Sum(d => d.RecurringAmount ?? 0).ToString("C0")</div>
   </div>
@@ -40,7 +40,7 @@
 
 <!-- SEARCH + FILTER -->
 <div class="filter-bar">
-  <input class="form-input" style="width:240px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search donors..." @bind="_search" @bind:event="oninput" />
+  <input class="form-input" style="width:240px;font-size:.82rem;padding:5px 12px;" placeholder="🔍 Search donors..." @bind="_search" @bind:event="oninput" />
   @foreach (var t in Enum.GetValues<DonorTier>())
   {
     <button class="filter-chip @(_tierFilter == t.ToString() ? "active" : "")" aria-pressed="@(_tierFilter == t.ToString())" @onclick='() => _tierFilter = _tierFilter == t.ToString() ? string.Empty : t.ToString()'>@t</button>
@@ -74,7 +74,7 @@
             <td style="font-weight:700;color:var(--green);">@d.TotalGiven.ToString("C0")</td>
             <td>
               @if (d.IsRecurring)
-              { <span style="color:var(--green);font-weight:700;font-size:.82rem;">&#10003; @d.RecurringAmount?.ToString("C0")/mo</span> }
+              { <span style="color:var(--green);font-weight:700;font-size:.82rem;">✓ @d.RecurringAmount?.ToString("C0")/mo</span> }
               else
               { <span style="color:var(--text-light);font-size:.8rem;">One-time</span> }
             </td>
@@ -97,7 +97,7 @@
   <div style="position:fixed;right:0;top:0;bottom:0;width:460px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
     <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <h3 style="font-family:var(--ff-head);">@(_editing.Id == 0 ? "Add Donor" : "Edit Donor")</h3>
-      <button class="btn btn-sm" @onclick="CloseForm">&#10005;</button>
+      <button class="btn btn-sm" @onclick="CloseForm">✕</button>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
       <div class="form-grid-2">
@@ -151,7 +151,7 @@
         <button class="btn" @onclick="CloseForm">Cancel</button>
       </div>
       @if (_formSaved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Saved successfully.</div> }
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ Saved successfully.</div> }
 
       @if (_editing.Id != 0)
       {

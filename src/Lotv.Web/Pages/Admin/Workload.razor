@@ -14,7 +14,7 @@
     <button class="btn btn-sm @(_activeOnly ? "btn-primary" : "")" @onclick="() => _activeOnly = !_activeOnly">
       @(_activeOnly ? "Active Only" : "All Volunteers")
     </button>
-    <button class="btn btn-sm btn-primary" @onclick='() => Nav.NavigateTo("/admin/cases?new=1")'>&#43; New Request</button>
+    <button class="btn btn-sm btn-primary" @onclick='() => Nav.NavigateTo("/admin/cases?new=1")'>+ New Request</button>
     <a href="/admin/cases" class="btn btn-sm">All Cases</a>
   </div>
 </div>
@@ -83,7 +83,7 @@
   <div class="drawer" style="width:360px;">
     <div class="drawer-head">
       <h3>Reassign Case #@_reassignCase.Id</h3>
-      <button class="drawer-close" @onclick="CloseReassign">&#10005;</button>
+      <button class="drawer-close" @onclick="CloseReassign">✕</button>
     </div>
     <div class="drawer-body">
       <div style="font-size:.84rem;color:var(--text-mid);margin-bottom:4px;">
@@ -109,7 +109,7 @@
 @if (_reassignToast)
 {
   <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
-    &#10003; Case reassigned
+    ✓ Case reassigned
   </div>
 }
 

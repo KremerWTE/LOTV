@@ -9,19 +9,19 @@
 
 <!-- ST. GIANNA BANNER -->
 <div class="gianna-banner">
-  <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">&#128149;</div>
+  <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">💕</div>
   <div style="flex:1;">
     <div class="gianna-banner-quote">&ldquo;Love and sacrifice are as intimately connected as the sun and light.&rdquo; &mdash; St. Gianna Beretta Molla</div>
     <div class="gianna-banner-sub">April 28 &bull; Feast Day of St. Gianna &bull; Monthly Prayer Night: 28th of each month at 8PM ET &bull; info@LOTVministry.org</div>
   </div>
-  <div style="font-size:1.6rem;opacity:.35;margin-left:auto;flex-shrink:0;">&#127803;</div>
+  <div style="font-size:1.6rem;opacity:.35;margin-left:auto;flex-shrink:0;">🌻</div>
 </div>
 
 <!-- QUICK ACTIONS -->
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
-  <button class="btn btn-primary btn-sm" @onclick='() => Nav.NavigateTo("/admin/cases?new=1")'>&#43; New Request</button>
-  <button class="btn btn-sm btn-navy" @onclick='() => Nav.NavigateTo("/admin/donations")'>&#43; Record Donation</button>
-  <button class="btn btn-sm" @onclick='() => Nav.NavigateTo("/admin/volunteers")'>&#43; Add Volunteer</button>
+  <button class="btn btn-primary btn-sm" @onclick='() => Nav.NavigateTo("/admin/cases?new=1")'>+ New Request</button>
+  <button class="btn btn-sm btn-navy" @onclick='() => Nav.NavigateTo("/admin/donations")'>+ Record Donation</button>
+  <button class="btn btn-sm" @onclick='() => Nav.NavigateTo("/admin/volunteers")'>+ Add Volunteer</button>
   <a href="/admin/kanban" class="btn btn-sm">View Kanban &rarr;</a>
   <a href="/admin/impact" class="btn btn-sm">Impact Report &rarr;</a>
 </div>
@@ -37,7 +37,7 @@ else
 @if (_stats.OverdueCases > 0)
 {
   <div style="background:#fff3cd;border:1px solid #ffc107;border-left:4px solid var(--amber);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:14px;">
-    <span style="font-size:1.5rem;line-height:1;">&#9888;</span>
+    <span style="font-size:1.5rem;line-height:1;">⚠</span>
     <div style="flex:1;">
       <strong style="color:#856404;font-size:.92rem;">@_stats.OverdueCases case@(_stats.OverdueCases > 1 ? "s are" : " is") overdue</strong>
       <p style="margin:4px 0 10px;font-size:.82rem;color:#856404;">These families have been waiting more than 7 days without a status update.</p>
@@ -58,7 +58,7 @@ else
 <!-- ROW 1 KPIs -->
 <div class="kpi-grid">
   <a class="kpi-card kpi-red" href="/admin/cases" style="text-decoration:none;cursor:pointer;">
-    <div class="kpi-icon">&#9888;</div>
+    <div class="kpi-icon">⚠</div>
     <div class="kpi-label">Open Cases</div>
     <div class="kpi-value" style="color:var(--red)">@_stats.OpenCases</div>
     <div class="kpi-change @(_newThisWeek > 0 ? "change-up" : "")">
@@ -66,54 +66,54 @@ else
     </div>
   </a>
   <a class="kpi-card kpi-amber" href="/admin/cases/overdue" style="text-decoration:none;cursor:pointer;">
-    <div class="kpi-icon">&#9203;</div>
+    <div class="kpi-icon">⏳</div>
     <div class="kpi-label">Overdue Requests</div>
     <div class="kpi-value" style="color:var(--amber)">@_stats.OverdueCases</div>
     <div class="kpi-change @(_stats.OverdueCases > 0 ? "change-down" : "change-up")">
-      @(_stats.OverdueCases > 0 ? "&#9888; need attention" : "&#10003; none overdue")
+      @(_stats.OverdueCases > 0 ? "⚠ need attention" : "✓ none overdue")
     </div>
   </a>
   <a class="kpi-card kpi-green" href="/admin/donations" style="text-decoration:none;cursor:pointer;">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Donations This Month</div>
     <div class="kpi-value" style="color:var(--green)"><Money Amount="@_stats.DonationsThisMonth" /></div>
     @if (_donationGrowth > 0)
-    { <div class="kpi-change change-up">&#9650; @_donationGrowth% vs. last month</div> }
+    { <div class="kpi-change change-up">▲ @_donationGrowth% vs. last month</div> }
     else if (_donationGrowth < 0)
-    { <div class="kpi-change change-down">&#9660; @Math.Abs(_donationGrowth)% vs. last month</div> }
+    { <div class="kpi-change change-down">▼ @Math.Abs(_donationGrowth)% vs. last month</div> }
     else
     { <div class="kpi-change">flat vs. last month</div> }
   </a>
   <a class="kpi-card kpi-blush" href="/admin/families" style="text-decoration:none;cursor:pointer;">
-    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-icon">👥</div>
     <div class="kpi-label">Families Served YTD</div>
     <div class="kpi-value" style="color:var(--blush)">@_stats.FamiliesServedYtd</div>
-    <div class="kpi-change change-up">&#9650; growing since Jan 1</div>
+    <div class="kpi-change change-up">▲ growing since Jan 1</div>
   </a>
 </div>
 
 <!-- ROW 2 KPIs -->
 <div class="kpi-grid" style="margin-bottom:28px;">
   <a class="kpi-card kpi-gold" href="/admin/events" style="text-decoration:none;cursor:pointer;">
-    <div class="kpi-icon">&#127881;</div>
+    <div class="kpi-icon">🎉</div>
     <div class="kpi-label">Upcoming Events</div>
     <div class="kpi-value" style="color:var(--gold)">@_stats.UpcomingEvents</div>
     <div class="kpi-change">Next: @_nextEvent</div>
   </a>
   <a class="kpi-card kpi-green" href="/admin/volunteers" style="text-decoration:none;cursor:pointer;">
-    <div class="kpi-icon">&#129309;</div>
+    <div class="kpi-icon">🤝</div>
     <div class="kpi-label">Active Volunteers</div>
     <div class="kpi-value" style="color:var(--green)">@_stats.ActiveVolunteers</div>
-    <div class="kpi-change change-up">&#9650; @_onboarding pending onboarding</div>
+    <div class="kpi-change change-up">▲ @_onboarding pending onboarding</div>
   </a>
   <a class="kpi-card kpi-green" href="/admin/cases/heat-map" style="text-decoration:none;cursor:pointer;">
-    <div class="kpi-icon">&#9745;</div>
+    <div class="kpi-icon">☑</div>
     <div class="kpi-label">Cases Fulfilled (30d)</div>
     <div class="kpi-value" style="color:var(--green)">@_stats.CasesFulfilledLast30Days</div>
-    <div class="kpi-change change-up">&#9650; packages sent</div>
+    <div class="kpi-change change-up">▲ packages sent</div>
   </a>
   <a class="kpi-card kpi-amber" href="/admin/allocations/review" style="text-decoration:none;cursor:pointer;">
-    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-icon">📅</div>
     <div class="kpi-label">Unallocated Funds</div>
     <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_stats.UnallocatedFunds" /></div>
     <div class="kpi-change">@_stats.PendingAllocations allocations pending review</div>

@@ -7,20 +7,20 @@
 
 <div class="page-header">
     <div>
-        <a href="/admin/retreats" class="back-link">&#8592; All Retreats</a>
+        <a href="/admin/retreats" class="back-link">← All Retreats</a>
         @if (_dash is not null)
         {
             <h1 class="page-title">@_dash.Title</h1>
             <p class="page-subtitle">
-                &#128197; @_dash.Date.ToString("MMMM d, yyyy") &nbsp;&#8901;&nbsp;
-                &#128205; @_dash.Location &nbsp;&nbsp;
+                📅 @_dash.Date.ToString("MMMM d, yyyy") &nbsp;⋅&nbsp;
+                📍 @_dash.Location &nbsp;&nbsp;
                 <span class="badge @StatusBadge(_dash.Status)">@_dash.Status</span>
             </p>
         }
     </div>
     <div style="display:flex;gap:8px;">
         <button class="btn btn-secondary" @onclick="SyncGiveButter" disabled="@_syncing">
-            @(_syncing ? "Syncing…" : "&#8635; Sync GiveButter")
+            @(_syncing ? "Syncing…" : "↻ Sync GiveButter")
         </button>
         <button class="btn btn-secondary" @onclick='() => _tab = "Settings"'>Edit</button>
     </div>
@@ -132,7 +132,7 @@ else
                        @bind="_regSearch" @bind:event="oninput" @bind:after="LoadRegistrations" />
             </div>
             <div style="display:flex;gap:8px">
-                <a href="/api/v1/retreats/@RetreatId/registrations/export" class="btn btn-secondary" target="_blank">&#8595; CSV</a>
+                <a href="/api/v1/retreats/@RetreatId/registrations/export" class="btn btn-secondary" target="_blank">↓ CSV</a>
                 <button class="btn btn-primary" @onclick="() => _showAddReg = true">+ Add Manual</button>
             </div>
         </div>
@@ -165,7 +165,7 @@ else
                                 <td>@r.RegisteredAt.ToString("MM/dd/yy")</td>
                                 <td>
                                     <button class="btn btn-sm" @onclick="() => OpenEditReg(r)">Edit</button>
-                                    <button class="btn btn-sm btn-danger-sm" @onclick="() => DeleteReg(r.Id)">&#128465;</button>
+                                    <button class="btn btn-sm btn-danger-sm" @onclick="() => DeleteReg(r.Id)">🗑</button>
                                 </td>
                             </tr>
                         }
@@ -178,7 +178,7 @@ else
     @if (_tab == "Expenses")
     {
         <div class="toolbar">
-            <span>@_expenses.Count expense(s) &nbsp;&#8901;&nbsp; Total: <strong>@_expenses.Sum(e => e.Amount).ToString("C2")</strong></span>
+            <span>@_expenses.Count expense(s) &nbsp;⋅&nbsp; Total: <strong>@_expenses.Sum(e => e.Amount).ToString("C2")</strong></span>
             <button class="btn btn-primary" @onclick="() => _showAddExp = true">+ Add Expense</button>
         </div>
         @if (_expenses.Count == 0)
@@ -201,7 +201,7 @@ else
                                 <td>@e.Amount.ToString("C2")</td>
                                 <td>@(e.PaidAt?.ToString("MM/dd/yy") ?? "—")</td>
                                 <td>@(e.PaidBy ?? "—")</td>
-                                <td><button class="btn btn-sm btn-danger-sm" @onclick="() => DeleteExp(e.Id)">&#128465;</button></td>
+                                <td><button class="btn btn-sm btn-danger-sm" @onclick="() => DeleteExp(e.Id)">🗑</button></td>
                             </tr>
                         }
                         <tr style="font-weight:700;border-top:2px solid var(--border)">
@@ -268,7 +268,7 @@ else
                 <button class="btn btn-primary" disabled="@_saving" @onclick="SaveSettings">
                     @(_saving ? "Saving…" : "Save Settings")
                 </button>
-                @if (_settingsSaved) { <span style="color:var(--green);margin-left:12px">&#10003; Saved</span> }
+                @if (_settingsSaved) { <span style="color:var(--green);margin-left:12px">✓ Saved</span> }
             </div>
         </div>
     }
@@ -281,7 +281,7 @@ else
     <div class="drawer drawer-wide">
         <div class="drawer-header">
             <h2>Add Registration</h2>
-            <button class="btn-icon" aria-label="Close" @onclick="() => _showAddReg = false">&#10005;</button>
+            <button class="btn-icon" aria-label="Close" @onclick="() => _showAddReg = false">✕</button>
         </div>
         <div class="drawer-body">
             <div class="form-row">
@@ -345,7 +345,7 @@ else
     <div class="drawer">
         <div class="drawer-header">
             <h2>Update Payment — @_editReg.FirstName @_editReg.LastName</h2>
-            <button class="btn-icon" aria-label="Close" @onclick="() => _editReg = null">&#10005;</button>
+            <button class="btn-icon" aria-label="Close" @onclick="() => _editReg = null">✕</button>
         </div>
         <div class="drawer-body">
             <div class="form-row">
@@ -393,7 +393,7 @@ else
     <div class="drawer">
         <div class="drawer-header">
             <h2>Add Expense</h2>
-            <button class="btn-icon" aria-label="Close" @onclick="() => _showAddExp = false">&#10005;</button>
+            <button class="btn-icon" aria-label="Close" @onclick="() => _showAddExp = false">✕</button>
         </div>
         <div class="drawer-body">
             <div class="form-group"><label>Description *</label><input class="form-control" @bind="_expForm.Description" /></div>

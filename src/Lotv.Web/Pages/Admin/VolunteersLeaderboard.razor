@@ -22,22 +22,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-icon">🏆</div>
       <div class="kpi-label">Active Volunteers</div>
       <div class="kpi-value" style="color:var(--navy)">@_active.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-icon">✅</div>
       <div class="kpi-label">Total Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@_active.Sum(v => v.TotalCasesFulfilled)</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">Active Cases</div>
       <div class="kpi-value" style="color:var(--amber)">@_active.Sum(v => v.ActiveCases)</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Avg Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@(_active.Any() ? (_active.Average(v => v.TotalCasesFulfilled)).ToString("F1") : "—")</div>
     </div>

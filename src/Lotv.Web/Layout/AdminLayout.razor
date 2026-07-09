@@ -16,7 +16,7 @@
   <!-- SIDEBAR -->
   <aside class="sidebar @(_sidebarOpen ? "open" : "")" role="navigation" aria-label="Main navigation" @onclick:stopPropagation="true">
     <div class="sidebar-logo">
-      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">&#127803;</div>
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">🌻</div>
       <div class="sidebar-logo-text">
         <strong>LOTV Ministry</strong>
         <span>Staff Portal &bull; Catholic Apostolate</span>
@@ -26,73 +26,73 @@
     <div class="sidebar-section">
       <div class="sidebar-section-label">Overview</div>
       <NavLink class="sidebar-link" href="/admin/dashboard" Match="NavLinkMatch.All">
-        <span class="icon">&#9776;</span> Dashboard
+        <span class="icon">☰</span> Dashboard
       </NavLink>
       @if (Auth.IsHqAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/hq">
-          <span class="icon">&#127968;</span> HQ Dashboard
+          <span class="icon">🏠</span> HQ Dashboard
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/hq-board">
-          <span class="icon">&#9783;</span> HQ Operations Board
+          <span class="icon">☷</span> HQ Operations Board
         </NavLink>
       }
       @if (_canSeeCases)
       {
         <NavLink class="sidebar-link" href="/admin/families">
-          <span class="icon">&#128101;</span> Families
+          <span class="icon">👥</span> Families
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/families/by-state">
-          <span class="icon">&#127758;</span> By State
+          <span class="icon">🌎</span> By State
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/families/by-status">
-          <span class="icon">&#128203;</span> By Status
+          <span class="icon">📋</span> By Status
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases">
-          <span class="icon">&#128149;</span> Cases
+          <span class="icon">💕</span> Cases
           <span class="sidebar-badge">@_openCount</span>
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/kanban">
-          <span class="icon">&#9783;</span> Kanban Board
+          <span class="icon">☷</span> Kanban Board
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/queue">
-          <span class="icon">&#128282;</span> Unassigned Queue
+          <span class="icon">🔚</span> Unassigned Queue
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/my-queue">
-          <span class="icon">&#128203;</span> My Work Queue
+          <span class="icon">📋</span> My Work Queue
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/workload">
-          <span class="icon">&#128101;</span> Workload View
+          <span class="icon">👥</span> Workload View
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/new">
-          <span class="icon">&#43;</span> New Case
+          <span class="icon">+</span> New Case
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/overdue">
-          <span class="icon">&#128680;</span> Overdue Cases
+          <span class="icon">🚨</span> Overdue Cases
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/bulk">
-          <span class="icon">&#9999;</span> Bulk Update
+          <span class="icon">✏</span> Bulk Update
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/heat-map">
-          <span class="icon">&#128200;</span> Heat Map
+          <span class="icon">📈</span> Heat Map
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/by-reason">
-          <span class="icon">&#127974;</span> By Reason
+          <span class="icon">🏦</span> By Reason
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/fulfillment-time">
-          <span class="icon">&#128336;</span> Fulfillment Time
+          <span class="icon">🕐</span> Fulfillment Time
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/intake">
-          <span class="icon">&#127381;</span> Intake Trend
+          <span class="icon">🆕</span> Intake Trend
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/geo-map">
-          <span class="icon">&#127758;</span> Cases Map
+          <span class="icon">🌎</span> Cases Map
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/funnel">
-          <span class="icon">&#11139;</span> Case Funnel
+          <span class="icon">⮃</span> Case Funnel
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/escalations">
-          <span class="icon">&#128308;</span> Cases at Risk
+          <span class="icon">🔴</span> Cases at Risk
         </NavLink>
       }
     </div>
@@ -102,138 +102,138 @@
       <div class="sidebar-section">
         <div class="sidebar-section-label">Donations</div>
         <NavLink class="sidebar-link" href="/admin/donations">
-          <span class="icon">&#128184;</span> All Donations
+          <span class="icon">💸</span> All Donations
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/by-donor">
-          <span class="icon">&#128100;</span> By Donor
+          <span class="icon">👤</span> By Donor
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/by-diocese">
-          <span class="icon">&#9961;</span> By Diocese
+          <span class="icon">⛩</span> By Diocese
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/by-channel">
-          <span class="icon">&#128243;</span> By Channel
+          <span class="icon">📳</span> By Channel
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/by-city">
-          <span class="icon">&#127970;</span> By City
+          <span class="icon">🏢</span> By City
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/by-amount">
-          <span class="icon">&#128202;</span> By Amount
+          <span class="icon">📊</span> By Amount
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/allocations">
-          <span class="icon">&#128203;</span> Fund Allocations
+          <span class="icon">📋</span> Fund Allocations
           <span class="sidebar-badge">@_pendingAlloc</span>
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/allocations/review">
-          <span class="icon">&#9989;</span> Allocation Review
+          <span class="icon">✅</span> Allocation Review
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/allocate/money">
-          <span class="icon">&#128184;</span> Allocate Funds
+          <span class="icon">💸</span> Allocate Funds
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/allocate/resources">
-          <span class="icon">&#128230;</span> Allocate Resources
+          <span class="icon">📦</span> Allocate Resources
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/year-end">
-          <span class="icon">&#128190;</span> Year-End Giving
+          <span class="icon">💾</span> Year-End Giving
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/growth">
-          <span class="icon">&#127381;</span> Donor Growth
+          <span class="icon">🆕</span> Donor Growth
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/first-gift">
-          <span class="icon">&#127917;</span> First Gift
+          <span class="icon">🎭</span> First Gift
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/rfv">
-          <span class="icon">&#128202;</span> RFV Analysis
+          <span class="icon">📊</span> RFV Analysis
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/journey">
-          <span class="icon">&#128149;</span> Journey Map
+          <span class="icon">💕</span> Journey Map
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/reports/giving-seasons">
-          <span class="icon">&#127876;</span> Giving Seasons
+          <span class="icon">🎄</span> Giving Seasons
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/upgrade-path">
-          <span class="icon">&#11014;</span> Upgrade Path
+          <span class="icon">⬆</span> Upgrade Path
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/touchpoint-log">
-          <span class="icon">&#128222;</span> Touchpoint Log
+          <span class="icon">📞</span> Touchpoint Log
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/pledges/summary">
-          <span class="icon">&#129309;</span> Pledge Summary
+          <span class="icon">🤝</span> Pledge Summary
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/expenses/summary">
-          <span class="icon">&#129534;</span> Expense Summary
+          <span class="icon">🧾</span> Expense Summary
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/retention">
-          <span class="icon">&#128260;</span> Donor Retention
+          <span class="icon">🔄</span> Donor Retention
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/segments">
-          <span class="icon">&#127942;</span> Donor Segments
+          <span class="icon">🏆</span> Donor Segments
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/donors/outreach">
-          <span class="icon">&#128140;</span> Outreach Queue
+          <span class="icon">💌</span> Outreach Queue
         </NavLink>
       </div>
     }
 
     <div class="sidebar-section">
-      <div class="sidebar-section-label">People</div>
+      <div class="sidebar-section-label">Programs</div>
       @if (_canSeeVolunteers)
       {
         <NavLink class="sidebar-link" href="/admin/volunteers">
-          <span class="icon">&#129309;</span> Volunteers
+          <span class="icon">🤝</span> Volunteers
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteer-schedule">
-          <span class="icon">&#128197;</span> Schedule
+          <span class="icon">📅</span> Schedule
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteer-certifications">
-          <span class="icon">&#128203;</span> Certifications
+          <span class="icon">📋</span> Certifications
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteer-skills">
-          <span class="icon">&#127979;</span> Skill Directory
+          <span class="icon">🏫</span> Skill Directory
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteers/availability">
-          <span class="icon">&#9745;</span> Availability
+          <span class="icon">☑</span> Availability
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteers/match-overview">
-          <span class="icon">&#127919;</span> Match Overview
+          <span class="icon">🎯</span> Match Overview
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteers/recognition">
-          <span class="icon">&#127775;</span> Recognition
+          <span class="icon">🌟</span> Recognition
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteers/pending">
-          <span class="icon">&#9203;</span> Pending Onboarding
+          <span class="icon">⏳</span> Pending Onboarding
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/volunteers/reactivation">
-          <span class="icon">&#9654;</span> Reactivation Queue
+          <span class="icon">▶</span> Reactivation Queue
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/sponsorships">
-          <span class="icon">&#127970;</span> Sponsorships
+          <span class="icon">🏢</span> Sponsorships
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/events">
-          <span class="icon">&#127880;</span> Events
+          <span class="icon">🎈</span> Events
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/events/attendees">
-          <span class="icon">&#128101;</span> Attendance
+          <span class="icon">👥</span> Attendance
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/events/summary">
-          <span class="icon">&#128202;</span> Event Summary
+          <span class="icon">📊</span> Event Summary
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/sponsors/report">
-          <span class="icon">&#127970;</span> Sponsors Report
+          <span class="icon">🏢</span> Sponsors Report
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/wishlist/analytics">
-          <span class="icon">&#128230;</span> Wish List Analytics
+          <span class="icon">📦</span> Wish List Analytics
         </NavLink>
       }
       @if (_canSeeDonations)
       {
         <NavLink class="sidebar-link" href="/admin/donors">
-          <span class="icon">&#127873;</span> Donors Database
+          <span class="icon">🎁</span> Donors Database
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/pledges">
-          <span class="icon">&#129309;</span> Pledges
+          <span class="icon">🤝</span> Pledges
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/recurring">
-          <span class="icon">&#128260;</span> Recurring
+          <span class="icon">🔄</span> Recurring
         </NavLink>
       }
     </div>
@@ -241,134 +241,144 @@
     <div class="sidebar-section">
       <div class="sidebar-section-label">Retreats</div>
       <NavLink class="sidebar-link" href="/admin/retreats" Match="NavLinkMatch.All">
-        <span class="icon">&#9670;</span> Retreat Manager
+        <span class="icon">◆</span> Retreat Manager
       </NavLink>
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Admin</div>
-      <NavLink class="sidebar-link" href="/admin/notify">
-        <span class="icon">&#128140;</span> Send Notification
-      </NavLink>
-      <NavLink class="sidebar-link" href="/admin/marketing">
-        <span class="icon">&#128233;</span> Marketing Email
-      </NavLink>
+      <div class="sidebar-section-label">Reports</div>
       <NavLink class="sidebar-link" href="/admin/impact">
-        <span class="icon">&#128200;</span> Impact Dashboard
+        <span class="icon">📈</span> Impact Dashboard
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/impact-report">
+        <span class="icon">📈</span> Impact Report
       </NavLink>
       <NavLink class="sidebar-link" href="/admin/health-score">
-        <span class="icon">&#10084;</span> Health Score
+        <span class="icon">❤</span> Health Score
       </NavLink>
       <NavLink class="sidebar-link" href="/admin/inventory/forecast">
-        <span class="icon">&#128200;</span> Resource Forecast
+        <span class="icon">📈</span> Resource Forecast
       </NavLink>
       @if (_canSeeDonations)
       {
         <NavLink class="sidebar-link" href="/admin/reconciliation">
-          <span class="icon">&#128290;</span> Reconciliation
+          <span class="icon">🔢</span> Reconciliation
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/export">
-          <span class="icon">&#128190;</span> Export Data
+          <span class="icon">💾</span> Export Data
         </NavLink>
       }
       @if (Auth.IsHqAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/reports/schedule">
-          <span class="icon">&#128336;</span> Scheduled Reports
+          <span class="icon">🕐</span> Scheduled Reports
         </NavLink>
       }
       @if (_isAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/audit">
-          <span class="icon">&#128269;</span> Audit Log
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/diocese-data">
-          <span class="icon">&#127760;</span> Diocese &amp; Parish Data
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/health">
-          <span class="icon">&#128268;</span> Platform Health
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/settings">
-          <span class="icon">&#9881;</span> Settings
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/users">
-          <span class="icon">&#128274;</span> User Management
+          <span class="icon">🔍</span> Audit Log
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/staff/performance">
-          <span class="icon">&#128200;</span> Staff Performance
+          <span class="icon">📈</span> Staff Performance
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/chapter-analytics">
+          <span class="icon">📊</span> Chapter Analytics
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/chapters/health">
+          <span class="icon">📈</span> Chapter Health
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/campaigns/roi">
+          <span class="icon">📈</span> Campaign ROI
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/reports/weekly">
+          <span class="icon">📰</span> Weekly Digest
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/reports/goals">
+          <span class="icon">🎯</span> Goal Tracker
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/reports/history">
+          <span class="icon">📋</span> Report History
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/financial">
+          <span class="icon">📈</span> Financial Overview
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/resources/flow">
+          <span class="icon">📈</span> Resource Flow
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/budget">
+          <span class="icon">💰</span> Budget Summary
+        </NavLink>
+      }
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Admin</div>
+      <NavLink class="sidebar-link" href="/admin/notify">
+        <span class="icon">💌</span> Send Notification
+      </NavLink>
+      <NavLink class="sidebar-link" href="/admin/marketing">
+        <span class="icon">📩</span> Marketing Email
+      </NavLink>
+      @if (_isAdmin)
+      {
+        <NavLink class="sidebar-link" href="/admin/diocese-data">
+          <span class="icon">🌐</span> Diocese &amp; Parish Data
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/health">
+          <span class="icon">🔌</span> Platform Health
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/settings">
+          <span class="icon">⚙</span> Settings
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/users">
+          <span class="icon">🔒</span> User Management
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/push-subscriptions">
-          <span class="icon">&#128276;</span> Push Subscriptions
+          <span class="icon">🔔</span> Push Subscriptions
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/migrations">
-          <span class="icon">&#128203;</span> DB Migrations
+          <span class="icon">📋</span> DB Migrations
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/webhooks">
-          <span class="icon">&#128231;</span> Webhook Events
+          <span class="icon">📧</span> Webhook Events
           @if (_webhook24h > 0) { <span class="sidebar-badge">@_webhook24h</span> }
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/chapters">
-          <span class="icon">&#127968;</span> Chapters
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/chapter-analytics">
-          <span class="icon">&#128202;</span> Chapter Analytics
+          <span class="icon">🏠</span> Chapters
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/grants">
-          <span class="icon">&#128179;</span> Grants
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/notification-prefs">
-          <span class="icon">&#128276;</span> Notification Prefs
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/campaigns">
-          <span class="icon">&#127919;</span> Campaigns
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/campaigns/roi">
-          <span class="icon">&#128200;</span> Campaign ROI
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/reports/weekly">
-          <span class="icon">&#128240;</span> Weekly Digest
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/reports/goals">
-          <span class="icon">&#127919;</span> Goal Tracker
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/pledge-renewals">
-          <span class="icon">&#128197;</span> Pledge Renewals
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/staff-tasks">
-          <span class="icon">&#128203;</span> Staff Tasks
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/announcements">
-          <span class="icon">&#128226;</span> Announcements
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/financial">
-          <span class="icon">&#128200;</span> Financial Overview
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/inventory">
-          <span class="icon">&#128230;</span> Inventory
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/sms-log">
-          <span class="icon">&#128241;</span> SMS Log
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/expenses">
-          <span class="icon">&#129534;</span> Expenses
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/budget">
-          <span class="icon">&#128176;</span> Budget Summary
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/api-keys">
-          <span class="icon">&#128272;</span> API Keys
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/resources/flow">
-          <span class="icon">&#128200;</span> Resource Flow
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/reports/history">
-          <span class="icon">&#128203;</span> Report History
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/chapters/health">
-          <span class="icon">&#128200;</span> Chapter Health
+          <span class="icon">💳</span> Grants
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/grants/calendar">
-          <span class="icon">&#128197;</span> Grants Calendar
+          <span class="icon">📅</span> Grants Calendar
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/notification-prefs">
+          <span class="icon">🔔</span> Notification Prefs
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/campaigns">
+          <span class="icon">🎯</span> Campaigns
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/pledge-renewals">
+          <span class="icon">📅</span> Pledge Renewals
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/staff-tasks">
+          <span class="icon">📋</span> Staff Tasks
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/announcements">
+          <span class="icon">📢</span> Announcements
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/inventory">
+          <span class="icon">📦</span> Inventory
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/sms-log">
+          <span class="icon">📱</span> SMS Log
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/expenses">
+          <span class="icon">🧾</span> Expenses
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/api-keys">
+          <span class="icon">🔐</span> API Keys
         </NavLink>
       }
     </div>
@@ -386,7 +396,7 @@
       <div class="topbar-left">
         <!-- Mobile hamburger toggle -->
         <button class="sidebar-toggle" @onclick="ToggleSidebar" aria-label="Open navigation menu" aria-expanded="@_sidebarOpen">
-          &#9776;
+          ☰
         </button>
         <div class="topbar-title">@_pageTitle</div>
         <div class="topbar-breadcrumb">LOTV Staff Portal</div>
@@ -395,7 +405,7 @@
 
         <!-- GLOBAL SEARCH -->
         <div style="position:relative;" role="search">
-          <input class="topbar-search" type="search" placeholder="&#128269; Search families, donors..."
+          <input class="topbar-search" type="search" placeholder="🔍 Search families, donors..."
                  aria-label="Search families, donors, and volunteers"
                  value="@_searchText"
                  @oninput='async e => await OnSearchChanged(e.Value?.ToString() ?? string.Empty)'
@@ -456,7 +466,7 @@
                @onclick="() => _notifOpen = !_notifOpen"
                @onkeydown='e => { if (e.Key == "Enter" || e.Key == " ") _notifOpen = !_notifOpen; }'
                style="cursor:pointer;">
-            &#128276;
+            🔔
             @if (_notifCount > 0)
             { <div class="notif-dot" aria-hidden="true">@(_notifCount > 9 ? "9+" : _notifCount.ToString())</div> }
           </div>
@@ -475,7 +485,7 @@
                 @foreach (var r in _overdueItems.Take(5))
                 {
                   <a href="/admin/cases" style="display:flex;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;" @onclick="() => _notifOpen = false">
-                    <span style="font-size:1rem;">&#9888;</span>
+                    <span style="font-size:1rem;">⚠</span>
                     <div>
                       <div style="font-size:.82rem;font-weight:600;">Case #@r.Id &mdash; @(r.Family?.Parent1LastName ?? "Family")</div>
                       <div style="font-size:.72rem;color:var(--text-light);">@(r.AssignedTo ?? "Unassigned") &bull; @GetNotifAge(r.CreatedAt) overdue</div>
@@ -489,7 +499,7 @@
                 @foreach (var a in _pendingAllocItems.Take(3))
                 {
                   <a href="/admin/allocations" style="display:flex;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;" @onclick="() => _notifOpen = false">
-                    <span style="font-size:1rem;">&#128197;</span>
+                    <span style="font-size:1rem;">📅</span>
                     <div>
                       <div style="font-size:.82rem;font-weight:600;">@a.Amount.ToString("C0") &rarr; @a.AllocatedTo</div>
                       <div style="font-size:.72rem;color:var(--text-light);">Awaiting approval</div>
@@ -499,7 +509,7 @@
               }
               @if (_notifCount == 0)
               {
-                <div style="padding:20px;text-align:center;font-size:.84rem;color:var(--text-light);">&#10003; All clear — no pending actions</div>
+                <div style="padding:20px;text-align:center;font-size:.84rem;color:var(--text-light);">✓ All clear — no pending actions</div>
               }
               <div style="padding:10px 16px;background:var(--bg);text-align:center;">
                 <a href="/admin/audit" style="font-size:.78rem;color:var(--green);font-weight:600;text-decoration:none;" @onclick="() => _notifOpen = false">View Full Audit Log &rarr;</a>
@@ -522,7 +532,7 @@
         {
           <a href="/admin/migrations" title="@_pendingMigrations pending migration(s)"
              style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:7px;padding:5px 10px;font-size:.74rem;font-weight:700;text-decoration:none;margin-right:8px;">
-            &#9888; @_pendingMigrations migration@(_pendingMigrations != 1 ? "s" : "")
+            ⚠ @_pendingMigrations migration@(_pendingMigrations != 1 ? "s" : "")
           </a>
         }
         <button type="button" @onclick="ToggleTheme" aria-label="Toggle dark mode"
@@ -555,7 +565,7 @@
     @if (_showDemoBanner)
     {
       <div style="background:#fffbeb;border-bottom:1px solid #fde68a;padding:7px 24px;display:flex;align-items:center;justify-content:space-between;font-size:.78rem;color:#92400e;">
-        <span>&#9888; <strong>Demo mode</strong> — all data is in-memory and resets on page refresh. No real data is stored.</span>
+        <span>⚠ <strong>Demo mode</strong> — all data is in-memory and resets on page refresh. No real data is stored.</span>
         <button style="background:none;border:none;cursor:pointer;color:#92400e;font-size:.8rem;padding:2px 6px;" @onclick='() => _showDemoBanner = false'>Dismiss</button>
       </div>
     }

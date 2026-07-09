@@ -26,7 +26,7 @@ public class SignalRService : IAsyncDisposable
     public SignalRService(JwtAuthStateProvider authState, IConfiguration config)
     {
         _authState = authState;
-        _apiBaseUrl = config["ApiBaseUrl"] ?? "https://localhost:7100";
+        _apiBaseUrl = config["ApiBaseUrl"] ?? "http://localhost:5275";
     }
 
     public async Task ConnectAsync()

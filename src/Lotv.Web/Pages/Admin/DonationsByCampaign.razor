@@ -21,22 +21,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-icon">📅</div>
       <div class="kpi-label">Campaigns</div>
       <div class="kpi-value" style="color:var(--navy)">@_campaigns.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Raised</div>
       <div class="kpi-value" style="color:var(--green)">@_campaigns.Sum(c => c.Raised).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#127919;</div>
+      <div class="kpi-icon">🎯</div>
       <div class="kpi-label">Total Goal</div>
       <div class="kpi-value" style="color:var(--amber)">@_campaigns.Sum(c => c.GoalAmount).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-icon">🎁</div>
       <div class="kpi-label">Total Gifts</div>
       <div class="kpi-value" style="color:var(--green)">@_donations.Count(d => !string.IsNullOrEmpty(d.Campaign))</div>
     </div>

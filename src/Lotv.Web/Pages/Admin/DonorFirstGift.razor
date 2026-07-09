@@ -24,24 +24,24 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-icon">🆕</div>
       <div class="kpi-label">Donors Acquired</div>
       <div class="kpi-value" style="color:var(--green)">@_firstGifts.Count</div>
       <div class="kpi-change">with a recorded first gift</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-icon">💸</div>
       <div class="kpi-label">Avg First Gift</div>
       <div class="kpi-value" style="color:var(--navy)"><Money Amount="@_avgFirstGift" /></div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#127917;</div>
+      <div class="kpi-icon">🎭</div>
       <div class="kpi-label">Top Acquisition Channel</div>
       <div class="kpi-value" style="font-size:1rem;color:var(--blush)">@(_byChannel.FirstOrDefault()?.Channel ?? "—")</div>
       <div class="kpi-change">@(_byChannel.FirstOrDefault()?.Count ?? 0) donors</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-icon">🔄</div>
       <div class="kpi-label">Became Recurring</div>
       <div class="kpi-value" style="color:var(--amber)">@_becameRecurring</div>
       <div class="kpi-change">@_recurringRate% conversion rate</div>

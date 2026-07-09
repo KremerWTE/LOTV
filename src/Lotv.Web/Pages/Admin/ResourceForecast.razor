@@ -24,24 +24,24 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-icon">📦</div>
       <div class="kpi-label">Inventory Items</div>
       <div class="kpi-value" style="color:var(--navy)">@_items.Count</div>
     </div>
     <div class="kpi-card kpi-red">
-      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-icon">🚫</div>
       <div class="kpi-label">Critical (&lt; 14d)</div>
       <div class="kpi-value" style="color:var(--red)">@_rows.Count(r => r.DaysLeft is >= 0 and < 14)</div>
       <div class="kpi-change change-down">needs reorder now</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-icon">⏳</div>
       <div class="kpi-label">Low (&lt; 30d)</div>
       <div class="kpi-value" style="color:var(--amber)">@_rows.Count(r => r.DaysLeft is >= 14 and < 30)</div>
       <div class="kpi-change">order soon</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Avg Weekly Cases</div>
       <div class="kpi-value" style="color:var(--green)">@_avgWeeklyCases</div>
       <div class="kpi-change">12-week rolling avg</div>
@@ -122,7 +122,7 @@ else
   {
     <div class="panel" style="border:2px solid var(--red);">
       <div class="panel-head" style="background:#fee2e2;">
-        <h3 style="color:var(--red);">&#128683; Critical — Reorder Immediately</h3>
+        <h3 style="color:var(--red);">🚫 Critical — Reorder Immediately</h3>
       </div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
         @foreach (var r in _rows.Where(r => r.DaysLeft is >= 0 and < 14).OrderBy(r => r.DaysLeft))

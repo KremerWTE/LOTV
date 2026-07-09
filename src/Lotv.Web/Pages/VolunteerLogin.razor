@@ -15,7 +15,7 @@
       else if (_state == State.Verified) { <p>Welcome back. Redirecting…</p> }
       else if (_state == State.Sent)
       {
-        <p style="color:var(--green-dark);">&#10003; If a volunteer record exists for <strong>@_email</strong>, a sign-in link has been emailed.</p>
+        <p style="color:var(--green-dark);">✓ If a volunteer record exists for <strong>@_email</strong>, a sign-in link has been emailed.</p>
         <button class="btn" @onclick="() => _state = State.Form">Send another link</button>
       }
       else if (_state == State.Failed)

@@ -28,25 +28,25 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-red">
-      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-icon">🚨</div>
       <div class="kpi-label">Urgent Open</div>
       <div class="kpi-value" style="color:var(--red)">@_cases.Count(c => c.Priority == RequestPriority.Urgent && IsOpen(c))</div>
       <div class="kpi-change change-down">highest priority</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-icon">⏳</div>
       <div class="kpi-label">Overdue</div>
       <div class="kpi-value" style="color:var(--amber)">@_cases.Count(c => c.IsOverdue && IsOpen(c))</div>
       <div class="kpi-change change-down">past due date</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">In Progress</div>
       <div class="kpi-value" style="color:var(--navy)">@_cases.Count(c => c.Status == CaseStatus.InProgress)</div>
       <div class="kpi-change">being worked on</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Fulfilled (30d)</div>
       <div class="kpi-value" style="color:var(--green)">@_cases.Count(c => c.Status == CaseStatus.Fulfilled && c.UpdatedAt >= DateTime.UtcNow.AddDays(-30))</div>
       <div class="kpi-change change-up">last 30 days</div>

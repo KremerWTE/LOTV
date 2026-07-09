@@ -15,7 +15,7 @@
 <!-- FILTER BAR -->
 <div class="filter-bar" style="margin-bottom:12px;">
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
-         placeholder="&#128269; Filter cases…" @bind="_search" @bind:event="oninput" />
+         placeholder="🔍 Filter cases…" @bind="_search" @bind:event="oninput" />
   @foreach (var s in new[] { "All", "New", "InProgress", "OnHold", "AwaitingShipment" })
   {
     <button class="filter-chip @(_statusFilter == s ? "active" : "")" @onclick="() => { _statusFilter = s; _selected.Clear(); }">@s</button>

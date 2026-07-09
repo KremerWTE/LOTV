@@ -24,7 +24,7 @@ else
   <!-- YEAR SUMMARY STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-icon">💸</div>
       <div class="kpi-label">Donations YTD</div>
       <div class="kpi-value" style="color:var(--green)"><Money Amount="@_ytdDonations" /></div>
       <div class="kpi-change @(_donGoalPct >= 100 ? "change-up" : "")">
@@ -32,7 +32,7 @@ else
       </div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Cases Fulfilled YTD</div>
       <div class="kpi-value" style="color:var(--navy)">@_ytdFulfilled</div>
       <div class="kpi-change @(_caseGoalPct >= 100 ? "change-up" : "")">
@@ -40,12 +40,12 @@ else
       </div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">New Cases YTD</div>
       <div class="kpi-value" style="color:var(--blush)">@_ytdNewCases</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-icon">📅</div>
       <div class="kpi-label">Months Remaining</div>
       <div class="kpi-value" style="color:var(--amber)">@(12 - DateTime.UtcNow.Month)</div>
       <div class="kpi-change">to hit annual targets</div>

@@ -22,22 +22,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card" style="border-top:3px solid var(--red);">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Spent</div>
       <div class="kpi-value" style="color:var(--red)">@_expenses.Sum(e => e.Amount).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">Entries</div>
       <div class="kpi-value" style="color:var(--navy)">@_expenses.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Avg Expense</div>
       <div class="kpi-value" style="color:var(--amber)">@(_expenses.Any() ? (_expenses.Sum(e => e.Amount) / _expenses.Count).ToString("C0") : "—")</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-icon">📦</div>
       <div class="kpi-label">Categories</div>
       <div class="kpi-value" style="color:var(--green)">@_expenses.Select(e => e.Category).Distinct().Count()</div>
     </div>

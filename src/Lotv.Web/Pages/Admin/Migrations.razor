@@ -51,14 +51,14 @@ else
       <div class="panel-body" style="padding:0;">
         @if (_data.Pending.Count == 0)
         {
-          <div style="padding:18px;color:var(--green-dark);">&#10003; All migrations applied — schema is up to date.</div>
+          <div style="padding:18px;color:var(--green-dark);">✓ All migrations applied — schema is up to date.</div>
         }
         else
         {
           <ul style="list-style:none;margin:0;padding:0;">
             @foreach (var m in _data.Pending)
             {
-              <li style="padding:10px 16px;border-top:1px solid var(--border);font-family:monospace;font-size:.78rem;color:var(--amber);">&#9888; @m</li>
+              <li style="padding:10px 16px;border-top:1px solid var(--border);font-family:monospace;font-size:.78rem;color:var(--amber);">⚠ @m</li>
             }
           </ul>
         }

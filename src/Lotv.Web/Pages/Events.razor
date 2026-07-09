@@ -8,7 +8,7 @@
 <!-- PUBLIC NAV -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
     <div>
       <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
       <div style="font-size:.7rem;opacity:.7;">Events &amp; Fundraisers</div>
@@ -23,7 +23,7 @@
 
 <!-- HERO -->
 <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy-dark,#0a1628) 100%);color:white;padding:48px 32px;text-align:center;">
-  <div style="font-size:2.2rem;margin-bottom:10px;">&#128197;</div>
+  <div style="font-size:2.2rem;margin-bottom:10px;">📅</div>
   <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 8px;">@Loc["events.title"]</h1>
   <p style="font-size:.95rem;opacity:.8;max-width:540px;margin:0 auto;">Join us for galas, silent auctions, and community gatherings. Every event supports families in need.</p>
 </div>
@@ -37,7 +37,7 @@
   else if (!_upcoming.Any())
   {
     <div style="text-align:center;padding:60px;color:var(--text-mid);">
-      <div style="font-size:2.5rem;margin-bottom:12px;">&#128197;</div>
+      <div style="font-size:2.5rem;margin-bottom:12px;">📅</div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);">No Upcoming Events</h3>
       <p>Check back soon — events are being planned!</p>
     </div>
@@ -99,7 +99,7 @@
                 @if (isFull)
                 { <div style="font-size:.7rem;color:var(--blush);margin-top:3px;font-weight:600;">This event is full</div> }
                 else if (pct >= 80)
-                { <div style="font-size:.7rem;color:var(--amber);margin-top:3px;">&#9888; Almost full — @(ev.Capacity - ev.Registered) spots left</div> }
+                { <div style="font-size:.7rem;color:var(--amber);margin-top:3px;">⚠ Almost full — @(ev.Capacity - ev.Registered) spots left</div> }
               </div>
             }
           </div>
@@ -160,11 +160,11 @@
 
       @if (!string.IsNullOrEmpty(_rsvpError))
       {
-        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:12px;">&#9888; @_rsvpError</div>
+        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:12px;">⚠ @_rsvpError</div>
       }
       @if (_rsvpConfirmed)
       {
-        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);margin-bottom:12px;">&#10003; You are registered! A confirmation will be sent to @_rsvpEmail.</div>
+        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);margin-bottom:12px;">✓ You are registered! A confirmation will be sent to @_rsvpEmail.</div>
       }
 
       <div style="display:flex;gap:10px;">

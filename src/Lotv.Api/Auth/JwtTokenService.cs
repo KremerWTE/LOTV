@@ -26,6 +26,8 @@ public class JwtTokenService
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new("role", user.Role.ToString()),
             new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.GivenName, user.FirstName),
+            new(ClaimTypes.Surname, user.LastName),
         };
 
         if (user.ChapterId.HasValue)

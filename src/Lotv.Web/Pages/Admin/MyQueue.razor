@@ -12,7 +12,7 @@
     <p>Cases assigned to you — @Auth.UserName</p>
   </div>
   <div class="page-hd-actions">
-    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
     <a href="/admin/cases" class="btn btn-sm">All Cases</a>
     <a href="/admin/queue" class="btn btn-sm">Unassigned Queue</a>
   </div>
@@ -21,22 +21,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-icon">📦</div>
     <div class="kpi-label">My Open Cases</div>
     <div class="kpi-value" style="color:var(--navy)">@_mine.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#9888;</div>
+    <div class="kpi-icon">⚠</div>
     <div class="kpi-label">My Overdue</div>
     <div class="kpi-value" style="color:var(--amber)">@_mine.Count(r => r.IsOverdue)</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-icon">✅</div>
     <div class="kpi-label">Fulfilled (All Time)</div>
     <div class="kpi-value" style="color:var(--green)">@_fulfilled</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-icon">🕐</div>
     <div class="kpi-label">Avg Age (Open)</div>
     <div class="kpi-value" style="color:var(--gold)">@_avgAge</div>
   </div>
@@ -59,7 +59,7 @@ else if (!_filtered.Any())
   <div class="panel">
     <div class="panel-body">
       <div class="empty-state">
-        <div class="icon">&#9989;</div>
+        <div class="icon">✅</div>
         <p>@(_activeFilter == "All" ? "No cases assigned to you." : $"No {_activeFilter.ToLower()} cases.")</p>
       </div>
     </div>
@@ -116,7 +116,7 @@ else
   <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
     <div style="padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <h3 style="font-family:var(--ff-head);">Case #@_selected.Id — @_selected.Family?.FullName</h3>
-      <button class="btn btn-sm" @onclick="CloseCase">&#10005;</button>
+      <button class="btn btn-sm" @onclick="CloseCase">✕</button>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:20px;">
 
@@ -165,9 +165,9 @@ else
       </div>
 
       @if (!string.IsNullOrEmpty(_saveError))
-      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_saveError</div> }
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_saveError</div> }
       @if (_saved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Case updated successfully.</div> }
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ Case updated successfully.</div> }
 
       <div style="display:flex;gap:10px;">
         <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>

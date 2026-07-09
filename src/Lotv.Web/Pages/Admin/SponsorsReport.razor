@@ -14,22 +14,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#127970;</div>
+    <div class="kpi-icon">🏢</div>
     <div class="kpi-label">Total Sponsors</div>
     <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Committed</div>
     <div class="kpi-value" style="color:var(--green)">@_all.Sum(s => s.CommittedAmount).ToString("C0")</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128202;</div>
+    <div class="kpi-icon">📊</div>
     <div class="kpi-label">Total Paid to Date</div>
     <div class="kpi-value" style="color:var(--amber)">@_all.Sum(s => s.PaidToDate).ToString("C0")</div>
   </div>
   <div class="kpi-card" style="background:#fff1f2;">
-    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-icon">📅</div>
     <div class="kpi-label">Renewals (30d)</div>
     <div class="kpi-value" style="color:var(--red)">@_renewalSoon.Count</div>
   </div>
@@ -94,7 +94,7 @@
 <!-- FULL SPONSOR LIST -->
 <div class="filter-bar" style="margin-bottom:12px;">
   <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;"
-         placeholder="&#128269; Search sponsors…" @bind="_search" @bind:event="oninput" />
+         placeholder="🔍 Search sponsors…" @bind="_search" @bind:event="oninput" />
   @foreach (var status in new[] { "All", "Active", "Pending", "Lapsed", "Declined" })
   {
     <button class="filter-chip @(_statusFilter == status ? "active" : "")" @onclick="() => _statusFilter = status">@status</button>

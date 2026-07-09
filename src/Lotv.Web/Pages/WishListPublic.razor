@@ -62,7 +62,7 @@
             <div style="margin-bottom:14px;">
               <div style="display:flex;justify-content:space-between;font-size:.74rem;color:var(--text-light);margin-bottom:4px;">
                 @if (full)
-                { <span style="color:#2d6a2d;font-weight:700;">&#10003; Fully fulfilled — thank you!</span> }
+                { <span style="color:#2d6a2d;font-weight:700;">✓ Fully fulfilled — thank you!</span> }
                 else
                 { <span>@item.QuantityFulfilled of @item.QuantityRequested fulfilled</span> }
                 <span>@pct%</span>
@@ -76,7 +76,7 @@
             {
               <button class="btn btn-primary" style="width:100%;font-size:.85rem;"
                       @onclick="() => { _donateItem = item; _donateQty = 1; }">
-                I'll Donate This &#8594;
+                I'll Donate This →
               </button>
             }
           </div>
@@ -87,13 +87,13 @@
 
   <!-- Impact prompt -->
   <div style="background:linear-gradient(135deg,#f0faf0,#e8f4e8);border-radius:16px;padding:32px;text-align:center;">
-    <div style="font-size:1.8rem;margin-bottom:12px;">&#127803;</div>
+    <div style="font-size:1.8rem;margin-bottom:12px;">🌻</div>
     <h3 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 10px;">Every item matters.</h3>
     <p style="color:var(--text-mid);font-size:.88rem;line-height:1.8;max-width:480px;margin:0 auto 20px;">
       Can't find the right item? A monetary donation lets our team purchase exactly what each family needs.
     </p>
     <a href="/give" class="btn btn-primary" style="font-size:.9rem;padding:12px 28px;background:#2d6a2d;border-color:#2d6a2d;">
-      Make a Monetary Gift &#8594;
+      Make a Monetary Gift →
     </a>
   </div>
 
@@ -128,7 +128,7 @@
       @if (_donateSent)
       {
         <div style="background:#f0faf0;border:1px solid #a8d8a8;border-radius:8px;padding:14px 18px;font-size:.85rem;color:#2d6a2d;text-align:center;margin-bottom:16px;">
-          &#10003; Thank you! We'll be in touch within 24 hours.
+          ✓ Thank you! We'll be in touch within 24 hours.
         </div>
       }
 

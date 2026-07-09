@@ -22,22 +22,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">Total Donors</div>
       <div class="kpi-value" style="color:var(--navy)">@_donors.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Given</div>
       <div class="kpi-value" style="color:var(--green)">@_donors.Sum(d => d.TotalGiven).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Avg Per Donor</div>
       <div class="kpi-value" style="color:var(--amber)">@(_donors.Any() ? _donors.Average(d => d.TotalGiven).ToString("C0") : "—")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-icon">🏆</div>
       <div class="kpi-label">Active Tiers</div>
       <div class="kpi-value" style="color:var(--navy)">@_donors.Select(d => d.Tier).Distinct().Count()</div>
     </div>

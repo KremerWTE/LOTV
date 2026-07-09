@@ -11,8 +11,8 @@
     <p>Where money and resources are going — by category, region, and time</p>
   </div>
   <div class="page-hd-actions">
-    <a href="/admin/export" class="btn btn-sm">&#8681; Export</a>
-    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+    <a href="/admin/export" class="btn btn-sm">⇩ Export</a>
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
   </div>
 </div>
 
@@ -31,22 +31,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi-card kpi-gold">
-      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-icon">💸</div>
       <div class="kpi-label">Total Donated</div>
       <div class="kpi-value" style="color:var(--gold)"><Money Amount="@(_stats?.DonationsThisMonth ?? 0m)" /></div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-icon">📦</div>
       <div class="kpi-label">Resources Donated</div>
       <div class="kpi-value" style="color:var(--green)">@_totalResources</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">People Helped</div>
       <div class="kpi-value" style="color:var(--navy)">@_stats?.OpenCases</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-icon">✅</div>
       <div class="kpi-label">Requests Fulfilled</div>
       <div class="kpi-value" style="color:var(--amber)">@_moneyFlow.Sum(m => m.RequestCount)</div>
     </div>
@@ -187,7 +187,7 @@ else
         </div>
         <div style="display:flex;gap:10px;margin-top:4px;">
           <a href="/admin/allocations" class="btn btn-primary btn-sm">View Full Ledger</a>
-          <a href="/admin/export" class="btn btn-sm">&#8681; Export CSV</a>
+          <a href="/admin/export" class="btn btn-sm">⇩ Export CSV</a>
         </div>
       </div>
     </div>
@@ -213,7 +213,7 @@ else
       <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;margin-bottom:4px;">Public Transparency Page</div>
       <div style="font-size:.82rem;opacity:.8;">Share aggregate impact data with the public — no PII, no donor names.</div>
     </div>
-    <a href="/transparency" class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;">View Public Page &#8594;</a>
+    <a href="/transparency" class="btn btn-sm" style="background:white;color:var(--navy);font-weight:700;">View Public Page →</a>
   </div>
 }
 

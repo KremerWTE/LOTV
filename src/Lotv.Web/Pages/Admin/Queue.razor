@@ -11,7 +11,7 @@
     <p>Cases awaiting volunteer assignment — oldest first</p>
   </div>
   <div class="page-hd-actions">
-    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
     <a href="/admin/cases" class="btn btn-sm">All Cases</a>
   </div>
 </div>
@@ -19,22 +19,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128282;</div>
+    <div class="kpi-icon">🔚</div>
     <div class="kpi-label">Unassigned</div>
     <div class="kpi-value" style="color:var(--amber)">@_queue.Count</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#9888;</div>
+    <div class="kpi-icon">⚠</div>
     <div class="kpi-label">Overdue &amp; Unassigned</div>
     <div class="kpi-value" style="color:var(--navy)">@_queue.Count(r => r.IsOverdue)</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-icon">👥</div>
     <div class="kpi-label">Available Volunteers</div>
     <div class="kpi-value" style="color:var(--green)">@_volunteers.Count</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-icon">🕐</div>
     <div class="kpi-label">Oldest Waiting</div>
     <div class="kpi-value" style="color:var(--gold)">@_oldestAge</div>
   </div>
@@ -49,7 +49,7 @@ else if (!_queue.Any())
   <div class="panel">
     <div class="panel-body">
       <div class="empty-state">
-        <div class="icon">&#9989;</div>
+        <div class="icon">✅</div>
         <p>No unassigned cases — all caught up!</p>
       </div>
     </div>
@@ -106,7 +106,7 @@ else
   <div style="position:fixed;right:0;top:0;bottom:0;width:480px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
     <div style="padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <h3 style="font-family:var(--ff-head);">Assign Case #@_assigning.Id</h3>
-      <button class="btn btn-sm" @onclick="CloseAssign">&#10005;</button>
+      <button class="btn btn-sm" @onclick="CloseAssign">✕</button>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:20px;">
 
@@ -116,7 +116,7 @@ else
         <div><strong>Reason:</strong> @_assigning.Reason.ToDisplayName()</div>
         <div><strong>Created:</strong> @_assigning.CreatedAt.ToString("MMM d, yyyy") (@GetAge(_assigning.CreatedAt) old)</div>
         @if (_assigning.IsOverdue)
-        { <div style="color:var(--red);font-weight:600;">&#9888; This case is overdue.</div> }
+        { <div style="color:var(--red);font-weight:600;">⚠ This case is overdue.</div> }
       </div>
 
       <!-- Volunteer picker -->
@@ -132,14 +132,14 @@ else
       @if (_candidatesLoaded && _candidates.Any())
       {
         <div>
-          <div class="form-label" style="margin-bottom:8px;">&#127775; Suggested (ranked by workload)</div>
+          <div class="form-label" style="margin-bottom:8px;">🌟 Suggested (ranked by workload)</div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             @foreach (var c in _candidates.Take(5))
             {
               <div style="display:flex;align-items:center;justify-content:space-between;background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;cursor:pointer;"
                    @onclick="() => _assignVolId = c.VolunteerId">
                 <span><strong>@c.Name</strong> — @c.CompositeScore.ToString("F0") pts</span>
-                <span style="color:var(--green);font-weight:600;">Select &#8594;</span>
+                <span style="color:var(--green);font-weight:600;">Select →</span>
               </div>
             }
           </div>
@@ -147,7 +147,7 @@ else
       }
 
       @if (!string.IsNullOrEmpty(_assignError))
-      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_assignError</div> }
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_assignError</div> }
 
       <div style="display:flex;gap:10px;">
         <button class="btn btn-primary" @onclick="ConfirmAssignAsync" disabled="@(_assignVolId == 0 || _assigning is null || _assignWorking)">

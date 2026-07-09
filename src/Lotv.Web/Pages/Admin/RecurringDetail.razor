@@ -29,22 +29,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Per Cycle</div>
       <div class="kpi-value" style="color:var(--navy)">@_rec.Amount.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-icon">🔄</div>
       <div class="kpi-label">Frequency</div>
       <div class="kpi-value" style="color:var(--green);font-size:1.1rem;">@_rec.Frequency.ToDisplayName()</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-icon">📅</div>
       <div class="kpi-label">Next Charge</div>
       <div class="kpi-value" style="color:var(--amber);font-size:1rem;">@_rec.NextChargeDate.ToString("MMM d, yyyy")</div>
     </div>
     <div class="kpi-card @(_rec.Status == RecurringStatus.Active ? "kpi-green" : "")">
-      <div class="kpi-icon">&#9899;</div>
+      <div class="kpi-icon">⚫</div>
       <div class="kpi-label">Status</div>
       <div class="kpi-value" style="font-size:1.1rem;color:@StatusColor(_rec.Status)">@_rec.Status</div>
     </div>

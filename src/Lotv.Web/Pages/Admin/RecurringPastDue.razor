@@ -32,24 +32,24 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-red">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Past Due</div>
       <div class="kpi-value" style="color:var(--red)">@_pastDue.Count</div>
       <div class="kpi-change change-down">need outreach</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Monthly Revenue at Risk</div>
       <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_monthlyAtRisk" /></div>
       <div class="kpi-change">if unrecovered</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128336;</div>
+      <div class="kpi-icon">🕐</div>
       <div class="kpi-label">Avg Days Overdue</div>
       <div class="kpi-value" style="color:var(--navy)">@_avgDaysOverdue</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Annual Impact</div>
       <div class="kpi-value" style="color:var(--green)"><Money Amount="@_annualAtRisk" /></div>
       <div class="kpi-change">projected yearly loss</div>

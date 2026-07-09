@@ -25,23 +25,23 @@ else
   <!-- ORG KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <a class="kpi-card kpi-navy" href="/admin/chapters" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-icon">🏠</div>
       <div class="kpi-label">Chapters</div>
       <div class="kpi-value" style="color:var(--navy)">@_summary.Count</div>
     </a>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-icon">✅</div>
       <div class="kpi-label">Total Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@_summary.Sum(r => r.FulfilledThisPeriod)</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-icon">💕</div>
       <div class="kpi-label">Total Open</div>
       <div class="kpi-value" style="color:var(--amber)">@_summary.Sum(r => r.OpenRequests)</div>
       <div class="kpi-change change-down">@_summary.Sum(r => r.OverdueRequests) overdue</div>
     </div>
     <a class="kpi-card kpi-blush" href="/admin/donations" style="text-decoration:none;cursor:pointer;">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Donations</div>
       <div class="kpi-value" style="color:var(--blush)"><Money Amount="@_summary.Sum(r => r.TotalDonations)" /></div>
     </a>

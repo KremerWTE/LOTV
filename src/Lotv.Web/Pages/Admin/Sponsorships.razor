@@ -15,22 +15,22 @@
 <!-- KPI strip -->
 <div class="kpi-grid" style="margin-bottom:24px;">
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#127970;</div>
+    <div class="kpi-icon">🏢</div>
     <div class="kpi-label">Active Sponsors</div>
     <div class="kpi-value" style="color:var(--green);">@_sponsors.Count(s => s.Status == "Active")</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Committed</div>
     <div class="kpi-value" style="color:var(--navy);">@_sponsors.Sum(s => s.CommittedAmount).ToString("C0")</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#10003;</div>
+    <div class="kpi-icon">✓</div>
     <div class="kpi-label">Total Received</div>
     <div class="kpi-value" style="color:var(--green);">@_sponsors.Sum(s => s.ReceivedAmount).ToString("C0")</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-icon">🕐</div>
     <div class="kpi-label">Renewal Due (&lt;60 days)</div>
     <div class="kpi-value" style="color:var(--amber);">@_sponsors.Count(s => s.DaysUntilRenewal is >= 0 and <= 60)</div>
   </div>
@@ -162,7 +162,7 @@
         <div style="font-weight:700;font-size:1rem;">@_selected.CompanyName</div>
         <div style="font-size:.78rem;opacity:.75;">@_selected.Tier Sponsor</div>
       </div>
-      <button @onclick="() => _selected = null" style="background:none;border:none;color:white;font-size:1.4rem;cursor:pointer;">&#10005;</button>
+      <button @onclick="() => _selected = null" style="background:none;border:none;color:white;font-size:1.4rem;cursor:pointer;">✕</button>
     </div>
 
     <div style="padding:24px;display:flex;flex-direction:column;gap:20px;flex:1;">
@@ -291,7 +291,7 @@
       @if (!string.IsNullOrEmpty(_addError))
       {
         <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:16px;">
-          &#9888; @_addError
+          ⚠ @_addError
         </div>
       }
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">

@@ -22,22 +22,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Given</div>
       <div class="kpi-value" style="color:var(--navy)">@_totalGiven.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-icon">🎁</div>
       <div class="kpi-label">Gift Count</div>
       <div class="kpi-value" style="color:var(--green)">@_donations.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Average Gift</div>
       <div class="kpi-value" style="color:var(--amber)">@(_donations.Count > 0 ? (_totalGiven / _donations.Count).ToString("C0") : "—")</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-icon">📅</div>
       <div class="kpi-label">Last Gift</div>
       <div class="kpi-value" style="font-size:.9rem;">@(_lastGift?.ToString("MMM d, yyyy") ?? "—")</div>
     </div>

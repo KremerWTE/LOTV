@@ -24,7 +24,7 @@ else
       <p>@_donor.Email @(string.IsNullOrEmpty(_donor.City) ? "" : $"· {_donor.City}, {_donor.State}")</p>
     </div>
     <div class="page-hd-actions">
-      <a href="/admin/donors" class="btn btn-sm">&#8592; Back</a>
+      <a href="/admin/donors" class="btn btn-sm">← Back</a>
       <button class="btn btn-sm btn-primary" @onclick="() => _editing = true">Edit Profile</button>
     </div>
   </div>
@@ -32,22 +32,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi-card kpi-gold">
-      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-icon">💸</div>
       <div class="kpi-label">Lifetime Given</div>
       <div class="kpi-value" style="color:var(--gold)">@_donor.TotalGiven.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-icon">🎁</div>
       <div class="kpi-label">Total Gifts</div>
       <div class="kpi-value" style="color:var(--navy)">@_donations.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-icon">📅</div>
       <div class="kpi-label">First Gift</div>
       <div class="kpi-value" style="color:var(--green);font-size:.95rem;">@(_donations.Any() ? _donations.Min(d => d.Date).ToString("MMM yyyy") : "—")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128336;</div>
+      <div class="kpi-icon">🕐</div>
       <div class="kpi-label">Last Gift</div>
       <div class="kpi-value" style="color:var(--amber);font-size:.95rem;">@(_donations.Any() ? _donations.Max(d => d.Date).ToString("MMM d, yyyy") : "—")</div>
     </div>
@@ -84,7 +84,7 @@ else
             helping families across the community through our programs.
           </p>
           <div style="margin-top:12px;">
-            <a href="/admin/notify?recipient=@_donor.Id" class="btn btn-sm">&#128140; Send Message</a>
+            <a href="/admin/notify?recipient=@_donor.Id" class="btn btn-sm">💌 Send Message</a>
           </div>
         </div>
       </div>
@@ -205,7 +205,7 @@ else
   <div style="position:fixed;right:0;top:0;bottom:0;width:440px;background:white;z-index:501;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.15);">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <h3 style="font-family:var(--ff-head);margin:0;">Edit Donor</h3>
-      <button class="btn btn-sm" @onclick="() => _editing = false">&#10005;</button>
+      <button class="btn btn-sm" @onclick="() => _editing = false">✕</button>
     </div>
     <div style="padding:22px;display:flex;flex-direction:column;gap:14px;">
       <div class="form-grid-2">

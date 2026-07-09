@@ -21,22 +21,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-icon">📦</div>
       <div class="kpi-label">Item Types</div>
       <div class="kpi-value" style="color:var(--navy)">@_items.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Categories</div>
       <div class="kpi-value" style="color:var(--green)">@_items.Select(i => i.Category).Distinct().Count()</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128282;</div>
+      <div class="kpi-icon">🔚</div>
       <div class="kpi-label">Total On Hand</div>
       <div class="kpi-value" style="color:var(--amber)">@_items.Sum(i => i.QuantityAvailable)</div>
     </div>
     <div class="kpi-card" style="border-top:3px solid var(--red);">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Low Stock</div>
       <div class="kpi-value" style="color:var(--red)">@_items.Count(i => i.QuantityAvailable <= 2)</div>
     </div>

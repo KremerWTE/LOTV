@@ -10,29 +10,29 @@
     <p>All registered families — intake records and case history</p>
   </div>
   <div class="page-hd-actions">
-    <a href="/admin/cases?new=1" class="btn btn-primary btn-sm">&#43; New Request</a>
+    <a href="/admin/cases?new=1" class="btn btn-primary btn-sm">+ New Request</a>
   </div>
 </div>
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128149;</div>
+    <div class="kpi-icon">💕</div>
     <div class="kpi-label">Total Families</div>
     <div class="kpi-value" style="color:var(--green)">@_families.Count</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-icon">📦</div>
     <div class="kpi-label">Open Cases</div>
     <div class="kpi-value" style="color:var(--navy)">@_requests.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-icon">✅</div>
     <div class="kpi-label">Fulfilled</div>
     <div class="kpi-value" style="color:var(--amber)">@_requests.Count(r => r.Status == CaseStatus.Fulfilled)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#9971;</div>
+    <div class="kpi-icon">⛳</div>
     <div class="kpi-label">Parishes Represented</div>
     <div class="kpi-value" style="color:var(--gold)">@_families.Select(f => f.ParishName).Distinct().Count(p => p != null)</div>
   </div>
@@ -45,7 +45,7 @@
   @foreach (var r in new[]{ PackageReason.Miscarriage, PackageReason.Stillbirth, PackageReason.PrenatalDiagnosis, PackageReason.InfantLoss, PackageReason.Infertility, PackageReason.PastLoss })
   { <button class="filter-chip @(_reasonFilter == r.ToString() ? "active" : "")" aria-pressed="@(_reasonFilter == r.ToString())" @onclick='() => _reasonFilter = _reasonFilter == r.ToString() ? string.Empty : r.ToString()'>@r.ToDisplayName()</button> }
   <input class="form-input" style="width:220px;font-size:.82rem;padding:5px 12px;"
-         placeholder="&#128269; Search name, email, parish..."
+         placeholder="🔍 Search name, email, parish..."
          @bind="_search" @bind:event="oninput" />
 </div>
 
@@ -74,7 +74,7 @@
             <td>
               <strong>@f.FullName</strong>
               @if (!string.IsNullOrEmpty(f.ChildrenInitials))
-              { <div style="font-size:.72rem;color:var(--text-light);">&#128102; @f.ChildrenInitials</div> }
+              { <div style="font-size:.72rem;color:var(--text-light);">👦 @f.ChildrenInitials</div> }
             </td>
             <td>
               <div style="font-size:.8rem;">@f.Email</div>
@@ -114,7 +114,7 @@
         }
         @if (!Filtered.Any())
         {
-          <tr><td colspan="8"><div class="empty-state"><div class="icon">&#128149;</div><p>No families match the current filter.</p></div></td></tr>
+          <tr><td colspan="8"><div class="empty-state"><div class="icon">💕</div><p>No families match the current filter.</p></div></td></tr>
         }
       </tbody>
     </table>
@@ -128,7 +128,7 @@
   <div class="drawer" style="width:520px;">
     <div class="drawer-head">
       <h3>@_selected.FullName</h3>
-      <button class="drawer-close" @onclick="() => _selected = null">&#10005;</button>
+      <button class="drawer-close" @onclick="() => _selected = null">✕</button>
     </div>
     <div class="drawer-body">
 
@@ -208,7 +208,7 @@
       </div>
 
       @if (_drawerSaved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">&#10003; Family record updated</div> }
+      { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">✓ Family record updated</div> }
     </div>
     <div class="drawer-footer">
       <button class="btn btn-primary" @onclick="SaveFamilyAsync">Save</button>

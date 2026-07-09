@@ -30,22 +30,22 @@ else
 
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Year Total</div>
       <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.Total).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Best Month</div>
       <div class="kpi-value" style="color:var(--navy)">@(_rows.Any(r => r.Total > 0) ? _rows.MaxBy(r => r.Total)?.MonthLabel : "—")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">Total Gifts</div>
       <div class="kpi-value" style="color:var(--amber)">@_rows.Sum(r => r.Count)</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">Avg/Month</div>
       <div class="kpi-value" style="color:var(--navy)">@(_rows.Any(r => r.Total > 0) ? (_rows.Sum(r => r.Total) / _rows.Count(r => r.Total > 0)).ToString("C0") : "—")</div>
     </div>

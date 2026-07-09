@@ -15,22 +15,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128179;</div>
+    <div class="kpi-icon">💳</div>
     <div class="kpi-label">Active Grants</div>
     <div class="kpi-value" style="color:var(--navy)">@_grants.Count(g => g.Status == "Active")</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Awarded</div>
     <div class="kpi-value" style="color:var(--green)">@_grants.Sum(g => g.Amount).ToString("C0")</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-icon">📅</div>
     <div class="kpi-label">Reports Due (30d)</div>
     <div class="kpi-value" style="color:var(--amber)">@_dueSoon.Count</div>
   </div>
   <div class="kpi-card" style="background:#fff1f2;">
-    <div class="kpi-icon">&#128680;</div>
+    <div class="kpi-icon">🚨</div>
     <div class="kpi-label">Overdue Reports</div>
     <div class="kpi-value" style="color:var(--red)">@_overdue.Count</div>
   </div>
@@ -39,7 +39,7 @@
 @if (_overdue.Any())
 {
   <div class="panel" style="margin-bottom:16px;border-left:4px solid var(--red);">
-    <div class="panel-head"><h3 style="color:var(--red);">&#128680; Overdue Grant Reports</h3></div>
+    <div class="panel-head"><h3 style="color:var(--red);">🚨 Overdue Grant Reports</h3></div>
     <div class="panel-body" style="padding:0;">
       <table class="data-table">
         <thead><tr><th>Grantor</th><th>Purpose</th><th>Amount</th><th>Report Was Due</th><th>Days Overdue</th></tr></thead>
@@ -64,7 +64,7 @@
 @if (_dueSoon.Any())
 {
   <div class="panel" style="margin-bottom:16px;border-left:4px solid var(--amber);">
-    <div class="panel-head"><h3>&#9888; Reports Due Within 30 Days</h3></div>
+    <div class="panel-head"><h3>⚠ Reports Due Within 30 Days</h3></div>
     <div class="panel-body" style="padding:0;">
       <table class="data-table">
         <thead><tr><th>Grantor</th><th>Purpose</th><th>Amount</th><th>Report Due</th><th>Days Remaining</th></tr></thead>

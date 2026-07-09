@@ -20,22 +20,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127970;</div>
+      <div class="kpi-icon">🏢</div>
       <div class="kpi-label">Total Sponsors</div>
       <div class="kpi-value" style="color:var(--navy)">@_sponsors.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Committed</div>
       <div class="kpi-value" style="color:var(--green)">@_sponsors.Sum(s => s.CommittedAmount).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-icon">✅</div>
       <div class="kpi-label">Active</div>
       <div class="kpi-value" style="color:var(--amber)">@_sponsors.Count(s => s.Status == "Active")</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#127381;</div>
+      <div class="kpi-icon">🆕</div>
       <div class="kpi-label">Tiers</div>
       <div class="kpi-value" style="color:var(--navy)">@_sponsors.Select(s => s.Tier).Distinct().Count()</div>
     </div>

@@ -25,22 +25,22 @@ else
   <!-- KPIs -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-icon">📦</div>
       <div class="kpi-label">Total Assigned</div>
       <div class="kpi-value" style="color:var(--navy)">@_cases.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9200;</div>
+      <div class="kpi-icon">⏰</div>
       <div class="kpi-label">Active</div>
       <div class="kpi-value" style="color:var(--amber)">@_cases.Count(c => c.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#10003;</div>
+      <div class="kpi-icon">✓</div>
       <div class="kpi-label">Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@_cases.Count(c => c.Status == CaseStatus.Fulfilled)</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Overdue</div>
       <div class="kpi-value" style="color:var(--red)">@_cases.Count(c => c.IsOverdue)</div>
     </div>

@@ -11,22 +11,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#9961;</div>
+    <div class="kpi-icon">⛩</div>
     <div class="kpi-label">Dioceses Tracked</div>
     <div class="kpi-value" style="color:var(--navy)">@_dioceses.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Donations</div>
     <div class="kpi-value" style="color:var(--green)"><Money Amount="@_dioceses.Sum(d => d.TotalDonations)" /></div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#9989;</div>
+    <div class="kpi-icon">✅</div>
     <div class="kpi-label">Cases Fulfilled</div>
     <div class="kpi-value" style="color:var(--amber)">@_dioceses.Sum(d => d.TotalCasesFulfilled)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-icon">👥</div>
     <div class="kpi-label">Active Parishes</div>
     <div class="kpi-value" style="color:var(--gold)">@_dioceses.Sum(d => d.ActiveParishes)</div>
   </div>
@@ -52,8 +52,8 @@
           </div>
         </div>
         <div style="font-size:.8rem;color:var(--text-mid);">
-          <div>&#128100; Coordinator: <strong>@(d.CoordinatorName ?? "—")</strong></div>
-          <div style="margin-top:4px;">&#9961; @d.ActiveParishes / @d.TotalParishes parishes active</div>
+          <div>👤 Coordinator: <strong>@(d.CoordinatorName ?? "—")</strong></div>
+          <div style="margin-top:4px;">⛩ @d.ActiveParishes / @d.TotalParishes parishes active</div>
         </div>
         <div class="progress-bar" style="margin-top:10px;">
           <div class="progress-fill" style="width:@(d.TotalParishes > 0 ? d.ActiveParishes * 100 / d.TotalParishes : 0)%;"></div>

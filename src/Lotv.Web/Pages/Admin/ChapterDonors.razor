@@ -22,22 +22,22 @@ else
   <!-- KPIs -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">Donors</div>
       <div class="kpi-value" style="color:var(--navy)">@_donors.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Given</div>
       <div class="kpi-value" style="color:var(--green)">@_donors.Sum(d => d.TotalGiven).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128260;</div>
+      <div class="kpi-icon">🔄</div>
       <div class="kpi-label">Recurring</div>
       <div class="kpi-value" style="color:var(--amber)">@_donors.Count(d => d.IsRecurring)</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-icon">🏆</div>
       <div class="kpi-label">Avg Gift</div>
       <div class="kpi-value" style="font-size:.9rem;">@(_donors.Any(d => d.GiftCount > 0) ? (_donors.Where(d => d.GiftCount > 0).Sum(d => d.TotalGiven) / _donors.Where(d => d.GiftCount > 0).Sum(d => d.GiftCount)).ToString("C0") : "—")</div>
     </div>

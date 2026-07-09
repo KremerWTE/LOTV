@@ -13,9 +13,9 @@
   </div>
   <div class="page-hd-actions">
     <span class="badge @(_hubConnected ? "badge-delivered" : "badge-onhold")" style="font-size:.72rem;">
-      @(_hubConnected ? "&#9679; Live" : "&#9675; Reconnecting")
+      @(_hubConnected ? "● Live" : "○ Reconnecting")
     </span>
-    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
   </div>
 </div>
 
@@ -28,32 +28,32 @@ else
   <!-- NATIONAL KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-icon">🏠</div>
       <div class="kpi-label">Chapters</div>
       <div class="kpi-value" style="color:var(--navy)">@_groups.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-icon">💕</div>
       <div class="kpi-label">Total Open</div>
       <div class="kpi-value" style="color:var(--amber)">@_totalOpen</div>
     </div>
     <div class="kpi-card kpi-red">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Overdue</div>
       <div class="kpi-value" style="color:var(--blush)">@_totalOverdue</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-icon">✅</div>
       <div class="kpi-label">Fulfilled (30d)</div>
       <div class="kpi-value" style="color:var(--green)">@_totalFulfilled</div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#128282;</div>
+      <div class="kpi-icon">🔚</div>
       <div class="kpi-label">Unassigned</div>
       <div class="kpi-value" style="color:var(--blush)">@_totalUnassigned</div>
     </div>
     <div class="kpi-card kpi-gold">
-      <div class="kpi-icon">&#8987;</div>
+      <div class="kpi-icon">⌛</div>
       <div class="kpi-label">Avg Age (days)</div>
       <div class="kpi-value" style="color:var(--gold)">@_avgAge</div>
     </div>
@@ -93,7 +93,7 @@ else
         <div style="display:flex;gap:16px;font-size:.78rem;align-items:center;">
           <span style="color:var(--amber);font-weight:600;">@open open</span>
           @if (overdue > 0)
-          { <span style="color:var(--blush);font-weight:600;">&#9888; @overdue overdue</span> }
+          { <span style="color:var(--blush);font-weight:600;">⚠ @overdue overdue</span> }
           @if (unassigned > 0)
           { <span style="color:var(--text-mid);">@unassigned unassigned</span> }
           <a href="/admin/cases" style="color:var(--green);font-size:.74rem;text-decoration:none;font-weight:600;">View Cases &rarr;</a>
@@ -103,7 +103,7 @@ else
       <!-- Status columns -->
       @if (!group.Requests.Any(r => r.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled)))
       {
-        <div style="padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">&#10003; No active requests</div>
+        <div style="padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">✓ No active requests</div>
       }
       else
       {
@@ -125,7 +125,7 @@ else
                   </div>
                   <div style="color:var(--text-light);font-size:.7rem;">@req.Reason &bull; @GetAge(req.CreatedAt)</div>
                   @if (!string.IsNullOrEmpty(req.AssignedTo))
-                  { <div style="font-size:.7rem;color:var(--green);margin-top:2px;">&#10003; @req.AssignedTo</div> }
+                  { <div style="font-size:.7rem;color:var(--green);margin-top:2px;">✓ @req.AssignedTo</div> }
                   else
                   { <div style="font-size:.7rem;color:var(--text-light);margin-top:2px;">Unassigned</div> }
                 </div>
@@ -144,7 +144,7 @@ else
   @if (!_groups.Any())
   {
     <div class="panel" style="text-align:center;padding:48px;">
-      <div style="font-size:2rem;margin-bottom:12px;">&#127968;</div>
+      <div style="font-size:2rem;margin-bottom:12px;">🏠</div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);">No Chapter Data</h3>
       <p style="color:var(--text-mid);">No requests found across any chapters.</p>
     </div>

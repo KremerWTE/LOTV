@@ -7,7 +7,7 @@
 <!-- PUBLIC NAV -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
     <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
   </div>
   <div style="display:flex;gap:12px;">
@@ -18,7 +18,7 @@
 
 <!-- HERO -->
 <div style="background:linear-gradient(135deg,var(--green) 0%,var(--green-dark,#1a5c2a) 100%);color:white;padding:48px 32px;text-align:center;">
-  <div style="font-size:2.5rem;margin-bottom:10px;">&#128230;</div>
+  <div style="font-size:2.5rem;margin-bottom:10px;">📦</div>
   <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 8px;">Donate Resources</h1>
   <p style="font-size:.95rem;opacity:.85;max-width:520px;margin:0 auto;">Physical goods, clothing, food, and supplies go directly to families we serve. Every item makes a difference.</p>
 </div>
@@ -28,7 +28,7 @@
   @if (_submitted)
   {
     <div style="text-align:center;padding:40px;">
-      <div style="font-size:3rem;margin-bottom:12px;">&#127800;</div>
+      <div style="font-size:3rem;margin-bottom:12px;">🌸</div>
       <h2 style="font-family:var(--ff-head);color:var(--navy);">Thank You!</h2>
       <p style="color:var(--text-mid);margin-bottom:20px;">Your resource donation has been logged. Our team will contact you to arrange pick-up or drop-off.</p>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
@@ -100,10 +100,10 @@
 
         @if (!string.IsNullOrEmpty(_error))
         {
-          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_error</div>
         }
 
-        <button class="btn btn-primary" @onclick="SubmitAsync">&#128230; Log My Donation</button>
+        <button class="btn btn-primary" @onclick="SubmitAsync">📦 Log My Donation</button>
       </div>
     </div>
   }

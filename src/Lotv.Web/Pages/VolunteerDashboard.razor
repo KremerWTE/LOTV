@@ -7,7 +7,7 @@
 <!-- NAV -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
     <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
   </div>
   <div style="display:flex;gap:16px;align-items:center;">
@@ -34,22 +34,22 @@
     <!-- KPI STRIP -->
     <div class="kpi-grid" style="margin-bottom:24px;">
       <div class="kpi-card kpi-navy">
-        <div class="kpi-icon">&#128203;</div>
+        <div class="kpi-icon">📋</div>
         <div class="kpi-label">Active Assignments</div>
         <div class="kpi-value" style="color:var(--navy)">@_myRequests.Count(r => r.Status is CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
       </div>
       <div class="kpi-card kpi-amber">
-        <div class="kpi-icon">&#9888;</div>
+        <div class="kpi-icon">⚠</div>
         <div class="kpi-label">Overdue</div>
         <div class="kpi-value" style="color:var(--amber)">@_myRequests.Count(r => r.IsOverdue)</div>
       </div>
       <div class="kpi-card kpi-green">
-        <div class="kpi-icon">&#9989;</div>
+        <div class="kpi-icon">✅</div>
         <div class="kpi-label">Fulfilled (All Time)</div>
         <div class="kpi-value" style="color:var(--green)">@_myRequests.Count(r => r.Status == CaseStatus.Fulfilled)</div>
       </div>
       <div class="kpi-card kpi-gold">
-        <div class="kpi-icon">&#128197;</div>
+        <div class="kpi-icon">📅</div>
         <div class="kpi-label">Available Near Me</div>
         <div class="kpi-value" style="color:var(--gold)">@_available.Count</div>
       </div>
@@ -59,8 +59,8 @@
     @if (_pending.Any())
     {
       <div style="background:var(--amber);color:white;border-radius:12px;padding:14px 20px;margin-bottom:20px;">
-        <strong>&#128276; @_pending.Count new assignment@(_pending.Count > 1 ? "s" : "") awaiting your response!</strong>
-        <a href="/volunteer/pending" style="color:white;margin-left:10px;font-weight:700;text-decoration:underline;">Review now &#8594;</a>
+        <strong>🔔 @_pending.Count new assignment@(_pending.Count > 1 ? "s" : "") awaiting your response!</strong>
+        <a href="/volunteer/pending" style="color:white;margin-left:10px;font-weight:700;text-decoration:underline;">Review now →</a>
       </div>
     }
 

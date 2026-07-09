@@ -21,22 +21,22 @@ else
   <!-- TOP SUMMARY -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Avg Health Score</div>
       <div class="kpi-value" style="color:var(--green)">@(_scored.Any() ? _scored.Average(s => s.Score).ToString("F0") : "—")</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-icon">🏆</div>
       <div class="kpi-label">Healthy Chapters (70+)</div>
       <div class="kpi-value" style="color:var(--green)">@_scored.Count(s => s.Score >= 70)</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">At Risk (40–69)</div>
       <div class="kpi-value" style="color:var(--amber)">@_scored.Count(s => s.Score is >= 40 and < 70)</div>
     </div>
     <div class="kpi-card" style="background:#fff1f2;">
-      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-icon">🚨</div>
       <div class="kpi-label">Critical (&lt;40)</div>
       <div class="kpi-value" style="color:var(--red)">@_scored.Count(s => s.Score < 40)</div>
     </div>

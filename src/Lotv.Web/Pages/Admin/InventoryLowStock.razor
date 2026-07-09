@@ -23,22 +23,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card" style="border-top:3px solid var(--red);">
-      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-icon">🚫</div>
       <div class="kpi-label">Out of Stock</div>
       <div class="kpi-value" style="color:var(--red)">@_items.Count(i => i.QuantityAvailable <= 0)</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Critical (≤ 2)</div>
       <div class="kpi-value" style="color:var(--amber)">@_items.Count(i => i.QuantityAvailable > 0 && i.QuantityAvailable <= 2)</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128230;</div>
+      <div class="kpi-icon">📦</div>
       <div class="kpi-label">Low (≤ 5)</div>
       <div class="kpi-value" style="color:var(--navy)">@_items.Count(i => i.QuantityAvailable > 2 && i.QuantityAvailable <= 5)</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-icon">🏠</div>
       <div class="kpi-label">Chapters Affected</div>
       <div class="kpi-value" style="color:var(--amber)">@_items.Select(i => i.ChapterId).Distinct().Count()</div>
     </div>

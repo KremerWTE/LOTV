@@ -24,7 +24,7 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-red">
-      <div class="kpi-icon">&#129534;</div>
+      <div class="kpi-icon">🧾</div>
       <div class="kpi-label">Total This Year</div>
       <div class="kpi-value" style="color:var(--red)"><Money Amount="@_thisYear" /></div>
       <div class="kpi-change @(_growth < 0 ? "change-up" : "change-down")">
@@ -32,18 +32,18 @@ else
       </div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128197;</div>
+      <div class="kpi-icon">📅</div>
       <div class="kpi-label">This Month</div>
       <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_thisMonth" /></div>
       <div class="kpi-change">@_thisMonthCount transactions</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">Categories</div>
       <div class="kpi-value" style="color:var(--navy)">@_byCategory.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127374;</div>
+      <div class="kpi-icon">🆎</div>
       <div class="kpi-label">Largest Category</div>
       <div class="kpi-value" style="font-size:1rem;color:var(--green)">@(_byCategory.FirstOrDefault()?.Category ?? "—")</div>
       <div class="kpi-change"><Money Amount="@(_byCategory.FirstOrDefault()?.Total ?? 0)" /></div>

@@ -15,7 +15,7 @@
     @if (_sent)
     {
       <div style="background:var(--green-pale);border-radius:10px;padding:16px 20px;margin-bottom:20px;">
-        <strong style="color:var(--green-dark);">&#10003; Campaign sent!</strong>
+        <strong style="color:var(--green-dark);">✓ Campaign sent!</strong>
         <div style="font-size:.82rem;color:var(--green-dark);margin-top:4px;">
           "@_subject" delivered to @_recipientCount recipients.
         </div>
@@ -92,20 +92,22 @@
         <div class="form-group">
           <label class="form-label">Email Body (HTML supported)</label>
           <textarea class="form-textarea" rows="12" @bind="_body"
-            placeholder="Write your email content here. You may use basic HTML for formatting.&#13;&#10;&#13;&#10;Available tokens: {{donor_name}}, {{total_given}}, {{impact_statement}}, {{unsubscribe_link}}"></textarea>
+            placeholder="Write your email content here. You may use basic HTML for formatting.
+
+Available tokens: {{donor_name}}, {{total_given}}, {{impact_statement}}, {{unsubscribe_link}}"></textarea>
         </div>
 
         @if (!string.IsNullOrEmpty(_error))
         {
-          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+          <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_error</div>
         }
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-primary" @onclick="SendAsync">
-            @(_schedule == "now" ? "&#128140; Send Now" : "&#128197; Schedule")
+            @(_schedule == "now" ? "💌 Send Now" : "📅 Schedule")
           </button>
           <button class="btn" @onclick="() => _preview = !_preview">
-            @(_preview ? "&#10005; Close Preview" : "&#128065; Preview")
+            @(_preview ? "✕ Close Preview" : "👁 Preview")
           </button>
           <button class="btn" @onclick="ResetForm">Clear</button>
         </div>

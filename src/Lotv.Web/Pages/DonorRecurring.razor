@@ -7,7 +7,7 @@
 <!-- Nav header -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">&#127803;</div>
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
     <div>
       <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
       <div style="font-size:.7rem;opacity:.7;">My Giving</div>
@@ -32,7 +32,7 @@
   @if (_schedules.Any(s => s.Status == "PastDue"))
   {
     <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:.85rem;color:#b91c1c;line-height:1.6;">
-      <strong>&#9888; Payment issue:</strong> One or more of your recurring gifts could not be processed.
+      <strong>⚠ Payment issue:</strong> One or more of your recurring gifts could not be processed.
       Please <a href="mailto:support@lotvministry.org" style="color:#b91c1c;">contact support</a> or update your payment method to resume giving.
     </div>
   }
@@ -42,7 +42,7 @@
   {
     <div class="panel">
       <div class="panel-body" style="text-align:center;padding:48px 24px;">
-        <div style="font-size:2rem;margin-bottom:12px;">&#128184;</div>
+        <div style="font-size:2rem;margin-bottom:12px;">💸</div>
         <div style="font-weight:700;color:var(--navy);font-size:1rem;margin-bottom:8px;">No recurring gifts set up yet</div>
         <p style="color:var(--text-light);font-size:.85rem;max-width:380px;margin:0 auto 20px;line-height:1.7;">
           A recurring gift ensures families receive consistent support throughout the year without you needing to remember each month.
@@ -123,13 +123,13 @@
                 @if (s.Status == "Active")
                 {
                   <button class="btn" style="font-size:.82rem;" @onclick="() => PauseAsync(s.Id)">
-                    &#9646;&#9646; Pause
+                    ▮▮ Pause
                   </button>
                 }
                 @if (s.Status == "Paused")
                 {
                   <button class="btn btn-primary" style="font-size:.82rem;" @onclick="() => ResumeAsync(s.Id)">
-                    &#9654; Resume
+                    ▶ Resume
                   </button>
                 }
                 @if (s.Status != "Cancelled" && s.Status != "Completed")
@@ -259,7 +259,7 @@
       @if (!string.IsNullOrEmpty(_newError))
       {
         <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#b91c1c;margin-bottom:16px;">
-          &#9888; @_newError
+          ⚠ @_newError
         </div>
       }
 
@@ -283,7 +283,7 @@
 {
   <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;">
     <div style="background:white;border-radius:16px;max-width:400px;width:100%;padding:32px;text-align:center;">
-      <div style="font-size:2rem;margin-bottom:12px;">&#9888;</div>
+      <div style="font-size:2rem;margin-bottom:12px;">⚠</div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 10px;">Cancel this recurring gift?</h3>
       <p style="color:var(--text-mid);font-size:.85rem;margin:0 0 24px;line-height:1.7;">
         No further charges will be made. You can always set up a new recurring gift in the future.

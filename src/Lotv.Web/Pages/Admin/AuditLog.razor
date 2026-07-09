@@ -9,7 +9,7 @@
 <div class="page-hd">
   <div><h2>Audit Log</h2><p>Append-only activity trail — all staff actions recorded</p></div>
   <div class="page-hd-actions">
-    <button class="btn btn-sm" @onclick="() => Refresh()">&#8635; Refresh</button>
+    <button class="btn btn-sm" @onclick="() => Refresh()">↻ Refresh</button>
     <button class="btn btn-sm" @onclick="ExportCsv">&darr; Export CSV</button>
     <button class="btn btn-sm" @onclick="ExportJson">&darr; Export JSON</button>
   </div>
@@ -18,22 +18,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128196;</div>
+    <div class="kpi-icon">📄</div>
     <div class="kpi-label">Total Entries</div>
     <div class="kpi-value" style="color:var(--navy)">@_log.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128336;</div>
+    <div class="kpi-icon">🕐</div>
     <div class="kpi-label">Actions Today</div>
     <div class="kpi-value" style="color:var(--green)">@_log.Count(e => e.Timestamp.Date == DateTime.UtcNow.Date)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128100;</div>
+    <div class="kpi-icon">👤</div>
     <div class="kpi-label">Unique Users</div>
     <div class="kpi-value" style="color:var(--amber)">@_log.Select(e => e.UserName).Distinct().Count()</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#9998;</div>
+    <div class="kpi-icon">✎</div>
     <div class="kpi-label">Updates Logged</div>
     <div class="kpi-value" style="color:var(--gold)">@_log.Count(e => e.Action.Equals("Updated", StringComparison.OrdinalIgnoreCase))</div>
   </div>
@@ -72,7 +72,7 @@
   @foreach (var d in new[]{"All Time","Last 24h","Today","This Week","This Month"})
   { <button class="filter-chip @(_dateFilter == d ? "active" : "")" aria-pressed="@(_dateFilter == d)" @onclick="() => _dateFilter = d">@d</button> }
   <button class="filter-chip @(_mineOnly ? "active" : "")" aria-pressed="@_mineOnly" @onclick="() => _mineOnly = !_mineOnly">My actions</button>
-  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="&#128269; Search entries..." @bind="_search" @bind:event="oninput" />
+  <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 12px;" placeholder="🔍 Search entries..." @bind="_search" @bind:event="oninput" />
 </div>
 
 <div class="panel">
@@ -117,7 +117,7 @@
   <div class="drawer">
     <div class="drawer-head">
       <h3>@_selected.Action — @_selected.Entity</h3>
-      <button class="drawer-close" @onclick="() => _selected = null">&#10005;</button>
+      <button class="drawer-close" @onclick="() => _selected = null">✕</button>
     </div>
     <div class="drawer-body">
       <div style="font-size:.78rem;color:var(--text-light);margin-bottom:14px;">

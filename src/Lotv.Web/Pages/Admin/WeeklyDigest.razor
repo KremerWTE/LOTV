@@ -24,14 +24,14 @@ else
   <!-- WEEK HEADER -->
   <div class="panel" style="margin-bottom:20px;border-left:4px solid var(--green);">
     <div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-      <div style="font-size:1.5rem;">&#128149;</div>
+      <div style="font-size:1.5rem;">💕</div>
       <div style="flex:1;">
         <div style="font-weight:700;font-size:1rem;">Week of @_weekStart.ToString("MMMM d") – @_weekEnd.ToString("MMMM d, yyyy")</div>
         <div style="font-size:.82rem;color:var(--text-light);margin-top:2px;">@_weekLabel — @_headline</div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-sm" @onclick="PrevWeek">&#8592; Prev</button>
-        <button class="btn btn-sm" @onclick="NextWeek" disabled="@(_weekOffset == 0)">Next &#8594;</button>
+        <button class="btn btn-sm" @onclick="PrevWeek">← Prev</button>
+        <button class="btn btn-sm" @onclick="NextWeek" disabled="@(_weekOffset == 0)">Next →</button>
         @if (_weekOffset != 0)
         {
           <button class="btn btn-sm btn-primary" @onclick="() => { _weekOffset = 0; Compute(); }">This Week</button>
@@ -43,7 +43,7 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-icon">💕</div>
       <div class="kpi-label">New Cases</div>
       <div class="kpi-value" style="color:var(--blush)">@_newCases</div>
       <div class="kpi-change @(_newCases > _prevNewCases ? "change-up" : "change-down")">
@@ -51,7 +51,7 @@ else
       </div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Cases Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@_fulfilled</div>
       <div class="kpi-change @(_fulfilled > _prevFulfilled ? "change-up" : "change-down")">
@@ -59,7 +59,7 @@ else
       </div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-icon">💸</div>
       <div class="kpi-label">Donations Received</div>
       <div class="kpi-value" style="color:var(--navy)"><Money Amount="@_donated" /></div>
       <div class="kpi-change @(_donated > _prevDonated ? "change-up" : "change-down")">
@@ -67,7 +67,7 @@ else
       </div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Overdue Cases</div>
       <div class="kpi-value" style="color:var(--amber)">@_overdue</div>
       <div class="kpi-change @(_overdue > 0 ? "change-down" : "change-up")">
@@ -171,7 +171,7 @@ else
   {
     <div class="panel" style="border:1px solid var(--amber);">
       <div class="panel-head" style="background:#fff3cd;">
-        <h3 style="color:#856404;">&#9888; @_overdue Overdue Case@(_overdue == 1 ? "" : "s") Needing Action</h3>
+        <h3 style="color:#856404;">⚠ @_overdue Overdue Case@(_overdue == 1 ? "" : "s") Needing Action</h3>
         <a href="/admin/cases/overdue" class="btn btn-sm" style="font-size:.72rem;">View All &rarr;</a>
       </div>
     </div>

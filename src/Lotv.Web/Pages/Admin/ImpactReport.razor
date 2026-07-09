@@ -1,4 +1,4 @@
-@page "/admin/impact"
+@page "/admin/impact-report"
 @layout AdminLayout
 @inject ApiService Api
 
@@ -11,22 +11,22 @@
 <!-- TOP KPI ROW -->
 <div class="kpi-grid" style="margin-bottom:24px;">
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128149;</div>
+    <div class="kpi-icon">💕</div>
     <div class="kpi-label">Families Served (All Time)</div>
     <div class="kpi-value" style="color:var(--green)">@_families.Count</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#128230;</div>
+    <div class="kpi-icon">📦</div>
     <div class="kpi-label">Packages Fulfilled</div>
     <div class="kpi-value" style="color:var(--navy)">@_requests.Count(r => r.Status == CaseStatus.Fulfilled)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128184;</div>
+    <div class="kpi-icon">💸</div>
     <div class="kpi-label">Total Donations Raised</div>
     <div class="kpi-value" style="color:var(--amber)"><Money Amount="@_donations.Sum(d => d.Amount)" /></div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#9195;</div>
+    <div class="kpi-icon">⏫</div>
     <div class="kpi-label">Avg. Days to Fulfill</div>
     <div class="kpi-value" style="color:var(--gold)">@_avgFulfillDays</div>
   </div>
@@ -35,22 +35,22 @@
 <!-- SECOND ROW -->
 <div class="kpi-grid" style="margin-bottom:28px;">
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">&#128101;</div>
+    <div class="kpi-icon">👥</div>
     <div class="kpi-label">Active Volunteers</div>
     <div class="kpi-value" style="color:var(--green)">@_volunteers.Count(v => v.Status == VolunteerStatus.Active)</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">&#9971;</div>
+    <div class="kpi-icon">⛳</div>
     <div class="kpi-label">Parishes Engaged</div>
     <div class="kpi-value" style="color:var(--navy)">@_parishes.Count(p => p.ActiveCases > 0)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">&#128260;</div>
+    <div class="kpi-icon">🔄</div>
     <div class="kpi-label">Recurring Donors</div>
     <div class="kpi-value" style="color:var(--amber)">@_donors.Count(d => d.IsRecurring)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">&#128197;</div>
+    <div class="kpi-icon">📅</div>
     <div class="kpi-label">Events This Year</div>
     <div class="kpi-value" style="color:var(--gold)">@_events.Count(e => e.Date.Year == DateTime.UtcNow.Year)</div>
   </div>

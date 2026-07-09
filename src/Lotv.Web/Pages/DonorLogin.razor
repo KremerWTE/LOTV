@@ -22,7 +22,7 @@
       else if (_state == State.Sent)
       {
         <p style="color:var(--green-dark);">
-          &#10003; If a donor record exists for <strong>@_email</strong>, a sign-in link has been emailed.
+          ✓ If a donor record exists for <strong>@_email</strong>, a sign-in link has been emailed.
           The link expires in 20 minutes.
         </p>
         <button class="btn" @onclick="() => _state = State.Form">Send another link</button>

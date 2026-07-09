@@ -7,8 +7,8 @@
 <div class="page-hd">
   <div><h2>Donations by Gift Size</h2><p>Distribution of giving across dollar-amount bands</p></div>
   <div class="page-hd-actions">
-    <a href="/admin/export" class="btn btn-sm">&#8681; Export</a>
-    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+    <a href="/admin/export" class="btn btn-sm">⇩ Export</a>
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
   </div>
 </div>
 
@@ -21,22 +21,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-icon">🎁</div>
       <div class="kpi-label">Total Gifts</div>
       <div class="kpi-value" style="color:var(--navy)">@_bands.Sum(b => b.GiftCount)</div>
     </div>
     <div class="kpi-card kpi-gold">
-      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-icon">💸</div>
       <div class="kpi-label">Total Raised</div>
       <div class="kpi-value" style="color:var(--gold)">@_bands.Sum(b => b.TotalAmount).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127881;</div>
+      <div class="kpi-icon">🎉</div>
       <div class="kpi-label">Most Common Band</div>
       <div class="kpi-value" style="color:var(--green);font-size:1rem;padding-top:4px;">@(_bands.OrderByDescending(b => b.GiftCount).FirstOrDefault()?.Band ?? "—")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#127775;</div>
+      <div class="kpi-icon">🌟</div>
       <div class="kpi-label">Highest Revenue Band</div>
       <div class="kpi-value" style="color:var(--amber);font-size:1rem;padding-top:4px;">@(_bands.OrderByDescending(b => b.TotalAmount).FirstOrDefault()?.Band ?? "—")</div>
     </div>

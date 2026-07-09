@@ -29,17 +29,17 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card" style="border-top:3px solid var(--red);">
-      <div class="kpi-icon">&#128680;</div>
+      <div class="kpi-icon">🚨</div>
       <div class="kpi-label">Urgent</div>
       <div class="kpi-value" style="color:var(--red)">@_urgent.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-icon">👤</div>
       <div class="kpi-label">Unassigned</div>
       <div class="kpi-value" style="color:var(--amber)">@_urgent.Count(c => !c.AssignedToId.HasValue)</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#9201;</div>
+      <div class="kpi-icon">⏱</div>
       <div class="kpi-label">Overdue</div>
       <div class="kpi-value" style="color:var(--navy)">@_urgent.Count(c => c.IsOverdue)</div>
     </div>

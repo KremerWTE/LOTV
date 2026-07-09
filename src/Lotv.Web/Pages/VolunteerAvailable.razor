@@ -29,7 +29,7 @@
   else if (!_requests.Any())
   {
     <div class="panel" style="text-align:center;padding:48px;">
-      <div style="font-size:3rem;margin-bottom:12px;">&#9989;</div>
+      <div style="font-size:3rem;margin-bottom:12px;">✅</div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);">All Clear!</h3>
       <p style="color:var(--text-mid);">No unassigned requests in your area right now. Check back soon.</p>
     </div>
@@ -57,9 +57,9 @@
               { <span class="badge badge-overdue" style="font-size:.66rem;">Overdue</span> }
             </div>
             <div style="font-size:.78rem;color:var(--text-mid);display:flex;gap:12px;flex-wrap:wrap;">
-              <span>&#128197; Submitted @req.CreatedAt.ToString("MMM d, yyyy")</span>
+              <span>📅 Submitted @req.CreatedAt.ToString("MMM d, yyyy")</span>
               @if (req.DueDate.HasValue)
-              { <span>&#127919; Due @req.DueDate.Value.ToString("MMM d, yyyy")</span> }
+              { <span>🎯 Due @req.DueDate.Value.ToString("MMM d, yyyy")</span> }
             </div>
           </div>
           <button class="btn btn-primary btn-sm" @onclick="() => AcceptAsync(req)">Accept Request</button>
@@ -71,7 +71,7 @@
   @if (!string.IsNullOrEmpty(_toast))
   {
     <div style="position:fixed;bottom:24px;right:24px;background:var(--green);color:white;border-radius:10px;padding:12px 20px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2);">
-      &#10003; @_toast
+      ✓ @_toast
     </div>
   }
 </div>

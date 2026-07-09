@@ -29,22 +29,22 @@ else
 
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Raised</div>
       <div class="kpi-value" style="color:var(--green)">@_campaign.Raised.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#127919;</div>
+      <div class="kpi-icon">🎯</div>
       <div class="kpi-label">Goal</div>
       <div class="kpi-value" style="color:var(--amber)">@_campaign.GoalAmount.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-icon">🎁</div>
       <div class="kpi-label">Gift Count</div>
       <div class="kpi-value" style="color:var(--navy)">@_campaign.GiftCount</div>
     </div>
     <div class="kpi-card" style="border-top:3px solid @(pct >= 100 ? "var(--green)" : "var(--amber)");">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Progress</div>
       <div class="kpi-value" style="color:@(pct >= 100 ? "var(--green)" : "var(--amber)")">@pct.ToString("F0")%</div>
     </div>

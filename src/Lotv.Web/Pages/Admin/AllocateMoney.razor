@@ -11,7 +11,7 @@
     <p>Assign an unallocated donation to a specific request or expense</p>
   </div>
   <div class="page-hd-actions">
-    <a href="/admin/allocations" class="btn btn-sm">&#8592; Back to Allocations</a>
+    <a href="/admin/allocations" class="btn btn-sm">← Back to Allocations</a>
   </div>
 </div>
 
@@ -89,7 +89,7 @@
           <input class="form-input" type="number" min="0.01" step="0.01" @bind="_amount" placeholder="0.00" />
           @if (_selectedDonation != null && _amount > _availableAmount)
           {
-            <div style="font-size:.76rem;color:var(--blush);margin-top:3px;">&#9888; Exceeds available balance of @_availableAmount.ToString("C2")</div>
+            <div style="font-size:.76rem;color:var(--blush);margin-top:3px;">⚠ Exceeds available balance of @_availableAmount.ToString("C2")</div>
           }
         </div>
         <div class="form-group">
@@ -105,11 +105,11 @@
 
       @if (!string.IsNullOrEmpty(_error))
       {
-        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_error</div>
+        <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_error</div>
       }
       @if (_success)
       {
-        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">&#10003; Allocation recorded successfully. <a href="/admin/allocations" style="color:var(--green);">View allocation ledger &rarr;</a></div>
+        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ Allocation recorded successfully. <a href="/admin/allocations" style="color:var(--green);">View allocation ledger &rarr;</a></div>
       }
 
       <div style="display:flex;gap:10px;">

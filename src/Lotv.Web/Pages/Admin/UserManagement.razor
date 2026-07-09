@@ -8,7 +8,7 @@
 <div class="page-hd">
   <div><h2>User Management</h2><p>Staff accounts and role permissions</p></div>
   <div class="page-hd-actions">
-    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">&#43; Invite User</button>
+    <button class="btn btn-primary btn-sm" @onclick="OpenAdd">+ Invite User</button>
   </div>
 </div>
 
@@ -50,10 +50,10 @@
               @if (!isMe)
               {
                 <button class="btn btn-sm" @onclick="() => OpenEdit(u)">Edit Role</button>
-                <button class="btn btn-sm" title="Send test push" @onclick="() => PushTest(u)">&#128276;</button>
+                <button class="btn btn-sm" title="Send test push" @onclick="() => PushTest(u)">🔔</button>
                 @if (!string.IsNullOrEmpty(u.AvatarUrl))
                 {
-                  <button class="btn btn-sm" title="Clear avatar" @onclick="() => ClearAvatar(u)">Clear &#128247;</button>
+                  <button class="btn btn-sm" title="Clear avatar" @onclick="() => ClearAvatar(u)">Clear 📷</button>
                 }
               }
             </td>
@@ -71,7 +71,7 @@
   <div class="drawer">
     <div class="drawer-head">
       <h3>@(_editUser == null ? "Invite User" : "Edit User")</h3>
-      <button class="drawer-close" @onclick="CloseDrawer">&#10005;</button>
+      <button class="drawer-close" @onclick="CloseDrawer">✕</button>
     </div>
     <div class="drawer-body">
       @if (_editUser is not null)
@@ -89,7 +89,7 @@
         </select>
       </div>
       @if (!string.IsNullOrEmpty(_formError))
-      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">&#9888; @_formError</div> }
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_formError</div> }
     </div>
     <div class="drawer-footer">
       <button class="btn btn-primary" @onclick="SaveAsync">@(_editUser == null ? "Send Invite" : "Save")</button>
@@ -101,7 +101,7 @@
 @if (_toast != null)
 {
   <div style="position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
-    &#10003; @_toast
+    ✓ @_toast
   </div>
 }
 

@@ -23,23 +23,23 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128226;</div>
+      <div class="kpi-icon">📢</div>
       <div class="kpi-label">Active</div>
       <div class="kpi-value" style="color:var(--navy)">@_active.Count</div>
     </div>
     <div class="kpi-card kpi-gold">
-      <div class="kpi-icon">&#128204;</div>
+      <div class="kpi-icon">📌</div>
       <div class="kpi-label">Pinned</div>
       <div class="kpi-value" style="color:var(--gold)">@_pinned.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-icon">⏳</div>
       <div class="kpi-label">Expiring Soon</div>
       <div class="kpi-value" style="color:var(--amber)">@_expiringSoon.Count</div>
       <div class="kpi-change @(_expiringSoon.Any() ? "change-down" : "")">within 7 days</div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">HQ-Wide</div>
       <div class="kpi-value" style="color:var(--blush)">@_all.Count(a => a.Audience == "All" || a.ChapterId is null)</div>
       <div class="kpi-change">visible to all chapters</div>
@@ -59,7 +59,7 @@ else
   {
     <div style="margin-bottom:20px;">
       <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--gold);letter-spacing:.06em;margin-bottom:10px;">
-        &#128204; Pinned Announcements
+        📌 Pinned Announcements
       </div>
       @foreach (var a in _pinned.Where(a => MatchFilter(a)))
       {
@@ -107,7 +107,7 @@ else
   {
     <div class="panel" style="margin-bottom:20px;border:1px solid var(--amber);">
       <div class="panel-head" style="background:#fff3cd;">
-        <h3 style="color:#856404;">&#9203; Expiring Within 7 Days</h3>
+        <h3 style="color:#856404;">⏳ Expiring Within 7 Days</h3>
       </div>
       <div class="panel-body" style="padding:0;">
         <table class="data-table">

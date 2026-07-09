@@ -22,22 +22,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">Non-Active</div>
       <div class="kpi-value" style="color:var(--navy)">@_volunteers.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128336;</div>
+      <div class="kpi-icon">🕐</div>
       <div class="kpi-label">Onboarding</div>
       <div class="kpi-value" style="color:var(--amber)">@_volunteers.Count(v => v.Status == VolunteerStatus.Onboarding)</div>
     </div>
     <div class="kpi-card" style="border-top:3px solid var(--red);">
-      <div class="kpi-icon">&#128683;</div>
+      <div class="kpi-icon">🚫</div>
       <div class="kpi-label">Inactive</div>
       <div class="kpi-value" style="color:var(--red)">@_volunteers.Count(v => v.Status == VolunteerStatus.Inactive)</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-icon">🏆</div>
       <div class="kpi-label">Cases Fulfilled</div>
       <div class="kpi-value" style="color:var(--green)">@_volunteers.Sum(v => v.TotalCasesFulfilled)</div>
     </div>

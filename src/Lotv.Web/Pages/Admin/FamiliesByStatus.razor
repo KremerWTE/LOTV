@@ -23,25 +23,25 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128101;</div>
+      <div class="kpi-icon">👥</div>
       <div class="kpi-label">Active</div>
       <div class="kpi-value" style="color:var(--green)">@Count(FamilyStatus.Active)</div>
       <div class="kpi-change">currently receiving support</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128222;</div>
+      <div class="kpi-icon">📞</div>
       <div class="kpi-label">Follow-Up</div>
       <div class="kpi-value" style="color:var(--amber)">@Count(FamilyStatus.FollowUp)</div>
       <div class="kpi-change change-down">@(Count(FamilyStatus.FollowUp) > 0 ? "needs outreach" : "none pending")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128280;</div>
+      <div class="kpi-icon">🔘</div>
       <div class="kpi-label">Referred</div>
       <div class="kpi-value" style="color:var(--navy)">@Count(FamilyStatus.Referred)</div>
       <div class="kpi-change">sent to partner org</div>
     </div>
     <div class="kpi-card kpi-blush">
-      <div class="kpi-icon">&#9745;</div>
+      <div class="kpi-icon">☑</div>
       <div class="kpi-label">Closed</div>
       <div class="kpi-value" style="color:var(--blush)">@Count(FamilyStatus.Closed)</div>
       <div class="kpi-change">case completed</div>

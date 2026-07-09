@@ -31,22 +31,22 @@ else
   <!-- KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#127919;</div>
+      <div class="kpi-icon">🎯</div>
       <div class="kpi-label">Goal</div>
       <div class="kpi-value" style="color:var(--green)">@_campaign.GoalAmount.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Raised</div>
       <div class="kpi-value" style="color:var(--navy)">@_campaign.Raised.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128202;</div>
+      <div class="kpi-icon">📊</div>
       <div class="kpi-label">Gift Count</div>
       <div class="kpi-value" style="color:var(--amber)">@_campaign.GiftCount</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Progress</div>
       <div class="kpi-value" style="color:@(pct >= 100 ? "var(--green)" : pct >= 75 ? "var(--amber)" : "var(--navy)")">@pct.ToString("F0")%</div>
     </div>
@@ -88,7 +88,7 @@ else
       <h3>Donations (@_donations.Count)</h3>
       <div style="display:flex;gap:8px;align-items:center;">
         <input class="form-input" style="width:180px;font-size:.82rem;padding:5px 12px;"
-               placeholder="&#128269; Search…" @bind="_search" @bind:event="oninput" />
+               placeholder="🔍 Search…" @bind="_search" @bind:event="oninput" />
       </div>
     </div>
     <div class="panel-body" style="padding:0;">

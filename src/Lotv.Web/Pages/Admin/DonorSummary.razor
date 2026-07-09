@@ -26,22 +26,22 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Given</div>
       <div class="kpi-value" style="color:var(--green)">@_donor.TotalGiven.ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127873;</div>
+      <div class="kpi-icon">🎁</div>
       <div class="kpi-label">Gift Count</div>
       <div class="kpi-value" style="color:var(--navy)">@_donations.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Avg Gift</div>
       <div class="kpi-value" style="color:var(--amber)">@(_donations.Any() ? _donations.Average(d => d.Amount).ToString("C0") : "—")</div>
     </div>
     <div class="kpi-card" style="border-top:3px solid @TierColor(_donor.Tier);">
-      <div class="kpi-icon">&#127942;</div>
+      <div class="kpi-icon">🏆</div>
       <div class="kpi-label">Tier</div>
       <div class="kpi-value" style="color:@TierColor(_donor.Tier);font-size:1rem;">@_donor.Tier</div>
     </div>

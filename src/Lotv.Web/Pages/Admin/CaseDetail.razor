@@ -13,7 +13,7 @@
 else if (_request is null)
 {
   <div class="empty-state">
-    <div class="icon">&#10060;</div>
+    <div class="icon">❌</div>
     <p>Case #@Id not found.</p>
     <a href="/admin/cases" class="btn btn-sm" style="margin-top:16px;">Back to Cases</a>
   </div>
@@ -36,18 +36,18 @@ else
       </div>
     </div>
     <div class="page-hd-actions">
-      <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
-      <a href="/admin/cases" class="btn btn-sm">&#8592; All Cases</a>
+      <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+      <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
     </div>
   </div>
 
   @if (!string.IsNullOrEmpty(_saveMsg))
   {
-    <div style="background:var(--green-pale);border-radius:8px;padding:10px 16px;font-size:.84rem;color:var(--green-dark);margin-bottom:16px;">&#10003; @_saveMsg</div>
+    <div style="background:var(--green-pale);border-radius:8px;padding:10px 16px;font-size:.84rem;color:var(--green-dark);margin-bottom:16px;">✓ @_saveMsg</div>
   }
   @if (!string.IsNullOrEmpty(_errorMsg))
   {
-    <div style="background:#fff3cd;border-radius:8px;padding:10px 16px;font-size:.84rem;color:#856404;margin-bottom:16px;">&#9888; @_errorMsg</div>
+    <div style="background:#fff3cd;border-radius:8px;padding:10px 16px;font-size:.84rem;color:#856404;margin-bottom:16px;">⚠ @_errorMsg</div>
   }
 
   <!-- MAIN GRID -->
@@ -142,7 +142,7 @@ else
           @if (!_notes.Any())
           {
             <div class="empty-state" style="padding:24px;">
-              <div class="icon" style="font-size:28px;">&#128172;</div>
+              <div class="icon" style="font-size:28px;">💬</div>
               <p>No notes yet — add the first one below.</p>
             </div>
           }
@@ -227,7 +227,7 @@ else
         <div class="panel">
           <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
             <span>Family</span>
-            <a href="/admin/families?family=@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile &#8594;</a>
+            <a href="/admin/families?family=@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile →</a>
           </div>
           <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
             <div><strong>Name:</strong> @_request.Family.FullName</div>
@@ -263,7 +263,7 @@ else
                   <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span style="font-size:.84rem;font-weight:600;">@c.Name</span>
                     @if (c.Recommended)
-                    { <span style="font-size:.7rem;background:var(--green);color:white;padding:1px 8px;border-radius:12px;">&#10003; Best fit</span> }
+                    { <span style="font-size:.7rem;background:var(--green);color:white;padding:1px 8px;border-radius:12px;">✓ Best fit</span> }
                   </div>
                   <div style="font-size:.76rem;color:var(--text-light);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;">
                     <span>Score: @c.CompositeScore.ToString("F0")</span>
@@ -285,7 +285,7 @@ else
       <div class="panel">
         <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span>Fund Allocations</span>
-          <a href="/admin/allocations" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View All &#8594;</a>
+          <a href="/admin/allocations" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View All →</a>
         </div>
         <div class="panel-body">
           @{
@@ -323,26 +323,26 @@ else
         <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
           @if (_request.Status == CaseStatus.New || _request.Status == CaseStatus.InProgress)
           {
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.AwaitingShipment)'>&#128230; Mark Awaiting Shipment</button>
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Fulfilled)'>&#9989; Mark Fulfilled</button>
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.OnHold)'>&#9208; Put On Hold</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.AwaitingShipment)'>📦 Mark Awaiting Shipment</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Fulfilled)'>✅ Mark Fulfilled</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.OnHold)'>⏸ Put On Hold</button>
           }
           @if (_request.Status == CaseStatus.AwaitingShipment)
           {
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Shipped)'>&#128230; Mark Shipped</button>
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Fulfilled)'>&#9989; Mark Fulfilled</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Shipped)'>📦 Mark Shipped</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Fulfilled)'>✅ Mark Fulfilled</button>
           }
           @if (_request.Status == CaseStatus.OnHold)
           {
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.InProgress)'>&#9654; Resume (→ In Progress)</button>
+            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.InProgress)'>▶ Resume (→ In Progress)</button>
           }
           @if (_request.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled))
           {
             <button class="btn btn-sm" style="background:#fff3cd;color:#856404;border-color:#f0d060;"
-                    @onclick='() => QuickStatusAsync(CaseStatus.Cancelled)'>&#10006; Cancel Case</button>
+                    @onclick='() => QuickStatusAsync(CaseStatus.Cancelled)'>✖ Cancel Case</button>
           }
           <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;" />
-          <a href="/admin/cases?familyId=@_request.FamilyId" class="btn btn-sm">&#43; New Case for This Family</a>
+          <a href="/admin/cases?familyId=@_request.FamilyId" class="btn btn-sm">+ New Case for This Family</a>
         </div>
       </div>
 
@@ -548,17 +548,17 @@ else
 
   private static string GetActivityIcon(ActivityType t) => t switch
   {
-    ActivityType.Created        => "&#128196;",
-    ActivityType.StatusChanged  => "&#128260;",
-    ActivityType.Assigned       => "&#128100;",
-    ActivityType.Reassigned     => "&#128257;",
-    ActivityType.NoteAdded      => "&#128172;",
-    ActivityType.PriorityChanged => "&#9650;",
-    ActivityType.DueDateSet     => "&#128336;",
-    ActivityType.Escalated      => "&#9888;",
-    ActivityType.Fulfilled      => "&#9989;",
-    ActivityType.Cancelled      => "&#10006;",
-    _ => "&#8226;"
+    ActivityType.Created        => "📄",
+    ActivityType.StatusChanged  => "🔄",
+    ActivityType.Assigned       => "👤",
+    ActivityType.Reassigned     => "🔁",
+    ActivityType.NoteAdded      => "💬",
+    ActivityType.PriorityChanged => "▲",
+    ActivityType.DueDateSet     => "🕐",
+    ActivityType.Escalated      => "⚠",
+    ActivityType.Fulfilled      => "✅",
+    ActivityType.Cancelled      => "✖",
+    _ => "•"
   };
 
   private static string GetActivityLabel(RequestActivity ev) => ev.ActivityType switch

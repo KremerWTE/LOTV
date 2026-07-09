@@ -11,7 +11,7 @@
     <p>National overview — all chapters</p>
   </div>
   <div class="page-hd-actions">
-    <button class="btn btn-sm" @onclick="LoadAsync">&#8635; Refresh</button>
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
   </div>
 </div>
 
@@ -24,32 +24,32 @@ else
   <!-- NATIONAL KPI STRIP -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#127968;</div>
+      <div class="kpi-icon">🏠</div>
       <div class="kpi-label">Active Chapters</div>
       <div class="kpi-value" style="color:var(--navy)">@_rows.Count</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128149;</div>
+      <div class="kpi-icon">💕</div>
       <div class="kpi-label">Open Requests (National)</div>
       <div class="kpi-value" style="color:var(--amber)">@_rows.Sum(r => r.OpenRequests)</div>
     </div>
     <div class="kpi-card kpi-red" style="--kpi-accent:var(--blush);">
-      <div class="kpi-icon">&#9888;</div>
+      <div class="kpi-icon">⚠</div>
       <div class="kpi-label">Overdue (National)</div>
       <div class="kpi-value" style="color:var(--blush)">@_rows.Sum(r => r.OverdueRequests)</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#9989;</div>
+      <div class="kpi-icon">✅</div>
       <div class="kpi-label">Fulfilled This Month</div>
       <div class="kpi-value" style="color:var(--green)">@_rows.Sum(r => r.FulfilledThisPeriod)</div>
     </div>
     <div class="kpi-card kpi-gold">
-      <div class="kpi-icon">&#128184;</div>
+      <div class="kpi-icon">💸</div>
       <div class="kpi-label">Total Donations</div>
       <div class="kpi-value" style="color:var(--gold)">@_rows.Sum(r => r.TotalDonations).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128100;</div>
+      <div class="kpi-icon">👤</div>
       <div class="kpi-label">Active Volunteers</div>
       <div class="kpi-value" style="color:var(--navy)">@_rows.Sum(r => r.ActiveVolunteers)</div>
     </div>
@@ -59,14 +59,14 @@ else
   @if (_overdueChapters.Any())
   {
     <div style="background:#fff3cd;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:.84rem;color:#856404;">
-      <strong>&#9888; Overdue Cases:</strong>
+      <strong>⚠ Overdue Cases:</strong>
       @string.Join(", ", _overdueChapters.Select(c => $"{c.ChapterName} ({c.OverdueRequests})"))
     </div>
   }
   @if (_emptyChapters.Any())
   {
     <div style="background:var(--blush-pale);border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:.84rem;color:var(--blush);">
-      <strong>&#128101; No Active Volunteers:</strong>
+      <strong>👥 No Active Volunteers:</strong>
       @string.Join(", ", _emptyChapters.Select(c => c.ChapterName))
     </div>
   }

@@ -22,22 +22,22 @@ else
   <!-- KPIs -->
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">&#128203;</div>
+      <div class="kpi-icon">📋</div>
       <div class="kpi-label">Total Pledges</div>
       <div class="kpi-value" style="color:var(--navy)">@_pledges.Count</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">&#128176;</div>
+      <div class="kpi-icon">💰</div>
       <div class="kpi-label">Total Pledged</div>
       <div class="kpi-value" style="color:var(--green)">@_pledges.Sum(p => p.PledgedAmount).ToString("C0")</div>
     </div>
     <div class="kpi-card kpi-amber">
-      <div class="kpi-icon">&#128200;</div>
+      <div class="kpi-icon">📈</div>
       <div class="kpi-label">Total Fulfilled</div>
       <div class="kpi-value" style="color:var(--amber)">@_pledges.Sum(p => p.FulfilledAmount).ToString("C0")</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">&#9203;</div>
+      <div class="kpi-icon">⏳</div>
       <div class="kpi-label">Open Pledges</div>
       <div class="kpi-value">@_pledges.Count(p => p.Status == PledgeStatus.Active || p.Status == PledgeStatus.Overdue)</div>
     </div>
