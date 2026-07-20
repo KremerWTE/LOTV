@@ -1,8 +1,11 @@
 name: Deploy — Staging
 
+# Disabled from auto-run on push: this repo has no staging environment yet
+# (DB_CONNECTION_STRING / REGISTRY_HOST / REGISTRY_USER / REGISTRY_PASSWORD
+# secrets aren't set). Trigger manually once those exist, or restore the
+# `push: branches: [main]` trigger below.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch: {}
 
 jobs:
   deploy-staging:
