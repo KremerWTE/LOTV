@@ -80,7 +80,7 @@ jobs:
           E2E_API_URL: http://localhost:5275
 
       - name: Publish test results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         if: always()
         with:
           name: xUnit Test Results
