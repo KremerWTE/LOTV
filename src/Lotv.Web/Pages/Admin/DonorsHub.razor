@@ -1,0 +1,128 @@
+@page "/admin/donors-hub"
+@layout AdminLayout
+
+<PageTitle>Donors — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Donors</h2>
+    <p>Directory plus every donor/pledge/recurring-giving analytics cut in one place</p>
+  </div>
+</div>
+
+<div class="tab-bar" style="display:flex;gap:4px;margin-bottom:20px;background:white;border:1px solid var(--border);border-radius:var(--radius, 10px);padding:4px;width:fit-content;flex-wrap:wrap;max-width:100%;">
+  @foreach (var t in _tabs)
+  {
+    <button class="tab-btn @(_active == t.Key ? "active" : "")"
+            style="padding:7px 14px;border-radius:7px;border:none;background:@(_active == t.Key ? "var(--green)" : "none");color:@(_active == t.Key ? "white" : "var(--text-mid)");font-size:.82rem;font-weight:500;cursor:pointer;white-space:nowrap;"
+            @onclick="() => _active = t.Key">
+      @t.Label
+    </button>
+  }
+</div>
+
+@switch (_active)
+{
+  case "directory":
+    <Donors />
+    break;
+  case "top":
+    <DonorsTop />
+    break;
+  case "by-chapter":
+    <DonorsByChapter />
+    break;
+  case "growth":
+    <DonorGrowth />
+    break;
+  case "first-gift":
+    <DonorFirstGift />
+    break;
+  case "rfv":
+    <DonorRFV />
+    break;
+  case "journey":
+    <DonorJourneyMap />
+    break;
+  case "giving-seasons":
+    <GivingSeasons />
+    break;
+  case "upgrade-path":
+    <DonorUpgradePath />
+    break;
+  case "touchpoint-log":
+    <TouchpointLog />
+    break;
+  case "retention":
+    <DonorRetention />
+    break;
+  case "segments":
+    <DonorSegments />
+    break;
+  case "outreach":
+    <DonorOutreach />
+    break;
+  case "lapsed":
+    <DonorLapsed />
+    break;
+  case "monthly":
+    <DonorMonthlyGiving />
+    break;
+  case "tier-analytics":
+    <DonorTierAnalytics />
+    break;
+  case "tiers":
+    <DonorTierSummary />
+    break;
+  case "year-end":
+    <YearEndGiving />
+    break;
+  case "pledges":
+    <Pledges />
+    break;
+  case "pledge-summary":
+    <PledgeSummary />
+    break;
+  case "pledge-renewals":
+    <PledgeRenewals />
+    break;
+  case "pledge-lapsed":
+    <PledgeLapsed />
+    break;
+  case "recurring":
+    <Recurring />
+    break;
+}
+
+@code {
+  private record TabDef(string Key, string Label);
+
+  private readonly List<TabDef> _tabs =
+  [
+    new("directory", "Directory"),
+    new("top", "Top Donors"),
+    new("by-chapter", "By Chapter"),
+    new("growth", "Growth"),
+    new("first-gift", "First Gift"),
+    new("rfv", "RFV"),
+    new("journey", "Journey Map"),
+    new("giving-seasons", "Giving Seasons"),
+    new("upgrade-path", "Upgrade Path"),
+    new("touchpoint-log", "Touchpoint Log"),
+    new("retention", "Retention"),
+    new("segments", "Segments"),
+    new("outreach", "Outreach"),
+    new("lapsed", "Lapsed"),
+    new("monthly", "Monthly Giving"),
+    new("tier-analytics", "Tier Analytics"),
+    new("tiers", "Tiers"),
+    new("year-end", "Year-End Giving"),
+    new("pledges", "Pledges"),
+    new("pledge-summary", "Pledge Summary"),
+    new("pledge-renewals", "Pledge Renewals"),
+    new("pledge-lapsed", "Pledge Lapsed"),
+    new("recurring", "Recurring"),
+  ];
+
+  private string _active = "directory";
+}

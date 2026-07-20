@@ -54,7 +54,7 @@ else
   <!-- SORT / FILTER -->
   <div class="filter-bar" style="margin-bottom:12px;">
     <span style="font-size:.78rem;color:var(--text-light);">Sort by:</span>
-    @foreach (var col in new[] { "Name", "OpenCases", "Overdue", "Fulfilled", "Donations", "Volunteers" })
+    @foreach (var col in new[] { "Name", "Health", "OpenCases", "Overdue", "Fulfilled", "Donations", "Volunteers" })
     {
       <button class="filter-chip @(_sortCol == col ? "active" : "")" @onclick="() => SetSort(col)">
         @col @(_sortCol == col ? (_asc ? "↑" : "↓") : "")
@@ -69,6 +69,7 @@ else
         <thead>
           <tr>
             <th>Chapter</th><th>Location</th>
+            <th style="width:150px;">Health Score</th>
             <th style="text-align:center;">Open Cases</th>
             <th style="text-align:center;">Overdue</th>
             <th style="text-align:center;">Fulfilled MTD</th>
@@ -80,9 +81,22 @@ else
         <tbody>
           @foreach (var d in Sorted)
           {
+            var score = HealthScore(d);
+            var scoreColor = score >= 70 ? "var(--green)" : score >= 40 ? "var(--amber)" : "var(--red)";
             <tr>
               <td style="font-weight:700;">@d.Name</td>
               <td style="font-size:.8rem;color:var(--text-mid);">@d.City, @d.State</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-weight:800;color:@scoreColor;">@score.ToString("F0")</span>
+                  <div style="flex:1;background:var(--bg);border-radius:6px;height:8px;overflow:hidden;">
+                    <div style="height:100%;width:@score.ToString("F0")%;background:@scoreColor;opacity:.75;border-radius:6px;"></div>
+                  </div>
+                  <span class="badge badge-@(score >= 70 ? "fulfilled" : score >= 40 ? "onhold" : "cancelled")" style="font-size:.6rem;">
+                    @(score >= 70 ? "Healthy" : score >= 40 ? "At Risk" : "Critical")
+                  </span>
+                </div>
+              </td>
               <td style="text-align:center;">
                 <span class="badge @(d.OpenCases > 10 ? "badge-onhold" : "badge-inprogress")" style="font-size:.72rem;">@d.OpenCases</span>
               </td>
@@ -98,6 +112,13 @@ else
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- HEALTH SCORE METHODOLOGY -->
+  <div style="margin:-8px 0 20px;font-size:.76rem;color:var(--text-light);line-height:1.7;">
+    <strong>Health score methodology:</strong>
+    Fulfillment rate (35%) + Volunteer capacity (25%) + Donation health (25%) &minus; Overdue penalty (15%).
+    Score of 70+ = Healthy &middot; 40&ndash;69 = At Risk &middot; &lt;40 = Critical.
   </div>
 
   <!-- BAR CHART: Open Cases per Chapter -->
@@ -180,6 +201,7 @@ else
 
   private IEnumerable<ChapterAnalyticsDto> Sorted => _sortCol switch
   {
+    "Health"     => _asc ? _data.OrderBy(HealthScore)            : _data.OrderByDescending(HealthScore),
     "OpenCases"  => _asc ? _data.OrderBy(d => d.OpenCases)      : _data.OrderByDescending(d => d.OpenCases),
     "Overdue"    => _asc ? _data.OrderBy(d => d.OverdueCases)    : _data.OrderByDescending(d => d.OverdueCases),
     "Fulfilled"  => _asc ? _data.OrderBy(d => d.FulfilledMtd)   : _data.OrderByDescending(d => d.FulfilledMtd),
@@ -187,6 +209,17 @@ else
     "Volunteers" => _asc ? _data.OrderBy(d => d.ActiveVols)      : _data.OrderByDescending(d => d.ActiveVols),
     _            => _asc ? _data.OrderBy(d => d.Name)            : _data.OrderByDescending(d => d.Name),
   };
+
+  // Composite health score — see ChapterHealth.razor for the original standalone page this was merged from.
+  private static double HealthScore(ChapterAnalyticsDto a)
+  {
+    var total = a.OpenCases + a.FulfilledMtd;
+    var fulfillScore = total > 0 ? (double)a.FulfilledMtd / total * 35 : 17.5;
+    var volScore = a.ActiveVols >= 5 ? 25 : a.ActiveVols >= 2 ? 15 : a.ActiveVols == 1 ? 8 : 0;
+    var donScore = a.TotalDonations >= 1000 ? 25 : a.TotalDonations >= 100 ? 15 : a.TotalDonations > 0 ? 8 : 0;
+    var overduePenalty = Math.Min(a.OverdueCases * 3, 15);
+    return Math.Max(0, Math.Min(100, fulfillScore + volScore + donScore - overduePenalty));
+  }
 
   protected override async Task OnInitializedAsync() => await Reload();
 

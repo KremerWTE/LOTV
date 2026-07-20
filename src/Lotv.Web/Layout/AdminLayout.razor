@@ -61,9 +61,15 @@
         <NavLink class="sidebar-link" href="/admin/my-queue">
           <span class="icon">📋</span> My Work Queue
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/workload">
+        <NavLink class="sidebar-link" href="/admin/workload-hub">
           <span class="icon">👥</span> Workload View
         </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/workload">
+            <span class="icon">👥</span> Workload View (old) <span style="opacity:.5;font-size:.68rem;">(in Workload View)</span>
+          </NavLink>
+        }
         <NavLink class="sidebar-link" href="/admin/cases/new">
           <span class="icon">+</span> New Case
         </NavLink>
@@ -73,27 +79,33 @@
         <NavLink class="sidebar-link" href="/admin/cases/bulk">
           <span class="icon">✏</span> Bulk Update
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/cases/heat-map">
-          <span class="icon">📈</span> Heat Map
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/cases/by-reason">
-          <span class="icon">🏦</span> By Reason
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/cases/fulfillment-time">
-          <span class="icon">🕐</span> Fulfillment Time
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/cases/intake">
-          <span class="icon">🆕</span> Intake Trend
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/cases/geo-map">
-          <span class="icon">🌎</span> Cases Map
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/cases/funnel">
-          <span class="icon">⮃</span> Case Funnel
+        <NavLink class="sidebar-link" href="/admin/cases/analytics">
+          <span class="icon">📈</span> Case Analytics
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases/escalations">
           <span class="icon">🔴</span> Cases at Risk
         </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/cases/heat-map">
+            <span class="icon">📈</span> Heat Map <span style="opacity:.5;font-size:.68rem;">(in Case Analytics)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/cases/by-reason">
+            <span class="icon">🏦</span> By Reason <span style="opacity:.5;font-size:.68rem;">(in Case Analytics)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/cases/fulfillment-time">
+            <span class="icon">🕐</span> Fulfillment Time <span style="opacity:.5;font-size:.68rem;">(in Case Analytics)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/cases/intake">
+            <span class="icon">🆕</span> Intake Trend <span style="opacity:.5;font-size:.68rem;">(in Case Analytics)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/cases/geo-map">
+            <span class="icon">🌎</span> Cases Map <span style="opacity:.5;font-size:.68rem;">(in Case Analytics)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/cases/funnel">
+            <span class="icon">⮃</span> Case Funnel <span style="opacity:.5;font-size:.68rem;">(in Case Analytics)</span>
+          </NavLink>
+        }
       }
     </div>
 
@@ -104,73 +116,85 @@
         <NavLink class="sidebar-link" href="/admin/donations">
           <span class="icon">💸</span> All Donations
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/by-donor">
-          <span class="icon">👤</span> By Donor
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/by-diocese">
-          <span class="icon">⛩</span> By Diocese
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/by-channel">
-          <span class="icon">📳</span> By Channel
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/by-city">
-          <span class="icon">🏢</span> By City
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/by-amount">
-          <span class="icon">📊</span> By Amount
+        <NavLink class="sidebar-link" href="/admin/donations/breakdowns">
+          <span class="icon">📊</span> Donation Breakdowns
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/allocations">
           <span class="icon">📋</span> Fund Allocations
           <span class="sidebar-badge">@_pendingAlloc</span>
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/allocations/review">
-          <span class="icon">✅</span> Allocation Review
+        <NavLink class="sidebar-link" href="/admin/allocate">
+          <span class="icon">💸</span> Allocate
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/allocate/money">
-          <span class="icon">💸</span> Allocate Funds
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/allocate/resources">
-          <span class="icon">📦</span> Allocate Resources
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/year-end">
-          <span class="icon">💾</span> Year-End Giving
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/growth">
-          <span class="icon">🆕</span> Donor Growth
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/first-gift">
-          <span class="icon">🎭</span> First Gift
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/rfv">
-          <span class="icon">📊</span> RFV Analysis
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/journey">
-          <span class="icon">💕</span> Journey Map
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/reports/giving-seasons">
-          <span class="icon">🎄</span> Giving Seasons
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/upgrade-path">
-          <span class="icon">⬆</span> Upgrade Path
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/touchpoint-log">
-          <span class="icon">📞</span> Touchpoint Log
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/pledges/summary">
-          <span class="icon">🤝</span> Pledge Summary
-        </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/by-donor">
+            <span class="icon">👤</span> By Donor <span style="opacity:.5;font-size:.68rem;">(in Breakdowns)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/by-diocese">
+            <span class="icon">⛩</span> By Diocese <span style="opacity:.5;font-size:.68rem;">(in Breakdowns)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/by-channel">
+            <span class="icon">📳</span> By Channel <span style="opacity:.5;font-size:.68rem;">(in Breakdowns)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/by-city">
+            <span class="icon">🏢</span> By City <span style="opacity:.5;font-size:.68rem;">(in Breakdowns)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/by-amount">
+            <span class="icon">📊</span> By Amount <span style="opacity:.5;font-size:.68rem;">(in Breakdowns)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/allocations/review">
+            <span class="icon">✅</span> Allocation Review <span style="opacity:.5;font-size:.68rem;">(filter on Fund Allocations)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/allocate/money">
+            <span class="icon">💸</span> Allocate Funds <span style="opacity:.5;font-size:.68rem;">(in Allocate)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/allocate/resources">
+            <span class="icon">📦</span> Allocate Resources <span style="opacity:.5;font-size:.68rem;">(in Allocate)</span>
+          </NavLink>
+        }
         <NavLink class="sidebar-link" href="/admin/expenses/summary">
           <span class="icon">🧾</span> Expense Summary
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/retention">
-          <span class="icon">🔄</span> Donor Retention
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/segments">
-          <span class="icon">🏆</span> Donor Segments
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/donors/outreach">
-          <span class="icon">💌</span> Outreach Queue
-        </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/year-end">
+            <span class="icon">💾</span> Year-End Giving <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/growth">
+            <span class="icon">🆕</span> Donor Growth <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/first-gift">
+            <span class="icon">🎭</span> First Gift <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/rfv">
+            <span class="icon">📊</span> RFV Analysis <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/journey">
+            <span class="icon">💕</span> Journey Map <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/reports/giving-seasons">
+            <span class="icon">🎄</span> Giving Seasons <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/upgrade-path">
+            <span class="icon">⬆</span> Upgrade Path <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/touchpoint-log">
+            <span class="icon">📞</span> Touchpoint Log <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/pledges/summary">
+            <span class="icon">🤝</span> Pledge Summary <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/retention">
+            <span class="icon">🔄</span> Donor Retention <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/segments">
+            <span class="icon">🏆</span> Donor Segments <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/donors/outreach">
+            <span class="icon">💌</span> Outreach Queue <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+        }
       </div>
     }
 
@@ -178,63 +202,81 @@
       <div class="sidebar-section-label">Programs</div>
       @if (_canSeeVolunteers)
       {
-        <NavLink class="sidebar-link" href="/admin/volunteers">
+        <NavLink class="sidebar-link" href="/admin/volunteers-hub">
           <span class="icon">🤝</span> Volunteers
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/volunteer-schedule">
-          <span class="icon">📅</span> Schedule
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/volunteer-certifications">
-          <span class="icon">📋</span> Certifications
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/volunteer-skills">
-          <span class="icon">🏫</span> Skill Directory
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/volunteers/availability">
-          <span class="icon">☑</span> Availability
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/volunteers/match-overview">
-          <span class="icon">🎯</span> Match Overview
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/volunteers/recognition">
-          <span class="icon">🌟</span> Recognition
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/volunteers/pending">
-          <span class="icon">⏳</span> Pending Onboarding
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/volunteers/reactivation">
-          <span class="icon">▶</span> Reactivation Queue
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/sponsorships">
+        <NavLink class="sidebar-link" href="/admin/sponsorships-hub">
           <span class="icon">🏢</span> Sponsorships
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/events">
+        <NavLink class="sidebar-link" href="/admin/events-hub">
           <span class="icon">🎈</span> Events
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/events/attendees">
-          <span class="icon">👥</span> Attendance
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/events/summary">
-          <span class="icon">📊</span> Event Summary
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/sponsors/report">
-          <span class="icon">🏢</span> Sponsors Report
-        </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/volunteers">
+            <span class="icon">🤝</span> Volunteers (old) <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/volunteer-schedule">
+            <span class="icon">📅</span> Schedule <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/volunteer-certifications">
+            <span class="icon">📋</span> Certifications <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/volunteer-skills">
+            <span class="icon">🏫</span> Skill Directory <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/volunteers/availability">
+            <span class="icon">☑</span> Availability <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/volunteers/match-overview">
+            <span class="icon">🎯</span> Match Overview <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/volunteers/recognition">
+            <span class="icon">🌟</span> Recognition <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/volunteers/pending">
+            <span class="icon">⏳</span> Pending Onboarding <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/volunteers/reactivation">
+            <span class="icon">▶</span> Reactivation Queue <span style="opacity:.5;font-size:.68rem;">(in Volunteers)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/sponsorships">
+            <span class="icon">🏢</span> Sponsorships (old) <span style="opacity:.5;font-size:.68rem;">(in Sponsorships)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/events">
+            <span class="icon">🎈</span> Events (old) <span style="opacity:.5;font-size:.68rem;">(in Events)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/events/attendees">
+            <span class="icon">👥</span> Attendance <span style="opacity:.5;font-size:.68rem;">(in Events)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/events/summary">
+            <span class="icon">📊</span> Event Summary <span style="opacity:.5;font-size:.68rem;">(in Events)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/sponsors/report">
+            <span class="icon">🏢</span> Sponsors Report <span style="opacity:.5;font-size:.68rem;">(in Sponsorships)</span>
+          </NavLink>
+        }
         <NavLink class="sidebar-link" href="/admin/wishlist/analytics">
           <span class="icon">📦</span> Wish List Analytics
         </NavLink>
       }
       @if (_canSeeDonations)
       {
-        <NavLink class="sidebar-link" href="/admin/donors">
-          <span class="icon">🎁</span> Donors Database
+        <NavLink class="sidebar-link" href="/admin/donors-hub">
+          <span class="icon">🎁</span> Donors
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/pledges">
-          <span class="icon">🤝</span> Pledges
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/recurring">
-          <span class="icon">🔄</span> Recurring
-        </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/donors">
+            <span class="icon">🎁</span> Donors Database <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/pledges">
+            <span class="icon">🤝</span> Pledges <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/recurring">
+            <span class="icon">🔄</span> Recurring <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+        }
       }
     </div>
 
@@ -248,13 +290,13 @@
     <div class="sidebar-section">
       <div class="sidebar-section-label">Reports</div>
       <NavLink class="sidebar-link" href="/admin/impact">
-        <span class="icon">📈</span> Impact Dashboard
+        <span class="icon">📈</span> Money &amp; Resource Flow
       </NavLink>
       <NavLink class="sidebar-link" href="/admin/impact-report">
-        <span class="icon">📈</span> Impact Report
+        <span class="icon">📈</span> Mission Outcomes Report
       </NavLink>
       <NavLink class="sidebar-link" href="/admin/health-score">
-        <span class="icon">❤</span> Health Score
+        <span class="icon">❤</span> Ministry Health Score
       </NavLink>
       <NavLink class="sidebar-link" href="/admin/inventory/forecast">
         <span class="icon">📈</span> Resource Forecast
@@ -270,56 +312,123 @@
       }
       @if (Auth.IsHqAdmin)
       {
-        <NavLink class="sidebar-link" href="/admin/reports/schedule">
+        <NavLink class="sidebar-link" href="/admin/reports/schedule-hub">
           <span class="icon">🕐</span> Scheduled Reports
         </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/reports/schedule">
+            <span class="icon">🕐</span> Scheduled Reports (old) <span style="opacity:.5;font-size:.68rem;">(in Scheduled Reports)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/reports/weekly">
+            <span class="icon">📰</span> Weekly Digest <span style="opacity:.5;font-size:.68rem;">(in Scheduled Reports)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/reports/history">
+            <span class="icon">📋</span> Report History <span style="opacity:.5;font-size:.68rem;">(in Scheduled Reports)</span>
+          </NavLink>
+        }
       }
       @if (_isAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/audit">
           <span class="icon">🔍</span> Audit Log
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/staff/performance">
-          <span class="icon">📈</span> Staff Performance
-        </NavLink>
         <NavLink class="sidebar-link" href="/admin/chapter-analytics">
           <span class="icon">📊</span> Chapter Analytics
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/chapters/health">
-          <span class="icon">📈</span> Chapter Health
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/campaigns/roi">
-          <span class="icon">📈</span> Campaign ROI
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/reports/weekly">
-          <span class="icon">📰</span> Weekly Digest
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/reports/goals">
           <span class="icon">🎯</span> Goal Tracker
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/reports/history">
-          <span class="icon">📋</span> Report History
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/financial">
+        <NavLink class="sidebar-link" href="/admin/financial-hub">
           <span class="icon">📈</span> Financial Overview
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/resources/flow">
-          <span class="icon">📈</span> Resource Flow
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/budget">
-          <span class="icon">💰</span> Budget Summary
-        </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/chapters/health">
+            <span class="icon">📈</span> Chapter Health <span style="opacity:.5;font-size:.68rem;">(merged above)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/staff/performance">
+            <span class="icon">📈</span> Staff Performance <span style="opacity:.5;font-size:.68rem;">(in Workload View)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/campaigns/roi">
+            <span class="icon">📈</span> Campaign ROI <span style="opacity:.5;font-size:.68rem;">(in Campaigns)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/financial">
+            <span class="icon">📈</span> Financial Overview (old) <span style="opacity:.5;font-size:.68rem;">(in Financial Overview)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/resources/flow">
+            <span class="icon">📈</span> Resource Flow <span style="opacity:.5;font-size:.68rem;">(in Financial Overview)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/budget">
+            <span class="icon">💰</span> Budget Summary <span style="opacity:.5;font-size:.68rem;">(in Financial Overview)</span>
+          </NavLink>
+        }
       }
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Admin</div>
-      <NavLink class="sidebar-link" href="/admin/notify">
-        <span class="icon">💌</span> Send Notification
+      <div class="sidebar-section-label">Operations &amp; Content</div>
+      <NavLink class="sidebar-link" href="/admin/communications">
+        <span class="icon">💌</span> Communications
       </NavLink>
-      <NavLink class="sidebar-link" href="/admin/marketing">
-        <span class="icon">📩</span> Marketing Email
-      </NavLink>
+      @if (_showLegacyLinks)
+      {
+        <NavLink class="sidebar-link" href="/admin/notify">
+          <span class="icon">💌</span> Send Notification <span style="opacity:.5;font-size:.68rem;">(in Communications)</span>
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/marketing">
+          <span class="icon">📩</span> Marketing Email <span style="opacity:.5;font-size:.68rem;">(in Communications)</span>
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/sms-log">
+          <span class="icon">📱</span> SMS Log <span style="opacity:.5;font-size:.68rem;">(in Communications)</span>
+        </NavLink>
+      }
+      @if (_isAdmin)
+      {
+        <NavLink class="sidebar-link" href="/admin/announcements">
+          <span class="icon">📢</span> Announcements
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/campaigns-hub">
+          <span class="icon">🎯</span> Campaigns
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/grants-hub">
+          <span class="icon">💳</span> Grants
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/staff-tasks">
+          <span class="icon">📋</span> Staff Tasks
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/inventory-hub">
+          <span class="icon">📦</span> Inventory
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/expenses-hub">
+          <span class="icon">🧾</span> Expenses
+        </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/campaigns">
+            <span class="icon">🎯</span> Campaigns (old) <span style="opacity:.5;font-size:.68rem;">(in Campaigns)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/grants">
+            <span class="icon">💳</span> Grants (old) <span style="opacity:.5;font-size:.68rem;">(in Grants)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/grants/calendar">
+            <span class="icon">📅</span> Grants Calendar <span style="opacity:.5;font-size:.68rem;">(in Grants)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/pledge-renewals">
+            <span class="icon">📅</span> Pledge Renewals <span style="opacity:.5;font-size:.68rem;">(in Donors)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/inventory">
+            <span class="icon">📦</span> Inventory (old) <span style="opacity:.5;font-size:.68rem;">(in Inventory)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/expenses">
+            <span class="icon">🧾</span> Expenses (old) <span style="opacity:.5;font-size:.68rem;">(in Expenses)</span>
+          </NavLink>
+        }
+      }
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">System Admin</div>
       @if (_isAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/diocese-data">
@@ -337,6 +446,9 @@
         <NavLink class="sidebar-link" href="/admin/push-subscriptions">
           <span class="icon">🔔</span> Push Subscriptions
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/notification-prefs">
+          <span class="icon">🔔</span> Notification Prefs
+        </NavLink>
         <NavLink class="sidebar-link" href="/admin/migrations">
           <span class="icon">📋</span> DB Migrations
         </NavLink>
@@ -347,36 +459,6 @@
         <NavLink class="sidebar-link" href="/admin/chapters">
           <span class="icon">🏠</span> Chapters
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/grants">
-          <span class="icon">💳</span> Grants
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/grants/calendar">
-          <span class="icon">📅</span> Grants Calendar
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/notification-prefs">
-          <span class="icon">🔔</span> Notification Prefs
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/campaigns">
-          <span class="icon">🎯</span> Campaigns
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/pledge-renewals">
-          <span class="icon">📅</span> Pledge Renewals
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/staff-tasks">
-          <span class="icon">📋</span> Staff Tasks
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/announcements">
-          <span class="icon">📢</span> Announcements
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/inventory">
-          <span class="icon">📦</span> Inventory
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/sms-log">
-          <span class="icon">📱</span> SMS Log
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/expenses">
-          <span class="icon">🧾</span> Expenses
-        </NavLink>
         <NavLink class="sidebar-link" href="/admin/api-keys">
           <span class="icon">🔐</span> API Keys
         </NavLink>
@@ -384,6 +466,12 @@
     </div>
 
     <div class="sidebar-footer">
+      <div style="margin-bottom:8px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.72rem;opacity:.7;">
+          <input type="checkbox" checked="@_showLegacyLinks" @onchange="e => _showLegacyLinks = (bool)(e.Value ?? false)" />
+          Show merged/legacy links
+        </label>
+      </div>
       LOTV Catholic Apostolate &bull; v1.0 &bull; WTE Solutions
     </div>
   </aside>
@@ -594,6 +682,11 @@
 
   private bool _showDemoBanner = false;
 
+  // Links to pages that have been folded into a consolidated view (e.g. tabs on
+  // another page) stay in the markup but are hidden from the sidebar by default,
+  // so the underlying routes/pages keep working and nothing is deleted.
+  private bool _showLegacyLinks;
+
   // Mobile sidebar state
   private bool _sidebarOpen;
   private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
@@ -627,7 +720,7 @@
     }
 
     await LoadNotificationsAsync();
-    await Hub.ConnectAsync();
+    try { await Hub.ConnectAsync(); } catch { }
 
     Hub.OnReconnected += async () =>
     {
@@ -742,6 +835,21 @@
       var u when u.EndsWith("/admin/hq")              => "HQ Dashboard",
       var u when u.EndsWith("/admin/hq-board")        => "HQ Operations Board",
       var u when u.EndsWith("/admin/families")    => "Family Directory",
+      var u when u.EndsWith("/admin/cases/analytics") => "Case Analytics",
+      var u when u.EndsWith("/admin/donors-hub") => "Donors",
+      var u when u.EndsWith("/admin/donations/breakdowns") => "Donation Breakdowns",
+      var u when u.EndsWith("/admin/allocate") => "Allocate",
+      var u when u.EndsWith("/admin/volunteers-hub") => "Volunteers",
+      var u when u.EndsWith("/admin/events-hub") => "Events",
+      var u when u.EndsWith("/admin/sponsorships-hub") => "Sponsorships",
+      var u when u.EndsWith("/admin/workload-hub") => "Workload & Staff Performance",
+      var u when u.EndsWith("/admin/financial-hub") => "Financial Overview",
+      var u when u.EndsWith("/admin/reports/schedule-hub") => "Scheduled Reports",
+      var u when u.EndsWith("/admin/campaigns-hub") => "Campaigns",
+      var u when u.EndsWith("/admin/grants-hub") => "Grants",
+      var u when u.EndsWith("/admin/inventory-hub") => "Inventory",
+      var u when u.EndsWith("/admin/expenses-hub") => "Expenses",
+      var u when u.EndsWith("/admin/communications") => "Communications",
       var u when u.Contains("/admin/cases/")       => "Case Detail",
       var u when u.Contains("/admin/cases")       => "Family Cases",
       var u when u.EndsWith("/admin/kanban")      => "Kanban Board",

@@ -1,0 +1,48 @@
+@page "/admin/events-hub"
+@layout AdminLayout
+
+<PageTitle>Events — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Events</h2>
+    <p>Directory plus attendance and summary reporting</p>
+  </div>
+</div>
+
+<div class="tab-bar" style="display:flex;gap:4px;margin-bottom:20px;background:white;border:1px solid var(--border);border-radius:var(--radius, 10px);padding:4px;width:fit-content;">
+  @foreach (var t in _tabs)
+  {
+    <button class="tab-btn @(_active == t.Key ? "active" : "")"
+            style="padding:8px 16px;border-radius:7px;border:none;background:@(_active == t.Key ? "var(--green)" : "none");color:@(_active == t.Key ? "white" : "var(--text-mid)");font-size:.85rem;font-weight:500;cursor:pointer;"
+            @onclick="() => _active = t.Key">
+      @t.Label
+    </button>
+  }
+</div>
+
+@switch (_active)
+{
+  case "directory":
+    <Events />
+    break;
+  case "attendees":
+    <EventAttendeeSummary />
+    break;
+  case "summary":
+    <EventSummary />
+    break;
+}
+
+@code {
+  private record TabDef(string Key, string Label);
+
+  private readonly List<TabDef> _tabs =
+  [
+    new("directory", "Directory"),
+    new("attendees", "Attendance"),
+    new("summary", "Event Summary"),
+  ];
+
+  private string _active = "directory";
+}

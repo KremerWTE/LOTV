@@ -3,7 +3,11 @@
     "allow": [
       "Bash(dotnet:*)",
       "Bash(git:*)",
-      "Bash(grep -n \"Category\\\\|ChapterId\\\\|FundAllocation\" src/Lotv.Core/Models/*.cs)"
+      "Bash(grep -n \"Category\\\\|ChapterId\\\\|FundAllocation\" src/Lotv.Core/Models/*.cs)",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_find"
     ]
   }
 }

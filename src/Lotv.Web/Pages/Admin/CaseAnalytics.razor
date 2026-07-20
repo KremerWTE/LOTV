@@ -1,0 +1,67 @@
+@page "/admin/cases/analytics"
+@layout AdminLayout
+
+<PageTitle>Case Analytics — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Case Analytics</h2>
+    <p>Every case-analytics cut in one place — heat map, reason breakdown, timing, intake trend, geography, funnel, and overdue queue</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+  </div>
+</div>
+
+<div class="tab-bar" style="display:flex;gap:4px;margin-bottom:20px;background:white;border:1px solid var(--border);border-radius:var(--radius, 10px);padding:4px;width:fit-content;flex-wrap:wrap;">
+  @foreach (var t in _tabs)
+  {
+    <button class="tab-btn @(_active == t.Key ? "active" : "")"
+            style="padding:8px 16px;border-radius:7px;border:none;background:@(_active == t.Key ? "var(--green)" : "none");color:@(_active == t.Key ? "white" : "var(--text-mid)");font-size:.85rem;font-weight:500;cursor:pointer;"
+            @onclick="() => _active = t.Key">
+      @t.Label
+    </button>
+  }
+</div>
+
+@switch (_active)
+{
+  case "heat-map":
+    <CasesHeatMap />
+    break;
+  case "by-reason":
+    <CasesByReason />
+    break;
+  case "fulfillment-time":
+    <CaseFulfillmentTime />
+    break;
+  case "intake":
+    <CasesIntake />
+    break;
+  case "geo-map":
+    <CasesGeoMap />
+    break;
+  case "funnel":
+    <CaseFunnel />
+    break;
+  case "overdue":
+    <OverdueCases />
+    break;
+}
+
+@code {
+  private record TabDef(string Key, string Label);
+
+  private readonly List<TabDef> _tabs =
+  [
+    new("heat-map", "Heat Map"),
+    new("by-reason", "By Reason"),
+    new("fulfillment-time", "Fulfillment Time"),
+    new("intake", "Intake Trend"),
+    new("geo-map", "Cases Map"),
+    new("funnel", "Case Funnel"),
+    new("overdue", "Overdue"),
+  ];
+
+  private string _active = "heat-map";
+}

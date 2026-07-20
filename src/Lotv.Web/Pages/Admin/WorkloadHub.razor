@@ -1,0 +1,44 @@
+@page "/admin/workload-hub"
+@layout AdminLayout
+
+<PageTitle>Workload &amp; Staff Performance — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Workload &amp; Staff Performance</h2>
+    <p>Current caseload distribution and longer-run staff performance</p>
+  </div>
+</div>
+
+<div class="tab-bar" style="display:flex;gap:4px;margin-bottom:20px;background:white;border:1px solid var(--border);border-radius:var(--radius, 10px);padding:4px;width:fit-content;">
+  @foreach (var t in _tabs)
+  {
+    <button class="tab-btn @(_active == t.Key ? "active" : "")"
+            style="padding:8px 16px;border-radius:7px;border:none;background:@(_active == t.Key ? "var(--green)" : "none");color:@(_active == t.Key ? "white" : "var(--text-mid)");font-size:.85rem;font-weight:500;cursor:pointer;"
+            @onclick="() => _active = t.Key">
+      @t.Label
+    </button>
+  }
+</div>
+
+@switch (_active)
+{
+  case "workload":
+    <Workload />
+    break;
+  case "performance":
+    <StaffPerformance />
+    break;
+}
+
+@code {
+  private record TabDef(string Key, string Label);
+
+  private readonly List<TabDef> _tabs =
+  [
+    new("workload", "Current Workload"),
+    new("performance", "Staff Performance"),
+  ];
+
+  private string _active = "workload";
+}

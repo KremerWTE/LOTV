@@ -21,7 +21,7 @@
 <div class="kanban">
   @foreach (var col in _columns)
   {
-    var cases = _byStatus[col.Status];
+    var cases = _byStatus.GetValueOrDefault(col.Status) ?? [];
     <div class="kanban-col">
       <div class="kanban-col-hd">
         <span>@col.Label</span>
