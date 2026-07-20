@@ -44,7 +44,7 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Build & push API image (production tag)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: src/Lotv.Api/Dockerfile
@@ -54,7 +54,7 @@ jobs:
             ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ steps.version.outputs.VERSION }}
 
       - name: Build & push Web image (production tag)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: src/Lotv.Web/Dockerfile
