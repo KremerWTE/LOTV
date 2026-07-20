@@ -46,7 +46,7 @@ jobs:
         run: echo "TAG=${{ secrets.REGISTRY_HOST }}/lotv:${{ github.sha }}" >> $GITHUB_OUTPUT
 
       - name: Build & push API image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: src/Lotv.Api/Dockerfile
@@ -56,7 +56,7 @@ jobs:
             ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ github.sha }}
 
       - name: Build & push Web image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: src/Lotv.Web/Dockerfile
