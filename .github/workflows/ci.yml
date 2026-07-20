@@ -49,14 +49,25 @@ jobs:
           Jwt__Issuer: "lotv-e2e"
           Jwt__Audience: "lotv-e2e"
 
-      - name: Test with coverage
+      - name: Unit/integration tests with coverage
         run: |
-          dotnet test Lotv.slnx \
+          dotnet test tests/Lotv.Tests/Lotv.Tests.csproj \
             --no-build \
             --configuration Release \
             --logger "trx;LogFileName=test-results.trx" \
             --collect "XPlat Code Coverage" \
             -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      # No --collect here: coverage of the E2E project's own test methods isn't a
+      # meaningful metric (they drive a browser, they don't exercise app code
+      # in-process), and its near-empty cobertura file previously crashed the
+      # Coverage summary step's parser when picked up by the **/ glob below.
+      - name: E2E tests
+        run: |
+          dotnet test tests/Lotv.E2E/Lotv.E2E.csproj \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=test-results.trx"
         env:
           E2E_BASE_URL: http://localhost:5001
           E2E_API_URL: http://localhost:5275
