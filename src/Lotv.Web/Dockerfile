@@ -27,4 +27,12 @@ COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 # SPA routing + caching config
 COPY src/Lotv.Web/nginx.conf /etc/nginx/conf.d/default.conf
 
+# Writes wwwroot/appsettings.json from $API_BASE_URL at container start —
+# see docker-entrypoint.sh for why (Blazor WASM has no server-side runtime
+# config to read env vars from).
+COPY src/Lotv.Web/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+ENV API_BASE_URL=http://localhost:5275
+
 EXPOSE 80
+ENTRYPOINT ["/docker-entrypoint.sh"]

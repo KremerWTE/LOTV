@@ -130,7 +130,7 @@
   protected override async Task OnInitializedAsync()
   {
     await LoadAsync();
-    await Hub.ConnectAsync();
+    try { await Hub.ConnectAsync(); } catch { }
     Hub.OnCaseStatusChanged += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
     Hub.OnCaseCreated       += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
     Hub.OnCaseAssigned      += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };

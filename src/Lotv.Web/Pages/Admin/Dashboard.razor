@@ -435,7 +435,7 @@ else
   protected override async Task OnInitializedAsync()
   {
     await LoadAsync();
-    await Hub.ConnectAsync();
+    try { await Hub.ConnectAsync(); } catch { }
     Hub.OnReconnected      += async ()          => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
     Hub.OnCaseStatusChanged += async (_, _, _)  => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
     Hub.OnCaseCreated       += async (_, _, _)  => { await LoadAsync(); await InvokeAsync(StateHasChanged); };

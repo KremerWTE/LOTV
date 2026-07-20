@@ -10,9 +10,12 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // ── HTTP client → LOTV API ────────────────────────────────────────────────────
+// ApiBaseUrl comes from wwwroot/appsettings.{Environment}.json — same config
+// key SignalRService / AuctionSignalRService already read, with the same
+// localhost:5275 fallback for local dev when no appsettings.json is served.
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri("http://localhost:5275")
+    BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5275")
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

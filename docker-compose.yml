@@ -34,6 +34,11 @@ services:
       dockerfile: src/Lotv.Web/Dockerfile
     ports:
       - "80:80"
+    environment:
+      # Must be a URL the *browser* can reach, not the container network —
+      # Blazor WASM calls the API client-side, so this has to match the API
+      # service's host-mapped port above (8080), not its in-container port.
+      API_BASE_URL: "http://localhost:8080"
     depends_on:
       api:
         condition: service_healthy

@@ -192,7 +192,7 @@ else
   protected override async Task OnInitializedAsync()
   {
     await LoadAsync();
-    await Hub.ConnectAsync();
+    try { await Hub.ConnectAsync(); } catch { }
     _hubConnected = Hub.State == Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected;
 
     Hub.OnCaseStatusChanged += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
