@@ -104,7 +104,7 @@ jobs:
           thresholds: '60 80'
 
       - name: Add coverage comment to PR
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         # Dependabot-triggered pull_request runs always get a read-only
         # GITHUB_TOKEN — GitHub enforces this regardless of the `permissions:`
         # block above — so this step can never succeed there. Skip it rather
