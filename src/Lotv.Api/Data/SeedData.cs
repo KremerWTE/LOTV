@@ -8,6 +8,7 @@
 // =============================================================================
 
 using Lotv.Core.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace Lotv.Api.Data;
 
@@ -17,7 +18,7 @@ public static class DevSeedData
     /// Idempotent seed: skips entirely if any Chapter rows already exist.
     /// Safe to call on every startup in Development.
     /// </summary>
-    public static async Task SeedAsync(LotvDbContext db)
+    public static async Task SeedAsync(LotvDbContext db, UserManager<LotvIdentityUser> userMgr)
     {
         await db.Database.EnsureCreatedAsync();
         if (db.Chapters.Any()) return;
@@ -207,5 +208,31 @@ public static class DevSeedData
         );
 
         await db.SaveChangesAsync();
+
+        // ── MOCK DATA: Login accounts ─────────────────────────────────────────
+        // Credentials matched by tests/Lotv.E2E/Infrastructure/E2ESettings.cs —
+        // keep these two in sync if either side changes.
+        await CreateUserIfMissingAsync(userMgr, "admin@lotv-demo.org", "DevPassword1!",
+            "Mary", "Roberts", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "chicago@lotv-demo.org", "DevPassword1!",
+            "Claire", "Hoffman", UserRole.ChapterStaff, chapterId: 1);
+    }
+
+    private static async Task CreateUserIfMissingAsync(UserManager<LotvIdentityUser> userMgr,
+        string email, string password, string firstName, string lastName, UserRole role, int? chapterId)
+    {
+        if (await userMgr.FindByEmailAsync(email) is not null) return;
+
+        var user = new LotvIdentityUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true,
+            FirstName = firstName,
+            LastName = lastName,
+            Role = role,
+            ChapterId = chapterId
+        };
+        await userMgr.CreateAsync(user, password);
     }
 }

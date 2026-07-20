@@ -60,18 +60,15 @@ public class VolunteerFlowTests : E2ETestBase
         await GoToAsync("/onboarding/volunteer");
         await WaitForBlazorAsync();
 
-        // Fill in first name and last name if required by step 1
-        var firstInput = Page.Locator("input[placeholder*='first' i], input[id*='first' i]").First;
-        if (await firstInput.CountAsync() > 0 && await firstInput.IsVisibleAsync())
-            await firstInput.FillAsync("Playwright");
-
-        var lastInput = Page.Locator("input[placeholder*='last' i], input[id*='last' i]").First;
-        if (await lastInput.CountAsync() > 0 && await lastInput.IsVisibleAsync())
-            await lastInput.FillAsync("Tester");
-
-        var emailInput = Page.Locator("input[type='email']").First;
-        if (await emailInput.CountAsync() > 0 && await emailInput.IsVisibleAsync())
-            await emailInput.FillAsync("playwright@test.example.com");
+        // Step 1 requires first/last name and street/city/state/zip before it will
+        // advance. These fields have no id/name/label association (placeholder text
+        // is example data, e.g. "Jane"/"Smith"), so match on that placeholder text.
+        await Page.Locator("input[placeholder='Jane']").FillAsync("Playwright");
+        await Page.Locator("input[placeholder='Smith']").FillAsync("Tester");
+        await Page.Locator("input[placeholder='123 Main Street']").FillAsync("123 Test Street");
+        await Page.Locator("input[placeholder='Springfield']").FillAsync("Springfield");
+        await Page.Locator("input[placeholder='IL']").FillAsync("IL");
+        await Page.Locator("input[placeholder='62701']").FillAsync("62701");
 
         // Click Next
         var nextBtn = Page.Locator("button:has-text('Next'), button:has-text('Continue')").First;
@@ -79,8 +76,8 @@ public class VolunteerFlowTests : E2ETestBase
         {
             await nextBtn.ClickAsync();
             await Page.WaitForTimeoutAsync(500);
-            // Step 2 content or different heading should appear
-            Assert.True(await Page.Locator("[class*='step'], [class*='wizard']").CountAsync() > 0);
+            // Step 2 content ("Available Days" panel) should now be visible
+            Assert.True(await Page.Locator("text=Available Days").CountAsync() > 0);
         }
 
         Assert.Empty(_jsErrors);

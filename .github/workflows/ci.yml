@@ -26,6 +26,29 @@ jobs:
       - name: Build
         run: dotnet build Lotv.slnx --no-restore --configuration Release
 
+      - name: Install Playwright browsers
+        run: pwsh tests/Lotv.E2E/bin/Release/net9.0/playwright.ps1 install --with-deps chromium
+
+      - name: Start API and Web for E2E tests
+        # Web's HttpClient is hardcoded to http://localhost:5275 (see src/Lotv.Web/Program.cs),
+        # so the API must run on that exact port for the Web app's API calls to work.
+        run: |
+          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5275 \
+            nohup dotnet run --no-build --no-launch-profile --project src/Lotv.Api --configuration Release \
+            > api.log 2>&1 &
+          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5001 \
+            nohup dotnet run --no-build --no-launch-profile --project src/Lotv.Web --configuration Release \
+            > web.log 2>&1 &
+          echo "Waiting for API on :5275..."
+          timeout 60 bash -c 'until curl -sf http://localhost:5275/health >/dev/null; do sleep 1; done' || (cat api.log; exit 1)
+          echo "Waiting for Web on :5001..."
+          timeout 60 bash -c 'until curl -sf http://localhost:5001/ >/dev/null; do sleep 1; done' || (cat web.log; exit 1)
+        env:
+          ConnectionStrings__DefaultConnection: "Data Source=/tmp/lotv-e2e.db"
+          Jwt__Key: "LOTVTestSecretKeyThatIsLongEnoughForHS256Testing2026!"
+          Jwt__Issuer: "lotv-e2e"
+          Jwt__Audience: "lotv-e2e"
+
       - name: Test with coverage
         run: |
           dotnet test Lotv.slnx \
@@ -34,6 +57,9 @@ jobs:
             --logger "trx;LogFileName=test-results.trx" \
             --collect "XPlat Code Coverage" \
             -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        env:
+          E2E_BASE_URL: http://localhost:5001
+          E2E_API_URL: http://localhost:5275
 
       - name: Publish test results
         uses: dorny/test-reporter@v1

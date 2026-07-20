@@ -205,7 +205,8 @@ if (app.Environment.IsDevelopment() && !app.Configuration.GetValue<bool>("Testin
 {
     using var scope = app.Services.CreateScope();
     var seedDb = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
-    await DevSeedData.SeedAsync(seedDb);
+    var seedUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
+    await DevSeedData.SeedAsync(seedDb, seedUserMgr);
 }
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
@@ -1372,13 +1373,6 @@ dashboard.MapGet("/resources", async (LotvDbContext db, IChapterContextService c
     }).OrderByDescending(x => x.Quantity).ToList();
     return byCategory;
 });
-
-// ── Chapters ─────────────────────────────────────────────────────────────────
-var chapters = app.MapGroup("/api/v1/chapters").WithTags("Chapters").RequireAuthorization("HQAdmin");
-
-chapters.MapGet("/", async (LotvDbContext db) => await db.Chapters.OrderBy(c => c.Name).ToListAsync());
-chapters.MapPost("/", async (Chapter c, LotvDbContext db) => { db.Chapters.Add(c); await db.SaveChangesAsync(); return Results.Created($"/api/v1/chapters/{c.Id}", c); });
-chapters.MapPut("/{id:int}", async (int id, Chapter c, LotvDbContext db) => { c.Id = id; db.Chapters.Update(c); await db.SaveChangesAsync(); return Results.Ok(c); });
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 var users = app.MapGroup("/api/v1/users").WithTags("Users").RequireAuthorization();

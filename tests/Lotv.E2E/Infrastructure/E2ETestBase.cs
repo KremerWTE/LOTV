@@ -40,15 +40,17 @@ public abstract class E2ETestBase : IAsyncLifetime
     /// </summary>
     protected async Task WaitForBlazorAsync()
     {
-        // Wait for the Blazor app root to be present
-        await Page.WaitForSelectorAsync("#app:not(:empty)", new PageWaitForSelectorOptions
+        // index.html's #app div ships with a loading spinner (svg.loading-progress +
+        // .loading-progress-text) already inside it, so "#app:not(:empty)" is true
+        // before Blazor even starts — it's not a useful signal on its own. Blazor
+        // replaces #app's entire content with the rendered route once it's ready,
+        // so waiting for that spinner to be gone is what actually indicates render
+        // completion.
+        await Page.WaitForSelectorAsync(".loading-progress", new PageWaitForSelectorOptions
         {
+            State   = WaitForSelectorState.Detached,
             Timeout = E2ESettings.Timeout
         });
-        // If a loading indicator exists, wait for it to go away
-        var spinner = Page.Locator(".loading-spinner, [data-loading]");
-        if (await spinner.CountAsync() > 0)
-            await spinner.WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Hidden });
     }
 
     // ── Auth helpers ──────────────────────────────────────────────────────────

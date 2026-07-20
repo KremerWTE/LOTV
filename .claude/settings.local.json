@@ -7,7 +7,8 @@
       "mcp__playwright__browser_take_screenshot",
       "mcp__playwright__browser_click",
       "mcp__playwright__browser_navigate",
-      "mcp__playwright__browser_find"
+      "mcp__playwright__browser_find",
+      "PowerShell(& \"D:\\\\GitHub\\\\LOTV\\\\tests\\\\Lotv.E2E\\\\bin\\\\Release\\\\net9.0\\\\playwright.ps1\" install chromium 2>&1 | Select-Object -Last 40)"
     ]
   }
 }
