@@ -6,6 +6,13 @@ on:
   push:
     branches: [main]
 
+# Dependabot- and fork-triggered pull_request runs get a read-only GITHUB_TOKEN
+# by default; the "Add coverage comment to PR" step needs write access to post
+# its comment.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build-and-test:
     name: Build & Test (.NET 9)
@@ -98,7 +105,11 @@ jobs:
 
       - name: Add coverage comment to PR
         uses: marocchino/sticky-pull-request-comment@v2
-        if: github.event_name == 'pull_request'
+        # Dependabot-triggered pull_request runs always get a read-only
+        # GITHUB_TOKEN — GitHub enforces this regardless of the `permissions:`
+        # block above — so this step can never succeed there. Skip it rather
+        # than fail the whole job over a missing comment.
+        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
         with:
           recreate: true
           path: code-coverage-results.md
