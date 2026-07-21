@@ -3,6 +3,7 @@
 @inject ApiService Api
 @inject SignalRService Hub
 @inject NavigationManager Nav
+@inject AuthService Auth
 @implements IDisposable
 
 <PageTitle>Dashboard — LOTV Staff Portal</PageTitle>
@@ -211,7 +212,7 @@ else
     <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
       @foreach (var row in _workloadRows)
       {
-        var pct = Math.Min(row.Open * 100 / 6, 100);
+        var pct = Math.Min(row.Open * 100 / Math.Max(row.Capacity, 1), 100);
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="user-avatar" style="width:32px;height:32px;font-size:.72rem;flex-shrink:0;">@Initials(row.Name)</div>
           <div style="flex:1;min-width:0;">
@@ -280,7 +281,9 @@ else
           </div>
         </div>
       }
-      @if (!_recentActivity.Any())
+      @if (!_canViewActivity)
+      { <div style="text-align:center;color:var(--text-light);font-size:.84rem;padding:12px 0;">Activity log is only visible to chapter/HQ admins</div> }
+      else if (!_recentActivity.Any())
       { <div style="text-align:center;color:var(--text-light);font-size:.84rem;padding:12px 0;">No recent activity</div> }
     </div>
   </div>
@@ -403,10 +406,39 @@ else
 
 </div>
 
+<!-- DONATIONS BY GIFT SIZE -->
+<div class="panel" style="margin-bottom:24px;">
+  <div class="panel-head">
+    <h3>Donations by Gift Size — YTD</h3>
+    <a href="/admin/by-amount" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Report &rarr;</a>
+  </div>
+  <div class="panel-body">
+    @if (!_giftBands.Any())
+    {
+      <div style="text-align:center;color:var(--text-light);font-size:.84rem;">No donations recorded yet.</div>
+    }
+    else
+    {
+      @foreach (var band in _giftBands)
+      {
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:3px;">
+            <span style="font-weight:600;">@band.Band</span>
+            <span style="color:var(--text-light);"><Money Amount="@band.TotalAmount" /> &bull; @band.GiftCount gift@(band.GiftCount == 1 ? "" : "s")</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:@band.Percentage%;background:var(--gold);"></div>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>
+
 } @* end @if (!_loading) *@
 
 @code {
-  private record WorkloadRow(int Id, string Name, int Open, int Overdue);
+  private record WorkloadRow(int Id, string Name, int Open, int Overdue, int Capacity);
   private record AllocRow(string Label, int Count, string Color);
   private record DashSummary(
     int OpenCases, int OverdueCases, decimal DonationsThisMonth, decimal DonationsLastMonth,
@@ -427,6 +459,8 @@ else
   private List<WorkloadRow> _workloadRows = [];
   private List<AuditEntry> _recentActivity = [];
   private List<AllocRow> _allocStatus = [];
+  private List<DonationByAmountBandDto> _giftBands = [];
+  private bool _canViewActivity;
   private decimal _eventRevenue;
   private decimal _ticketRevenue;
   private decimal _auctionRevenue;
@@ -455,8 +489,11 @@ else
     _overdueCases   = await Api.GetOverdueRequestsAsync();
     _upcomingEvents = (await Api.GetEventsAsync())
                         .Where(e => e.Date >= now).OrderBy(e => e.Date).Take(4).ToList();
-    _recentActivity = (await Api.GetAuditLogAsync())
-                        .OrderByDescending(e => e.Timestamp).Take(6).ToList();
+
+    _canViewActivity = Auth.UserRole is nameof(Lotv.Core.Models.UserRole.HQAdmin) or nameof(Lotv.Core.Models.UserRole.ChapterAdmin);
+    _recentActivity = _canViewActivity
+      ? (await Api.GetAuditLogAsync()).OrderByDescending(e => e.Timestamp).Take(6).ToList()
+      : [];
 
     // Event revenue: fetch per-event revenue for past/active events
     var pastEvents = (await Api.GetEventsAsync())
@@ -489,12 +526,14 @@ else
     _nextEvent = nextEv is null ? "None scheduled" : $"{nextEv.Date:MMM d} — {nextEv.Title}";
 
     _channelBreakdown = channels.Select(c => (c.Channel, c.TotalAmount)).Take(4).ToList();
-    _workloadRows     = workload.Select(w => new WorkloadRow(w.Id, w.FullName, w.ActiveCases, 0))
+    _workloadRows     = workload.Select(w => new WorkloadRow(w.Id, w.FullName, w.ActiveCases, w.OverdueCases, w.Capacity))
                                 .OrderByDescending(w => w.Open).Take(5).ToList();
+    _giftBands        = await Api.GetDonationsByAmountAsync();
 
-    var pending   = allocs.Count(a => a.Status == AllocationStatus.PendingReview);
-    var allocated = allocs.Count(a => a.Status == AllocationStatus.Allocated);
-    var unalloc   = allocs.Count(a => a.Status == AllocationStatus.Unallocated);
+    var pending      = allocs.Count(a => a.Status == AllocationStatus.PendingReview);
+    var allocated    = allocs.Count(a => a.Status == AllocationStatus.Allocated);
+    var unalloc      = allocs.Count(a => a.Status == AllocationStatus.Unallocated);
+    var unallocAmount = allocs.Where(a => a.Status == AllocationStatus.Unallocated).Sum(a => a.Amount);
     _allocStatus  =
     [
       new("Allocated",      allocated, "var(--green)"),
@@ -502,16 +541,20 @@ else
       new("Unallocated",    unalloc,   "var(--text-light)"),
     ];
 
+    var yearStart = new DateTime(now.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    var familiesServedYtd = requests.Where(r => r.CreatedAt >= yearStart)
+                                     .Select(r => r.FamilyId).Distinct().Count();
+
     _stats = new DashSummary(
       OpenCases:              apiStats?.OpenCases ?? requests.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress),
       OverdueCases:           _overdueCases.Count,
       DonationsThisMonth:     donThisMonth,
       DonationsLastMonth:     donLastMonth,
-      FamiliesServedYtd:      requests.Count,
+      FamiliesServedYtd:      familiesServedYtd,
       UpcomingEvents:         _upcomingEvents.Count,
       ActiveVolunteers:       apiStats?.ActiveVolunteers ?? volunteers.Count(v => v.Status == VolunteerStatus.Active),
       CasesFulfilledLast30Days: requests.Count(r => r.Status == CaseStatus.Fulfilled && r.UpdatedAt >= now.AddDays(-30)),
-      UnallocatedFunds:       0m,
+      UnallocatedFunds:       unallocAmount,
       PendingAllocations:     pending
     );
 

@@ -112,10 +112,25 @@ public class AuthService
     }
 
     // ── Token refresh ─────────────────────────────────────────────────────────
-    public async Task<bool> RefreshTokenAsync()
-    {
-        if (string.IsNullOrEmpty(_refreshToken)) return false;
+    // The server rotates refresh tokens (single-use — each /auth/refresh call
+    // revokes the old token and issues a new one). Several API calls can hit a
+    // 401 around the same moment (e.g. a page that fires many GetAsync calls on
+    // load) and would otherwise each independently race to consume the same
+    // refresh token: only the first wins, and every other caller gets a 401
+    // back from an already-revoked token and logs the user out. Sharing one
+    // in-flight refresh Task across concurrent callers avoids that race —
+    // Blazor WASM runs single-threaded, so setting _refreshInFlight is safe
+    // without a lock as long as it happens before the first await.
+    private Task<bool>? _refreshInFlight;
 
+    public Task<bool> RefreshTokenAsync()
+    {
+        if (string.IsNullOrEmpty(_refreshToken)) return Task.FromResult(false);
+        return _refreshInFlight ??= RefreshTokenCoreAsync();
+    }
+
+    private async Task<bool> RefreshTokenCoreAsync()
+    {
         try
         {
             var resp = await _http.PostAsJsonAsync("/api/v1/auth/refresh",
@@ -139,6 +154,10 @@ public class AuthService
         catch
         {
             return false;
+        }
+        finally
+        {
+            _refreshInFlight = null;
         }
     }
 

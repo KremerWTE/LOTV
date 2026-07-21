@@ -1075,12 +1075,23 @@ var workload = app.MapGroup("/api/v1/workload").WithTags("Workload").RequireAuth
 
 workload.MapGet("/", async (LotvDbContext db, IChapterContextService ctx) =>
 {
+    var overdueCutoff = DateTime.UtcNow.AddDays(-7);
+    var overdueByVolunteer = await db.Requests
+        .Where(r => r.AssignedToId != null && r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled && r.CreatedAt < overdueCutoff)
+        .GroupBy(r => r.AssignedToId!.Value)
+        .Select(g => new { VolunteerId = g.Key, Count = g.Count() })
+        .ToDictionaryAsync(x => x.VolunteerId, x => x.Count);
+
     var q = db.Volunteers.Where(v => v.Status == VolunteerStatus.Active);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(v => v.ChapterId == ctx.ChapterId.Value);
-    return await q.Select(v => new
+    var volunteers = await q.ToListAsync();
+    var capacityByChapter = await db.Chapters.ToDictionaryAsync(c => c.Id, c => c.MaxActiveCasesPerVolunteer);
+    return volunteers.Select(v => new
     {
-        v.Id, v.FullName, Role = v.Role.ToString(), v.ActiveCases, v.TotalCasesFulfilled
-    }).ToListAsync();
+        v.Id, v.FullName, Role = v.Role.ToString(), v.ActiveCases, v.TotalCasesFulfilled,
+        OverdueCases = overdueByVolunteer.GetValueOrDefault(v.Id, 0),
+        Capacity = capacityByChapter.GetValueOrDefault(v.ChapterId, 6)
+    }).ToList();
 });
 
 // ── Events ────────────────────────────────────────────────────────────────────
