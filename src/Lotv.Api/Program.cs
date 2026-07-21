@@ -3518,14 +3518,40 @@ app.MapPost("/api/v1/webhooks/jotform", async (
     if (await db.WebhookEvents.AnyAsync(w => w.Source == "jotform" && w.ExternalId == submissionId))
         return Results.Ok(); // already processed
 
-    // Split "Label:value, Label2:value2" on commas that are followed by what looks
-    // like the start of the next "Label:" pair, so commas inside an answer (e.g. a
-    // city/state) don't cause a false split.
-    var pairs = Regex.Split(pretty, @",\s+(?=[A-Za-z][A-Za-z0-9 '/]{0,60}:)")
+    // Split "Label:value, Label2:value2" on commas that are followed by the start
+    // of the next known question label. A generic punctuation heuristic doesn't
+    // work here — several of this form's real labels contain "?" (e.g. "How did
+    // you hear about us?") or embedded commas (e.g. "Please Share..., Your
+    // Story:"), so we match against the exact label text of every question on
+    // live form 261395566857171 instead of guessing at allowed characters.
+    // Kept as an ORDERED list (not a Dictionary) because labels are NOT unique —
+    // the husband and wife sections both use the bare labels "Email", "Phone
+    // Number", and "Address" — so a Dictionary would throw once both are filled.
+    var knownLabels = new[]
+    {
+        "Prayer Care Package Options", "Husband's Name", "Email", "Phone Number", "Address",
+        "Wife's Name", "Husband's Address the Same as Wife",
+        "Reason for Prayer Package Request", "Date of Recent Loss", "Quarterly Grief Support Interest",
+        "Would you like to receive discrete support materials by mail?",
+        "Faith Tradition", "Diocese", "Parish", "How did you hear about us?",
+        "Would you like us to mention that this package is from you or prefer to remain anonymous?",
+        "Include a custom message to your recipient",
+        "Please Share With Us, As Much As You're Comfortable, Your Story",
+        "Opt-in Communications", "Requester Name", "Requester Email", "Requester Phone", "Requester Address",
+    };
+    var labelAlternation = string.Join("|", knownLabels.OrderByDescending(l => l.Length).Select(Regex.Escape));
+    var pairs = Regex.Split(pretty, $@",\s+(?=(?:{labelAlternation}):)")
         .Select(p => p.Split(':', 2))
         .Where(p => p.Length == 2)
-        .ToDictionary(p => p[0].Trim(), p => p[1].Trim(), StringComparer.OrdinalIgnoreCase);
+        // "...Your Story:" is itself a label whose text ends in a colon, so its
+        // pretty rendering has two colons in a row before the answer — strip the
+        // resulting stray leading colon rather than special-case that one field.
+        .Select(p => (Key: p[0].Trim(), Value: p[1].TrimStart(':').Trim()))
+        .ToList();
 
+    // First match wins, which — given the husband section precedes the wife
+    // section on the form — naturally resolves the ambiguous shared labels
+    // above to the husband's answer when both are present.
     string? Field(params string[] labels) =>
         pairs.FirstOrDefault(kv => labels.Any(l => kv.Key.Contains(l, StringComparison.OrdinalIgnoreCase))).Value;
 
@@ -3535,6 +3561,19 @@ app.MapPost("/api/v1/webhooks/jotform", async (
         if (full.Length == 0) return ("", "");
         var idx = full.LastIndexOf(' ');
         return idx < 0 ? (full, "") : (full[..idx].Trim(), full[(idx + 1)..].Trim());
+    }
+
+    // JotForm's control_address renders as one combined value in "pretty", e.g.
+    // "123 Main St, Springfield, IL 62704" — there are no separate top-level
+    // "City:"/"State:"/"Zip:" pairs to look up.
+    (string Street, string City, string State, string Zip) SplitAddress(string? full)
+    {
+        full = (full ?? "").Trim();
+        if (full.Length == 0) return ("", "", "", "");
+        var m = Regex.Match(full, @"^(?<street>.+?),\s*(?<city>[^,]+),\s*(?<state>[A-Za-z]{2})\s+(?<zip>\d{5}(-\d{4})?)$");
+        return m.Success
+            ? (m.Groups["street"].Value.Trim(), m.Groups["city"].Value.Trim(), m.Groups["state"].Value.ToUpperInvariant(), m.Groups["zip"].Value)
+            : (full, "", "", ""); // couldn't parse the compound value — keep it as the street line rather than lose it
     }
 
     var packageType = Field("Prayer Care Package Options", "package option") ?? "";
@@ -3548,9 +3587,9 @@ app.MapPost("/api/v1/webhooks/jotform", async (
     // submitted the form if that section was left blank (e.g. single-parent intake).
     var parent1First = !string.IsNullOrEmpty(husbandFirst) ? husbandFirst : reqFirst;
     var parent1Last  = !string.IsNullOrEmpty(husbandLast)  ? husbandLast  : reqLast;
-    var email = Field("Husband's Email", "husband email") ?? Field("Requester Email") ?? "";
-    var phone = Field("Husband's Phone", "husband phone") ?? Field("Requester Phone");
-    var address = Field("Husband's Address", "husband address") ?? Field("Requester Address") ?? "";
+    var email = Field("Email") ?? Field("Requester Email") ?? "";
+    var phone = Field("Phone Number") ?? Field("Requester Phone");
+    var (street, addrCity, addrState, addrZip) = SplitAddress(Field("Address") ?? Field("Requester Address"));
 
     if (string.IsNullOrWhiteSpace(parent1First) || string.IsNullOrWhiteSpace(parent1Last) || string.IsNullOrWhiteSpace(email))
     {
@@ -3572,7 +3611,7 @@ app.MapPost("/api/v1/webhooks/jotform", async (
         _ => PackageReason.Other
     };
 
-    var attribution = Field("Attribution Preference", "attribution") ?? "";
+    var attribution = Field("mention that this package", "remain anonymous") ?? "";
     var privacy = attribution.Contains("anonymous", StringComparison.OrdinalIgnoreCase)
         ? PrivacyPreference.Anonymous
         : attribution.Contains("mention", StringComparison.OrdinalIgnoreCase)
@@ -3580,12 +3619,16 @@ app.MapPost("/api/v1/webhooks/jotform", async (
             : PrivacyPreference.Private;
 
     // Hidden field on the form (if configured) can target a specific chapter;
-    // otherwise fall back to the first active chapter, same pattern as Duda's
-    // "open retreat" fallback above.
+    // otherwise route by the submitter's state (matched against Chapter.State),
+    // falling back to the first active chapter if there's no match.
     var chapterIdStr = Field("chapter_id", "chapter");
-    var chapter = int.TryParse(chapterIdStr, out var cid)
+    Chapter? chapter = int.TryParse(chapterIdStr, out var cid)
         ? await db.Chapters.FindAsync(cid)
-        : await db.Chapters.Where(c => c.IsActive).OrderBy(c => c.Id).FirstOrDefaultAsync();
+        : null;
+    chapter ??= !string.IsNullOrEmpty(addrState)
+        ? await db.Chapters.Where(c => c.IsActive && c.State == addrState).OrderBy(c => c.Id).FirstOrDefaultAsync()
+        : null;
+    chapter ??= await db.Chapters.Where(c => c.IsActive).OrderBy(c => c.Id).FirstOrDefaultAsync();
 
     if (chapter is null)
     {
@@ -3601,10 +3644,10 @@ app.MapPost("/api/v1/webhooks/jotform", async (
         Parent2LastName  = string.IsNullOrEmpty(wifeLast) ? null : wifeLast,
         Email            = email,
         Phone            = phone,
-        StreetAddress    = address,
-        City             = Field("city") ?? "",
-        State            = Field("state") ?? "",
-        Zip              = Field("zip", "postal") ?? "",
+        StreetAddress    = street,
+        City             = addrCity,
+        State            = addrState,
+        Zip              = addrZip,
         Reason           = reason,
         FaithTradition   = Field("Faith Tradition"),
         ChildrenInitials = Field("Bracelet", "initials"),
