@@ -216,9 +216,13 @@ else
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="user-avatar" style="width:32px;height:32px;font-size:.72rem;flex-shrink:0;">@Initials(row.Name)</div>
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
               <a href="/admin/volunteers/@row.Id/cases" style="font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-dark);text-decoration:none;">@row.Name</a>
               <span style="font-size:.74rem;color:@(row.Open >= 5 ? "var(--amber)" : "var(--text-mid)");margin-left:8px;white-space:nowrap;">@row.Open open @(row.Overdue > 0 ? $"· {row.Overdue} overdue" : "")</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span style="font-size:.68rem;color:var(--text-light);">@RoleDisplayName(row.Role)</span>
+              <span style="font-size:.68rem;color:var(--text-light);">@row.Done fulfilled</span>
             </div>
             <div class="progress-bar" style="height:5px;">
               <div class="progress-fill" style="width:@pct%;background:@(row.Open >= 5 ? "var(--amber)" : "var(--green)");"></div>
@@ -438,7 +442,7 @@ else
 } @* end @if (!_loading) *@
 
 @code {
-  private record WorkloadRow(int Id, string Name, int Open, int Overdue, int Capacity);
+  private record WorkloadRow(int Id, string Name, string Role, int Open, int Overdue, int Capacity, int Done);
   private record AllocRow(string Label, int Count, string Color);
   private record DashSummary(
     int OpenCases, int OverdueCases, decimal DonationsThisMonth, decimal DonationsLastMonth,
@@ -526,7 +530,7 @@ else
     _nextEvent = nextEv is null ? "None scheduled" : $"{nextEv.Date:MMM d} — {nextEv.Title}";
 
     _channelBreakdown = channels.Select(c => (c.Channel, c.TotalAmount)).Take(4).ToList();
-    _workloadRows     = workload.Select(w => new WorkloadRow(w.Id, w.FullName, w.ActiveCases, w.OverdueCases, w.Capacity))
+    _workloadRows     = workload.Select(w => new WorkloadRow(w.Id, w.FullName, w.Role, w.ActiveCases, w.OverdueCases, w.Capacity, w.TotalCasesFulfilled))
                                 .OrderByDescending(w => w.Open).Take(5).ToList();
     _giftBands        = await Api.GetDonationsByAmountAsync();
 
@@ -588,6 +592,9 @@ else
     "flagged"  => "badge-onhold",
     _          => "badge-new"
   };
+
+  private static string RoleDisplayName(string role) =>
+    Enum.TryParse<VolunteerRole>(role, out var r) ? r.ToDisplayName() : role;
 
   private static string Initials(string name)
   {
