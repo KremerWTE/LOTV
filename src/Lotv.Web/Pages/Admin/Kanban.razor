@@ -33,8 +33,19 @@
           <div class="kanban-card-id">#@r.Id</div>
           <div class="kanban-card-name">@r.Family?.FullName</div>
           <div class="kanban-card-reason">@r.Reason.ToDisplayName()</div>
+          <div class="kanban-card-meta">
+            <span>@(r.IsForSelf ? "For Self" : "For Someone Else")</span>
+            @if (!string.IsNullOrEmpty(r.Family?.FaithTradition))
+            { <span>&bull; @r.Family.FaithTradition</span> }
+            @if (!string.IsNullOrEmpty(r.ChildrenInitials))
+            { <span>&bull; Bracelet: @r.ChildrenInitials</span> }
+          </div>
+          @if (!string.IsNullOrEmpty(r.TrackingNumber))
+          {
+            <div class="kanban-card-tracking">📦 @r.TrackingNumber</div>
+          }
           <div class="kanban-card-footer">
-            <span class="kanban-assignee">@(r.AssignedTo ?? "Unassigned")</span>
+            <span class="kanban-assignee">👤 @(r.AssignedTo ?? "Unassigned")</span>
             <span class="kanban-age @(r.IsOverdue ? "badge-overdue" : "")">@GetAge(r.CreatedAt)</span>
           </div>
         </div>
