@@ -19,6 +19,34 @@
   </div>
 </div>
 
+<!-- SUMMARY STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-red">
+    <div class="kpi-icon">⏳</div>
+    <div class="kpi-label">Total Overdue</div>
+    <div class="kpi-value" style="color:var(--red)">@_rows.Sum(r => r.OverdueCases)</div>
+    <div class="kpi-change">Across all staff</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">📋</div>
+    <div class="kpi-label">Total Open</div>
+    <div class="kpi-value" style="color:var(--navy)">@_rows.Sum(r => r.OpenCases)</div>
+    <div class="kpi-change">Active + triaged</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">🔚</div>
+    <div class="kpi-label">Unassigned</div>
+    <div class="kpi-value" style="color:var(--amber)">@_unassigned.Count</div>
+    <div class="kpi-change">In queue</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">📊</div>
+    <div class="kpi-label">Avg Capacity Used</div>
+    <div class="kpi-value" style="color:var(--green)">@_avgCapacityPct%</div>
+    <div class="kpi-change">Across all staff</div>
+  </div>
+</div>
+
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;">
   @foreach (var row in _activeOnly ? _rows.Where(r => r.Volunteer.Status == VolunteerStatus.Active) : _rows)
   {
@@ -51,9 +79,9 @@
           </div>
         </div>
 
-        <div style="font-size:.74rem;color:var(--text-mid);margin-bottom:6px;">Capacity (@row.OpenCases / 6 cases)</div>
+        <div style="font-size:.74rem;color:var(--text-mid);margin-bottom:6px;">Capacity (@row.OpenCases / @row.Capacity cases)</div>
         <div class="progress-bar">
-          <div class="progress-fill @(row.OpenCases >= 5 ? "amber" : "")" style="width:@Math.Min(row.OpenCases * 16, 100)%;"></div>
+          <div class="progress-fill @(row.CapacityPct >= 80 ? "amber" : "")" style="width:@Math.Min(row.CapacityPct, 100)%;"></div>
         </div>
 
         @if (row.Cases.Any())
@@ -76,6 +104,25 @@
   }
 </div>
 
+<!-- UNASSIGNED QUEUE -->
+@if (_unassigned.Any())
+{
+  <div class="panel" style="margin-top:20px;">
+    <div class="panel-head">
+      <h3>Unassigned Queue — @_unassigned.Count case@(_unassigned.Count == 1 ? "" : "s") waiting</h3>
+      <a href="/admin/queue" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Queue &rarr;</a>
+    </div>
+    <div class="panel-body" style="display:flex;flex-wrap:wrap;gap:8px;">
+      @foreach (var c in _unassigned)
+      {
+        <button class="btn btn-sm" style="border-color:var(--amber);color:var(--amber);" @onclick="() => OpenReassign(c)">
+          #@c.Id &mdash; @c.Category.ToString()
+        </button>
+      }
+    </div>
+  </div>
+}
+
 <!-- REASSIGN DRAWER -->
 @if (_reassignCase is not null)
 {
@@ -95,7 +142,7 @@
         <select class="form-input" @bind="_reassignToVolId">
           <option value="">— Select volunteer —</option>
           @foreach (var v in _allVolunteers)
-          { <option value="@v.Id">@v.FullName (@v.ActiveCases open)</option> }
+          { <option value="@v.Id">@v.FullName (@(_rows.FirstOrDefault(r => r.Volunteer.Id == v.Id)?.OpenCases ?? 0) open)</option> }
         </select>
       </div>
     </div>
@@ -114,14 +161,17 @@
 }
 
 @code {
-  private record WorkloadRow(Volunteer Volunteer, List<PackageRequest> Cases)
+  private record WorkloadRow(Volunteer Volunteer, List<PackageRequest> Cases, int Capacity)
   {
     public int OpenCases    => Cases.Count(c => c.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment);
     public int OverdueCases => Cases.Count(c => c.IsOverdue);
+    public int CapacityPct  => Capacity > 0 ? OpenCases * 100 / Capacity : 0;
   }
 
   private List<WorkloadRow> _rows = [];
   private List<Volunteer> _allVolunteers = [];
+  private List<PackageRequest> _unassigned = [];
+  private int _avgCapacityPct;
   private bool _activeOnly = true;
   private PackageRequest? _reassignCase;
   private int? _reassignToVolId;
@@ -133,13 +183,26 @@
   {
     var volunteers = await Api.GetVolunteersAsync();
     var requests   = await Api.GetRequestsAsync();
+    // Capacity is configurable per chapter (Chapter.MaxActiveCasesPerVolunteer) —
+    // /api/v1/workload already computes the right value per volunteer, so use it
+    // instead of guessing a fixed number here.
+    var workload   = await Api.GetWorkloadAsync();
+    var capacityById = workload.ToDictionary(w => w.Id, w => w.Capacity);
 
     _allVolunteers = volunteers.Where(v => v.Status == VolunteerStatus.Active).ToList();
 
     _rows = volunteers
-      .Select(v => new WorkloadRow(v, requests.Where(r => r.AssignedToId == v.Id).ToList()))
+      .Select(v => new WorkloadRow(v, requests.Where(r => r.AssignedToId == v.Id).ToList(), capacityById.GetValueOrDefault(v.Id, 6)))
       .OrderByDescending(r => r.OpenCases)
       .ToList();
+
+    _unassigned = requests
+      .Where(r => r.AssignedToId is null && r.Status is CaseStatus.New or CaseStatus.InProgress)
+      .OrderBy(r => r.CreatedAt)
+      .ToList();
+
+    var withOpen = _rows.Where(r => r.Capacity > 0).ToList();
+    _avgCapacityPct = withOpen.Count > 0 ? (int)withOpen.Average(r => r.CapacityPct) : 0;
   }
 
   private void OpenReassign(PackageRequest c)

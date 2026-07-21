@@ -47,7 +47,17 @@
   {
     <button class="filter-chip @(_activeFilter == f ? "active" : "")" aria-pressed="@(_activeFilter == f)" @onclick="() => SetFilter(f)">@f</button>
   }
-  <input class="form-input" style="width:220px;padding:5px 12px;font-size:.82rem;" placeholder="🔍 Search families..." aria-label="Search families" @bind="_search" @bind:event="oninput" />
+  <select class="form-input" style="width:auto;font-size:.82rem;padding:5px 10px;" @bind="_priorityFilter" @bind:after="ApplyFilter">
+    <option value="">All Priorities</option>
+    @foreach (var p in Enum.GetValues<RequestPriority>())
+    { <option value="@p">@p</option> }
+  </select>
+  <select class="form-input" style="width:auto;font-size:.82rem;padding:5px 10px;" @bind="_categoryFilter" @bind:after="ApplyFilter">
+    <option value="">All Categories</option>
+    @foreach (var c in Enum.GetValues<RequestCategory>())
+    { <option value="@c">@c</option> }
+  </select>
+  <input class="form-input" style="width:220px;padding:5px 12px;font-size:.82rem;" placeholder="🔍 Search families..." aria-label="Search families" @bind="_search" @bind:event="oninput" @bind:after="ApplyFilter" />
 </div>
 
 <!-- TABLE -->
@@ -58,10 +68,11 @@
         <tr>
           <th>#</th>
           <th>Family</th>
-          <th>Reason</th>
+          <th>Category</th>
           <th>Status</th>
+          <th>Priority</th>
           <th>Assigned To</th>
-          <th>Created</th>
+          <th>Due</th>
           <th>Age</th>
           <th></th>
         </tr>
@@ -69,7 +80,7 @@
       <tbody>
         @if (!_filtered.Any())
         {
-          <tr><td colspan="8"><div class="empty-state"><div class="icon">💕</div><p>No cases match this filter.</p></div></td></tr>
+          <tr><td colspan="9"><div class="empty-state"><div class="icon">💕</div><p>No cases match this filter.</p></div></td></tr>
         }
         @foreach (var r in _filtered)
         {
@@ -79,11 +90,20 @@
               <strong>@r.Family?.FullName</strong>
               @if (r.IsOverdue)
               { <span class="badge badge-overdue" style="margin-left:6px;">Overdue</span> }
+              <div style="font-size:.72rem;color:var(--text-light);">@r.Reason.ToDisplayName()</div>
             </td>
-            <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason.ToDisplayName()</td>
+            <td style="font-size:.8rem;color:var(--text-mid);">@r.Category</td>
             <td><span class="badge @GetStatusBadge(r.Status)">@r.Status</span></td>
+            <td style="font-size:.82rem;">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:@PriorityColor(r.Priority);margin-right:5px;"></span>@r.Priority
+            </td>
             <td style="font-size:.82rem;">@(r.AssignedTo ?? "—")</td>
-            <td style="font-size:.76rem;color:var(--text-light);">@r.CreatedAt.ToString("MMM d, yyyy")</td>
+            <td style="font-size:.76rem;">
+              @if (r.DueDate is null)
+              { <span style="color:var(--text-light);">—</span> }
+              else
+              { <span style="color:@(r.DueDate < DateTime.UtcNow ? "var(--red)" : r.DueDate < DateTime.UtcNow.AddDays(3) ? "var(--amber)" : "var(--text-light)");">@r.DueDate.Value.ToString("MMM d")</span> }
+            </td>
             <td style="font-size:.76rem;color:var(--text-light);">@GetAge(r.CreatedAt)</td>
             <td>
               <a href="/admin/cases/@r.Id" class="btn btn-sm">Details</a>
@@ -314,6 +334,8 @@
   private string? _editInternalNotes;
 
   private string _activeFilter = "All";
+  private string _priorityFilter = "";
+  private string _categoryFilter = "";
   private string _search = "";
   private bool _showNew;
   private bool _saved;
@@ -377,9 +399,20 @@
       var matchSearch = string.IsNullOrEmpty(_search) ||
         (r.Family?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
         r.Reason.ToString().Contains(_search, StringComparison.OrdinalIgnoreCase);
-      return matchFilter && matchSearch;
+      var matchPriority = string.IsNullOrEmpty(_priorityFilter) || r.Priority.ToString() == _priorityFilter;
+      var matchCategory = string.IsNullOrEmpty(_categoryFilter) || r.Category.ToString() == _categoryFilter;
+      return matchFilter && matchSearch && matchPriority && matchCategory;
     }).ToList();
   }
+
+  private static string PriorityColor(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "var(--red)",
+    RequestPriority.High   => "var(--amber)",
+    RequestPriority.Normal => "var(--green)",
+    RequestPriority.Low    => "var(--text-light)",
+    _ => "var(--text-light)"
+  };
 
   private void OpenCase(PackageRequest r)
   {
