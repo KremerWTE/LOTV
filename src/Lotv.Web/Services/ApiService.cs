@@ -65,6 +65,15 @@ public class ApiService
     public Task<Family?> GetFamilyAsync(int id) =>
         GetAsync<Family>($"/api/v1/families/{id}");
 
+    public Task<List<PackageRequest>> GetDuplicateReviewQueueAsync() =>
+        GetListAsync<PackageRequest>("/api/v1/families/duplicate-review");
+
+    public async Task<bool> ResolveDuplicateReviewAsync(int requestId, string action)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/families/duplicate-review/{requestId}/resolve", new { Action = action });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     // ── Volunteers ────────────────────────────────────────────────────────────
     public Task<List<Volunteer>> GetVolunteersAsync(string? status = null) =>
         GetListAsync<Volunteer>($"/api/v1/volunteers{BuildQs(("status", status))}");

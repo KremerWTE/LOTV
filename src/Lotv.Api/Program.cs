@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 using Lotv.Api.Auth;
 using Serilog;
@@ -119,6 +120,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IChapterContextService, ChapterContextService>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<IAutoAssignmentService, AutoAssignmentService>();
+builder.Services.AddScoped<IDuplicateFamilyDetectionService, DuplicateFamilyDetectionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IScheduledReportService, ScheduledReportService>();
 builder.Services.AddScoped<IFinancialAuditService, FinancialAuditService>();
@@ -259,12 +261,17 @@ app.MapHub<AuctionHub>("/hubs/auction");
 var publicIntake = app.MapGroup("/api/v1/public").WithTags("Public").AllowAnonymous().RequireRateLimiting("auth");
 
 // Family intake: creates a Family record + PackageRequest and triggers auto-assignment
-publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IPushSender pushSvc) =>
+publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IDuplicateFamilyDetectionService dupSvc, IPushSender pushSvc) =>
 {
     if (string.IsNullOrWhiteSpace(body.Family.Parent1FirstName) ||
         string.IsNullOrWhiteSpace(body.Family.Parent1LastName) ||
         string.IsNullOrWhiteSpace(body.Family.Email))
         return Results.BadRequest(new { error = "First name, last name, and email are required." });
+
+    // Check for a possible duplicate before creating the new Family record. We still
+    // create it either way — the request just gets held for staff review instead of
+    // silently merging (family identity is too sensitive to guess automatically).
+    var dupMatch = await dupSvc.FindPossibleDuplicateAsync(body.Family, body.Family.ChapterId);
 
     body.Family.CreatedAt = DateTime.UtcNow;
     // PrivacyPreference is sent as part of the Family object from the form
@@ -298,22 +305,38 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         InternalNotes  = referrerNote,
         Status         = CaseStatus.New,
         CreatedAt      = DateTime.UtcNow,
-        UpdatedAt      = DateTime.UtcNow
+        UpdatedAt      = DateTime.UtcNow,
+        NeedsDuplicateReview     = dupMatch is not null,
+        PossibleDuplicateFamilyId = dupMatch?.Family.Id,
+        DuplicateMatchReason      = dupMatch?.Reason
     };
     db.Requests.Add(req);
+    // Set via the Request navigation, not a scalar RequestId = req.Id copy — req.Id is
+    // still an EF-internal temp key at this point, and a scalar copy into an otherwise
+    // unrelated tracked entity doesn't register as a real relationship, so SaveChanges
+    // has no reason to insert Requests first or resolve the temp value. That silently
+    // fails the RequestActivities FK the moment SQLite enforces it.
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = req.Id, ActorId = "public", ActorName = "Public Intake Form",
+        Request = req, ActorId = "public", ActorName = "Public Intake Form",
         ActivityType = ActivityType.Created, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
-    await autoAssign.TryAutoAssignAsync(req.Id);
 
-    _ = pushSvc.SendToAllAsync("New request submitted",
-        $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package.",
-        $"/admin/cases/{req.Id}");
+    // Hold flagged submissions out of auto-assignment until a human confirms they're
+    // not the same family — assigning a volunteer to what might be a duplicate case
+    // just creates more cleanup work later.
+    if (dupMatch is null)
+        await autoAssign.TryAutoAssignAsync(req.Id);
 
-    return Results.Created($"/api/v1/requests/{req.Id}", new { familyId = body.Family.Id, requestId = req.Id });
+    _ = pushSvc.SendToAllAsync(
+        dupMatch is null ? "New request submitted" : "New request submitted — possible duplicate",
+        dupMatch is null
+            ? $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package."
+            : $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package. {dupMatch.Reason} — needs review.",
+        dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
+
+    return Results.Created($"/api/v1/requests/{req.Id}", new { familyId = body.Family.Id, requestId = req.Id, needsDuplicateReview = dupMatch is not null });
 });
 
 // Donation intake: creates Donor + Donation records
@@ -472,7 +495,9 @@ cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
 
 cases.MapGet("/queue", async (LotvDbContext db, IChapterContextService ctx) =>
 {
-    var q = db.Requests.Where(r => r.AssignedToId == null && r.Status == CaseStatus.New);
+    // Requests flagged NeedsDuplicateReview are held out of the normal queue until
+    // staff resolve them at /admin/families/duplicate-review.
+    var q = db.Requests.Where(r => r.AssignedToId == null && r.Status == CaseStatus.New && !r.NeedsDuplicateReview);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
         q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     return await q.OrderBy(r => r.CreatedAt).ToListAsync();
@@ -766,6 +791,76 @@ families.MapPut("/{id:int}", async (int id, Family family, LotvDbContext db) =>
     db.Families.Update(family);
     await db.SaveChangesAsync();
     return Results.Ok(family);
+});
+
+// ── Possible-duplicate review queue ─────────────────────────────────────────────
+// Requests flagged at intake (see IDuplicateFamilyDetectionService) sit here until
+// staff either confirm the new family is genuinely distinct, or merge it into the
+// existing one it matched.
+families.MapGet("/duplicate-review", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.Requests
+        .Include(r => r.Family)
+        .Include(r => r.PossibleDuplicateFamily)
+        .Where(r => r.NeedsDuplicateReview);
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
+        q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    return await q.OrderBy(r => r.CreatedAt).ToListAsync();
+});
+
+families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
+    int requestId, DuplicateResolveRequest body, LotvDbContext db, IAutoAssignmentService autoAssign) =>
+{
+    var req = await db.Requests.FirstOrDefaultAsync(r => r.Id == requestId);
+    if (req is null) return Results.NotFound();
+    if (!req.NeedsDuplicateReview) return Results.BadRequest(new { error = "This request isn't pending duplicate review." });
+
+    if (body.Action == "merge")
+    {
+        if (req.PossibleDuplicateFamilyId is not int targetFamilyId)
+            return Results.BadRequest(new { error = "No matched family to merge into." });
+
+        var newFamily = await db.Families.FindAsync(req.FamilyId);
+        var targetFamily = await db.Families.FindAsync(targetFamilyId);
+        if (newFamily is null || targetFamily is null) return Results.NotFound();
+
+        // Repoint the request at the existing family and retire the one created at
+        // intake rather than deleting it, so nothing else referencing it (activity
+        // log, notes) breaks and the merge stays visible in the record.
+        req.FamilyId = targetFamilyId;
+        newFamily.Status = FamilyStatus.Closed;
+        newFamily.ContactNotes = $"Merged into Family #{targetFamilyId} on {DateTime.UtcNow:MMM d, yyyy} (duplicate review)."
+            + (string.IsNullOrWhiteSpace(newFamily.ContactNotes) ? "" : "\n\n" + newFamily.ContactNotes);
+
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = req.Id, ActorId = "staff", ActorName = "Duplicate Review",
+            ActivityType = ActivityType.NoteAdded, Timestamp = DateTime.UtcNow,
+            Details = $"Merged into existing family #{targetFamilyId} ({targetFamily.FullName})."
+        });
+    }
+    else if (body.Action == "confirm-new")
+    {
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = req.Id, ActorId = "staff", ActorName = "Duplicate Review",
+            ActivityType = ActivityType.NoteAdded, Timestamp = DateTime.UtcNow,
+            Details = "Confirmed as a distinct family, not a duplicate."
+        });
+    }
+    else
+    {
+        return Results.BadRequest(new { error = "Action must be 'merge' or 'confirm-new'." });
+    }
+
+    req.NeedsDuplicateReview = false;
+    req.UpdatedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+
+    // Now that a human has cleared it, let the case flow into the normal queue.
+    await autoAssign.TryAutoAssignAsync(req.Id);
+
+    return Results.Ok(req);
 });
 
 // ── Volunteers ────────────────────────────────────────────────────────────────
@@ -3390,6 +3485,188 @@ app.MapPost("/api/v1/webhooks/duda", async (
     return Results.Ok();
 }).WithTags("Webhooks").AllowAnonymous();
 
+// ── JotForm prayer-package-request webhook ──────────────────────────────────────
+// JotForm posts multipart/form-data with a "pretty" field: a comma-separated
+// "Question Label:answer" string using the form's actual visible labels — the same
+// shape Duda's webhook already parses above, just delivered differently. We match on
+// label substrings rather than JotForm's internal field IDs (q3_..., q17_...) since
+// those IDs are only knowable from a live submission and would silently break if the
+// form is ever edited. Verify this mapping against a real test submission from
+// https://form.jotform.com/261395566857171 once it's pointed at this endpoint —
+// "pretty" formatting for composite fields (name/address) can vary and this is
+// best-effort until confirmed against one.
+app.MapPost("/api/v1/webhooks/jotform", async (
+    HttpRequest request,
+    LotvDbContext db,
+    IDuplicateFamilyDetectionService dupSvc,
+    IAutoAssignmentService autoAssign,
+    IPushSender pushSvc,
+    ILogger<Program> log) =>
+{
+    if (!request.HasFormContentType) return Results.Ok(); // never return non-200 to JotForm
+
+    var form = await request.ReadFormAsync();
+    var submissionId = form["submissionID"].FirstOrDefault();
+    var pretty = form["pretty"].FirstOrDefault() ?? "";
+
+    if (string.IsNullOrWhiteSpace(submissionId))
+    {
+        log.LogWarning("JotForm webhook: missing submissionID, ignoring");
+        return Results.Ok();
+    }
+
+    if (await db.WebhookEvents.AnyAsync(w => w.Source == "jotform" && w.ExternalId == submissionId))
+        return Results.Ok(); // already processed
+
+    // Split "Label:value, Label2:value2" on commas that are followed by what looks
+    // like the start of the next "Label:" pair, so commas inside an answer (e.g. a
+    // city/state) don't cause a false split.
+    var pairs = Regex.Split(pretty, @",\s+(?=[A-Za-z][A-Za-z0-9 '/]{0,60}:)")
+        .Select(p => p.Split(':', 2))
+        .Where(p => p.Length == 2)
+        .ToDictionary(p => p[0].Trim(), p => p[1].Trim(), StringComparer.OrdinalIgnoreCase);
+
+    string? Field(params string[] labels) =>
+        pairs.FirstOrDefault(kv => labels.Any(l => kv.Key.Contains(l, StringComparison.OrdinalIgnoreCase))).Value;
+
+    (string First, string Last) SplitName(string? full)
+    {
+        full = (full ?? "").Trim();
+        if (full.Length == 0) return ("", "");
+        var idx = full.LastIndexOf(' ');
+        return idx < 0 ? (full, "") : (full[..idx].Trim(), full[(idx + 1)..].Trim());
+    }
+
+    var packageType = Field("Prayer Care Package Options", "package option") ?? "";
+    var forSelf = !packageType.Contains("someone else", StringComparison.OrdinalIgnoreCase);
+
+    var (husbandFirst, husbandLast) = SplitName(Field("Husband's Name", "husband name"));
+    var (wifeFirst, wifeLast) = SplitName(Field("Wife's Name", "wife name"));
+    var (reqFirst, reqLast) = SplitName(Field("Requester Name"));
+
+    // Prefer the husband/wife names as the family of record; fall back to whoever
+    // submitted the form if that section was left blank (e.g. single-parent intake).
+    var parent1First = !string.IsNullOrEmpty(husbandFirst) ? husbandFirst : reqFirst;
+    var parent1Last  = !string.IsNullOrEmpty(husbandLast)  ? husbandLast  : reqLast;
+    var email = Field("Husband's Email", "husband email") ?? Field("Requester Email") ?? "";
+    var phone = Field("Husband's Phone", "husband phone") ?? Field("Requester Phone");
+    var address = Field("Husband's Address", "husband address") ?? Field("Requester Address") ?? "";
+
+    if (string.IsNullOrWhiteSpace(parent1First) || string.IsNullOrWhiteSpace(parent1Last) || string.IsNullOrWhiteSpace(email))
+    {
+        log.LogWarning("JotForm webhook {SubmissionId}: couldn't parse required name/email fields from pretty string: {Pretty}", submissionId, pretty);
+        db.WebhookEvents.Add(new WebhookEvent { Source = "jotform", ExternalId = submissionId, EventType = "unparsed", Payload = pretty.Length > 32_000 ? pretty[..32_000] : pretty });
+        await db.SaveChangesAsync();
+        return Results.Ok();
+    }
+
+    var reasonRaw = Field("Reason for Prayer Package", "request reason") ?? "";
+    var reason = reasonRaw switch
+    {
+        var r when r.Contains("infertil", StringComparison.OrdinalIgnoreCase) => PackageReason.Infertility,
+        var r when r.Contains("life-limiting", StringComparison.OrdinalIgnoreCase) || r.Contains("life limiting", StringComparison.OrdinalIgnoreCase) => PackageReason.PrenatalLifeLimitingDiagnosis,
+        var r when r.Contains("prenatal", StringComparison.OrdinalIgnoreCase) => PackageReason.PrenatalDiagnosis,
+        var r when r.Contains("miscarriage", StringComparison.OrdinalIgnoreCase) => PackageReason.Miscarriage,
+        var r when r.Contains("stillbirth", StringComparison.OrdinalIgnoreCase) => PackageReason.Stillbirth,
+        var r when r.Contains("infant", StringComparison.OrdinalIgnoreCase) => PackageReason.InfantLoss,
+        _ => PackageReason.Other
+    };
+
+    var attribution = Field("Attribution Preference", "attribution") ?? "";
+    var privacy = attribution.Contains("anonymous", StringComparison.OrdinalIgnoreCase)
+        ? PrivacyPreference.Anonymous
+        : attribution.Contains("mention", StringComparison.OrdinalIgnoreCase)
+            ? PrivacyPreference.Public
+            : PrivacyPreference.Private;
+
+    // Hidden field on the form (if configured) can target a specific chapter;
+    // otherwise fall back to the first active chapter, same pattern as Duda's
+    // "open retreat" fallback above.
+    var chapterIdStr = Field("chapter_id", "chapter");
+    var chapter = int.TryParse(chapterIdStr, out var cid)
+        ? await db.Chapters.FindAsync(cid)
+        : await db.Chapters.Where(c => c.IsActive).OrderBy(c => c.Id).FirstOrDefaultAsync();
+
+    if (chapter is null)
+    {
+        log.LogWarning("JotForm webhook {SubmissionId}: no active chapter to assign to", submissionId);
+        return Results.Ok();
+    }
+
+    var family = new Family
+    {
+        Parent1FirstName = parent1First,
+        Parent1LastName  = parent1Last,
+        Parent2FirstName = string.IsNullOrEmpty(wifeFirst) ? null : wifeFirst,
+        Parent2LastName  = string.IsNullOrEmpty(wifeLast) ? null : wifeLast,
+        Email            = email,
+        Phone            = phone,
+        StreetAddress    = address,
+        City             = Field("city") ?? "",
+        State            = Field("state") ?? "",
+        Zip              = Field("zip", "postal") ?? "",
+        Reason           = reason,
+        FaithTradition   = Field("Faith Tradition"),
+        ChildrenInitials = Field("Bracelet", "initials"),
+        Story            = Field("Your Story", "recipient story"),
+        ParishName       = Field("Parish"),
+        DioceseName      = Field("Diocese"),
+        HowHeard         = Field("How did you hear", "referral source"),
+        ChapterId        = chapter.Id,
+        PrivacyPreference = privacy,
+        CreatedAt        = DateTime.UtcNow
+    };
+
+    var dupMatch = await dupSvc.FindPossibleDuplicateAsync(family, chapter.Id);
+
+    db.Families.Add(family);
+    await db.SaveChangesAsync();
+
+    var req = new PackageRequest
+    {
+        FamilyId      = family.Id,
+        ChapterId     = family.ChapterId,
+        Reason        = family.Reason,
+        Category      = RequestCategory.PackageDelivery,
+        IsForSelf     = forSelf,
+        ReferrerName  = forSelf ? null : $"{reqFirst} {reqLast}".Trim(),
+        ReferrerEmail = forSelf ? null : Field("Requester Email"),
+        Status        = CaseStatus.New,
+        CreatedAt     = DateTime.UtcNow,
+        UpdatedAt     = DateTime.UtcNow,
+        NeedsDuplicateReview      = dupMatch is not null,
+        PossibleDuplicateFamilyId = dupMatch?.Family.Id,
+        DuplicateMatchReason      = dupMatch?.Reason
+    };
+    db.Requests.Add(req);
+    db.WebhookEvents.Add(new WebhookEvent
+    {
+        Source = "jotform", ExternalId = submissionId, EventType = "prayer-package-request",
+        Payload = pretty.Length > 32_000 ? pretty[..32_000] : pretty
+    });
+    await db.SaveChangesAsync();
+
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = req.Id, ActorId = "jotform", ActorName = "JotForm Intake",
+        ActivityType = ActivityType.Created, Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+
+    if (dupMatch is null)
+        await autoAssign.TryAutoAssignAsync(req.Id);
+
+    _ = pushSvc.SendToAllAsync(
+        dupMatch is null ? "New prayer package request (JotForm)" : "New prayer package request — possible duplicate",
+        dupMatch is null
+            ? $"{family.Parent1FirstName} {family.Parent1LastName} requested a prayer care package."
+            : $"{family.Parent1FirstName} {family.Parent1LastName} requested a prayer care package. {dupMatch.Reason} — needs review.",
+        dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
+
+    log.LogInformation("JotForm webhook: created request {RequestId} for {Name}", req.Id, family.FullName);
+    return Results.Ok();
+}).WithTags("Webhooks").AllowAnonymous();
+
 // ── Retreats ──────────────────────────────────────────────────────────────────
 var retreatsGroup = app.MapGroup("/api/v1/retreats").WithTags("Retreats").RequireAuthorization("Staff");
 
@@ -4091,6 +4368,7 @@ record PublicApplyRequest(
 );
 record PublicGiveRequest(Donor Donor, Donation Donation);
 record RegisterRequest(string Email, string Password, string FirstName, string LastName, UserRole Role, int? ChapterId);
+record DuplicateResolveRequest(string Action); // "merge" | "confirm-new"
 record LoginRequest(string Email, string Password);
 record RefreshRequest(string RefreshToken);
 record StatusUpdateRequest(CaseStatus Status);

@@ -141,6 +141,8 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(r => new { r.ChapterId, r.AssignedToId });                // workload view per chapter
             e.HasIndex(r => new { r.ChapterId, r.Status, r.CreatedAt });         // overdue-by-chapter (status filter + age sort)
             e.HasOne(r => r.Family).WithMany().HasForeignKey(r => r.FamilyId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.PossibleDuplicateFamily).WithMany().HasForeignKey(r => r.PossibleDuplicateFamilyId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(r => r.NeedsDuplicateReview);
             e.Ignore(r => r.Chapter);
         });
 

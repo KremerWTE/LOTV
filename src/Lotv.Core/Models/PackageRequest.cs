@@ -29,6 +29,16 @@ public class PackageRequest
     public bool StaffOutreachRequested { get; set; } = true;
     public double? Latitude { get; set; }   // for geo-based auto-assignment scoring
     public double? Longitude { get; set; }
+
+    // Set at intake when the submitted family looks like it may already exist in the
+    // system (see IDuplicateFamilyDetectionService). While NeedsDuplicateReview is true,
+    // the request is held out of the Unassigned Queue and auto-assignment, and instead
+    // shows on /admin/families/duplicate-review until staff confirm or merge it.
+    public bool NeedsDuplicateReview { get; set; }
+    public int? PossibleDuplicateFamilyId { get; set; }
+    public Family? PossibleDuplicateFamily { get; set; }
+    public string? DuplicateMatchReason { get; set; }
+
     public bool IsOverdue => Status is not (CaseStatus.Fulfilled or CaseStatus.Shipped or CaseStatus.Cancelled or CaseStatus.OnHold) && CreatedAt < DateTime.UtcNow.AddDays(-7);
 }
 

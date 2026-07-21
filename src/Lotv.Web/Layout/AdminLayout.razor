@@ -42,6 +42,11 @@
         <NavLink class="sidebar-link" href="/admin/families">
           <span class="icon">👥</span> Families
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/families/duplicate-review">
+          <span class="icon">🔍</span> Possible Duplicates
+          @if (_pendingDupReview > 0)
+          { <span class="sidebar-badge sidebar-badge-amber">@_pendingDupReview</span> }
+        </NavLink>
         <NavLink class="sidebar-link" href="/admin/families/by-state">
           <span class="icon">🌎</span> By State
         </NavLink>
@@ -674,6 +679,7 @@
 @code {
   private int _openCount;
   private int _pendingAlloc;
+  private int _pendingDupReview;
   private string _pageTitle = "Dashboard Overview";
   private bool _dark;
   private bool _sidebarCollapsed;
@@ -780,6 +786,8 @@
     _overdueItems      = await Api.GetOverdueRequestsAsync();
     _pendingAllocItems = await Api.GetAllocationsAsync("PendingReview");
     _notifCount        = _overdueItems.Count + _pendingAllocItems.Count;
+
+    try { _pendingDupReview = (await Api.GetDuplicateReviewQueueAsync()).Count; } catch { }
   }
 
   private async Task Logout()
@@ -885,6 +893,7 @@
       var u when u.EndsWith("/admin/staff-tasks")      => "Staff Task Board",
       var u when u.EndsWith("/admin/announcements")    => "Announcements",
       var u when u.EndsWith("/admin/volunteer-skills")  => "Volunteer Skill Directory",
+      var u when u.EndsWith("/admin/families/duplicate-review") => "Possible Duplicate Families",
       var u when u.Contains("/admin/families/")         => "Family Detail",
       var u when u.Contains("/admin/volunteers/")       => "Volunteer Detail",
       var u when u.EndsWith("/admin/pledges")           => "Donor Pledges",
