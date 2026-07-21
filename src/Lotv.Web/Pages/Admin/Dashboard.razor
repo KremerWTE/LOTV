@@ -121,6 +121,48 @@ else
   </a>
 </div>
 
+<!-- CASE PIPELINE (Kanban) -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-head">
+    <h3>Case Pipeline</h3>
+    <a href="/admin/kanban" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Open Full Board &rarr;</a>
+  </div>
+  <div class="panel-body">
+    <div class="kanban">
+      @foreach (var col in _kanbanColumns)
+      {
+        var cases = _byStatus.GetValueOrDefault(col.Status) ?? [];
+        <div class="kanban-col">
+          <div class="kanban-col-hd">
+            <span>@col.Label</span>
+            <span style="background:@col.Color;color:white;border-radius:10px;padding:1px 8px;font-size:.68rem;">@cases.Count</span>
+          </div>
+          @foreach (var r in cases.Take(6))
+          {
+            <div class="kanban-card" style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/cases/{r.Id}")'>
+              <div class="kanban-card-id">#@r.Id</div>
+              <div class="kanban-card-name">@r.Family?.FullName</div>
+              <div class="kanban-card-reason">@r.Reason.ToDisplayName()</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-assignee">@(r.AssignedTo ?? "Unassigned")</span>
+                <span class="kanban-age @(r.IsOverdue ? "badge-overdue" : "")">@GetAge(r.CreatedAt)</span>
+              </div>
+            </div>
+          }
+          @if (cases.Count > 6)
+          {
+            <a href="/admin/kanban" style="display:block;text-align:center;font-size:.72rem;color:var(--green);text-decoration:none;font-weight:600;padding:6px;">+@(cases.Count - 6) more &rarr;</a>
+          }
+          @if (!cases.Any())
+          {
+            <div style="text-align:center;padding:20px 8px;font-size:.76rem;color:var(--text-light);border:1.5px dashed var(--border);border-radius:8px;">Empty</div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
 <!-- MONTHLY TREND CHARTS -->
 <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;margin-bottom:20px;">
 
@@ -439,11 +481,94 @@ else
   </div>
 </div>
 
+<!-- FULL DONATION LEDGER -->
+<div class="panel" style="margin-bottom:24px;">
+  <div class="panel-head">
+    <h3>Donation Ledger</h3>
+    <div style="display:flex;gap:8px;">
+      <a href="/admin/export" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Export CSV &rarr;</a>
+      <a href="/admin/donations" class="btn btn-sm btn-primary">+ Record Donation</a>
+    </div>
+  </div>
+  <div class="panel-body" style="padding-top:0;">
+    <div class="filter-bar" style="padding:12px 0;">
+      @foreach (var f in _donationFilters)
+      {
+        <button class="filter-chip @(_donationFilter == f ? "active" : "")" aria-pressed="@(_donationFilter == f)" @onclick="() => _donationFilter = f">@f</button>
+      }
+      <input class="form-input" style="width:180px;font-size:.82rem;padding:5px 12px;" placeholder="🔍 Donor or campaign..." @bind="_donationSearch" @bind:event="oninput" />
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Donor</th>
+          <th style="cursor:pointer;user-select:none;" @onclick='() => SortDonations("Amount")'>Amount @DonationSortArrow("Amount")</th>
+          <th style="cursor:pointer;user-select:none;" @onclick='() => SortDonations("Date")'>Date @DonationSortArrow("Date")</th>
+          <th>Channel</th>
+          <th>Campaign</th>
+          <th>Allocation</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var d in FilteredDonations.Take(_donationVisible))
+        {
+          <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/admin/donations")'>
+            <td style="font-size:.74rem;color:var(--text-light);">#@d.Id</td>
+            <td><strong>@(d.Donor?.FullName ?? "—")</strong></td>
+            <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Amount" /></td>
+            <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
+            <td><span class="badge badge-new" style="font-size:.68rem;">@d.Channel</span></td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@(d.Campaign ?? "—")</td>
+            <td>
+              @switch (d.AllocationStatus)
+              {
+                case AllocationStatus.Allocated:
+                  <span class="badge badge-fulfilled">Allocated</span>
+                  break;
+                case AllocationStatus.PendingReview:
+                  <span class="badge badge-inprogress">Pending</span>
+                  break;
+                default:
+                  <span class="badge badge-onhold">Unallocated</span>
+                  break;
+              }
+            </td>
+          </tr>
+        }
+        @if (!FilteredDonations.Any())
+        {
+          <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-light);">No donations match this filter.</td></tr>
+        }
+        @if (FilteredDonations.Count() > _donationVisible)
+        {
+          <tr><td colspan="7" style="text-align:center;padding:14px;border-top:1px solid var(--border);">
+            <button class="btn btn-sm" @onclick="() => _donationVisible += 50">Load 50 more (@(FilteredDonations.Count() - _donationVisible) hidden)</button>
+          </td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
 } @* end @if (!_loading) *@
 
 @code {
   private record WorkloadRow(int Id, string Name, string Role, int Open, int Overdue, int Capacity, int Done);
   private record AllocRow(string Label, int Count, string Color);
+  private record KanbanColumn(string Label, CaseStatus Status, string Color);
+
+  private readonly KanbanColumn[] _kanbanColumns =
+  [
+    new("New",               CaseStatus.New,              "#2d469d"),
+    new("In Progress",       CaseStatus.InProgress,       "#e67e22"),
+    new("Awaiting Shipment", CaseStatus.AwaitingShipment, "#9b8bb4"),
+    new("On Hold",           CaseStatus.OnHold,           "#6c757d"),
+    new("Shipped",           CaseStatus.Shipped,          "#487336"),
+    new("Fulfilled",         CaseStatus.Fulfilled,        "#198754"),
+    new("Cancelled",         CaseStatus.Cancelled,        "#adb5bd"),
+  ];
+  private Dictionary<CaseStatus, List<PackageRequest>> _byStatus = new();
   private record DashSummary(
     int OpenCases, int OverdueCases, decimal DonationsThisMonth, decimal DonationsLastMonth,
     int FamiliesServedYtd, int UpcomingEvents, int ActiveVolunteers,
@@ -469,6 +594,55 @@ else
   private decimal _ticketRevenue;
   private decimal _auctionRevenue;
   private List<(string Title, decimal Revenue, decimal Goal)> _eventRevenueBreakdown = [];
+
+  // ── Donation ledger ─────────────────────────────────────────────────────
+  private readonly string[] _donationFilters = ["All", "This Month", "Online", "Check", "Unallocated", "Recurring"];
+  private List<Donation> _donations = [];
+  private string _donationFilter = "All";
+  private string _donationSearch = "";
+  private string _donationSortCol = "Date";
+  private bool _donationSortDesc = true;
+  private int _donationVisible = 15;
+
+  private IEnumerable<Donation> FilteredDonations
+  {
+    get
+    {
+      var now = DateTime.UtcNow;
+      var q = _donations.Where(d =>
+      {
+        var matchFilter = _donationFilter switch
+        {
+          "This Month" => d.Date.Year == now.Year && d.Date.Month == now.Month,
+          "Online"     => d.Channel == DonationChannel.Online,
+          "Check"      => d.Channel == DonationChannel.Check,
+          "Unallocated"=> d.AllocationStatus == AllocationStatus.Unallocated,
+          "Recurring"  => d.IsRecurring,
+          _            => true
+        };
+        var matchSearch = string.IsNullOrEmpty(_donationSearch) ||
+          (d.Donor?.FullName.Contains(_donationSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+          (d.Campaign?.Contains(_donationSearch, StringComparison.OrdinalIgnoreCase) ?? false);
+        return matchFilter && matchSearch;
+      });
+      return (_donationSortCol, _donationSortDesc) switch
+      {
+        ("Amount", true)  => q.OrderByDescending(d => d.Amount),
+        ("Amount", false) => q.OrderBy(d => d.Amount),
+        (_, true)         => q.OrderByDescending(d => d.Date),
+        _                 => q.OrderBy(d => d.Date),
+      };
+    }
+  }
+
+  private void SortDonations(string col)
+  {
+    if (_donationSortCol == col) _donationSortDesc = !_donationSortDesc;
+    else { _donationSortCol = col; _donationSortDesc = true; }
+  }
+
+  private string DonationSortArrow(string col) =>
+    _donationSortCol != col ? "↕" : _donationSortDesc ? "↓" : "↑";
 
   protected override async Task OnInitializedAsync()
   {
@@ -517,6 +691,11 @@ else
     }
     _eventRevenue = _ticketRevenue + _auctionRevenue;
 
+    _byStatus = _kanbanColumns.ToDictionary(
+      c => c.Status,
+      c => requests.Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
+    );
+
     _recentCases = requests.OrderByDescending(r => r.CreatedAt).Take(5).ToList();
     _newThisWeek = requests.Count(r => r.CreatedAt >= now.AddDays(-7));
 
@@ -561,6 +740,12 @@ else
       UnallocatedFunds:       unallocAmount,
       PendingAllocations:     pending
     );
+
+    var allDonors = await Api.GetDonorsAsync();
+    var donorMap  = allDonors.ToDictionary(d => d.Id);
+    _donations = (await Api.GetDonationsAsync())
+      .Select(d => { if (donorMap.TryGetValue(d.DonorId, out var donor)) d.Donor = donor; return d; })
+      .ToList();
 
     _timeline = await Api.GetTimelineAsync();
     _loading  = false;
