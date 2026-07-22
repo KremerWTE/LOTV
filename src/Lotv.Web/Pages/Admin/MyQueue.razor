@@ -137,7 +137,8 @@ else
       <div class="form-group">
         <label class="form-label">Status</label>
         <select class="form-input" @bind="_editStatus">
-          @foreach (var s in Enum.GetValues<CaseStatus>())
+          <option value="@_selected.Status">@_selected.Status (current)</option>
+          @foreach (var s in CaseStatusTransitions.ValidNextStates(_selected.Status))
           { <option value="@s">@s</option> }
         </select>
       </div>
@@ -255,8 +256,20 @@ else
     _saving = true;
     _saveError = "";
 
-    await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
+    // Patch tracking BEFORE status — the backend requires a tracking number to
+    // already be saved before it will allow a transition into Shipped.
     await Api.PatchRequestAsync(_selected.Id, _editTracking, _editShippedDate, null);
+
+    if (_editStatus != _selected.Status)
+    {
+      var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(_selected.Id, _editStatus);
+      if (!ok)
+      {
+        _saveError = error ?? "Failed to update status.";
+        _saving = false;
+        return;
+      }
+    }
 
     if (!string.IsNullOrWhiteSpace(_noteText))
     {

@@ -237,9 +237,12 @@
       <div>
         <div class="form-label" style="margin-bottom:8px;">Status</div>
         <select class="form-select" @bind="_editStatus">
-          @foreach (var s in Enum.GetValues<CaseStatus>())
+          <option value="@_selected.Status">@_selected.Status (current)</option>
+          @foreach (var s in CaseStatusTransitions.ValidNextStates(_selected.Status))
           { <option value="@s">@s</option> }
         </select>
+        @if (!string.IsNullOrEmpty(_statusError))
+        { <div style="background:#fff3cd;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#856404;margin-top:8px;">⚠ @_statusError</div> }
       </div>
 
       <div>
@@ -340,6 +343,7 @@
   private bool _showNew;
   private bool _saved;
   private bool _saving;
+  private string? _statusError;
   private string _avgAgeOpen = "—";
 
   // New request form state
@@ -432,9 +436,10 @@
     _editShippedDate     = r.ShippedDate;
     _editInternalNotes   = r.InternalNotes;
     _saved               = false;
+    _statusError         = null;
   }
 
-  private void CloseCase() { _selected = null; _saved = false; }
+  private void CloseCase() { _selected = null; _saved = false; _statusError = null; }
 
   private void OpenNew()
   {
@@ -505,6 +510,7 @@
   {
     if (_selected is null) return;
     _saving = true;
+    _statusError = null;
 
     // Assign BEFORE setting status — the assign endpoint forces status to InProgress
     // as a side effect, so if it ran after an explicit status change (e.g. to
@@ -512,9 +518,20 @@
     if (_editAssignedVolId.HasValue && _editAssignedVolId != _selected.AssignedToId)
       await Api.AssignRequestAsync(_selected.Id, _editAssignedVolId.Value);
 
-    await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
-
+    // Patch tracking BEFORE status — the backend requires a tracking number to
+    // already be saved before it will allow a transition into Shipped.
     await Api.PatchRequestAsync(_selected.Id, _editTrackingNumber, _editShippedDate, _editInternalNotes);
+
+    if (_editStatus != _selected.Status)
+    {
+      var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(_selected.Id, _editStatus);
+      if (!ok)
+      {
+        _statusError = error;
+        _saving = false;
+        return;
+      }
+    }
 
     _saving = false;
     _saved = true;

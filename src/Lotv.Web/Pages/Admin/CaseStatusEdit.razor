@@ -78,13 +78,9 @@ else
         <div class="form-group">
           <label class="form-label">New Status</label>
           <select class="form-input" @bind="_newStatus">
-            <option value="@CaseStatus.New">New</option>
-            <option value="@CaseStatus.InProgress">In Progress</option>
-            <option value="@CaseStatus.AwaitingShipment">Awaiting Shipment</option>
-            <option value="@CaseStatus.Shipped">Shipped</option>
-            <option value="@CaseStatus.Fulfilled">Fulfilled</option>
-            <option value="@CaseStatus.OnHold">On Hold</option>
-            <option value="@CaseStatus.Cancelled">Cancelled</option>
+            <option value="@_case.Status">@_case.Status (current)</option>
+            @foreach (var s in CaseStatusTransitions.ValidNextStates(_case.Status))
+            { <option value="@s">@s</option> }
           </select>
         </div>
 
@@ -118,10 +114,10 @@ else
   {
     if (_case is null) return;
     _error = ""; _saved = false; _busy = true;
-    var ok = await Api.UpdateRequestStatusAsync(Id, _newStatus);
+    var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(Id, _newStatus);
     _busy = false;
     if (ok) { _case.Status = _newStatus; _saved = true; }
-    else _error = "Failed to update status. Please try again.";
+    else _error = error ?? "Failed to update status. Please try again.";
   }
 
   private static string StatusClass(CaseStatus s) => s switch

@@ -710,6 +710,23 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    private record ErrorBody(string? error);
+
+    // Same endpoint as UpdateRequestStatusAsync, but surfaces the server's validation
+    // message (invalid transition, missing tracking number, etc.) instead of just true/false.
+    public async Task<(bool Ok, string? Error)> UpdateRequestStatusWithErrorAsync(int id, CaseStatus status)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{id}/status", new { Status = status });
+        if (resp is null) return (false, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (true, null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<ErrorBody>(JsonOpts);
+            return (false, body?.error ?? "Failed to update status.");
+        }
+        catch { return (false, "Failed to update status."); }
+    }
+
     public async Task<bool> AssignRequestAsync(int id, int volunteerId)
     {
         var resp = await AuthedPutAsync($"/api/v1/requests/{id}/assign", new { VolunteerId = volunteerId });
@@ -733,6 +750,35 @@ public class ApiService
         var resp = await AuthedPatchAsync($"/api/v1/requests/{id}",
             new { TrackingNumber = trackingNumber, ShippedDate = shippedDate, InternalNotes = internalNotes });
         return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Packing list ──────────────────────────────────────────────────────────
+    public Task<List<PackageContentItem>> GetPackageItemsAsync(int requestId) =>
+        GetListAsync<PackageContentItem>($"/api/v1/requests/{requestId}/items");
+
+    public async Task<(bool Ok, string? Error)> AddPackageItemAsync(int requestId, int resourceItemId, int quantity)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/requests/{requestId}/items", new { ResourceItemId = resourceItemId, Quantity = quantity });
+        if (resp is null) return (false, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (true, null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<ErrorBody>(JsonOpts);
+            return (false, body?.error ?? "Failed to add item.");
+        }
+        catch { return (false, "Failed to add item."); }
+    }
+
+    public async Task<bool> TogglePackedAsync(int requestId, int itemId)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{requestId}/items/{itemId}/pack", new { });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> RemovePackageItemAsync(int requestId, int itemId)
+    {
+        try { var r = await _http.DeleteAsync($"/api/v1/requests/{requestId}/items/{itemId}"); return r.IsSuccessStatusCode; }
+        catch { return false; }
     }
 
     public async Task<bool> AddRequestNoteAsync(int id, string content, bool isInternal = true)

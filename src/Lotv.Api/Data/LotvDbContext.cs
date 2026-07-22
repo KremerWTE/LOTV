@@ -37,6 +37,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
 
     // ─── Inventory ───────────────────────────────────────────────────────────
     public DbSet<ResourceItem> ResourceItems => Set<ResourceItem>();
+    public DbSet<PackageContentItem> PackageContentItems => Set<PackageContentItem>();
 
     // ─── Recurring giving & pledges ──────────────────────────────────────────
     public DbSet<RecurringDonation> RecurringDonations => Set<RecurringDonation>();
@@ -275,6 +276,15 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(r => r.ChapterId);
             e.Property(r => r.Name).HasMaxLength(100);
             e.Property(r => r.Unit).HasMaxLength(30);
+        });
+
+        // ── PackageContentItem ────────────────────────────────────────────────
+        builder.Entity<PackageContentItem>(e =>
+        {
+            e.HasOne(p => p.PackageRequest).WithMany().HasForeignKey(p => p.PackageRequestId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.ResourceItem).WithMany().HasForeignKey(p => p.ResourceItemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(p => p.PackageRequestId);
+            e.Property(p => p.PackedBy).HasMaxLength(100);
         });
 
         // ── ApiKey ───────────────────────────────────────────────────────────

@@ -545,14 +545,22 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
 }).RequireAuthorization("Authenticated");
 
 cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDbContext db,
-    IChapterContextService ctx, IHubContext<RequestsHub> hub) =>
+    IChapterContextService ctx, IHubContext<RequestsHub> hub, INotificationService notify, IPushSender pushSvc,
+    UserManager<LotvIdentityUser> userMgr) =>
 {
-    var r = await db.Requests.FindAsync(id);
+    var r = await db.Requests.Include(r => r.Family).FirstOrDefaultAsync(r => r.Id == id);
     if (r is null) return Results.NotFound();
     if (!ctx.IsHqAdmin && r.ChapterId != ctx.ChapterId) return Results.Forbid();
     var old = r.Status;
+
+    if (!CaseStatusTransitions.IsValid(old, body.Status))
+        return Results.BadRequest(new { error = $"Can't move a case from {old} directly to {body.Status}." });
+    if (body.Status == CaseStatus.Shipped && string.IsNullOrWhiteSpace(r.TrackingNumber))
+        return Results.BadRequest(new { error = "A tracking number is required before marking a case Shipped." });
+
     r.Status = body.Status;
     r.UpdatedAt = DateTime.UtcNow;
+    if (body.Status == CaseStatus.Shipped && r.ShippedDate is null) r.ShippedDate = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
         RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
@@ -561,6 +569,31 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
     });
     await db.SaveChangesAsync();
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseStatusChanged", id, body.Status.ToString(), ctx.UserId);
+
+    // Let the family know their package is on its way, and let the assigned
+    // volunteer know once it's shipped or the case is fully wrapped up — neither
+    // of these were ever surfaced anywhere outside an internal SignalR refresh.
+    if (body.Status is CaseStatus.Shipped or CaseStatus.Fulfilled)
+    {
+        if (body.Status == CaseStatus.Shipped && r.Family is not null && !string.IsNullOrWhiteSpace(r.Family.Email))
+        {
+            var trackingLine = string.IsNullOrWhiteSpace(r.TrackingNumber) ? "" : $"<p>Tracking number: <strong>{r.TrackingNumber}</strong></p>";
+            _ = notify.SendEmailAsync(r.Family.Email, r.Family.FullName, "Your Prayer Care Package Is On Its Way",
+                $"<p>Dear {r.Family.FullName},</p><p>Your Prayer Care Package has shipped and is on its way to you. We are keeping you close in prayer.</p>{trackingLine}");
+        }
+        if (r.AssignedToId.HasValue)
+        {
+            var vol = await db.Volunteers.FindAsync(r.AssignedToId.Value);
+            if (vol is not null && !string.IsNullOrEmpty(vol.Email))
+            {
+                var ident = await userMgr.FindByEmailAsync(vol.Email);
+                if (ident is not null)
+                    _ = pushSvc.SendToUserAsync(ident.Id, $"Request #{id} — {body.Status}",
+                        $"Request #{id} for {r.Family?.FullName ?? "a family"} is now {body.Status}.", $"/admin/cases/{id}");
+            }
+        }
+    }
+
     return Results.Ok(r);
 });
 
@@ -632,6 +665,82 @@ cases.MapPatch("/{id:int}", async (int id, RequestPatchRequest body, LotvDbConte
     r.UpdatedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
     return Results.Ok(r);
+}).RequireAuthorization("Staff");
+
+// ── Packing list — what's physically going into this family's package ─────────
+cases.MapGet("/{id:int}/items", async (int id, LotvDbContext db) =>
+    await db.PackageContentItems.Include(p => p.ResourceItem)
+        .Where(p => p.PackageRequestId == id).OrderBy(p => p.CreatedAt).ToListAsync());
+
+cases.MapPost("/{id:int}/items", async (int id, PackageItemRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var r = await db.Requests.FindAsync(id);
+    if (r is null) return Results.NotFound(new { message = "Request not found" });
+    var item = await db.ResourceItems.FindAsync(body.ResourceItemId);
+    if (item is null) return Results.NotFound(new { message = "Inventory item not found" });
+    if (body.Quantity <= 0) return Results.BadRequest(new { error = "Quantity must be greater than zero." });
+    if (body.Quantity > item.QuantityAvailable) return Results.BadRequest(new { error = "Quantity exceeds available stock." });
+
+    item.QuantityReserved += body.Quantity;
+    item.UpdatedAt = DateTime.UtcNow;
+    var content = new PackageContentItem
+    {
+        PackageRequestId = id, ResourceItemId = body.ResourceItemId, Quantity = body.Quantity
+    };
+    db.PackageContentItems.Add(content);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/requests/{id}/items/{content.Id}", content);
+}).RequireAuthorization("Staff");
+
+cases.MapPut("/{id:int}/items/{itemId:int}/pack", async (int id, int itemId, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var content = await db.PackageContentItems.Include(p => p.ResourceItem)
+        .FirstOrDefaultAsync(p => p.Id == itemId && p.PackageRequestId == id);
+    if (content is null) return Results.NotFound();
+    if (!content.Packed)
+    {
+        content.Packed = true;
+        content.PackedAt = DateTime.UtcNow;
+        content.PackedBy = ctx.UserId;
+        if (content.ResourceItem is not null)
+        {
+            // Packed = the item has physically left the shelf: move it out of both
+            // on-hand stock and the reserved count (reserved was only a hold).
+            content.ResourceItem.QuantityOnHand -= content.Quantity;
+            content.ResourceItem.QuantityReserved -= content.Quantity;
+            content.ResourceItem.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+    else
+    {
+        content.Packed = false;
+        content.PackedAt = null;
+        content.PackedBy = null;
+        if (content.ResourceItem is not null)
+        {
+            content.ResourceItem.QuantityOnHand += content.Quantity;
+            content.ResourceItem.QuantityReserved += content.Quantity;
+            content.ResourceItem.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok(content);
+}).RequireAuthorization("Staff");
+
+cases.MapDelete("/{id:int}/items/{itemId:int}", async (int id, int itemId, LotvDbContext db) =>
+{
+    var content = await db.PackageContentItems.Include(p => p.ResourceItem)
+        .FirstOrDefaultAsync(p => p.Id == itemId && p.PackageRequestId == id);
+    if (content is null) return Results.NotFound();
+    if (content.ResourceItem is not null)
+    {
+        content.ResourceItem.QuantityReserved -= content.Packed ? 0 : content.Quantity;
+        content.ResourceItem.QuantityOnHand += content.Packed ? content.Quantity : 0;
+        content.ResourceItem.UpdatedAt = DateTime.UtcNow;
+    }
+    db.PackageContentItems.Remove(content);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
 }).RequireAuthorization("Staff");
 
 cases.MapPost("/{id:int}/accept", async (int id, LotvDbContext db, IChapterContextService ctx) =>
@@ -4437,6 +4546,7 @@ record BidRequest(int BidderId, decimal BidAmount);
 record RoleChangeRequest(UserRole Role, int? ChapterId);
 record AuditLogRequest(string UserName, string Action, string Entity, string? EntityId, string? Details);
 record RequestPatchRequest(string? TrackingNumber, DateTime? ShippedDate, string? InternalNotes);
+record PackageItemRequest(int ResourceItemId, int Quantity);
 record ApproveAllocationRequest(string ApprovedBy);
 record RejectAllocationRequest(string Reason);
 record DonorPrivacyRequest(bool IsAnonymous);

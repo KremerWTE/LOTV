@@ -18,18 +18,28 @@
   </div>
 </div>
 
+@if (!string.IsNullOrEmpty(_dropError))
+{
+  <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:14px;">⚠ @_dropError</div>
+}
+
 <div class="kanban">
   @foreach (var col in _columns)
   {
     var cases = _byStatus.GetValueOrDefault(col.Status) ?? [];
-    <div class="kanban-col">
+    var isValidTarget = _draggingCase is not null && CaseStatusTransitions.IsValid(_draggingCase.Status, col.Status);
+    <div class="kanban-col @(_dragOverStatus == col.Status && isValidTarget ? "kanban-col-dragover" : "") @(_draggingCase is not null && !isValidTarget ? "kanban-col-invalid" : "")"
+         @ondragover:preventDefault="true"
+         @ondragenter="() => _dragOverStatus = col.Status"
+         @ondragleave="() => _dragOverStatus = null"
+         @ondrop="() => OnDropAsync(col.Status)">
       <div class="kanban-col-hd">
         <span>@col.Label</span>
         <span style="background:@col.Color;color:white;border-radius:10px;padding:1px 8px;font-size:.68rem;">@cases.Count</span>
       </div>
       @foreach (var r in cases)
       {
-        <div class="kanban-card" @onclick="() => SelectCase(r)">
+        <div class="kanban-card" draggable="true" @ondragstart="() => OnDragStart(r)" @ondragend="() => { _draggingCase = null; _dragOverStatus = null; }" @onclick="() => SelectCase(r)">
           <div class="kanban-card-id">#@r.Id</div>
           <div class="kanban-card-name">@r.Family?.FullName</div>
           <div class="kanban-card-reason">@r.Reason.ToDisplayName()</div>
@@ -79,10 +89,13 @@
       <div class="form-group">
         <label class="form-label">Status</label>
         <select class="form-input" @bind="_editStatus">
-          @foreach (var s in Enum.GetValues<CaseStatus>())
+          <option value="@_selected.Status">@_selected.Status (current)</option>
+          @foreach (var s in CaseStatusTransitions.ValidNextStates(_selected.Status))
           { <option value="@s">@s</option> }
         </select>
       </div>
+      @if (!string.IsNullOrEmpty(_drawerError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#856404;">⚠ @_drawerError</div> }
 
       <div class="form-group">
         <label class="form-label">Assigned To</label>
@@ -152,7 +165,11 @@
   private string? _editTrackingNumber;
   private DateTime? _editShippedDate;
   private bool _drawerSaved;
+  private string? _drawerError;
   private bool _saving;
+  private PackageRequest? _draggingCase;
+  private CaseStatus? _dragOverStatus;
+  private string? _dropError;
 
   protected override async Task OnInitializedAsync()
   {
@@ -194,15 +211,17 @@
     _editTrackingNumber = r.TrackingNumber;
     _editShippedDate    = r.ShippedDate;
     _drawerSaved        = false;
+    _drawerError        = null;
     _saving             = false;
   }
 
-  private void CloseDrawer() { _selected = null; _drawerSaved = false; }
+  private void CloseDrawer() { _selected = null; _drawerSaved = false; _drawerError = null; }
 
   private async Task SaveFromDrawer()
   {
     if (_selected is null || _saving) return;
     _saving = true;
+    _drawerError = null;
 
     // Assign BEFORE setting status — the assign endpoint forces status to InProgress
     // as a side effect, so if it ran after an explicit status change (e.g. to
@@ -210,11 +229,21 @@
     if (_editAssignedTo > 0 && _editAssignedTo != (_selected.AssignedToId ?? 0))
       await Api.AssignRequestAsync(_selected.Id, _editAssignedTo);
 
-    if (_editStatus != _selected.Status)
-      await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
-
+    // Patch tracking BEFORE status — the backend requires a tracking number to
+    // already be saved before it will allow a transition into Shipped.
     if (_editTrackingNumber != _selected.TrackingNumber || _editShippedDate != _selected.ShippedDate)
       await Api.PatchRequestAsync(_selected.Id, _editTrackingNumber, _editShippedDate, _selected.InternalNotes);
+
+    if (_editStatus != _selected.Status)
+    {
+      var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(_selected.Id, _editStatus);
+      if (!ok)
+      {
+        _drawerError = error;
+        _saving = false;
+        return;
+      }
+    }
 
     // Optimistic local update
     var vol = _volunteers.FirstOrDefault(v => v.Id == _editAssignedTo);
@@ -230,6 +259,38 @@
     );
     _drawerSaved = true;
     _saving = false;
+  }
+
+  private void OnDragStart(PackageRequest r) => _draggingCase = r;
+
+  private async Task OnDropAsync(CaseStatus targetStatus)
+  {
+    var dragged = _draggingCase;
+    _draggingCase = null;
+    _dragOverStatus = null;
+    if (dragged is null || dragged.Status == targetStatus) return;
+
+    if (!CaseStatusTransitions.IsValid(dragged.Status, targetStatus))
+    {
+      _dropError = $"Can't move a case from {dragged.Status} directly to {targetStatus}.";
+      return;
+    }
+    if (targetStatus == CaseStatus.Shipped && string.IsNullOrWhiteSpace(dragged.TrackingNumber))
+    {
+      _dropError = $"Case #{dragged.Id} needs a tracking number before it can be marked Shipped — open the card to add one.";
+      return;
+    }
+
+    var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(dragged.Id, targetStatus);
+    if (!ok) { _dropError = error; return; }
+
+    _dropError = null;
+    dragged.Status = targetStatus;
+    dragged.UpdatedAt = DateTime.UtcNow;
+    _byStatus = _columns.ToDictionary(
+      c => c.Status,
+      c => _byStatus.SelectMany(kv => kv.Value).Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
+    );
   }
 
   public void Dispose()
