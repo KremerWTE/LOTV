@@ -16,12 +16,6 @@
   </div>
 </div>
 
-<!-- DATE RANGE FILTER -->
-<div class="filter-bar sticky-filter" style="margin-bottom:20px;position:sticky;top:0;z-index:10;background:var(--bg-page);padding:10px 0;">
-  @foreach (var r in new[]{"MTD","QTD","YTD","All Time"})
-  { <button class="filter-chip @(_range == r ? "active" : "")" aria-pressed="@(_range == r)" @onclick="() => SetRange(r)">@r</button> }
-</div>
-
 @if (_loading)
 {
   <Loading Message="Loading impact data…" Size="lg" />
@@ -32,8 +26,8 @@ else
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi-card kpi-gold">
       <div class="kpi-icon">💸</div>
-      <div class="kpi-label">Total Donated</div>
-      <div class="kpi-value" style="color:var(--gold)"><Money Amount="@(_stats?.DonationsThisMonth ?? 0m)" /></div>
+      <div class="kpi-label">Total Donated (All Time)</div>
+      <div class="kpi-value" style="color:var(--gold)"><Money Amount="@_channels.Sum(c => c.TotalAmount)" /></div>
     </div>
     <div class="kpi-card kpi-green">
       <div class="kpi-icon">📦</div>
@@ -42,8 +36,8 @@ else
     </div>
     <div class="kpi-card kpi-navy">
       <div class="kpi-icon">👥</div>
-      <div class="kpi-label">People Helped</div>
-      <div class="kpi-value" style="color:var(--navy)">@_stats?.OpenCases</div>
+      <div class="kpi-label">Families Helped</div>
+      <div class="kpi-value" style="color:var(--navy)">@_familiesHelped</div>
     </div>
     <div class="kpi-card kpi-amber">
       <div class="kpi-icon">✅</div>
@@ -219,7 +213,6 @@ else
 
 @code {
   private bool _loading = true;
-  private string _range = "MTD";
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
@@ -233,6 +226,7 @@ else
   private List<TimelinePointDto> _timeline = [];
   private List<ChannelBreakdownDto> _channels = [];
   private List<Diocese> _dioceses = [];
+  private int _familiesHelped;
 
   private int _totalResources => _resourceFlow.Sum(r => r.Quantity);
 
@@ -256,19 +250,15 @@ else
     var t4 = Api.GetTimelineAsync();
     var t5 = Api.GetDonationsByChannelAsync();
     var t6 = Api.GetDiocesesAsync();
-    await Task.WhenAll(t1, t2, t3, t4, t5, t6);
+    var t7 = Api.GetRequestsAsync();
+    await Task.WhenAll(t1, t2, t3, t4, t5, t6, t7);
     _stats        = t1.Result;
     _moneyFlow    = t2.Result;
     _resourceFlow = t3.Result;
     _timeline     = t4.Result;
     _channels     = t5.Result;
     _dioceses     = t6.Result;
+    _familiesHelped = t7.Result.Where(r => r.Status == CaseStatus.Fulfilled).Select(r => r.FamilyId).Distinct().Count();
     _loading = false;
-  }
-
-  private async Task SetRange(string range)
-  {
-    _range = range;
-    await LoadAsync();
   }
 }
