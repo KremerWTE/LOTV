@@ -89,9 +89,23 @@
         <select class="form-input" @bind="_editAssignedTo">
           <option value="">— Unassigned —</option>
           @foreach (var v in _volunteers)
-          { <option value="@v.Id">@v.FullName</option> }
+          { <option value="@v.Id">@v.FullName@(IsAtCapacity(v) ? " (at capacity)" : "")</option> }
         </select>
       </div>
+
+      @if (_editStatus is CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.Fulfilled)
+      {
+        <div class="form-group">
+          <label class="form-label">Tracking Number</label>
+          <input class="form-input" @bind="_editTrackingNumber" placeholder="e.g. 1Z999AA10123456784" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Shipped Date</label>
+          <input class="form-input" type="date"
+                 value="@(_editShippedDate?.ToString("yyyy-MM-dd") ?? "")"
+                 @onchange='e => _editShippedDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
+        </div>
+      }
 
       @if (!string.IsNullOrEmpty(_selected.InternalNotes))
       {
@@ -135,6 +149,8 @@
   private PackageRequest? _selected;
   private CaseStatus _editStatus;
   private int _editAssignedTo;   // volunteer Id; 0 = unassigned
+  private string? _editTrackingNumber;
+  private DateTime? _editShippedDate;
   private bool _drawerSaved;
   private bool _saving;
 
@@ -148,10 +164,15 @@
     Hub.OnReconnected       += async ()         => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
   }
 
+  private Dictionary<int, int> _capacityById = new();
+
   private async Task LoadAsync()
   {
     var vols = await Api.GetVolunteersAsync("Active");
     _volunteers = vols;
+
+    var workload = await Api.GetWorkloadAsync();
+    _capacityById = workload.ToDictionary(w => w.Id, w => w.Capacity);
 
     var requests = await Api.GetRequestsAsync();
     _byStatus = _columns.ToDictionary(
@@ -160,13 +181,20 @@
     );
   }
 
+  // Manual assignment doesn't enforce the chapter's capacity cap the way
+  // auto-assignment does — flag it in the dropdown so staff can see it, without
+  // blocking an intentional override.
+  private bool IsAtCapacity(Volunteer v) => v.ActiveCases >= _capacityById.GetValueOrDefault(v.Id, 6);
+
   private void SelectCase(PackageRequest r)
   {
-    _selected       = r;
-    _editStatus     = r.Status;
-    _editAssignedTo = r.AssignedToId ?? 0;
-    _drawerSaved    = false;
-    _saving         = false;
+    _selected           = r;
+    _editStatus         = r.Status;
+    _editAssignedTo     = r.AssignedToId ?? 0;
+    _editTrackingNumber = r.TrackingNumber;
+    _editShippedDate    = r.ShippedDate;
+    _drawerSaved        = false;
+    _saving             = false;
   }
 
   private void CloseDrawer() { _selected = null; _drawerSaved = false; }
@@ -176,18 +204,26 @@
     if (_selected is null || _saving) return;
     _saving = true;
 
-    if (_editStatus != _selected.Status)
-      await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
-
+    // Assign BEFORE setting status — the assign endpoint forces status to InProgress
+    // as a side effect, so if it ran after an explicit status change (e.g. to
+    // Shipped), it would silently overwrite it back to InProgress.
     if (_editAssignedTo > 0 && _editAssignedTo != (_selected.AssignedToId ?? 0))
       await Api.AssignRequestAsync(_selected.Id, _editAssignedTo);
 
+    if (_editStatus != _selected.Status)
+      await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
+
+    if (_editTrackingNumber != _selected.TrackingNumber || _editShippedDate != _selected.ShippedDate)
+      await Api.PatchRequestAsync(_selected.Id, _editTrackingNumber, _editShippedDate, _selected.InternalNotes);
+
     // Optimistic local update
     var vol = _volunteers.FirstOrDefault(v => v.Id == _editAssignedTo);
-    _selected.Status      = _editStatus;
-    _selected.AssignedToId = _editAssignedTo > 0 ? _editAssignedTo : null;
-    _selected.AssignedTo  = vol?.FullName;
-    _selected.UpdatedAt   = DateTime.UtcNow;
+    _selected.Status         = _editStatus;
+    _selected.AssignedToId   = _editAssignedTo > 0 ? _editAssignedTo : null;
+    _selected.AssignedTo     = vol?.FullName;
+    _selected.TrackingNumber = _editTrackingNumber;
+    _selected.ShippedDate    = _editShippedDate;
+    _selected.UpdatedAt      = DateTime.UtcNow;
     _byStatus = _columns.ToDictionary(
       c => c.Status,
       c => _byStatus.SelectMany(kv => kv.Value).Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()

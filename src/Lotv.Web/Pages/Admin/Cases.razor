@@ -208,7 +208,7 @@
         <select class="form-input" @bind="_newAssignOverrideVolId">
           <option value="">Auto (next available)</option>
           @foreach (var v in _volunteers)
-          { <option value="@v.Id">@v.FullName</option> }
+          { <option value="@v.Id">@v.FullName@(IsAtCapacity(v) ? " (at capacity)" : "")</option> }
         </select>
       </div>
 
@@ -251,7 +251,7 @@
         <select class="form-select" @bind="_editAssignedVolId">
           <option value="">— Unassigned —</option>
           @foreach (var v in _volunteers)
-          { <option value="@v.Id">@v.FullName</option> }
+          { <option value="@v.Id">@v.FullName@(IsAtCapacity(v) ? " (at capacity)" : "")</option> }
         </select>
       </div>
 
@@ -351,9 +351,18 @@
 
   private readonly string[] _filters = ["All", "New", "In Progress", "Awaiting Shipment", "Shipped", "Fulfilled", "On Hold", "Cancelled", "Overdue"];
 
+  private Dictionary<int, int> _capacityById = new();
+
+  // Manual assignment doesn't enforce the chapter's capacity cap the way
+  // auto-assignment does — flag it in the dropdown so staff can see it, without
+  // blocking an intentional override.
+  private bool IsAtCapacity(Volunteer v) => v.ActiveCases >= _capacityById.GetValueOrDefault(v.Id, 6);
+
   protected override async Task OnInitializedAsync()
   {
     _volunteers = await Api.GetVolunteersAsync("Active");
+    var workload = await Api.GetWorkloadAsync();
+    _capacityById = workload.ToDictionary(w => w.Id, w => w.Capacity);
     await LoadAsync();
 
     if (FamilyId > 0)
@@ -497,10 +506,13 @@
     if (_selected is null) return;
     _saving = true;
 
-    await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
-
+    // Assign BEFORE setting status — the assign endpoint forces status to InProgress
+    // as a side effect, so if it ran after an explicit status change (e.g. to
+    // Shipped), it would silently overwrite it back to InProgress.
     if (_editAssignedVolId.HasValue && _editAssignedVolId != _selected.AssignedToId)
       await Api.AssignRequestAsync(_selected.Id, _editAssignedVolId.Value);
+
+    await Api.UpdateRequestStatusAsync(_selected.Id, _editStatus);
 
     await Api.PatchRequestAsync(_selected.Id, _editTrackingNumber, _editShippedDate, _editInternalNotes);
 
