@@ -235,9 +235,14 @@
   private void OpenEdit(MinistryEvent ev)
   {
     _editing      = ev;
-    _form         = new MinistryEvent
+    // Start from a copy of the full record (not just the fields this form edits) so
+    // Status/TicketPrice/GoalAmount/EndDate/ChapterId survive the round-trip — a prior
+    // version rebuilt this from scratch with only the fields below, which silently
+    // reset everything else (e.g. Status back to Draft) on every edit.
+    _form = new MinistryEvent
     {
-      Id          = ev.Id,
+      Id = ev.Id, Status = ev.Status, TicketPrice = ev.TicketPrice, GoalAmount = ev.GoalAmount,
+      EndDate = ev.EndDate, ChapterId = ev.ChapterId, CreatedBy = ev.CreatedBy,
       Title       = ev.Title,
       Type        = ev.Type,
       Date        = ev.Date,
@@ -276,10 +281,12 @@
 
     _form.Capacity = _formCapacity;
 
-    if (_editing == null)
-      await Api.CreateEventAsync(_form);
-    else
-      await Api.UpdateEventAsync(_form.Id, _form);
+    var result = _editing == null
+      ? await Api.CreateEventAsync(_form)
+      : await Api.UpdateEventAsync(_form.Id, _form);
+
+    if (result is null)
+    { _addError = "Failed to save event. Please try again."; return; }
 
     _events     = await Api.GetEventsAsync();
     _wasEditing = _editing != null;

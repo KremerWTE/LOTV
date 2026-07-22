@@ -152,6 +152,8 @@
       </div>
       @if (_formSaved)
       { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ Saved successfully.</div> }
+      @if (!string.IsNullOrEmpty(_formError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_formError</div> }
 
       @if (_editing.Id != 0)
       {
@@ -175,7 +177,7 @@
               }
             </div>
             <div style="margin-top:8px;font-size:.78rem;color:var(--text-mid);">
-              Lifetime total: <strong>@history.Sum(g => g.Amount).ToString("C0")</strong>
+              Lifetime total: <strong>@_editing.TotalGiven.ToString("C0")</strong>
             </div>
           }
           else
@@ -221,27 +223,35 @@
     _editing      = d;
     _showForm     = true;
     _formSaved    = false;
+    _formError    = null;
     _donorHistory = d.Id != 0
       ? (await Api.GetDonorContributionsAsync(d.Id)).OrderByDescending(x => x.Date).ToList()
       : [];
   }
 
-  private void CloseForm() { _showForm = false; _editing = null; _formSaved = false; _donorHistory = []; }
+  private void CloseForm() { _showForm = false; _editing = null; _formSaved = false; _formError = null; _donorHistory = []; }
+
+  private string? _formError;
 
   private async Task SaveDonorAsync()
   {
     if (_editing is null) return;
+    Donor? result;
     if (_editing.Id == 0)
     {
       _editing.FirstGiftDate = DateTime.UtcNow;
       _editing.LastGiftDate  = DateTime.UtcNow;
-      await Api.CreateDonorAsync(_editing);
+      result = await Api.CreateDonorAsync(_editing);
     }
     else
     {
-      await Api.UpdateDonorAsync(_editing.Id, _editing);
+      result = await Api.UpdateDonorAsync(_editing.Id, _editing);
     }
 
+    if (result is null)
+    { _formError = "Failed to save donor. Please try again."; return; }
+
+    _formError = null;
     _donors    = await Api.GetDonorsAsync();
     _formSaved = true;
   }

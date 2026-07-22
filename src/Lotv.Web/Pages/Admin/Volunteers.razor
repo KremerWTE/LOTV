@@ -228,6 +228,7 @@
     if (string.IsNullOrWhiteSpace(_formEmail))
     { _validationError = "Email address is required."; return; }
 
+    Volunteer? result;
     if (_editing == null)
     {
       var vol = new Volunteer
@@ -241,7 +242,7 @@
         ParishName = _formParish,
         JoinedDate = DateTime.UtcNow
       };
-      await Api.CreateVolunteerAsync(vol);
+      result = await Api.CreateVolunteerAsync(vol);
     }
     else
     {
@@ -252,8 +253,11 @@
       _editing.Role       = _formRole;
       _editing.Status     = _formStatus;
       _editing.ParishName = _formParish;
-      await Api.UpdateVolunteerAsync(_editing.Id, _editing);
+      result = await Api.UpdateVolunteerAsync(_editing.Id, _editing);
     }
+
+    if (result is null)
+    { _validationError = "Failed to save volunteer. Please try again."; return; }
 
     _vols = await Api.GetVolunteersAsync();
     _drawerOpen = false;
