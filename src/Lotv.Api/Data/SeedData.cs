@@ -216,6 +216,35 @@ public static class DevSeedData
             "Mary", "Roberts", UserRole.HQAdmin, chapterId: null);
         await CreateUserIfMissingAsync(userMgr, "chicago@lotv-demo.org", "DevPassword1!",
             "Claire", "Hoffman", UserRole.ChapterStaff, chapterId: 1);
+
+        // ── Real staff accounts (dev credentials only — rotate before any real
+        // deployment; these are NOT meant to be used outside local dev) ─────────
+        await CreateUserIfMissingAsync(userMgr, "whitney.whitmore@lotvministry.org", "DevPassword1!",
+            "Whitney", "Whitmore", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "cynthia.destefano@lotvministry.org", "DevPassword1!",
+            "Cynthia", "DeStefano", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "chris.kremer@lotvministry.org", "DevPassword1!",
+            "Chris", "Kremer", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "admin@lotvministry.org", "DevPassword1!",
+            "Admin", "Account", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "tech@lotvministry.org", "DevPassword1!",
+            "Tech", "Account", UserRole.HQAdmin, chapterId: null);
+
+        // Chapter-scoped staff — ChapterStaff is the least-privileged role that
+        // still sees Cases/Kanban/Queue; it also currently includes the
+        // Volunteers/Programs nav section (there's no narrower "kanban-only"
+        // role yet). Defaulted to Chapter 1 (Chicago Metro) pending real
+        // chapter assignments.
+        await CreateUserIfMissingAsync(userMgr, "jamie-lee.lavelle@lotvministry.org", "DevPassword1!",
+            "Jamie-Lee", "Lavelle", UserRole.ChapterStaff, chapterId: 1);
+        await CreateUserIfMissingAsync(userMgr, "maegan.dobner@lotvministry.org", "DevPassword1!",
+            "Maegan", "Dobner", UserRole.ChapterStaff, chapterId: 1);
+        await CreateUserIfMissingAsync(userMgr, "stephanie.caccamo@lotvministry.org", "DevPassword1!",
+            "Stephanie", "Caccamo", UserRole.ChapterStaff, chapterId: 1);
+        await CreateUserIfMissingAsync(userMgr, "sammi.weaver@lotvministry.org", "DevPassword1!",
+            "Sammi", "Weaver", UserRole.ChapterStaff, chapterId: 1);
+        await CreateUserIfMissingAsync(userMgr, "stephanie.mercado-carrillo@lotvministry.org", "DevPassword1!",
+            "Stephanie", "Mercado Carrillo", UserRole.ChapterStaff, chapterId: 1);
     }
 
     private static async Task CreateUserIfMissingAsync(UserManager<LotvIdentityUser> userMgr,
