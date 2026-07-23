@@ -46,7 +46,16 @@ builder.Host.UseSerilog((ctx, services, cfg) =>
 });
 
 // ── Database ──────────────────────────────────────────────────────────────────
-if (builder.Environment.IsDevelopment())
+// Database:Provider = "SqlServer" targets a SQL Server instance regardless of
+// environment (used for the real ministry database at 10.100.1.87). Otherwise
+// Development defaults to local SQLite and everything else to Postgres.
+var dbProvider = builder.Configuration["Database:Provider"];
+if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddDbContext<LotvDbContext>(o =>
+        o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
+else if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddDbContext<LotvDbContext>(o =>
         o.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=lotv-dev.db"));
@@ -244,8 +253,13 @@ app.MapHealthChecks("/health").AllowAnonymous();
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
-    if (app.Environment.IsDevelopment())
-        db.Database.EnsureCreated();    // fast for SQLite dev; skips migration table
+    // The existing migration history was scaffolded against SQLite and doesn't
+    // cleanly replay under SQL Server (provider-specific column-type annotations
+    // trigger a "pending model changes" error) — EnsureCreated derives DDL fresh
+    // from the live model instead, which is what LegacyImport already used to
+    // stand up the real SQL Server database.
+    if (app.Environment.IsDevelopment() || string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+        db.Database.EnsureCreated();
     else
         db.Database.Migrate();          // runs pending EF Core migrations in production
 }

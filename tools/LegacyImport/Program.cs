@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 // spreadsheet into the real Family/PackageRequest/MailingListEntry tables.
 //
 // Usage:
-//   dotnet run --project tools/LegacyImport -- <path-to-legacy_import.json> <sqlite-connection-string>
+//   dotnet run --project tools/LegacyImport -- <path-to-legacy_import.json> <connection-string> [sqlite|sqlserver]
 //
 // Re-runnable: deletes any previously imported rows (tagged to the "Legacy Import"
 // chapter / mailing-list Year<=2026) before re-inserting, so it's safe to run again
@@ -15,16 +15,20 @@ using Microsoft.EntityFrameworkCore;
 
 if (args.Length < 2)
 {
-    Console.Error.WriteLine("Usage: dotnet run --project tools/LegacyImport -- <json-path> <sqlite-connection-string>");
+    Console.Error.WriteLine("Usage: dotnet run --project tools/LegacyImport -- <json-path> <connection-string> [sqlite|sqlserver]");
     return 1;
 }
 
 var jsonPath = args[0];
 var connectionString = args[1];
+var provider = args.Length > 2 ? args[2] : "sqlite";
 
-var options = new DbContextOptionsBuilder<LotvDbContext>()
-    .UseSqlite(connectionString)
-    .Options;
+var optionsBuilder = new DbContextOptionsBuilder<LotvDbContext>();
+if (string.Equals(provider, "sqlserver", StringComparison.OrdinalIgnoreCase))
+    optionsBuilder.UseSqlServer(connectionString);
+else
+    optionsBuilder.UseSqlite(connectionString);
+var options = optionsBuilder.Options;
 
 await using var db = new LotvDbContext(options);
 await db.Database.EnsureCreatedAsync();
