@@ -15,6 +15,8 @@
   </div>
   <div class="page-hd-actions">
     <a href="/admin/cases" class="btn btn-sm">List View</a>
+    <a href="/admin/queue" class="btn btn-sm">🔚 Unassigned Queue</a>
+    <a href="/admin/my-queue" class="btn btn-sm">📋 My Work Queue</a>
   </div>
 </div>
 
@@ -34,12 +36,17 @@
          @ondragleave="() => _dragOverStatus = null"
          @ondrop="() => OnDropAsync(col.Status)">
       <div class="kanban-col-hd">
-        <span>@col.Label</span>
+        <span>
+          @col.Label
+          @{ var unassignedCount = cases.Count(r => r.AssignedTo is null); }
+          @if (unassignedCount > 0)
+          { <span style="color:var(--amber);font-weight:700;" title="@unassignedCount unassigned">&nbsp;(@unassignedCount unassigned)</span> }
+        </span>
         <span style="background:@col.Color;color:white;border-radius:10px;padding:1px 8px;font-size:.68rem;">@cases.Count</span>
       </div>
       @foreach (var r in cases)
       {
-        <div class="kanban-card" draggable="true" @ondragstart="() => OnDragStart(r)" @ondragend="() => { _draggingCase = null; _dragOverStatus = null; }" @onclick="() => SelectCase(r)">
+        <div class="kanban-card @(r.AssignedTo is null ? "kanban-card-unassigned" : "")" draggable="true" @ondragstart="() => OnDragStart(r)" @ondragend="() => { _draggingCase = null; _dragOverStatus = null; }" @onclick="() => SelectCase(r)">
           <div class="kanban-card-id">#@r.Id</div>
           <div class="kanban-card-name">@r.Family?.FullName</div>
           <div class="kanban-card-reason">@r.Reason.ToDisplayName()</div>
@@ -55,7 +62,7 @@
             <div class="kanban-card-tracking">📦 @r.TrackingNumber</div>
           }
           <div class="kanban-card-footer">
-            <span class="kanban-assignee">👤 @(r.AssignedTo ?? "Unassigned")</span>
+            <span class="kanban-assignee @(r.AssignedTo is null ? "kanban-assignee-unassigned" : "")">👤 @(r.AssignedTo ?? "Unassigned")</span>
             <span class="kanban-age @(r.IsOverdue ? "badge-overdue" : "")">@GetAge(r.CreatedAt)</span>
           </div>
         </div>
@@ -253,10 +260,7 @@
     _selected.TrackingNumber = _editTrackingNumber;
     _selected.ShippedDate    = _editShippedDate;
     _selected.UpdatedAt      = DateTime.UtcNow;
-    _byStatus = _columns.ToDictionary(
-      c => c.Status,
-      c => _byStatus.SelectMany(kv => kv.Value).Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
-    );
+    RegroupByStatus();
     _drawerSaved = true;
     _saving = false;
   }
@@ -287,6 +291,13 @@
     _dropError = null;
     dragged.Status = targetStatus;
     dragged.UpdatedAt = DateTime.UtcNow;
+    RegroupByStatus();
+  }
+
+  // Re-buckets the already-loaded cases by their (possibly just-changed) status,
+  // without a round-trip to the API.
+  private void RegroupByStatus()
+  {
     _byStatus = _columns.ToDictionary(
       c => c.Status,
       c => _byStatus.SelectMany(kv => kv.Value).Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
@@ -297,16 +308,6 @@
   {
     _ = Hub.DisconnectAsync();
   }
-
-  private static string GetBadge(CaseStatus s) => s switch
-  {
-    CaseStatus.New        => "badge-new",
-    CaseStatus.InProgress => "badge-inprogress",
-    CaseStatus.Shipped    => "badge-shipped",
-    CaseStatus.Fulfilled  => "badge-fulfilled",
-    CaseStatus.OnHold     => "badge-onhold",
-    _ => "badge-new"
-  };
 
   private static string GetAge(DateTime dt)
   {

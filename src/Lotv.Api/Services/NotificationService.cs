@@ -14,7 +14,7 @@ public class NotificationService : INotificationService
 
     public Task<Result> SendEmailAsync(string toEmail, string toName, string subject, string htmlBody)
     {
-        _logger.LogInformation("[Email] To: {Email} | Subject: {Subject}", toEmail, subject);
+        _logger.LogInformation("[Email] To: {Email} | Subject: {Subject}\n{Body}", toEmail, subject, htmlBody);
         return Task.FromResult(Result.Ok());
     }
 

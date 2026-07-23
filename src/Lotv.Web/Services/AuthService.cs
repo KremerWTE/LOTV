@@ -34,6 +34,7 @@ public class AuthService
         }
     }
     public string UserEmail => GetClaim(JwtRegisteredClaimNames.Email) ?? "";
+    public string UserId    => GetClaim(ClaimTypes.NameIdentifier) ?? "";
     public string UserRole  => GetClaim("role") ?? "";
     public int? ChapterId
     {
@@ -71,12 +72,12 @@ public class AuthService
     public event Action? OnChange;
 
     // ── Login ─────────────────────────────────────────────────────────────────
-    public async Task<bool> LoginAsync(string email, string password)
+    public async Task<bool> LoginAsync(string username, string password)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/api/v1/auth/login",
-                new { Email = email, Password = password });
+                new { Username = username, Password = password });
 
             if (!resp.IsSuccessStatusCode) return false;
 
@@ -96,6 +97,29 @@ public class AuthService
         {
             return false;
         }
+    }
+
+    // ── Password recovery ────────────────────────────────────────────────────
+    // Always reports success regardless of whether the account/recovery-email
+    // exists — the server intentionally never reveals that, to avoid leaking
+    // which usernames are valid.
+    public async Task ForgotPasswordAsync(string username)
+    {
+        try { await _http.PostAsJsonAsync("/api/v1/auth/forgot-password", new { Username = username }); }
+        catch { }
+    }
+
+    public async Task<(bool Ok, string? Error)> ResetPasswordAsync(string username, string token, string newPassword)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/v1/auth/reset-password",
+                new { Username = username, Token = token, NewPassword = newPassword });
+            if (resp.IsSuccessStatusCode) return (true, null);
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "Failed to reset password.");
+        }
+        catch { return (false, "Network error — please try again."); }
     }
 
     // ── Restore session on page load ──────────────────────────────────────────

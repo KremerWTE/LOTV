@@ -72,6 +72,11 @@ data/*.sqlite
 data/*.sqlite3
 data/*.mdf
 data/*.ldf
+
+# ── Real family/donor PII source files — never commit, local import inputs only
+*.xlsx
+*.xls
+!**/wwwroot/**/*.xlsx
 data/*.bak
 
 # ── Scripts — ignore any generated or temp output from dev scripts ────────────

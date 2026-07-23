@@ -100,7 +100,7 @@ public class MobileResponsivenessTests : IAsyncLifetime
             await AssertNoHorizontalScrollAsync();
 
             // Inputs should be tappable (not too small)
-            var emailInput = Page.Locator("input[type='email']").First;
+            var emailInput = Page.Locator("#login-username, input[type='email']").First;
             var box = await emailInput.BoundingBoxAsync();
             Assert.NotNull(box);
             Assert.True(box.Height >= 36, "Input should be at least 36px tall for touch targets");

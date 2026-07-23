@@ -28,8 +28,8 @@ public static class E2ESettings
     public static float Timeout => 15_000;
 
     // ── Seed credentials (match DevSeedData / test accounts) ─────────────────
-    public static string AdminEmail    => "admin@lotv-demo.org";
+    public static string AdminUsername => "mary.roberts";
     public static string AdminPassword => "DevPassword1!";
-    public static string StaffEmail    => "chicago@lotv-demo.org";
+    public static string StaffUsername => "claire.hoffman";
     public static string StaffPassword => "DevPassword1!";
 }

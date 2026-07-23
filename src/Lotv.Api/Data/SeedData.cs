@@ -211,23 +211,28 @@ public static class DevSeedData
 
         // ── MOCK DATA: Login accounts ─────────────────────────────────────────
         // Credentials matched by tests/Lotv.E2E/Infrastructure/E2ESettings.cs —
-        // keep these two in sync if either side changes.
-        await CreateUserIfMissingAsync(userMgr, "admin@lotv-demo.org", "DevPassword1!",
+        // keep these two in sync if either side changes. No real email on file;
+        // a recovery email can be added later via Admin > User Management.
+        await CreateUserIfMissingAsync(userMgr, "mary.roberts", null, "DevPassword1!",
             "Mary", "Roberts", UserRole.HQAdmin, chapterId: null);
-        await CreateUserIfMissingAsync(userMgr, "chicago@lotv-demo.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "claire.hoffman", null, "DevPassword1!",
             "Claire", "Hoffman", UserRole.ChapterStaff, chapterId: 1);
 
         // ── Real staff accounts (dev credentials only — rotate before any real
-        // deployment; these are NOT meant to be used outside local dev) ─────────
-        await CreateUserIfMissingAsync(userMgr, "whitney.whitmore@lotvministry.org", "DevPassword1!",
+        // deployment; these are NOT meant to be used outside local dev). These
+        // people don't have real email addresses on file, so they sign in with
+        // a plain username (firstname.lastname) rather than an email — a
+        // recovery email can be added later via Admin > User Management for
+        // forgot-password to work.
+        await CreateUserIfMissingAsync(userMgr, "whitney.whitmore", null, "DevPassword1!",
             "Whitney", "Whitmore", UserRole.HQAdmin, chapterId: null);
-        await CreateUserIfMissingAsync(userMgr, "cynthia.destefano@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "cynthia.destefano", null, "DevPassword1!",
             "Cynthia", "DeStefano", UserRole.HQAdmin, chapterId: null);
-        await CreateUserIfMissingAsync(userMgr, "chris.kremer@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "chris.kremer", null, "DevPassword1!",
             "Chris", "Kremer", UserRole.HQAdmin, chapterId: null);
-        await CreateUserIfMissingAsync(userMgr, "admin@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "admin", null, "DevPassword1!",
             "Admin", "Account", UserRole.HQAdmin, chapterId: null);
-        await CreateUserIfMissingAsync(userMgr, "tech@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "tech", null, "DevPassword1!",
             "Tech", "Account", UserRole.HQAdmin, chapterId: null);
 
         // Chapter-scoped staff — ChapterStaff is the least-privileged role that
@@ -235,28 +240,28 @@ public static class DevSeedData
         // Volunteers/Programs nav section (there's no narrower "kanban-only"
         // role yet). Defaulted to Chapter 1 (Chicago Metro) pending real
         // chapter assignments.
-        await CreateUserIfMissingAsync(userMgr, "jamie-lee.lavelle@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "jamie-lee.lavelle", null, "DevPassword1!",
             "Jamie-Lee", "Lavelle", UserRole.ChapterStaff, chapterId: 1);
-        await CreateUserIfMissingAsync(userMgr, "maegan.dobner@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "maegan.dobner", null, "DevPassword1!",
             "Maegan", "Dobner", UserRole.ChapterStaff, chapterId: 1);
-        await CreateUserIfMissingAsync(userMgr, "stephanie.caccamo@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "stephanie.caccamo", null, "DevPassword1!",
             "Stephanie", "Caccamo", UserRole.ChapterStaff, chapterId: 1);
-        await CreateUserIfMissingAsync(userMgr, "sammi.weaver@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "sammi.weaver", null, "DevPassword1!",
             "Sammi", "Weaver", UserRole.ChapterStaff, chapterId: 1);
-        await CreateUserIfMissingAsync(userMgr, "stephanie.mercado-carrillo@lotvministry.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "stephanie.mercado-carrillo", null, "DevPassword1!",
             "Stephanie", "Mercado Carrillo", UserRole.ChapterStaff, chapterId: 1);
     }
 
     private static async Task CreateUserIfMissingAsync(UserManager<LotvIdentityUser> userMgr,
-        string email, string password, string firstName, string lastName, UserRole role, int? chapterId)
+        string username, string? email, string password, string firstName, string lastName, UserRole role, int? chapterId)
     {
-        if (await userMgr.FindByEmailAsync(email) is not null) return;
+        if (await userMgr.FindByNameAsync(username) is not null) return;
 
         var user = new LotvIdentityUser
         {
-            UserName = email,
+            UserName = username,
             Email = email,
-            EmailConfirmed = true,
+            EmailConfirmed = email is not null,
             FirstName = firstName,
             LastName = lastName,
             Role = role,

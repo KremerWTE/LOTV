@@ -20,17 +20,21 @@
       <h2 style="font-family:var(--ff-head);font-size:1.2rem;color:var(--navy);margin:0 0 24px;text-align:center;">Sign in to your account</h2>
 
       <div class="form-group" style="margin-bottom:16px;">
-        <label class="form-label" for="login-email">Email Address</label>
-        <input id="login-email" class="form-input" type="email" @bind="_email" @onkeydown="OnKeyDown"
-               placeholder="you@lotvministry.org" style="font-size:.9rem;"
-               autocomplete="email" aria-required="true" />
+        <label class="form-label" for="login-username">Username</label>
+        <input id="login-username" class="form-input" type="text" @bind="_username" @onkeydown="OnKeyDown"
+               placeholder="e.g. jane.doe" style="font-size:.9rem;"
+               autocomplete="username" aria-required="true" />
       </div>
 
-      <div class="form-group" style="margin-bottom:20px;">
+      <div class="form-group" style="margin-bottom:8px;">
         <label class="form-label" for="login-password">Password</label>
         <input id="login-password" class="form-input" type="password" @bind="_password" @onkeydown="OnKeyDown"
                placeholder="••••••••" style="font-size:.9rem;"
                autocomplete="current-password" aria-required="true" />
+      </div>
+
+      <div style="text-align:right;margin-bottom:16px;">
+        <a href="/forgot-password" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Forgot password?</a>
       </div>
 
       @if (!string.IsNullOrEmpty(_error))
@@ -47,7 +51,7 @@
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:.76rem;color:var(--text-light);text-align:center;line-height:1.6;">
         Demo credentials:<br />
-        <strong style="color:var(--text-mid);">mary.roberts@lotvministry.org</strong> / <strong style="color:var(--text-mid);">lotv2026!</strong>
+        <strong style="color:var(--text-mid);">mary.roberts</strong> / <strong style="color:var(--text-mid);">DevPassword1!</strong>
       </div>
     </div>
 
@@ -60,7 +64,7 @@
 </div>
 
 @code {
-  private string _email    = "";
+  private string _username = "";
   private string _password = "";
   private string _error    = "";
   private bool   _loading;
@@ -77,11 +81,11 @@
     _loading = true;
     StateHasChanged();
 
-    if (await Auth.LoginAsync(_email, _password))
+    if (await Auth.LoginAsync(_username, _password))
       Nav.NavigateTo("/admin/dashboard", replace: true);
     else
     {
-      _error   = "Invalid email or password.";
+      _error   = "Invalid username or password.";
       _loading = false;
     }
   }

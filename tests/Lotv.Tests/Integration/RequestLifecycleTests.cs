@@ -161,7 +161,7 @@ public class RequestLifecycleTests
         })).EnsureSuccessStatusCode();
 
         var loginResp = await client.PostAsJsonAsync("/api/v1/auth/login",
-            new { Email = email, Password = password });
+            new { Username = email, Password = password });
         loginResp.EnsureSuccessStatusCode();
 
         var body = await loginResp.Content.ReadFromJsonAsync<LoginResponseDto>();

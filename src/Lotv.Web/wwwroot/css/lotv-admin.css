@@ -171,8 +171,9 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 .kanban-col-dragover { background: var(--green-pale); border-color: var(--green); }
 .kanban-col-invalid   { opacity: .45; }
 .kanban-col-hd  { font-size: .73rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-light); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-.kanban-card    { background: white; border-radius: 9px; padding: 12px 14px; margin-bottom: 8px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,.05); cursor: pointer; transition: box-shadow .15s; }
+.kanban-card    { background: white; border-radius: 9px; padding: 12px 14px; margin-bottom: 8px; border: 1px solid var(--border); border-left: 3px solid transparent; box-shadow: 0 1px 4px rgba(0,0,0,.05); cursor: pointer; transition: box-shadow .15s; }
 .kanban-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.1); }
+.kanban-card-unassigned { border-left-color: var(--amber); }
 .kanban-card-id   { font-size: .68rem; color: var(--text-light); margin-bottom: 3px; }
 .kanban-card-name { font-size: .84rem; font-weight: 700; margin-bottom: 4px; }
 .kanban-card-reason { font-size: .74rem; color: var(--text-mid); margin-bottom: 8px; }
@@ -180,6 +181,7 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 .kanban-card-tracking { font-size: .68rem; color: var(--navy); margin-bottom: 6px; font-family: var(--ff-mono, monospace); }
 .kanban-card-footer { display: flex; align-items: center; justify-content: space-between; }
 .kanban-assignee    { font-size: .7rem; color: var(--text-light); }
+.kanban-assignee-unassigned { color: var(--amber); font-weight: 700; }
 .kanban-age         { font-size: .68rem; color: var(--text-light); }
 
 /* ── PROGRESS BARS ── */

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
@@ -426,7 +427,10 @@ auth.MapPost("/register", async (RegisterRequest req, UserManager<LotvIdentityUs
 auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> userMgr,
     JwtTokenService tokenSvc, LotvDbContext db) =>
 {
-    var user = await userMgr.FindByEmailAsync(req.Email);
+    if (string.IsNullOrWhiteSpace(req.Username))
+        return Results.Unauthorized();
+
+    var user = await userMgr.FindByNameAsync(req.Username);
     if (user is null || !await userMgr.CheckPasswordAsync(user, req.Password))
         return Results.Unauthorized();
     if (!user.IsActive)
@@ -440,6 +444,42 @@ auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> us
 
     return Results.Ok(new { accessToken, refreshToken = refreshToken.Token, user.Role, user.ChapterId });
 });
+
+// Sign-in is by username, not email (several seeded/staff accounts don't have a
+// real deliverable address) — so password recovery has to be a separate opt-in
+// step where a user records a recovery email against their account first (see
+// PUT /api/v1/users/{id}/email), rather than the email being assumed to exist.
+auth.MapPost("/forgot-password", async (ForgotPasswordRequest req, UserManager<LotvIdentityUser> userMgr, INotificationService notify) =>
+{
+    var user = string.IsNullOrWhiteSpace(req.Username) ? null : await userMgr.FindByNameAsync(req.Username);
+    if (user is not null && !string.IsNullOrWhiteSpace(user.Email))
+    {
+        var token = await userMgr.GeneratePasswordResetTokenAsync(user);
+        var link = $"/reset-password?u={Uri.EscapeDataString(user.UserName ?? req.Username)}&t={Uri.EscapeDataString(token)}";
+        _ = notify.SendEmailAsync(user.Email, user.FullName, "Reset your LOTV Staff Portal password",
+            $"<p>A password reset was requested for the account <strong>{user.UserName}</strong>.</p>" +
+            $"<p>Click below to choose a new password. This link expires in 2 hours. If you didn't request this, you can ignore this email.</p>" +
+            $"<p><a href=\"{link}\">{link}</a></p>");
+    }
+    // Always return the same response whether or not the account/email exists,
+    // so this endpoint can't be used to enumerate valid usernames.
+    return Results.Ok(new { message = "If that account has a recovery email on file, a reset link has been sent." });
+}).AllowAnonymous();
+
+auth.MapPost("/reset-password", async (ResetPasswordRequest req, UserManager<LotvIdentityUser> userMgr) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username))
+        return Results.BadRequest(new { error = "Invalid or expired reset link." });
+
+    var user = await userMgr.FindByNameAsync(req.Username);
+    if (user is null) return Results.BadRequest(new { error = "Invalid or expired reset link." });
+
+    var result = await userMgr.ResetPasswordAsync(user, req.Token, req.NewPassword);
+    if (!result.Succeeded)
+        return Results.BadRequest(new { error = result.Errors.FirstOrDefault()?.Description ?? "Invalid or expired reset link." });
+
+    return Results.Ok(new { message = "Password updated — you can now sign in." });
+}).AllowAnonymous();
 
 auth.MapPost("/refresh", async (RefreshRequest req, LotvDbContext db,
     UserManager<LotvIdentityUser> userMgr, JwtTokenService tokenSvc) =>
@@ -1610,8 +1650,23 @@ users.MapPut("/me/avatar", async (AvatarUpdateRequest body, IChapterContextServi
 });
 
 users.MapGet("/", async (UserManager<LotvIdentityUser> userMgr) =>
-    userMgr.Users.Select(u => new { u.Id, u.Email, u.FullName, u.Role, u.ChapterId, u.IsActive, u.AvatarUrl }).ToList()
+    userMgr.Users.Select(u => new { u.Id, u.UserName, u.Email, u.FullName, u.Role, u.ChapterId, u.IsActive, u.AvatarUrl }).ToList()
 ).RequireAuthorization("ChapterAdmin");
+
+// Recovery email — separate from sign-in (which is by username). Staff/admins
+// without a real email on file can't use forgot-password until one is set here.
+users.MapPut("/{id}/email", async (string id, UpdateEmailRequest body, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(id);
+    if (user is null) return Results.NotFound();
+    var email = string.IsNullOrWhiteSpace(body.Email) ? null : body.Email.Trim();
+    if (email is not null && !new EmailAddressAttribute().IsValid(email))
+        return Results.BadRequest(new { error = "That doesn't look like a valid email address." });
+    user.Email = email;
+    user.EmailConfirmed = false;
+    await userMgr.UpdateAsync(user);
+    return Results.Ok(new { user.Email });
+}).RequireAuthorization("ChapterAdmin");
 
 users.MapDelete("/{id}/avatar", async (string id, UserManager<LotvIdentityUser> userMgr) =>
 {
@@ -4532,8 +4587,11 @@ record PublicApplyRequest(
 record PublicGiveRequest(Donor Donor, Donation Donation);
 record RegisterRequest(string Email, string Password, string FirstName, string LastName, UserRole Role, int? ChapterId);
 record DuplicateResolveRequest(string Action); // "merge" | "confirm-new"
-record LoginRequest(string Email, string Password);
+record LoginRequest(string Username, string Password);
 record RefreshRequest(string RefreshToken);
+record ForgotPasswordRequest(string Username);
+record ResetPasswordRequest(string Username, string Token, string NewPassword);
+record UpdateEmailRequest(string? Email);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
 record PriorityRequest(RequestPriority Priority);

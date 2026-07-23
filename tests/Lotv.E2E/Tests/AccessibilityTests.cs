@@ -72,7 +72,7 @@ public class AccessibilityTests : E2ETestBase
         await WaitForBlazorAsync();
 
         var unlabeledInputs = await Page.EvaluateAsync<int>(@"() => {
-            const inputs = Array.from(document.querySelectorAll('input[type=""email""], input[type=""password""]'));
+            const inputs = Array.from(document.querySelectorAll('#login-username, input[type=""password""]'));
             return inputs.filter(el => {
                 if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.getAttribute('placeholder')) return false;
                 const id = el.getAttribute('id');

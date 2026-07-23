@@ -949,6 +949,19 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    public async Task<(bool Ok, string? Error)> UpdateUserEmailAsync(string id, string? email)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/users/{id}/email", new { Email = email });
+        if (resp is null) return (false, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (true, null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>(JsonOpts);
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "Failed to update email.");
+        }
+        catch { return (false, "Failed to update email."); }
+    }
+
     // ─── Private helpers ─────────────────────────────────────────────────────
 
     private void SetAuthHeader()
@@ -1496,7 +1509,7 @@ public record PersonBreakdownDto(
     decimal TotalAmount, int GiftCount, double AverageGift);
 
 public record StaffUserDto(
-    string Id, string? Email, string? FullName, UserRole Role, int? ChapterId, bool IsActive, string? AvatarUrl);
+    string Id, string? UserName, string? Email, string? FullName, UserRole Role, int? ChapterId, bool IsActive, string? AvatarUrl);
 
 public record EventRevenueDto(decimal Tickets, decimal Auction, decimal Total);
 public record CheckinScanResult(bool Success, string Message, string? AttendeeName, int TicketCount);

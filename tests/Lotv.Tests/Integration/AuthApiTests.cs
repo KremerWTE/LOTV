@@ -23,7 +23,7 @@ public class AuthApiTests
     public async Task Login_WithUnknownEmail_Returns401()
     {
         var resp = await _client.PostAsJsonAsync("/api/v1/auth/login",
-            new { Email = "nobody@test.com", Password = "DoesNotExist1!" });
+            new { Username = "nobody@test.com", Password = "DoesNotExist1!" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
@@ -42,7 +42,7 @@ public class AuthApiTests
         });
 
         var resp = await _client.PostAsJsonAsync("/api/v1/auth/login",
-            new { Email = "wrongpwd@test.com", Password = "WrongPassword1!" });
+            new { Username = "wrongpwd@test.com", Password = "WrongPassword1!" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
@@ -83,7 +83,7 @@ public class AuthApiTests
         regResp.EnsureSuccessStatusCode();
 
         var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login",
-            new { Email = email, Password = "RoundTrip1Pass!" });
+            new { Username = email, Password = "RoundTrip1Pass!" });
 
         Assert.Equal(HttpStatusCode.OK, loginResp.StatusCode);
 

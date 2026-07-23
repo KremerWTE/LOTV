@@ -16,7 +16,7 @@ public class AuthFlowTests : E2ETestBase
         await GoToAsync("/login");
         await WaitForBlazorAsync();
 
-        await Page.FillAsync("input[type='email'], input[placeholder*='email' i]", "nobody@example.com");
+        await Page.FillAsync("#login-username, input[type='email'], input[placeholder*='email' i]", "nobody@example.com");
         await Page.FillAsync("input[type='password']", "WrongPassword!");
         await Page.ClickAsync("button[type='submit'], button:has-text('Sign In'), button:has-text('Login')");
 
@@ -67,8 +67,8 @@ public class AuthFlowTests : E2ETestBase
         await GoToAsync("/login");
         await WaitForBlazorAsync();
 
-        // Email field
-        var email = Page.Locator("input[type='email'], input[placeholder*='email' i]").First;
+        // Username field
+        var email = Page.Locator("#login-username, input[type='email'], input[placeholder*='email' i]").First;
         Assert.True(await email.IsVisibleAsync());
 
         // Password field
