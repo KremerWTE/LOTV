@@ -15,14 +15,23 @@ namespace Lotv.Api.Data;
 public static class DevSeedData
 {
     /// <summary>
-    /// Idempotent seed: skips entirely if any Chapter rows already exist.
-    /// Safe to call on every startup in Development.
+    /// Idempotent seed: skips the fictional demo dataset if it's already been seeded
+    /// (or if this database holds real imported data instead — see LegacyImport), but
+    /// always seeds/ensures the login accounts, since a database with only imported
+    /// case data still needs staff to be able to sign in. Safe to call on every
+    /// startup in Development.
     /// </summary>
     public static async Task SeedAsync(LotvDbContext db, UserManager<LotvIdentityUser> userMgr)
     {
         await db.Database.EnsureCreatedAsync();
-        if (db.Chapters.Any()) return;
+        if (!db.Chapters.Any())
+            await SeedMockDataAsync(db);
 
+        await SeedLoginAccountsAsync(userMgr);
+    }
+
+    private static async Task SeedMockDataAsync(LotvDbContext db)
+    {
         // ── MOCK DATA: Chapters ───────────────────────────────────────────────
         var chapterChicago    = new Chapter { Id = 1, Name = "Chicago Metro",    City = "Chicago",      State = "IL", ContactName = "Sister Mary Agnes",   ContactEmail = "chicago@lotv-demo.org",    ContactPhone = "+13125550101", IsActive = true, CreatedAt = new DateTime(2022, 3, 1, 0, 0, 0, DateTimeKind.Utc) };
         var chapterMilwaukee  = new Chapter { Id = 2, Name = "Milwaukee",        City = "Milwaukee",    State = "WI", ContactName = "Deacon Paul Brennan", ContactEmail = "milwaukee@lotv-demo.org",  ContactPhone = "+14145550102", IsActive = true, CreatedAt = new DateTime(2023, 1, 15, 0, 0, 0, DateTimeKind.Utc) };
@@ -208,8 +217,10 @@ public static class DevSeedData
         );
 
         await db.SaveChangesAsync();
+    }
 
-        // ── MOCK DATA: Login accounts ─────────────────────────────────────────
+    private static async Task SeedLoginAccountsAsync(UserManager<LotvIdentityUser> userMgr)
+    {
         // Credentials matched by tests/Lotv.E2E/Infrastructure/E2ESettings.cs —
         // keep these two in sync if either side changes. No real email on file;
         // a recovery email can be added later via Admin > User Management.

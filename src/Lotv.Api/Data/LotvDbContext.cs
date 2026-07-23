@@ -101,6 +101,9 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     // ─── Announcements ────────────────────────────────────────────────────────
     public DbSet<Announcement> Announcements => Set<Announcement>();
 
+    // ─── Mailing lists (Mother's Day / Father's Day annual mailings) ────────────
+    public DbSet<MailingListEntry> MailingListEntries => Set<MailingListEntry>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

@@ -36,9 +36,9 @@ public class ApiService
     }
 
     // ── Requests / Cases ──────────────────────────────────────────────────────
-    public Task<List<PackageRequest>> GetRequestsAsync(string? status = null, bool? overdue = null, int? familyId = null)
+    public Task<List<PackageRequest>> GetRequestsAsync(string? status = null, bool? overdue = null, int? familyId = null, bool? historical = null)
     {
-        var qs = BuildQs(("status", status), ("overdue", overdue?.ToString().ToLower()), ("familyId", familyId?.ToString()));
+        var qs = BuildQs(("status", status), ("overdue", overdue?.ToString().ToLower()), ("familyId", familyId?.ToString()), ("historical", historical?.ToString().ToLower()));
         return GetListAsync<PackageRequest>($"/api/v1/requests{qs}");
     }
 
@@ -1441,6 +1441,31 @@ public class ApiService
     public async Task<bool> DeleteAnnouncementAsync(int id)
     {
         var resp = await AuthedDeleteAsync($"/api/v1/announcements/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Mailing list (Mother's Day / Father's Day annual mailing) ──────────────
+    public Task<List<MailingListEntry>> GetMailingListAsync(int? year = null, bool? flagged = null, bool? sent = null)
+    {
+        var qs = BuildQs(("year", year?.ToString()), ("flagged", flagged?.ToString().ToLower()), ("sent", sent?.ToString().ToLower()));
+        return GetListAsync<MailingListEntry>($"/api/v1/mailing-list{qs}");
+    }
+
+    public async Task<bool> FlagMailingEntryAsync(int id, bool flagged, string? note)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/flag", new { Flagged = flagged, Note = note });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> MarkMailingEntrySentAsync(int id, bool sent)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/sent", new { Sent = sent });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteMailingEntryAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/mailing-list/{id}");
         return resp?.IsSuccessStatusCode == true;
     }
 }

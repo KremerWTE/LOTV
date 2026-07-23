@@ -518,9 +518,14 @@ auth.MapPost("/logout", async (RefreshRequest req, LotvDbContext db) =>
 var cases = app.MapGroup("/api/v1/requests").WithTags("Requests").RequireAuthorization("Staff");
 
 cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
-    string? status, string? priority, bool? overdue) =>
+    string? status, string? priority, bool? overdue, bool? historical) =>
 {
     var q = db.Requests.Include(r => r.Family).AsQueryable();
+    // Historical (prior-year import) cases are excluded from the active pipeline
+    // views by default — see /admin/historical for a dedicated read-only browser.
+    q = historical == true
+        ? q.Where(r => r.Family != null && r.Family.IsHistorical)
+        : q.Where(r => r.Family == null || !r.Family.IsHistorical);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
         q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     if (!string.IsNullOrEmpty(status) && Enum.TryParse<CaseStatus>(status, true, out var cs))
@@ -4341,6 +4346,47 @@ announcements.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
     return Results.NoContent();
 });
 
+// ─── Mailing lists (Mother's Day / Father's Day annual mailing) ────────────────
+var mailingList = app.MapGroup("/api/v1/mailing-list").WithTags("MailingList").RequireAuthorization("Staff");
+
+mailingList.MapGet("/", async (LotvDbContext db, int? year, bool? flagged, bool? sent) =>
+{
+    var q = db.MailingListEntries.AsQueryable();
+    if (year.HasValue) q = q.Where(m => m.Year == year.Value);
+    if (flagged.HasValue) q = q.Where(m => m.FlaggedForReview == flagged.Value);
+    if (sent.HasValue) q = q.Where(m => m.Sent == sent.Value);
+    return Results.Ok(await q.OrderBy(m => m.MotherName).ToListAsync());
+});
+
+mailingList.MapPut("/{id:int}/flag", async (int id, FlagMailingRequest body, LotvDbContext db) =>
+{
+    var m = await db.MailingListEntries.FindAsync(id);
+    if (m is null) return Results.NotFound();
+    m.FlaggedForReview = body.Flagged;
+    m.ReviewNote = body.Note;
+    await db.SaveChangesAsync();
+    return Results.Ok(m);
+});
+
+mailingList.MapPut("/{id:int}/sent", async (int id, MarkSentRequest body, LotvDbContext db) =>
+{
+    var m = await db.MailingListEntries.FindAsync(id);
+    if (m is null) return Results.NotFound();
+    m.Sent = body.Sent;
+    m.SentAt = body.Sent ? DateTime.UtcNow : null;
+    await db.SaveChangesAsync();
+    return Results.Ok(m);
+});
+
+mailingList.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var m = await db.MailingListEntries.FindAsync(id);
+    if (m is null) return Results.NotFound();
+    db.MailingListEntries.Remove(m);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
 app.MapGet("/api/public/v1/announcements", async (LotvDbContext db, string? audience) =>
 {
     var now = DateTime.UtcNow;
@@ -4592,6 +4638,8 @@ record RefreshRequest(string RefreshToken);
 record ForgotPasswordRequest(string Username);
 record ResetPasswordRequest(string Username, string Token, string NewPassword);
 record UpdateEmailRequest(string? Email);
+record FlagMailingRequest(bool Flagged, string? Note);
+record MarkSentRequest(bool Sent);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
 record PriorityRequest(RequestPriority Priority);

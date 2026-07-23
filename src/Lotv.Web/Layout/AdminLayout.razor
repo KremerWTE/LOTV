@@ -60,6 +60,12 @@
         <NavLink class="sidebar-link" href="/admin/kanban">
           <span class="icon">☷</span> Kanban Board
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/historical">
+          <span class="icon">📚</span> Historical Cases
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/mothers-day">
+          <span class="icon">💌</span> Mother's Day Mailing
+        </NavLink>
         <NavLink class="sidebar-link" href="/admin/queue">
           <span class="icon">🔚</span> Unassigned Queue
         </NavLink>
@@ -861,6 +867,8 @@
       var u when u.Contains("/admin/cases/")       => "Case Detail",
       var u when u.Contains("/admin/cases")       => "Family Cases",
       var u when u.EndsWith("/admin/kanban")      => "Kanban Board",
+      var u when u.EndsWith("/admin/historical")  => "Historical Cases",
+      var u when u.EndsWith("/admin/mothers-day") => "Mother's Day Mailing",
       var u when u.EndsWith("/admin/queue")       => "Unassigned Queue",
       var u when u.EndsWith("/admin/my-queue")    => "My Work Queue",
       var u when u.EndsWith("/admin/workload")    => "Workload View",
