@@ -41,6 +41,12 @@
           @{ var unassignedCount = cases.Count(r => r.AssignedTo is null); }
           @if (unassignedCount > 0)
           { <span style="color:var(--amber);font-weight:700;" title="@unassignedCount unassigned">&nbsp;(@unassignedCount unassigned)</span> }
+          @if (col.Status == CaseStatus.Fulfilled && _hiddenFulfilledCount > 0)
+          {
+            <span style="color:var(--text-light);font-weight:400;" title="Fulfilled more than 3 months ago — see List View or Historical Cases">
+              &nbsp;(last 3 months — @_hiddenFulfilledCount older hidden)
+            </span>
+          }
         </span>
         <span style="background:@col.Color;color:white;border-radius:10px;padding:1px 8px;font-size:.68rem;">@cases.Count</span>
       </div>
@@ -165,6 +171,7 @@
   ];
 
   private Dictionary<CaseStatus, List<PackageRequest>> _byStatus = new();
+  private int _hiddenFulfilledCount;
   private List<Volunteer> _volunteers = [];
   private PackageRequest? _selected;
   private CaseStatus _editStatus;
@@ -199,9 +206,26 @@
     _capacityById = workload.ToDictionary(w => w.Id, w => w.Capacity);
 
     var requests = await Api.GetRequestsAsync();
+    GroupByStatus(requests);
+  }
+
+  // Fulfilled cases pile up indefinitely (every closed-out request stays
+  // "Fulfilled" forever) — cap the board to the last 3 months so the column
+  // stays a useful "recently done" view instead of an unbounded archive.
+  // Older fulfilled cases are still visible via List View / Historical Cases.
+  private static readonly TimeSpan FulfilledWindow = TimeSpan.FromDays(90);
+
+  private void GroupByStatus(List<PackageRequest> requests)
+  {
+    var cutoff = DateTime.UtcNow - FulfilledWindow;
+    var allFulfilled = requests.Where(r => r.Status == CaseStatus.Fulfilled).ToList();
+    _hiddenFulfilledCount = allFulfilled.Count(r => r.UpdatedAt < cutoff);
+
     _byStatus = _columns.ToDictionary(
       c => c.Status,
-      c => requests.Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
+      c => c.Status == CaseStatus.Fulfilled
+        ? allFulfilled.Where(r => r.UpdatedAt >= cutoff).OrderByDescending(r => r.UpdatedAt).ToList()
+        : requests.Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
     );
   }
 
@@ -296,13 +320,7 @@
 
   // Re-buckets the already-loaded cases by their (possibly just-changed) status,
   // without a round-trip to the API.
-  private void RegroupByStatus()
-  {
-    _byStatus = _columns.ToDictionary(
-      c => c.Status,
-      c => _byStatus.SelectMany(kv => kv.Value).Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
-    );
-  }
+  private void RegroupByStatus() => GroupByStatus(_byStatus.SelectMany(kv => kv.Value).ToList());
 
   public void Dispose()
   {
