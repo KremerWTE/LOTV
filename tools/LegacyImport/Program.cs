@@ -60,6 +60,8 @@ db.Requests.RemoveRange(oldRequests);
 var oldFamilies = db.Families.Where(f => f.ChapterId == chapter.Id);
 db.Families.RemoveRange(oldFamilies);
 db.MailingListEntries.RemoveRange(db.MailingListEntries.Where(m => m.Year == 2026));
+db.FollowUpMilestones.RemoveRange(db.FollowUpMilestones);
+db.FollowUpTrackers.RemoveRange(db.FollowUpTrackers);
 await db.SaveChangesAsync();
 
 int caseCount = 0, skipped = 0;
@@ -170,5 +172,48 @@ foreach (var m in root.GetProperty("mailingList").EnumerateArray())
 }
 await db.SaveChangesAsync();
 
-Console.WriteLine($"Done. Imported {caseCount} historical/current cases and {mailCount} mailing-list entries ({skipped} skipped for missing name).");
+int followUpCount = 0;
+if (root.TryGetProperty("followUps", out var followUpsEl))
+{
+    foreach (var f in followUpsEl.EnumerateArray())
+    {
+        string? S(string name) => f.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() : null;
+
+        var p1 = S("parent1Name");
+        if (string.IsNullOrWhiteSpace(p1)) continue;
+
+        var tracker = new FollowUpTracker
+        {
+            Parent1Name    = p1,
+            Parent2Name    = S("parent2Name"),
+            Email          = S("email"),
+            Phone          = S("phone"),
+            StreetAddress  = S("street") ?? "",
+            Apt            = S("apt"),
+            City           = S("city") ?? "",
+            State          = S("state") ?? "",
+            Zip            = S("zip") ?? "",
+            Reason         = S("reason"),
+            ChildName      = S("childName"),
+            DateOfLoss     = DateTime.TryParse(S("dateOfLoss"), out var dol) ? DateTime.SpecifyKind(dol, DateTimeKind.Utc) : null,
+            CreatedAt      = DateTime.UtcNow
+        };
+
+        foreach (var m in f.GetProperty("milestones").EnumerateArray())
+        {
+            string? MS(string name) => m.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() : null;
+            var typeStr = m.GetProperty("type").GetString() ?? "ThreeWeeks";
+            Enum.TryParse<FollowUpMilestoneType>(typeStr, out var type);
+            var due = DateTime.TryParse(MS("dueDate"), out var d) ? DateTime.SpecifyKind(d, DateTimeKind.Utc) : (DateTime?)null;
+            var sent = m.TryGetProperty("bookSent", out var sv) && sv.ValueKind == JsonValueKind.True;
+            tracker.Milestones.Add(new FollowUpMilestone { Type = type, DueDate = due, BookSent = sent });
+        }
+
+        db.FollowUpTrackers.Add(tracker);
+        followUpCount++;
+    }
+    await db.SaveChangesAsync();
+}
+
+Console.WriteLine($"Done. Imported {caseCount} historical/current cases, {mailCount} mailing-list entries, and {followUpCount} follow-up trackers ({skipped} skipped for missing name).");
 return 0;

@@ -104,6 +104,10 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     // ─── Mailing lists (Mother's Day / Father's Day annual mailings) ────────────
     public DbSet<MailingListEntry> MailingListEntries => Set<MailingListEntry>();
 
+    // ─── Bereavement follow-up tracking (Stephen's Ministry) ────────────────────
+    public DbSet<FollowUpTracker> FollowUpTrackers => Set<FollowUpTracker>();
+    public DbSet<FollowUpMilestone> FollowUpMilestones => Set<FollowUpMilestone>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
