@@ -853,6 +853,9 @@ cd src/Lotv.Web && dotnet run
 | R-12 | Auto-assignment scoring produces poor matches (volunteer quality issues) | Medium | High | Tunable weights for proximity/skills/workload exposed in admin config; staff can always override; unmatched requests fall to manual queue |
 | R-13 | Scheduled report emails delivered to spam / not received | Low | Medium | SPF/DKIM configured; test email delivery in staging; dedicated transactional email domain |
 | R-14 | Chapter query filter misconfiguration exposes cross-chapter data | Low | Critical | EF Core global query filter unit tested; integration test suite asserts cross-chapter data isolation |
+| R-15 | Real ministry PII (family names, addresses, loss stories) mishandled during data migration | Low | Critical | Source spreadsheet and all local databases used during import gitignored; import tool reads real data only from untracked local paths; no PII ever written to a committed file (added 2026-07-27) |
+| R-16 | Shared `sa` SQL Server credential used ad hoc during production DB setup | Medium | High | Credential passed via environment variables only, never committed; **open action**: rotate and replace with a dedicated least-privilege app login (added 2026-07-27) |
+| R-17 | EF migration history incompatible with SQL Server (scaffolded against SQLite) | Medium | Medium | Worked around via `EnsureCreated()` + hand-written DDL for the one live database affected; **open action**: reconcile migration history properly before this becomes the standard deploy path (added 2026-07-27) |
 
 ---
 
