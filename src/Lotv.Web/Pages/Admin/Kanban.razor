@@ -25,53 +25,32 @@
   <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:14px;">⚠ @_dropError</div>
 }
 
+@if (_hiddenFulfilledCount > 0)
+{
+  <div style="color:var(--text-light);font-size:.78rem;margin-bottom:14px;" title="Fulfilled more than 3 months ago — see List View or Historical Cases">
+    Fulfilled columns show the last 3 months only — @_hiddenFulfilledCount older case@(_hiddenFulfilledCount == 1 ? "" : "s") hidden.
+  </div>
+}
+
 <div class="kanban">
   @foreach (var col in _columns)
   {
-    var cases = _byStatus.GetValueOrDefault(col.Status) ?? [];
-    var isValidTarget = _draggingCase is not null && CaseStatusTransitions.IsValid(_draggingCase.Status, col.Status);
-    <div class="kanban-col @(_dragOverStatus == col.Status && isValidTarget ? "kanban-col-dragover" : "") @(_draggingCase is not null && !isValidTarget ? "kanban-col-invalid" : "")"
+    var cases = _byColumn.GetValueOrDefault(col.Key) ?? [];
+    var isValidTarget = _draggingCase is not null && CaseStatusTransitions.IsValid(_draggingCase.Status, TargetStatusFor(col.Key));
+    <div class="kanban-col @(_dragOverKey == col.Key && isValidTarget ? "kanban-col-dragover" : "") @(_draggingCase is not null && !isValidTarget ? "kanban-col-invalid" : "")"
          @ondragover:preventDefault="true"
-         @ondragenter="() => _dragOverStatus = col.Status"
-         @ondragleave="() => _dragOverStatus = null"
-         @ondrop="() => OnDropAsync(col.Status)">
+         @ondragenter="() => _dragOverKey = col.Key"
+         @ondragleave="() => _dragOverKey = null"
+         @ondrop="() => OnDropAsync(col.Key)">
       <div class="kanban-col-hd">
-        <span>
-          @col.Label
-          @{ var unassignedCount = cases.Count(r => r.AssignedTo is null); }
-          @if (unassignedCount > 0)
-          { <span style="color:var(--amber);font-weight:700;" title="@unassignedCount unassigned">&nbsp;(@unassignedCount unassigned)</span> }
-          @if (col.Status == CaseStatus.Fulfilled && _hiddenFulfilledCount > 0)
-          {
-            <span style="color:var(--text-light);font-weight:400;" title="Fulfilled more than 3 months ago — see List View or Historical Cases">
-              &nbsp;(last 3 months — @_hiddenFulfilledCount older hidden)
-            </span>
-          }
-        </span>
+        <span>@col.Label</span>
         <span style="background:@col.Color;color:white;border-radius:10px;padding:1px 8px;font-size:.68rem;">@cases.Count</span>
       </div>
       @foreach (var r in cases)
       {
-        <div class="kanban-card @(r.AssignedTo is null ? "kanban-card-unassigned" : "")" draggable="true" @ondragstart="() => OnDragStart(r)" @ondragend="() => { _draggingCase = null; _dragOverStatus = null; }" @onclick="() => SelectCase(r)">
-          <div class="kanban-card-id">#@r.Id</div>
-          <div class="kanban-card-name">@r.Family?.FullName</div>
-          <div class="kanban-card-reason">@r.Reason.ToDisplayName()</div>
-          <div class="kanban-card-meta">
-            <span>@(r.IsForSelf ? "For Self" : "For Someone Else")</span>
-            @if (!string.IsNullOrEmpty(r.Family?.FaithTradition))
-            { <span>&bull; @r.Family.FaithTradition</span> }
-            @if (!string.IsNullOrEmpty(r.ChildrenInitials))
-            { <span>&bull; Bracelet: @r.ChildrenInitials</span> }
-          </div>
-          @if (!string.IsNullOrEmpty(r.TrackingNumber))
-          {
-            <div class="kanban-card-tracking">📦 @r.TrackingNumber</div>
-          }
-          <div class="kanban-card-footer">
-            <span class="kanban-assignee @(r.AssignedTo is null ? "kanban-assignee-unassigned" : "")">👤 @(r.AssignedTo ?? "Unassigned")</span>
-            <span class="kanban-age @(r.IsOverdue ? "badge-overdue" : "")">@GetAge(r.CreatedAt)</span>
-          </div>
-        </div>
+        <KanbanCard Request="r" OnSelect="SelectCase" OnAssign="OpenQuickAssign" OnDragStart="OnDragStart"
+                    OnDragEnd="() => { _draggingCase = null; _dragOverKey = null; }"
+                    GetPriorityBadge="GetPriorityBadge" GetAge="GetAge" />
       }
       @if (!cases.Any())
       {
@@ -80,6 +59,59 @@
     </div>
   }
 </div>
+
+<!-- QUICK ASSIGN POPOVER -->
+@if (_quickAssignCase is not null)
+{
+  <div class="drawer-overlay" @onclick="CloseQuickAssign"></div>
+  <div class="drawer" style="width:380px;">
+    <div class="drawer-head">
+      <h3>Assign Case #@_quickAssignCase.Id</h3>
+      <button class="drawer-close" aria-label="Close" @onclick="CloseQuickAssign">✕</button>
+    </div>
+    <div class="drawer-body" style="gap:14px;">
+      <div style="background:var(--bg);border-radius:8px;padding:12px 14px;font-size:.84rem;">
+        <div><strong>Family:</strong> @_quickAssignCase.Family?.FullName</div>
+        <div><strong>Reason:</strong> @_quickAssignCase.Reason.ToDisplayName()</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Assign To *</label>
+        <select class="form-input" @bind="_quickAssignVolId">
+          <option value="0">— Select volunteer —</option>
+          @foreach (var v in _volunteers)
+          { <option value="@v.Id">@v.FullName@(IsAtCapacity(v) ? " (at capacity)" : "")</option> }
+        </select>
+      </div>
+
+      @if (_quickAssignCandidatesLoaded && _quickAssignCandidates.Any())
+      {
+        <div>
+          <div class="form-label" style="margin-bottom:8px;">🌟 Suggested (ranked by workload)</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            @foreach (var c in _quickAssignCandidates.Take(5))
+            {
+              <div style="display:flex;align-items:center;justify-content:space-between;background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;cursor:pointer;"
+                   @onclick="() => _quickAssignVolId = c.VolunteerId">
+                <span><strong>@c.Name</strong> — @c.CompositeScore.ToString("F0") pts</span>
+                <span style="color:var(--green);font-weight:600;">Select →</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      @if (!string.IsNullOrEmpty(_quickAssignError))
+      { <div style="background:#fff3cd;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#856404;">⚠ @_quickAssignError</div> }
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-primary" @onclick="ConfirmQuickAssignAsync" disabled="@(_quickAssignVolId == 0 || _quickAssignWorking)">
+        @(_quickAssignWorking ? "Assigning…" : "Confirm Assignment")
+      </button>
+      <button class="btn btn-sm" @onclick="CloseQuickAssign" disabled="@_quickAssignWorking">Cancel</button>
+    </div>
+  </div>
+}
 
 <!-- QUICK VIEW DRAWER -->
 @if (_selected is not null)
@@ -116,6 +148,14 @@
           <option value="">— Unassigned —</option>
           @foreach (var v in _volunteers)
           { <option value="@v.Id">@v.FullName@(IsAtCapacity(v) ? " (at capacity)" : "")</option> }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Process Stage</label>
+        <select class="form-input" @bind="_editProcessStage">
+          @foreach (var s in Enum.GetValues<ProcessStage>())
+          { <option value="@s">@s</option> }
         </select>
       </div>
 
@@ -157,33 +197,90 @@
 }
 
 @code {
-  private record Column(string Label, CaseStatus Status, string Color);
+  private record Column(string Key, string Label, string Color);
 
+  // Kanban-only column layout — a display remapping of the underlying Status +
+  // ProcessStage fields. It does NOT change CaseStatus itself (still used as-is
+  // by Cases/Queue/MyQueue/CaseDetail/transition rules); this page just buckets
+  // cases into a more granular set of columns for visual purposes. "Awaiting
+  // Shipment" folds into Packing/Shipping; "On Hold" moves to after Shipping.
   private readonly Column[] _columns =
   [
-    new("New",               CaseStatus.New,              "#2d469d"),
-    new("In Progress",       CaseStatus.InProgress,       "#e67e22"),
-    new("Awaiting Shipment", CaseStatus.AwaitingShipment, "#9b8bb4"),
-    new("On Hold",           CaseStatus.OnHold,           "#6c757d"),
-    new("Shipped",           CaseStatus.Shipped,          "#487336"),
-    new("Fulfilled",         CaseStatus.Fulfilled,        "#198754"),
-    new("Cancelled",         CaseStatus.Cancelled,        "#adb5bd"),
+    new("New",       "New",       "#2d469d"),
+    new("Assigned",  "Assigned",  "#e67e22"),
+    new("Confirmed", "Confirmed", "#487336"),
+    new("Packing",   "Packing",   "#9b8bb4"),
+    new("Notes",     "Notes",     "#6c757d"),
+    new("Shipping",  "Shipping",  "#c9a227"),
+    new("OnHold",    "On Hold",   "#842029"),
+    new("Fulfilled", "Fulfilled", "#198754"),
+    new("Cancelled", "Cancelled", "#adb5bd"),
   ];
 
-  private Dictionary<CaseStatus, List<PackageRequest>> _byStatus = new();
+  // Which display column a case falls into, given its real Status + ProcessStage.
+  // Terminal statuses (New/OnHold/Fulfilled/Cancelled) get their own column
+  // regardless of stage; every other status (InProgress/AwaitingShipment/
+  // Shipped) is "in the pipeline" and its column is driven entirely by
+  // ProcessStage, so changing the stage always moves the card as expected.
+  private static string ColumnKeyOf(PackageRequest r) => r.Status switch
+  {
+    CaseStatus.New       => "New",
+    CaseStatus.OnHold    => "OnHold",
+    CaseStatus.Fulfilled => "Fulfilled",
+    CaseStatus.Cancelled => "Cancelled",
+    _ => r.ProcessStage switch
+    {
+      ProcessStage.Confirmed => "Confirmed",
+      ProcessStage.Packing   => "Packing",
+      ProcessStage.Notes     => "Notes",
+      ProcessStage.Shipping  => "Shipping",
+      ProcessStage.Delivered => "Shipping",
+      _                      => "Assigned"
+    }
+  };
+
+  // What dropping a card into a given column key should set Status/ProcessStage
+  // to. Status drives the existing CaseStatusTransitions validity check (so the
+  // tracking-number-before-Shipped rule etc. still apply); ProcessStage is the
+  // finer-grained stage shown via the column itself.
+  private static (CaseStatus Status, ProcessStage? Stage) TargetFor(string columnKey) => columnKey switch
+  {
+    "New"       => (CaseStatus.New, null),
+    "Assigned"  => (CaseStatus.InProgress, ProcessStage.Assigned),
+    "Confirmed" => (CaseStatus.InProgress, ProcessStage.Confirmed),
+    "Packing"   => (CaseStatus.InProgress, ProcessStage.Packing),
+    "Notes"     => (CaseStatus.InProgress, ProcessStage.Notes),
+    "Shipping"  => (CaseStatus.AwaitingShipment, ProcessStage.Shipping),
+    "OnHold"    => (CaseStatus.OnHold, null),
+    "Fulfilled" => (CaseStatus.Fulfilled, null),
+    "Cancelled" => (CaseStatus.Cancelled, null),
+    _           => (CaseStatus.InProgress, null)
+  };
+
+  private static CaseStatus TargetStatusFor(string columnKey) => TargetFor(columnKey).Status;
+
+  private Dictionary<string, List<PackageRequest>> _byColumn = new();
   private int _hiddenFulfilledCount;
   private List<Volunteer> _volunteers = [];
   private PackageRequest? _selected;
   private CaseStatus _editStatus;
   private int _editAssignedTo;   // volunteer Id; 0 = unassigned
+  private ProcessStage _editProcessStage;
   private string? _editTrackingNumber;
   private DateTime? _editShippedDate;
   private bool _drawerSaved;
   private string? _drawerError;
   private bool _saving;
   private PackageRequest? _draggingCase;
-  private CaseStatus? _dragOverStatus;
+  private string? _dragOverKey;
   private string? _dropError;
+
+  private PackageRequest? _quickAssignCase;
+  private int _quickAssignVolId;
+  private List<VolunteerScoreResult> _quickAssignCandidates = [];
+  private bool _quickAssignCandidatesLoaded;
+  private bool _quickAssignWorking;
+  private string? _quickAssignError;
 
   protected override async Task OnInitializedAsync()
   {
@@ -221,13 +318,23 @@
     var allFulfilled = requests.Where(r => r.Status == CaseStatus.Fulfilled).ToList();
     _hiddenFulfilledCount = allFulfilled.Count(r => r.UpdatedAt < cutoff);
 
-    _byStatus = _columns.ToDictionary(
-      c => c.Status,
-      c => c.Status == CaseStatus.Fulfilled
-        ? allFulfilled.Where(r => r.UpdatedAt >= cutoff).OrderByDescending(r => r.UpdatedAt).ToList()
-        : requests.Where(r => r.Status == c.Status).OrderBy(r => r.CreatedAt).ToList()
-    );
+    var visible = requests.Where(r => r.Status != CaseStatus.Fulfilled || r.UpdatedAt >= cutoff).ToList();
+
+    _byColumn = _columns.ToDictionary(
+      col => col.Key,
+      col => col.Key == "Fulfilled"
+        ? visible.Where(r => ColumnKeyOf(r) == col.Key).OrderByDescending(r => r.UpdatedAt).ToList()
+        : visible.Where(r => ColumnKeyOf(r) == col.Key).OrderBy(r => r.CreatedAt).ToList());
   }
+
+  private static string GetPriorityBadge(RequestPriority p) => p switch
+  {
+    RequestPriority.Urgent => "badge-overdue",
+    RequestPriority.High   => "badge-inprogress",
+    RequestPriority.Normal => "badge-new",
+    RequestPriority.Low    => "badge-fulfilled",
+    _ => ""
+  };
 
   // Manual assignment doesn't enforce the chapter's capacity cap the way
   // auto-assignment does — flag it in the dropdown so staff can see it, without
@@ -239,6 +346,7 @@
     _selected           = r;
     _editStatus         = r.Status;
     _editAssignedTo     = r.AssignedToId ?? 0;
+    _editProcessStage   = r.ProcessStage;
     _editTrackingNumber = r.TrackingNumber;
     _editShippedDate    = r.ShippedDate;
     _drawerSaved        = false;
@@ -259,6 +367,9 @@
     // Shipped), it would silently overwrite it back to InProgress.
     if (_editAssignedTo > 0 && _editAssignedTo != (_selected.AssignedToId ?? 0))
       await Api.AssignRequestAsync(_selected.Id, _editAssignedTo);
+
+    if (_editProcessStage != _selected.ProcessStage)
+      await Api.UpdateRequestProcessStageAsync(_selected.Id, _editProcessStage);
 
     // Patch tracking BEFORE status — the backend requires a tracking number to
     // already be saved before it will allow a transition into Shipped.
@@ -281,6 +392,8 @@
     _selected.Status         = _editStatus;
     _selected.AssignedToId   = _editAssignedTo > 0 ? _editAssignedTo : null;
     _selected.AssignedTo     = vol?.FullName;
+    _selected.ProcessStage   = _editAssignedTo > 0 && _selected.ProcessStage == ProcessStage.Unassigned
+                                  ? ProcessStage.Assigned : _editProcessStage;
     _selected.TrackingNumber = _editTrackingNumber;
     _selected.ShippedDate    = _editShippedDate;
     _selected.UpdatedAt      = DateTime.UtcNow;
@@ -289,16 +402,64 @@
     _saving = false;
   }
 
+  private async Task OpenQuickAssign(PackageRequest r)
+  {
+    _quickAssignCase = r;
+    _quickAssignVolId = 0;
+    _quickAssignError = null;
+    _quickAssignCandidates = [];
+    _quickAssignCandidatesLoaded = false;
+
+    _quickAssignCandidates = await Api.GetVolunteerCandidatesAsync(r.Id);
+    _quickAssignCandidatesLoaded = true;
+  }
+
+  private void CloseQuickAssign()
+  {
+    _quickAssignCase = null;
+    _quickAssignError = null;
+    _quickAssignCandidates = [];
+    _quickAssignCandidatesLoaded = false;
+  }
+
+  private async Task ConfirmQuickAssignAsync()
+  {
+    if (_quickAssignCase is null || _quickAssignVolId == 0) return;
+    _quickAssignWorking = true;
+    _quickAssignError = null;
+
+    var ok = await Api.AssignRequestAsync(_quickAssignCase.Id, _quickAssignVolId);
+    if (!ok)
+    {
+      _quickAssignError = "Assignment failed. Please try again.";
+      _quickAssignWorking = false;
+      return;
+    }
+
+    var vol = _volunteers.FirstOrDefault(v => v.Id == _quickAssignVolId);
+    _quickAssignCase.AssignedToId = _quickAssignVolId;
+    _quickAssignCase.AssignedTo   = vol?.FullName;
+    _quickAssignCase.Status       = CaseStatus.InProgress;
+    if (_quickAssignCase.ProcessStage == ProcessStage.Unassigned) _quickAssignCase.ProcessStage = ProcessStage.Assigned;
+    _quickAssignCase.UpdatedAt    = DateTime.UtcNow;
+    RegroupByStatus();
+
+    _quickAssignWorking = false;
+    CloseQuickAssign();
+  }
+
   private void OnDragStart(PackageRequest r) => _draggingCase = r;
 
-  private async Task OnDropAsync(CaseStatus targetStatus)
+  private async Task OnDropAsync(string columnKey)
   {
     var dragged = _draggingCase;
     _draggingCase = null;
-    _dragOverStatus = null;
-    if (dragged is null || dragged.Status == targetStatus) return;
+    _dragOverKey = null;
+    if (dragged is null || ColumnKeyOf(dragged) == columnKey) return;
 
-    if (!CaseStatusTransitions.IsValid(dragged.Status, targetStatus))
+    var (targetStatus, targetStage) = TargetFor(columnKey);
+
+    if (targetStatus != dragged.Status && !CaseStatusTransitions.IsValid(dragged.Status, targetStatus))
     {
       _dropError = $"Can't move a case from {dragged.Status} directly to {targetStatus}.";
       return;
@@ -309,18 +470,25 @@
       return;
     }
 
-    var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(dragged.Id, targetStatus);
-    if (!ok) { _dropError = error; return; }
+    if (targetStatus != dragged.Status)
+    {
+      var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(dragged.Id, targetStatus);
+      if (!ok) { _dropError = error; return; }
+      dragged.Status = targetStatus;
+    }
+
+    if (targetStage.HasValue && targetStage.Value != dragged.ProcessStage)
+      await Api.UpdateRequestProcessStageAsync(dragged.Id, targetStage.Value);
 
     _dropError = null;
-    dragged.Status = targetStatus;
+    dragged.ProcessStage = targetStage ?? dragged.ProcessStage;
     dragged.UpdatedAt = DateTime.UtcNow;
     RegroupByStatus();
   }
 
   // Re-buckets the already-loaded cases by their (possibly just-changed) status,
   // without a round-trip to the API.
-  private void RegroupByStatus() => GroupByStatus(_byStatus.SelectMany(kv => kv.Value).ToList());
+  private void RegroupByStatus() => GroupByStatus(_byColumn.SelectMany(kv => kv.Value).ToList());
 
   public void Dispose()
   {

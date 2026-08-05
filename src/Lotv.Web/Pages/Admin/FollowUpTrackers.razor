@@ -1,0 +1,168 @@
+@page "/admin/follow-up-trackers"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Bereavement Follow-Up — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Bereavement Follow-Up Tracker</h2>
+    <p>Stephen's Ministry-style touchpoints at 3 weeks, 3 months, 6 months, and 11 months after loss</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🕊</div>
+    <div class="kpi-label">Families Tracked</div>
+    <div class="kpi-value" style="color:var(--navy)">@_trackers.Count</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">⚠</div>
+    <div class="kpi-label">Overdue Touchpoints</div>
+    <div class="kpi-value" style="color:var(--amber)">@_rows.Count(r => r.IsOverdue)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">📅</div>
+    <div class="kpi-label">Due in 30 Days</div>
+    <div class="kpi-value" style="color:var(--gold)">@_rows.Count(r => r.IsDueSoon)</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">📖</div>
+    <div class="kpi-label">Books Sent</div>
+    <div class="kpi-value" style="color:var(--green)">@_rows.Count(r => r.Milestone.BookSent)</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  @foreach (var f in _filters)
+  {
+    <button class="filter-chip @(_activeFilter == f ? "active" : "")" aria-pressed="@(_activeFilter == f)" @onclick="() => SetFilter(f)">@f</button>
+  }
+  <input class="form-input" style="width:240px;padding:5px 12px;font-size:.82rem;" placeholder="🔍 Search families..." aria-label="Search families" @bind="_search" @bind:event="oninput" @bind:after="ApplyFilter" />
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading follow-up trackers…" />
+}
+else
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Family</th>
+            <th>Child</th>
+            <th>Milestone</th>
+            <th>Due Date</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (!_filtered.Any())
+          {
+            <tr><td colspan="6"><div class="empty-state"><div class="icon">🕊</div><p>No touchpoints match this filter.</p></div></td></tr>
+          }
+          @foreach (var row in _filtered.Take(_visibleCount))
+          {
+            <tr>
+              <td>
+                <strong>@row.Tracker.Parent1Name</strong>@(string.IsNullOrEmpty(row.Tracker.Parent2Name) ? "" : $" & {row.Tracker.Parent2Name}")
+              </td>
+              <td style="font-size:.82rem;color:var(--text-mid);">@(row.Tracker.ChildName ?? "—")</td>
+              <td style="font-size:.82rem;">@row.Milestone.Type.ToDisplayName()</td>
+              <td style="font-size:.78rem;color:var(--text-light);">@(row.Milestone.DueDate?.ToString("MMM d, yyyy") ?? "—")</td>
+              <td>
+                @if (row.Milestone.BookSent)
+                { <span class="badge badge-fulfilled">Sent</span> }
+                else if (row.IsOverdue)
+                { <span class="badge badge-overdue">Overdue</span> }
+                else if (row.IsDueSoon)
+                { <span class="badge badge-inprogress">Due Soon</span> }
+                else
+                { <span class="badge badge-new">Upcoming</span> }
+              </td>
+              <td>
+                <button class="btn btn-sm @(row.Milestone.BookSent ? "" : "btn-primary")" @onclick="() => ToggleSentAsync(row.Milestone)">@(row.Milestone.BookSent ? "Mark Unsent" : "Mark Sent")</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (_filtered.Count > _visibleCount)
+    {
+      <div style="padding:14px;text-align:center;">
+        <button class="btn btn-sm" @onclick="() => _visibleCount += 100">Show 100 more (@(_filtered.Count - _visibleCount) remaining)</button>
+      </div>
+    }
+  </div>
+}
+
+@code {
+  private record MilestoneRow(FollowUpTracker Tracker, FollowUpMilestone Milestone)
+  {
+    public bool IsOverdue  => !Milestone.BookSent && Milestone.DueDate is not null && Milestone.DueDate < DateTime.UtcNow;
+    public bool IsDueSoon  => !Milestone.BookSent && Milestone.DueDate is not null && Milestone.DueDate >= DateTime.UtcNow && Milestone.DueDate <= DateTime.UtcNow.AddDays(30);
+  }
+
+  private List<FollowUpTracker> _trackers = [];
+  private List<MilestoneRow> _rows = [];
+  private List<MilestoneRow> _filtered = [];
+  private bool _loading = true;
+  private string _activeFilter = "All";
+  private string _search = "";
+  private int _visibleCount = 100;
+
+  private readonly string[] _filters = ["All", "Overdue", "Due Soon", "Sent"];
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _trackers = await Api.GetFollowUpTrackersAsync();
+    _rows = _trackers
+      .SelectMany(t => t.Milestones.Select(m => new MilestoneRow(t, m)))
+      .OrderBy(r => r.Milestone.DueDate ?? DateTime.MaxValue)
+      .ToList();
+    ApplyFilter();
+    _loading = false;
+  }
+
+  private void SetFilter(string f) { _activeFilter = f; ApplyFilter(); }
+
+  private void ApplyFilter()
+  {
+    _visibleCount = 100;
+    _filtered = _rows.Where(r =>
+    {
+      var matchFilter = _activeFilter switch
+      {
+        "Overdue"  => r.IsOverdue,
+        "Due Soon" => r.IsDueSoon,
+        "Sent"     => r.Milestone.BookSent,
+        _          => true
+      };
+      var matchSearch = string.IsNullOrEmpty(_search) ||
+        r.Tracker.Parent1Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+        (r.Tracker.Parent2Name?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (r.Tracker.ChildName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+      return matchFilter && matchSearch;
+    }).ToList();
+  }
+
+  private async Task ToggleSentAsync(FollowUpMilestone m)
+  {
+    var ok = await Api.MarkFollowUpMilestoneSentAsync(m.Id, !m.BookSent);
+    if (ok) { m.BookSent = !m.BookSent; ApplyFilter(); }
+  }
+}

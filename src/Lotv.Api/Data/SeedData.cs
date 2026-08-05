@@ -117,6 +117,20 @@ public static class DevSeedData
             new() { Id = 11, FamilyId = 10, Reason = PackageReason.PastLoss,                   Category = RequestCategory.CounselingReferral, Status = CaseStatus.Fulfilled,     Priority = RequestPriority.Low,    ChapterId = 1, AssignedToId = 3, AssignedTo = "Lucia Esposito",  CreatedAt = new DateTime(2025,  7, 10, 0, 0, 0, DateTimeKind.Utc),  UpdatedAt = new DateTime(2025,  8,  5, 0, 0, 0, DateTimeKind.Utc) },
             new() { Id = 12, FamilyId =  1, Reason = PackageReason.Stillbirth,                 Category = RequestCategory.Memorial,          Status = CaseStatus.OnHold,          Priority = RequestPriority.Normal, ChapterId = 1, CreatedAt = new DateTime(2025, 11, 20, 0, 0, 0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025, 11, 22, 0, 0, 0, DateTimeKind.Utc), InternalNotes = "Family requested memorial planting kit. On hold pending supply." },
         };
+        // ProcessStage is tracked alongside Status but didn't exist when these
+        // literals were first written — derive a sensible stage from Status for
+        // any request that already has a volunteer, so the Kanban board's
+        // In Progress sub-groupings aren't all just "Unassigned" out of the box.
+        foreach (var r in requests.Where(r => r.AssignedToId.HasValue))
+        {
+            r.ProcessStage = r.Status switch
+            {
+                CaseStatus.AwaitingShipment => ProcessStage.Packing,
+                CaseStatus.Shipped          => ProcessStage.Shipping,
+                CaseStatus.Fulfilled        => ProcessStage.Delivered,
+                _                           => ProcessStage.Assigned
+            };
+        }
         db.Requests.AddRange(requests);
 
         // ── MOCK DATA: Donations ──────────────────────────────────────────────

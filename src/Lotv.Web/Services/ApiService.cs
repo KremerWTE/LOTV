@@ -739,6 +739,12 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    public async Task<bool> UpdateRequestProcessStageAsync(int id, ProcessStage stage)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{id}/process-stage", new { ProcessStage = stage });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     public async Task<bool> UpdateRequestDueDateAsync(int id, DateTime dueDate)
     {
         var resp = await AuthedPutAsync($"/api/v1/requests/{id}/due-date", new { DueDate = dueDate });
@@ -1460,6 +1466,15 @@ public class ApiService
     public async Task<bool> MarkMailingEntrySentAsync(int id, bool sent)
     {
         var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/sent", new { Sent = sent });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public Task<List<FollowUpTracker>> GetFollowUpTrackersAsync() =>
+        GetListAsync<FollowUpTracker>("/api/v1/follow-up-trackers");
+
+    public async Task<bool> MarkFollowUpMilestoneSentAsync(int milestoneId, bool sent)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/follow-up-trackers/milestones/{milestoneId}/sent", new { Sent = sent });
         return resp?.IsSuccessStatusCode == true;
     }
 

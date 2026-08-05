@@ -667,6 +667,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     r.AssignedToId = vol.Id;
     r.AssignedTo = vol.FullName;
     r.Status = CaseStatus.InProgress;
+    if (r.ProcessStage == ProcessStage.Unassigned) r.ProcessStage = ProcessStage.Assigned;
     r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
@@ -694,6 +695,20 @@ cases.MapPut("/{id:int}/priority", async (int id, PriorityRequest body, LotvDbCo
     {
         RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
         ActivityType = ActivityType.PriorityChanged, NewValue = body.Priority.ToString(), Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+    return Results.Ok(r);
+});
+
+cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var r = await db.Requests.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    r.ProcessStage = body.ProcessStage; r.UpdatedAt = DateTime.UtcNow;
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        ActivityType = ActivityType.ProcessStageChanged, NewValue = body.ProcessStage.ToString(), Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
     return Results.Ok(r);
@@ -4401,6 +4416,24 @@ mailingList.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
     return Results.NoContent();
 });
 
+// ─── Bereavement follow-up tracking (Stephen's Ministry-style touchpoints) ─────
+var followUp = app.MapGroup("/api/v1/follow-up-trackers").WithTags("FollowUp").RequireAuthorization("Staff");
+
+followUp.MapGet("/", async (LotvDbContext db) =>
+    Results.Ok(await db.FollowUpTrackers
+        .Include(t => t.Milestones)
+        .OrderBy(t => t.Parent1Name)
+        .ToListAsync()));
+
+followUp.MapPut("/milestones/{id:int}/sent", async (int id, MarkSentRequest body, LotvDbContext db) =>
+{
+    var m = await db.FollowUpMilestones.FindAsync(id);
+    if (m is null) return Results.NotFound();
+    m.BookSent = body.Sent;
+    await db.SaveChangesAsync();
+    return Results.Ok(m);
+});
+
 app.MapGet("/api/public/v1/announcements", async (LotvDbContext db, string? audience) =>
 {
     var now = DateTime.UtcNow;
@@ -4657,6 +4690,7 @@ record MarkSentRequest(bool Sent);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
 record PriorityRequest(RequestPriority Priority);
+record ProcessStageRequest(ProcessStage ProcessStage);
 record DueDateRequest(DateTime DueDate);
 record DeclineRequest(string? Reason);
 record EscalateRequest(string Reason);

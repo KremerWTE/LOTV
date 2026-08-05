@@ -25,6 +25,7 @@ public enum ActivityType
     NoteAdded,
     DueDateSet,
     PriorityChanged,
+    ProcessStageChanged,
     Fulfilled,
     Cancelled,
     Escalated,

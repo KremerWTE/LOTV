@@ -48,3 +48,15 @@ public enum FollowUpMilestoneType
     SixMonths,
     ElevenMonths
 }
+
+public static class FollowUpMilestoneTypeExtensions
+{
+    public static string ToDisplayName(this FollowUpMilestoneType t) => t switch
+    {
+        FollowUpMilestoneType.ThreeWeeks   => "3 Weeks",
+        FollowUpMilestoneType.ThreeMonths  => "3 Months",
+        FollowUpMilestoneType.SixMonths    => "6 Months",
+        FollowUpMilestoneType.ElevenMonths => "11 Months",
+        _ => t.ToString()
+    };
+}

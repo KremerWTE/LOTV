@@ -17,6 +17,7 @@ public class PackageRequest
     public RequestPriority Priority { get; set; } = RequestPriority.Normal;
     public int? AssignedToId { get; set; }         // VolunteerId or null
     public string? AssignedTo { get; set; }        // display name (kept for UI compat)
+    public ProcessStage ProcessStage { get; set; } = ProcessStage.Unassigned;
     public DateTime? DueDate { get; set; }
     public int ChapterId { get; set; }
     public Chapter? Chapter { get; set; }
@@ -59,6 +60,19 @@ public enum RequestPriority
     High,
     Normal,
     Low
+}
+
+// Fulfillment checklist a volunteer manually advances as they work a package —
+// tracked alongside Status (which drives the pipeline columns), not instead of it.
+public enum ProcessStage
+{
+    Unassigned,
+    Assigned,
+    Confirmed,
+    Packing,
+    Notes,
+    Shipping,
+    Delivered
 }
 
 public enum RequestCategory

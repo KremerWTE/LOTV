@@ -13,7 +13,14 @@
       "mcp__playwright__browser_snapshot",
       "mcp__playwright__browser_console_messages",
       "mcp__playwright__browser_evaluate",
-      "mcp__playwright__browser_type"
+      "mcp__playwright__browser_type",
+      "WebFetch(domain:form.jotform.com)",
+      "mcp__claude_ai_Jotform__api_request",
+      "mcp__playwright__browser_network_request",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_network_requests",
+      "mcp__playwright__browser_select_option",
+      "mcp__playwright__browser_fill_form"
     ]
   }
 }

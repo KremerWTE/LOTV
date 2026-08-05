@@ -1,0 +1,45 @@
+@* Single Kanban card — extracted so it can render both as a flat list item and,
+   for the In Progress column, grouped under Process Stage sub-headers, without
+   duplicating the markup in each place. *@
+
+<div class="kanban-card kanban-card-@Request.Priority.ToString().ToLowerInvariant() @(Request.AssignedTo is null ? "kanban-card-unassigned" : "")"
+     draggable="true"
+     @ondragstart="() => OnDragStart.InvokeAsync(Request)"
+     @ondragend="() => OnDragEnd.InvokeAsync()"
+     @onclick="() => OnSelect.InvokeAsync(Request)">
+  <div class="kanban-card-id">
+    #@Request.Id
+    <span class="badge @GetPriorityBadge(Request.Priority)" style="float:right;">@Request.Priority</span>
+  </div>
+  <div class="kanban-card-name">@Request.Family?.FullName</div>
+  <div class="kanban-card-reason">@Request.Reason.ToDisplayName()</div>
+  <div class="kanban-card-meta">
+    <span>@(Request.IsForSelf ? "For Self" : "For Someone Else")</span>
+    @if (!string.IsNullOrEmpty(Request.Family?.FaithTradition))
+    { <span>&bull; @Request.Family.FaithTradition</span> }
+    @if (!string.IsNullOrEmpty(Request.ChildrenInitials))
+    { <span>&bull; Bracelet: @Request.ChildrenInitials</span> }
+  </div>
+  @if (!string.IsNullOrEmpty(Request.TrackingNumber))
+  {
+    <div class="kanban-card-tracking">📦 @Request.TrackingNumber</div>
+  }
+  <div class="kanban-card-footer">
+    <span class="kanban-assignee @(Request.AssignedTo is null ? "kanban-assignee-unassigned" : "")">👤 @(Request.AssignedTo ?? "Unassigned")</span>
+    <span class="kanban-age @(Request.IsOverdue ? "badge-overdue" : "")">@GetAge(Request.CreatedAt)</span>
+  </div>
+  @if (Request.AssignedTo is null)
+  {
+    <button class="btn btn-sm btn-primary" style="width:100%;margin-top:8px;" @onclick="() => OnAssign.InvokeAsync(Request)" @onclick:stopPropagation="true">👤 Assign</button>
+  }
+</div>
+
+@code {
+  [Parameter] public PackageRequest Request { get; set; } = default!;
+  [Parameter] public EventCallback<PackageRequest> OnSelect { get; set; }
+  [Parameter] public EventCallback<PackageRequest> OnAssign { get; set; }
+  [Parameter] public EventCallback<PackageRequest> OnDragStart { get; set; }
+  [Parameter] public EventCallback OnDragEnd { get; set; }
+  [Parameter] public Func<RequestPriority, string> GetPriorityBadge { get; set; } = _ => "";
+  [Parameter] public Func<DateTime, string> GetAge { get; set; } = _ => "";
+}
