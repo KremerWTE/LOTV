@@ -24,7 +24,9 @@
 @switch (_active)
 {
   case "directory":
-    <Events />
+    @* Fully qualified — Lotv.Web.Pages.Events (the public /events page) shares
+       the short name "Events" with this admin one, which RZ9985s on publish. *@
+    <Lotv.Web.Pages.Admin.Events />
     break;
   case "attendees":
     <EventAttendeeSummary />

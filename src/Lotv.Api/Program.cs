@@ -321,6 +321,9 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         Status         = CaseStatus.New,
         CreatedAt      = DateTime.UtcNow,
         UpdatedAt      = DateTime.UtcNow,
+        // KanbanCard reads Request.ChildrenInitials, not Family.ChildrenInitials —
+        // copy it over so the bracelet initials actually show up on the card.
+        ChildrenInitials          = body.Family.ChildrenInitials,
         NeedsDuplicateReview     = dupMatch is not null,
         PossibleDuplicateFamilyId = dupMatch?.Family.Id,
         DuplicateMatchReason      = dupMatch?.Reason
@@ -3736,26 +3739,46 @@ app.MapPost("/api/v1/webhooks/jotform", async (
     // Kept as an ORDERED list (not a Dictionary) because labels are NOT unique —
     // the husband and wife sections both use the bare labels "Email", "Phone
     // Number", and "Address" — so a Dictionary would throw once both are filled.
+    // Reconciled 2026-08-11 against a live pull of form/261395566857171/questions —
+    // several labels below carry a trailing space or an embedded colon in their
+    // JotForm "text" property (e.g. "Faith Tradition ", "Date of Recent Loss: "),
+    // which is why the split regex tolerates optional whitespace before the
+    // separator colon rather than requiring an exact "label:" match.
     var knownLabels = new[]
     {
-        "Prayer Care Package Options", "Husband's Name", "Email", "Phone Number", "Address",
-        "Wife's Name", "Husband's Address the Same as Wife",
-        "Reason for Prayer Package Request", "Date of Recent Loss", "Quarterly Grief Support Interest",
-        "Would you like to receive discrete support materials by mail?",
-        "Faith Tradition", "Diocese", "Parish", "How did you hear about us?",
+        "Prayer Care Package Options", "Husband's Name", "Email", "Phone Number",
+        "Wife's Name", "Recipient's Address",
+        "Reason for Prayer Package Request", "Date of Recent Loss", "Quaterly Grief Support",
+        "Faith Tradition", "Diocese", "Parish", "How did you hear",
         "Would you like us to mention that this package is from you or prefer to remain anonymous?",
         "Include a custom message to your recipient",
         "Please Share With Us, As Much As You're Comfortable, Your Story",
+        // Widget field (control_widget) whose visible label is its full instructional
+        // text — matched verbatim so the split lands on the real answer boundary
+        // instead of the label's own embedded "Bracelet:" colon. Still unverified
+        // against a real submission (multi-row widget answers may not fit the plain
+        // "Label:value" pretty shape at all) — confirm once a live submission lands.
+        "Children for Bracelet: We would like to include a personalized bracelet in your Prayer Care Package. " +
+        "Please share the initials of all your children in birth order, including those in heaven. If your child " +
+        "was not named or if you're experiencing infertility, we will place special Heart beads on your bracelet.",
         "Opt-in Communications", "Requester Name", "Requester Email", "Requester Phone", "Requester Address",
     };
     var labelAlternation = string.Join("|", knownLabels.OrderByDescending(l => l.Length).Select(Regex.Escape));
-    var pairs = Regex.Split(pretty, $@",\s+(?=(?:{labelAlternation}):)")
-        .Select(p => p.Split(':', 2))
-        .Where(p => p.Length == 2)
-        // "...Your Story:" is itself a label whose text ends in a colon, so its
-        // pretty rendering has two colons in a row before the answer — strip the
-        // resulting stray leading colon rather than special-case that one field.
-        .Select(p => (Key: p[0].Trim(), Value: p[1].TrimStart(':').Trim()))
+    // Anchor each segment on its matched known label rather than blindly splitting
+    // on the first colon — a plain Split(':', 2) breaks for any label whose text
+    // itself contains a colon before the end (e.g. "Children for Bracelet: We
+    // would like...", where the real answer separator is a different, later
+    // colon). Matching the known label explicitly and consuming exactly one
+    // separator colon after it gets the right boundary regardless of where the
+    // label's own colons fall.
+    var pairs = Regex.Split(pretty, $@",\s+(?=(?:{labelAlternation})\s*:)")
+        .Select(p => Regex.Match(p, $@"^\s*(?<label>{labelAlternation})\s*:(?<rest>.*)$", RegexOptions.Singleline))
+        .Where(m => m.Success)
+        // A handful of labels (e.g. "...Your Story:") end in a colon that isn't
+        // part of knownLabels' entry for them, so one colon of JotForm's own
+        // separator still lands inside "rest" — strip the resulting stray
+        // leading colon rather than special-case those fields.
+        .Select(m => (Key: m.Groups["label"].Value.Trim(), Value: m.Groups["rest"].Value.TrimStart(':').Trim()))
         .ToList();
 
     // First match wins, which — given the husband section precedes the wife
@@ -3820,6 +3843,11 @@ app.MapPost("/api/v1/webhooks/jotform", async (
         _ => PackageReason.Other
     };
 
+    // Label's own text ends in "Loss: ", so its pretty rendering is
+    // "...Loss: :answer" (colon, space, colon) — the space survives TrimStart(':').
+    var lossDateRaw = Field("Date of Recent Loss")?.TrimStart(':').Trim();
+    DateTime? dateOfLoss = DateTime.TryParse(lossDateRaw, out var parsedLossDate) ? parsedLossDate : null;
+
     var attribution = Field("mention that this package", "remain anonymous") ?? "";
     var privacy = attribution.Contains("anonymous", StringComparison.OrdinalIgnoreCase)
         ? PrivacyPreference.Anonymous
@@ -3859,6 +3887,7 @@ app.MapPost("/api/v1/webhooks/jotform", async (
         Zip              = addrZip,
         Reason           = reason,
         FaithTradition   = Field("Faith Tradition"),
+        DateOfLoss       = dateOfLoss,
         ChildrenInitials = Field("Bracelet", "initials"),
         Story            = Field("Your Story", "recipient story"),
         ParishName       = Field("Parish"),
@@ -3886,6 +3915,9 @@ app.MapPost("/api/v1/webhooks/jotform", async (
         Status        = CaseStatus.New,
         CreatedAt     = DateTime.UtcNow,
         UpdatedAt     = DateTime.UtcNow,
+        // KanbanCard reads Request.ChildrenInitials, not Family.ChildrenInitials —
+        // copy it over so the bracelet initials actually show up on the card.
+        ChildrenInitials          = family.ChildrenInitials,
         NeedsDuplicateReview      = dupMatch is not null,
         PossibleDuplicateFamilyId = dupMatch?.Family.Id,
         DuplicateMatchReason      = dupMatch?.Reason
