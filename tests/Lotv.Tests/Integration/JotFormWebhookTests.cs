@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Lotv.Api.Data;
 using Lotv.Core.Models;
 using Microsoft.EntityFrameworkCore;
@@ -67,6 +68,20 @@ public class JotFormWebhookTests
         "Requester Phone :5559876543, " +
         "Requester Address :123 Main St, Springfield, IL 62704";
 
+    // Infertility "For Me" request — no lost child, so the form's "Date of Recent
+    // Loss" field is left blank/absent entirely, same as a real such submission.
+    private const string InfertilityNoDateOfLossPretty =
+        "Prayer Care Package Options:For Me, " +
+        "Husband's Name:Alex Rivera, " +
+        "Email:alex@example.com, " +
+        "Phone Number:5551112222, " +
+        "Recipient's Address:1 Test Way, Springfield, IL 62704, " +
+        "Reason for Prayer Package Request:Infertility, " +
+        "Quaterly Grief Support :No, " +
+        "Faith Tradition :Catholic, " +
+        "Requester Name:Alex Rivera, " +
+        "Requester Email:alex@example.com";
+
     private static MultipartFormDataContent BuildForm(string submissionId, string pretty)
     {
         var form = new MultipartFormDataContent();
@@ -120,6 +135,101 @@ public class JotFormWebhookTests
 
         Assert.NotNull(request);
         Assert.Equal("A.S.", request!.ChildrenInitials);
+    }
+
+    [Fact]
+    public async Task Webhook_RealisticSubmission_CreatesFollowUpTrackerWithCorrectMilestones()
+    {
+        // Real intake (JotForm or /apply) never created a FollowUpTracker at all —
+        // the ministry's actual "SM (2026)" bereavement tracking sheet shows this
+        // running for every real loss, but only the one-time historical import ever
+        // populated the table. Milestone offsets (+21 days, +3/+6/+11 months) are
+        // matched exactly against real due-date deltas in that sheet.
+        await SeedActiveChapterAsync();
+        var client = _factory.CreateClient();
+
+        await client.PostAsync("/api/v1/webhooks/jotform", BuildForm("sub-007", RealisticPretty));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var tracker = await db.FollowUpTrackers
+            .Include(t => t.Milestones)
+            .OrderByDescending(t => t.Id)
+            .FirstOrDefaultAsync();
+
+        Assert.NotNull(tracker);
+        var lossDate = new DateTime(2026, 6, 1);
+        Assert.Equal(lossDate, tracker!.DateOfLoss);
+        Assert.Equal(4, tracker.Milestones.Count);
+        Assert.Equal(lossDate.AddDays(21),  tracker.Milestones.Single(m => m.Type == FollowUpMilestoneType.ThreeWeeks).DueDate);
+        Assert.Equal(lossDate.AddMonths(3), tracker.Milestones.Single(m => m.Type == FollowUpMilestoneType.ThreeMonths).DueDate);
+        Assert.Equal(lossDate.AddMonths(6), tracker.Milestones.Single(m => m.Type == FollowUpMilestoneType.SixMonths).DueDate);
+        Assert.Equal(lossDate.AddMonths(11), tracker.Milestones.Single(m => m.Type == FollowUpMilestoneType.ElevenMonths).DueDate);
+        Assert.All(tracker.Milestones, m => Assert.False(m.BookSent));
+    }
+
+    [Fact]
+    public async Task Webhook_RealisticSubmission_FollowUpTrackersListEndpointStillSucceeds()
+    {
+        // Regression test: EF fixes up FollowUpMilestone.FollowUpTracker (the back-
+        // reference) once both sides are tracked in the same context, which used to
+        // make GET /api/v1/follow-up-trackers 500 with an infinite reference cycle
+        // for every tracker in the list, not just the newly-created one.
+        await SeedActiveChapterAsync();
+        var client = _factory.CreateClient();
+
+        await client.PostAsync("/api/v1/webhooks/jotform", BuildForm("sub-009", RealisticPretty));
+
+        var token = await RegisterAndLoginAsync(client);
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await client.GetAsync("/api/v1/follow-up-trackers");
+        var body = await resp.Content.ReadAsStringAsync();
+
+        // 200, not the 500 reference-cycle crash — and the milestone data actually
+        // made it into the response body rather than being silently dropped.
+        Assert.True(HttpStatusCode.OK == resp.StatusCode, $"Expected 200, got {resp.StatusCode}: {body}");
+        Assert.Contains("\"threeWeeks\"", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"elevenMonths\"", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<string> RegisterAndLoginAsync(HttpClient client)
+    {
+        var email = $"integ-{Guid.NewGuid():N}@test.com";
+        const string password = "Integration1Pass!";
+
+        var regResp = await client.PostAsJsonAsync("/api/v1/auth/register", new
+        {
+            Email = email, Password = password, FirstName = "Integration", LastName = "Tester", Role = "ChapterStaff"
+        });
+        regResp.EnsureSuccessStatusCode();
+
+        var loginResp = await client.PostAsJsonAsync("/api/v1/auth/login", new { Username = email, Password = password });
+        loginResp.EnsureSuccessStatusCode();
+
+        var body = await loginResp.Content.ReadFromJsonAsync<LoginResponseDto>();
+        return body!.AccessToken;
+    }
+
+    [Fact]
+    public async Task Webhook_InfertilitySubmissionWithNoDateOfLoss_DoesNotCreateFollowUpTracker()
+    {
+        // No DateOfLoss means no lost child to schedule bereavement touchpoints for,
+        // and no date to compute milestone due dates from — must not create a tracker.
+        await SeedActiveChapterAsync();
+        var client = _factory.CreateClient();
+
+        await client.PostAsync("/api/v1/webhooks/jotform", BuildForm("sub-008", InfertilityNoDateOfLossPretty));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var family = await db.Families.OrderByDescending(f => f.Id).FirstOrDefaultAsync();
+        Assert.NotNull(family);
+        Assert.Null(family!.DateOfLoss);
+
+        var trackerExists = await db.FollowUpTrackers.AnyAsync(t => t.FamilyId == family.Id);
+        Assert.False(trackerExists);
     }
 
     [Fact]

@@ -347,6 +347,8 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     if (dupMatch is null)
         await autoAssign.TryAutoAssignAsync(req.Id);
 
+    await CreateFollowUpTrackerIfLossKnownAsync(db, body.Family);
+
     _ = pushSvc.SendToAllAsync(
         dupMatch is null ? "New request submitted" : "New request submitted — possible duplicate",
         dupMatch is null
@@ -2149,6 +2151,44 @@ static async Task<bool> ValidateApiKey(HttpContext http, LotvDbContext db, ApiKe
     return true;
 }
 
+// Auto-creates a Stephen's Ministry-style bereavement follow-up tracker (3wk/3mo/6mo/11mo
+// touchpoints) for a newly-intaken family, mirroring what LegacyImport did one-time for
+// historical cases. Only when DateOfLoss is known — that's both the real-world signal for
+// "an actual loss occurred" (excludes Infertility, which has no lost child) and the value
+// the milestone due dates are computed from, so a request without it can't be scheduled
+// anyway. Offsets (+21 days, +3/+6/+11 calendar months) match the live "SM (2026)" tracking
+// sheet's actual due-date deltas exactly, confirmed against real rows.
+static async Task CreateFollowUpTrackerIfLossKnownAsync(LotvDbContext db, Family family)
+{
+    if (family.DateOfLoss is not { } lossDate) return;
+
+    var tracker = new FollowUpTracker
+    {
+        FamilyId = family.Id,
+        Parent1Name = $"{family.Parent1FirstName} {family.Parent1LastName}".Trim(),
+        Parent2Name = string.IsNullOrEmpty(family.Parent2FirstName) ? null : $"{family.Parent2FirstName} {family.Parent2LastName}".Trim(),
+        Email = family.Email,
+        Phone = family.Phone,
+        StreetAddress = family.StreetAddress,
+        Apt = family.Apt,
+        City = family.City,
+        State = family.State,
+        Zip = family.Zip,
+        Reason = family.Reason.ToString(),
+        ChildName = family.ChildrenInitials,
+        DateOfLoss = lossDate,
+        Milestones =
+        [
+            new() { Type = FollowUpMilestoneType.ThreeWeeks,   DueDate = lossDate.AddDays(21) },
+            new() { Type = FollowUpMilestoneType.ThreeMonths,  DueDate = lossDate.AddMonths(3) },
+            new() { Type = FollowUpMilestoneType.SixMonths,    DueDate = lossDate.AddMonths(6) },
+            new() { Type = FollowUpMilestoneType.ElevenMonths, DueDate = lossDate.AddMonths(11) },
+        ]
+    };
+    db.FollowUpTrackers.Add(tracker);
+    await db.SaveChangesAsync();
+}
+
 var publicApi = app.MapGroup("/api/public/v1").WithTags("Public API");
 
 // GET /api/public/v1/impact — aggregate impact summary (no key required — truly public)
@@ -3939,6 +3979,8 @@ app.MapPost("/api/v1/webhooks/jotform", async (
 
     if (dupMatch is null)
         await autoAssign.TryAutoAssignAsync(req.Id);
+
+    await CreateFollowUpTrackerIfLossKnownAsync(db, family);
 
     _ = pushSvc.SendToAllAsync(
         dupMatch is null ? "New prayer package request (JotForm)" : "New prayer package request — possible duplicate",

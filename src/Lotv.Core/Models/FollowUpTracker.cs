@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Lotv.Core.Models;
 
 /// <summary>
@@ -34,6 +36,13 @@ public class FollowUpMilestone
 {
     public int Id { get; set; }
     public int FollowUpTrackerId { get; set; }
+    // EF relationship-fixup back-reference only — the API never returns this to
+    // clients, and serializing it round-trips straight back into Tracker.Milestones,
+    // an infinite cycle System.Text.Json has no global ReferenceHandler configured
+    // to catch (confirmed live: a real tracker created via the JotForm webhook
+    // 500'd GET /api/v1/follow-up-trackers for every tracker in the list, old and
+    // new alike, the moment EF fixed up both sides of the relationship in one context).
+    [JsonIgnore]
     public FollowUpTracker? FollowUpTracker { get; set; }
 
     public FollowUpMilestoneType Type { get; set; }
