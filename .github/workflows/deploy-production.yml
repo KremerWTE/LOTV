@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy-production:
-    name: Deploy release tag to Production
+    name: Publish & Deploy release tag → Production
     runs-on: ubuntu-latest
     environment: production
 
@@ -43,32 +43,17 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Log in to container registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ secrets.REGISTRY_HOST }}
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+      # No Docker: publish each project as plain framework-dependent output
+      # and zip-deploy straight to App Service. The Web project (Blazor
+      # WASM) needs a Windows App Service plan - `dotnet publish` on this
+      # SDK auto-generates a web.config with the SPA fallback rewrite rule
+      # into publish/wwwroot, which IIS on a Windows plan honors natively;
+      # a Linux plan has no server component to serve the static output.
+      - name: Publish API
+        run: dotnet publish src/Lotv.Api/Lotv.Api.csproj --configuration Release --no-build -o publish/api
 
-      - name: Build & push API image (production tag)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: src/Lotv.Api/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_HOST }}/lotv-api:production
-            ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ steps.version.outputs.VERSION }}
-
-      - name: Build & push Web image (production tag)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: src/Lotv.Web/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_HOST }}/lotv-web:production
-            ${{ secrets.REGISTRY_HOST }}/lotv-web:${{ steps.version.outputs.VERSION }}
+      - name: Publish Web
+        run: dotnet publish src/Lotv.Web/Lotv.Web.csproj --configuration Release --no-build -o publish/web
 
       - name: Log in to Azure
         uses: azure/login@v2
@@ -81,13 +66,13 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_API_NAME_PROD }}
-          images: ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ steps.version.outputs.VERSION }}
+          package: publish/api
 
       - name: Deploy Web to Azure App Service (production)
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_WEB_NAME_PROD }}
-          images: ${{ secrets.REGISTRY_HOST }}/lotv-web:${{ steps.version.outputs.VERSION }}
+          package: publish/web
 
       - name: Create GitHub Release notes
         uses: softprops/action-gh-release@v3

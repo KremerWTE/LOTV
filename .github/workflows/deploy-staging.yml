@@ -1,15 +1,14 @@
 name: Deploy — Staging
 
 # Disabled from auto-run on push: this repo has no staging environment yet
-# (DB_CONNECTION_STRING / REGISTRY_HOST / REGISTRY_USER / REGISTRY_PASSWORD
-# secrets aren't set). Trigger manually once those exist, or restore the
-# `push: branches: [main]` trigger below.
+# (DB_CONNECTION_STRING / Azure secrets aren't set). Trigger manually once
+# those exist, or restore the `push: branches: [main]` trigger below.
 on:
   workflow_dispatch: {}
 
 jobs:
   deploy-staging:
-    name: Build & Push Docker images → Staging
+    name: Publish & Deploy → Staging
     runs-on: ubuntu-latest
     environment: staging
 
@@ -45,36 +44,17 @@ jobs:
           Database__Provider: SqlServer
           ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
 
-      - name: Log in to container registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ secrets.REGISTRY_HOST }}
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+      # No Docker: publish each project as plain framework-dependent output
+      # and zip-deploy straight to App Service. The Web project (Blazor
+      # WASM) needs a Windows App Service plan - `dotnet publish` on this
+      # SDK auto-generates a web.config with the SPA fallback rewrite rule
+      # into publish/wwwroot, which IIS on a Windows plan honors natively;
+      # a Linux plan has no server component to serve the static output.
+      - name: Publish API
+        run: dotnet publish src/Lotv.Api/Lotv.Api.csproj --configuration Release --no-build -o publish/api
 
-      - name: Set image tag
-        id: tag
-        run: echo "TAG=${{ secrets.REGISTRY_HOST }}/lotv:${{ github.sha }}" >> $GITHUB_OUTPUT
-
-      - name: Build & push API image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: src/Lotv.Api/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_HOST }}/lotv-api:staging
-            ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ github.sha }}
-
-      - name: Build & push Web image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: src/Lotv.Web/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_HOST }}/lotv-web:staging
-            ${{ secrets.REGISTRY_HOST }}/lotv-web:${{ github.sha }}
+      - name: Publish Web
+        run: dotnet publish src/Lotv.Web/Lotv.Web.csproj --configuration Release --no-build -o publish/web
 
       - name: Log in to Azure
         uses: azure/login@v2
@@ -87,13 +67,13 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_API_NAME }}
-          images: ${{ secrets.REGISTRY_HOST }}/lotv-api:staging
+          package: publish/api
 
       - name: Deploy Web to Azure App Service (staging)
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_WEB_NAME }}
-          images: ${{ secrets.REGISTRY_HOST }}/lotv-web:staging
+          package: publish/web
 
       - name: Notify on failure
         if: failure()
