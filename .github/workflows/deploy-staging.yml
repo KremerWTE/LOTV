@@ -28,6 +28,16 @@ jobs:
       - name: Install EF Core tools
         run: dotnet tool install --global dotnet-ef --version 9.*
 
+      # Must build this explicitly, in this order, before the migrations step:
+      # Lotv.Api's UseSqlServer(...) loads this assembly by name at runtime
+      # (Assembly.Load), and a ProjectReference back from Lotv.Api would be
+      # circular (this project already references Lotv.Api for the
+      # DbContext). Lotv.Api's post-build target copies this DLL into its own
+      # output once it exists on disk - but only if it already exists when
+      # Lotv.Api itself gets (re)built by the `dotnet ef` command below.
+      - name: Build SQL Server migrations assembly
+        run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release --no-restore
+
       - name: Run database migrations (staging)
         run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
         env:

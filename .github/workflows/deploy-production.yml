@@ -26,6 +26,12 @@ jobs:
       - name: Install EF Core tools
         run: dotnet tool install --global dotnet-ef --version 9.*
 
+      # See the matching comment in deploy-staging.yml - this must build
+      # before the migrations step so Lotv.Api's post-build copy target has
+      # something to copy when `dotnet ef` rebuilds it below.
+      - name: Build SQL Server migrations assembly
+        run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release --no-restore
+
       - name: Run database migrations (production)
         run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
         env:
