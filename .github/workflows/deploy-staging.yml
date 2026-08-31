@@ -65,16 +65,24 @@ jobs:
             ${{ secrets.REGISTRY_HOST }}/lotv-web:staging
             ${{ secrets.REGISTRY_HOST }}/lotv-web:${{ github.sha }}
 
-      # ── Deploy step: swap for your actual hosting (Azure / Railway / etc.) ──
-      # Example: Azure Container Apps
-      # - name: Deploy API to staging
-      #   uses: azure/container-apps-deploy-action@v1
-      #   with:
-      #     appSourcePath: ${{ github.workspace }}
-      #     acrName: ${{ secrets.ACR_NAME }}
-      #     containerAppName: lotv-api-staging
-      #     resourceGroup: ${{ secrets.AZURE_RG }}
-      #     imageToDeploy: ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ github.sha }}
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy API to Azure App Service (staging)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_API_NAME }}
+          images: ${{ secrets.REGISTRY_HOST }}/lotv-api:staging
+
+      - name: Deploy Web to Azure App Service (staging)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_WEB_NAME }}
+          images: ${{ secrets.REGISTRY_HOST }}/lotv-web:staging
 
       - name: Notify on failure
         if: failure()
