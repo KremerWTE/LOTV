@@ -35,20 +35,18 @@ public abstract class E2ETestBase : IAsyncLifetime
         Page.GotoAsync(E2ESettings.BaseUrl.TrimEnd('/') + path);
 
     /// <summary>
-    /// Waits for Blazor WASM to finish its initial render by waiting for the
-    /// app root element to appear and the loading spinner to disappear.
+    /// Waits for Blazor to finish its initial render by waiting for the
+    /// #app root element to actually contain content.
     /// </summary>
     protected async Task WaitForBlazorAsync()
     {
-        // index.html's #app div ships with a loading spinner (svg.loading-progress +
-        // .loading-progress-text) already inside it, so "#app:not(:empty)" is true
-        // before Blazor even starts — it's not a useful signal on its own. Blazor
-        // replaces #app's entire content with the rendered route once it's ready,
-        // so waiting for that spinner to be gone is what actually indicates render
-        // completion.
-        await Page.WaitForSelectorAsync(".loading-progress", new PageWaitForSelectorOptions
+        // Blazor Server (see src/Lotv.Web/App.razor): the initial HTTP
+        // response ships #app empty (prerendering is off) - it's only
+        // populated once the interactive circuit connects and <Routes>
+        // renders. "#app:not(:empty)" is a real, meaningful signal here,
+        // same as it was under the old Blazor WASM hosting model.
+        await Page.WaitForSelectorAsync("#app:not(:empty)", new PageWaitForSelectorOptions
         {
-            State   = WaitForSelectorState.Detached,
             Timeout = E2ESettings.Timeout
         });
     }

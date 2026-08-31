@@ -54,7 +54,7 @@ else
 
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Information</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;">
           <div class="form-group">
             <label class="form-label" for="vol-first-name">First Name *</label>
             <input id="vol-first-name" class="form-input" @bind="_firstName" placeholder="First" aria-required="true" autocomplete="given-name" />
@@ -72,7 +72,7 @@ else
           <label class="form-label" for="vol-phone">Phone (optional)</label>
           <input id="vol-phone" class="form-input" @bind="_phone" placeholder="(555) 000-0000" autocomplete="tel" />
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-top:12px;">
           <div class="form-group">
             <label class="form-label" for="vol-city">City</label>
             <input id="vol-city" class="form-input" @bind="_city" placeholder="City" autocomplete="address-level2" />

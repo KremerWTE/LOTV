@@ -78,7 +78,7 @@ else
       <!-- DONOR INFO -->
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Information</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;">
           <div class="form-group">
             <label class="form-label" for="give-first-name">First Name *</label>
             <input id="give-first-name" class="form-input" @bind="_firstName" placeholder="First" aria-required="true" autocomplete="given-name" />
