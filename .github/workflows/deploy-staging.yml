@@ -36,7 +36,7 @@ jobs:
       # output once it exists on disk - but only if it already exists when
       # Lotv.Api itself gets (re)built by the `dotnet ef` command below.
       - name: Build SQL Server migrations assembly
-        run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release --no-restore
+        run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release
 
       - name: Run database migrations (staging)
         run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
