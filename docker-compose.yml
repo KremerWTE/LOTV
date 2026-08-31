@@ -27,18 +27,18 @@ services:
       retries: 5
       start_period: 10s
 
-  # ── Web (Blazor WASM) ─────────────────────────────────────────────────────
+  # ── Web (Blazor Server) ────────────────────────────────────────────────────
   web:
     build:
       context: .
       dockerfile: src/Lotv.Web/Dockerfile
     ports:
-      - "80:80"
+      - "80:8080"
     environment:
-      # Must be a URL the *browser* can reach, not the container network —
-      # Blazor WASM calls the API client-side, so this has to match the API
-      # service's host-mapped port above (8080), not its in-container port.
-      API_BASE_URL: "http://localhost:8080"
+      ASPNETCORE_ENVIRONMENT: Development
+      # Web now calls the API server-side (Blazor Server, not WASM), so this
+      # is the container-network address, not a browser-reachable one.
+      ApiBaseUrl: "http://api:8080"
     depends_on:
       api:
         condition: service_healthy

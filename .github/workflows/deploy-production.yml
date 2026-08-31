@@ -44,11 +44,9 @@ jobs:
         run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
       # No Docker: publish each project as plain framework-dependent output
-      # and zip-deploy straight to App Service. The Web project (Blazor
-      # WASM) needs a Windows App Service plan - `dotnet publish` on this
-      # SDK auto-generates a web.config with the SPA fallback rewrite rule
-      # into publish/wwwroot, which IIS on a Windows plan honors natively;
-      # a Linux plan has no server component to serve the static output.
+      # and zip-deploy straight to App Service. Web is Blazor Server now (not
+      # WASM), so it's a normal Kestrel app just like the API - both run on
+      # a Linux App Service plan, no IIS/web.config/static-hosting needed.
       - name: Publish API
         run: dotnet publish src/Lotv.Api/Lotv.Api.csproj --configuration Release --no-build -o publish/api
 

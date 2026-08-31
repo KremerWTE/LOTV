@@ -5,34 +5,36 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Restore — csproj files first for layer caching
-COPY ["src/Lotv.Core/Lotv.Core.csproj", "src/Lotv.Core/"]
-COPY ["src/Lotv.Web/Lotv.Web.csproj",   "src/Lotv.Web/"]
+# Restore — copy only csproj files first to maximise layer caching
+COPY ["src/Lotv.Core/Lotv.Core.csproj",   "src/Lotv.Core/"]
+COPY ["src/Lotv.Web/Lotv.Web.csproj",     "src/Lotv.Web/"]
 RUN dotnet restore "src/Lotv.Web/Lotv.Web.csproj"
 
-# Build + publish
+# Build
 COPY src/ src/
 WORKDIR "/src/src/Lotv.Web"
+RUN dotnet build "Lotv.Web.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
+
+# ── Stage 2: Publish ──────────────────────────────────────────────────────────
+FROM build AS publish
+ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "Lotv.Web.csproj" \
     -c $BUILD_CONFIGURATION \
     -o /app/publish \
+    /p:UseAppHost=false \
     --no-restore
 
-# ── Stage 2: Serve with nginx ─────────────────────────────────────────────────
-FROM nginx:alpine AS final
+# ── Stage 3: Runtime ──────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+EXPOSE 8080
 
-# Copy compiled Blazor WASM static assets
-COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# SPA routing + caching config
-COPY src/Lotv.Web/nginx.conf /etc/nginx/conf.d/default.conf
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
 
-# Writes wwwroot/appsettings.json from $API_BASE_URL at container start —
-# see docker-entrypoint.sh for why (Blazor WASM has no server-side runtime
-# config to read env vars from).
-COPY src/Lotv.Web/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-ENV API_BASE_URL=http://localhost:5275
-
-EXPOSE 80
-ENTRYPOINT ["/docker-entrypoint.sh"]
+COPY --from=publish /app/publish .
+ENV ASPNETCORE_URLS=http://+:8080
+ENTRYPOINT ["dotnet", "Lotv.Web.dll"]
