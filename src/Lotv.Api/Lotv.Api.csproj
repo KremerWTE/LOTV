@@ -31,4 +31,25 @@
     <ProjectReference Include="..\Lotv.Core\Lotv.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    Lotv.Migrations.SqlServer needs a ProjectReference to *this* project (for
+    LotvDbContext), so this project can't reference it back the normal way -
+    that would be a circular ProjectReference, which MSBuild rejects. But at
+    runtime, Program.cs's UseSqlServer(... MigrationsAssembly("Lotv.Migrations.SqlServer"))
+    needs that DLL to be loadable via Assembly.Load, which only works if it's
+    sitting in this project's own output folder. So: copy it in after build
+    instead of referencing it. Condition guards against a fresh/isolated
+    build of just this project, where the sibling output won't exist yet -
+    CI builds the whole solution first, so it's always present by the time
+    `dotnet ef database update` runs.
+  -->
+  <Target Name="CopySqlServerMigrationsAssembly" AfterTargets="Build;Publish">
+    <ItemGroup>
+      <SqlServerMigrationsFiles Include="..\Lotv.Migrations.SqlServer\bin\$(Configuration)\$(TargetFramework)\Lotv.Migrations.SqlServer.*"
+                                 Condition="Exists('..\Lotv.Migrations.SqlServer\bin\$(Configuration)\$(TargetFramework)\Lotv.Migrations.SqlServer.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SqlServerMigrationsFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SqlServerMigrationsFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+  </Target>
+
 </Project>
