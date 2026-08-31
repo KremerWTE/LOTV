@@ -31,6 +31,10 @@ public class MobileResponsivenessTests : IAsyncLifetime
     private Task GoToAsync(string path) =>
         Page.GotoAsync(E2ESettings.BaseUrl.TrimEnd('/') + path);
 
+    // Duplicates E2ETestBase.WaitForBlazorAsync (this class can't inherit it -
+    // it needs a mobile-viewport BrowserContext, see InitializeAsync above).
+    // See src/Lotv.Web/App.razor and E2ETestBase for why #app:not(:empty) is
+    // a real, meaningful signal under Blazor Server.
     private async Task WaitForBlazorAsync()
     {
         await Page.WaitForSelectorAsync("#app:not(:empty)", new PageWaitForSelectorOptions

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <!--
+            EF Core migrations (and the generated model snapshot) are
+            mechanically generated DDL - they aren't meant to be
+            unit-tested, and including them tanks Lotv.Api's reported line
+            coverage to single digits even though the application logic
+            itself is well covered (433 tests, many hitting API endpoints
+            directly). Confirmed: ~90k of the ~90k+ "uncovered" lines
+            reported for Lotv.Api were exactly these generated files.
+          -->
+          <Exclude>[Lotv.Api]Lotv.Api.Migrations.*,[Lotv.Migrations.SqlServer]Lotv.Migrations.SqlServer.Migrations.*</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

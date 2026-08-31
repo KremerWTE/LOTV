@@ -15,7 +15,22 @@
 </head>
 
 <body>
-    <Routes @rendermode="@_renderMode" />
+    <!--
+      #app wrapper: functionally a no-op (Routes would render fine without
+      it), kept as a real content-readiness signal for the E2E suite. With
+      prerendering off, the initial HTTP response ships this div empty - it
+      only gets populated once the interactive circuit connects and Routes
+      actually renders - so "#app:not(:empty)" means the same thing it did
+      under WASM. Found the hard way: E2ETestBase's WaitForBlazorAsync used
+      to wait for a WASM-only loading spinner to disappear, which (with no
+      spinner markup left, and prerendering off) resolved instantly instead
+      of waiting for anything - tests then raced real content and failed
+      intermittently (e.g. checking for an <h1> before Routes had rendered
+      one). This div gives that wait something real to key off again.
+    -->
+    <div id="app">
+        <Routes @rendermode="@_renderMode" />
+    </div>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.

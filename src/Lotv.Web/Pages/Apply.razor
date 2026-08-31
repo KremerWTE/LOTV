@@ -49,7 +49,7 @@ else
       <!-- ── FOR ME / SOMEONE ELSE ───────────────────────────────────────── -->
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Who is this request for?</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
           <button type="button"
                   style="@RadioCardStyle(_forSelf)"
                   aria-pressed="@_forSelf"
@@ -74,7 +74,7 @@ else
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">
           @(_forSelf ? "About You" : "About the Recipient")
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;">
           <div class="form-group">
             <label class="form-label" for="apply-first-name">First Name *</label>
             <input id="apply-first-name" class="form-input" @bind="_f.Parent1FirstName" placeholder="First name" aria-required="true" autocomplete="given-name" />
@@ -92,7 +92,7 @@ else
           <label class="form-label" for="apply-phone">Phone (optional)</label>
           <input id="apply-phone" class="form-input" @bind="_f.Phone" placeholder="(555) 000-0000" autocomplete="tel" />
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-top:12px;">
           <div class="form-group">
             <label class="form-label" for="apply-city">City</label>
             <input id="apply-city" class="form-input" @bind="_f.City" placeholder="City" autocomplete="address-level2" />
@@ -109,7 +109,7 @@ else
       {
         <div style="margin-bottom:28px;background:#f8f9fb;border-radius:10px;padding:20px 24px;border:1px solid var(--border);">
           <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;">About You (Referrer)</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;">
             <div class="form-group">
               <label class="form-label" for="ref-first">Your First Name</label>
               <input id="ref-first" class="form-input" @bind="_referrerFirstName" placeholder="Your first name" autocomplete="given-name" />
@@ -132,7 +132,7 @@ else
       <!-- ── PACKAGE TYPE ────────────────────────────────────────────────── -->
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Choose a Package Type</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
           @foreach (var pkg in _packageOptions)
           {
             <button type="button"
@@ -171,7 +171,7 @@ else
       <!-- ── PRIVACY SETTINGS ───────────────────────────────────────────── -->
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Prayer Wall Listing</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
           <button type="button"
                   style="@PrivacyCardStyle(_f.PrivacyPreference == PrivacyPreference.Public)"
                   aria-pressed="@(_f.PrivacyPreference == PrivacyPreference.Public)"
@@ -202,7 +202,7 @@ else
       <!-- ── FAITH & PARISH ──────────────────────────────────────────────── -->
       <div style="margin-bottom:28px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Faith &amp; Parish (optional)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;">
           <div class="form-group">
             <label class="form-label" for="apply-parish">Parish Name</label>
             <input id="apply-parish" class="form-input" @bind="_f.ParishName" placeholder="St. Mary's, Chicago" />
