@@ -66,6 +66,11 @@ jobs:
           Jwt__Issuer: "lotv-e2e"
           Jwt__Audience: "lotv-e2e"
 
+      # coverlet.runsettings excludes EF Core's generated migrations/model
+      # snapshot from coverage - mechanically generated DDL, not meant to be
+      # unit-tested, but without this exclusion it swamps Lotv.Api's line
+      # count (~90k generated lines, all 0% covered) and reports a
+      # misleadingly low ~5% instead of the real ~47%.
       - name: Unit/integration tests with coverage
         run: |
           dotnet test tests/Lotv.Tests/Lotv.Tests.csproj \
@@ -73,7 +78,7 @@ jobs:
             --configuration Release \
             --logger "trx;LogFileName=test-results.trx" \
             --collect "XPlat Code Coverage" \
-            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+            --settings tests/Lotv.Tests/coverlet.runsettings
 
       # No --collect here: coverage of the E2E project's own test methods isn't a
       # meaningful metric (they drive a browser, they don't exercise app code
