@@ -33,6 +33,16 @@ jobs:
       - name: Build
         run: dotnet build Lotv.slnx --no-restore --configuration Release
 
+      # dotnet publish runs a stricter Razor component check than dotnet build —
+      # e.g. RZ9985 (ambiguous same-named components across namespaces) only
+      # fails here, not above. This is also exactly what both Dockerfiles run,
+      # so this step is the cheapest way to catch a build that passes CI but
+      # breaks the Docker image, without needing Docker-in-CI for every PR.
+      - name: Publish (catches dotnet-publish-only failures, e.g. RZ9985)
+        run: |
+          dotnet publish src/Lotv.Api/Lotv.Api.csproj --no-restore --configuration Release -o /tmp/publish-api
+          dotnet publish src/Lotv.Web/Lotv.Web.csproj --no-restore --configuration Release -o /tmp/publish-web
+
       - name: Install Playwright browsers
         run: pwsh tests/Lotv.E2E/bin/Release/net9.0/playwright.ps1 install --with-deps chromium
 
