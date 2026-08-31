@@ -98,7 +98,7 @@ staging environment:
 Admin tests use the dev seed credentials. These only exist when the API is running
 in `Development` mode with `Testing:SkipSeed` not set:
 
-| Role | Email | Password |
+| Role | Username | Password |
 |---|---|---|
-| HQ Admin | `admin@lotv-demo.org` | `DevPassword1!` |
-| Chapter Staff | `chicago@lotv-demo.org` | `DevPassword1!` |
+| HQ Admin | `mary.roberts` | `DevPassword1!` |
+| Chapter Staff | `claire.hoffman` | `DevPassword1!` |

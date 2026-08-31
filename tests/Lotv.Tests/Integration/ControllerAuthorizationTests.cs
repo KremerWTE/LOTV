@@ -232,7 +232,7 @@ public class ControllerAuthorizationTests
         });
 
         var loginResp = await client.PostAsJsonAsync("/api/v1/auth/login",
-            new { Email = email, Password = password });
+            new { Username = email, Password = password });
         var loginBody = await loginResp.Content.ReadFromJsonAsync<LoginResponseDto>();
 
         client.DefaultRequestHeaders.Authorization =

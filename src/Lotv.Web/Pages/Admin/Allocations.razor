@@ -162,7 +162,9 @@
     _reviewing.Status       = AllocationStatus.Allocated;
     _reviewing.ApprovedBy   = Auth.UserName;
     _reviewing.ApprovedAt   = DateTime.UtcNow;
-    await Api.UpdateAllocationAsync(_reviewing.Id, _reviewing);
+    var result = await Api.UpdateAllocationAsync(_reviewing.Id, _reviewing);
+    if (result is null)
+    { _reviewError = "Failed to approve this allocation. Please try again."; return; }
 
     _allocs      = await Api.GetAllocationsAsync();
     _reviewing   = null;

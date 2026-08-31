@@ -15,14 +15,23 @@ namespace Lotv.Api.Data;
 public static class DevSeedData
 {
     /// <summary>
-    /// Idempotent seed: skips entirely if any Chapter rows already exist.
-    /// Safe to call on every startup in Development.
+    /// Idempotent seed: skips the fictional demo dataset if it's already been seeded
+    /// (or if this database holds real imported data instead — see LegacyImport), but
+    /// always seeds/ensures the login accounts, since a database with only imported
+    /// case data still needs staff to be able to sign in. Safe to call on every
+    /// startup in Development.
     /// </summary>
     public static async Task SeedAsync(LotvDbContext db, UserManager<LotvIdentityUser> userMgr)
     {
         await db.Database.EnsureCreatedAsync();
-        if (db.Chapters.Any()) return;
+        if (!db.Chapters.Any())
+            await SeedMockDataAsync(db);
 
+        await SeedLoginAccountsAsync(userMgr);
+    }
+
+    private static async Task SeedMockDataAsync(LotvDbContext db)
+    {
         // ── MOCK DATA: Chapters ───────────────────────────────────────────────
         var chapterChicago    = new Chapter { Id = 1, Name = "Chicago Metro",    City = "Chicago",      State = "IL", ContactName = "Sister Mary Agnes",   ContactEmail = "chicago@lotv-demo.org",    ContactPhone = "+13125550101", IsActive = true, CreatedAt = new DateTime(2022, 3, 1, 0, 0, 0, DateTimeKind.Utc) };
         var chapterMilwaukee  = new Chapter { Id = 2, Name = "Milwaukee",        City = "Milwaukee",    State = "WI", ContactName = "Deacon Paul Brennan", ContactEmail = "milwaukee@lotv-demo.org",  ContactPhone = "+14145550102", IsActive = true, CreatedAt = new DateTime(2023, 1, 15, 0, 0, 0, DateTimeKind.Utc) };
@@ -108,6 +117,20 @@ public static class DevSeedData
             new() { Id = 11, FamilyId = 10, Reason = PackageReason.PastLoss,                   Category = RequestCategory.CounselingReferral, Status = CaseStatus.Fulfilled,     Priority = RequestPriority.Low,    ChapterId = 1, AssignedToId = 3, AssignedTo = "Lucia Esposito",  CreatedAt = new DateTime(2025,  7, 10, 0, 0, 0, DateTimeKind.Utc),  UpdatedAt = new DateTime(2025,  8,  5, 0, 0, 0, DateTimeKind.Utc) },
             new() { Id = 12, FamilyId =  1, Reason = PackageReason.Stillbirth,                 Category = RequestCategory.Memorial,          Status = CaseStatus.OnHold,          Priority = RequestPriority.Normal, ChapterId = 1, CreatedAt = new DateTime(2025, 11, 20, 0, 0, 0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025, 11, 22, 0, 0, 0, DateTimeKind.Utc), InternalNotes = "Family requested memorial planting kit. On hold pending supply." },
         };
+        // ProcessStage is tracked alongside Status but didn't exist when these
+        // literals were first written — derive a sensible stage from Status for
+        // any request that already has a volunteer, so the Kanban board's
+        // In Progress sub-groupings aren't all just "Unassigned" out of the box.
+        foreach (var r in requests.Where(r => r.AssignedToId.HasValue))
+        {
+            r.ProcessStage = r.Status switch
+            {
+                CaseStatus.AwaitingShipment => ProcessStage.Packing,
+                CaseStatus.Shipped          => ProcessStage.Shipping,
+                CaseStatus.Fulfilled        => ProcessStage.Delivered,
+                _                           => ProcessStage.Assigned
+            };
+        }
         db.Requests.AddRange(requests);
 
         // ── MOCK DATA: Donations ──────────────────────────────────────────────
@@ -208,26 +231,62 @@ public static class DevSeedData
         );
 
         await db.SaveChangesAsync();
+    }
 
-        // ── MOCK DATA: Login accounts ─────────────────────────────────────────
+    private static async Task SeedLoginAccountsAsync(UserManager<LotvIdentityUser> userMgr)
+    {
         // Credentials matched by tests/Lotv.E2E/Infrastructure/E2ESettings.cs —
-        // keep these two in sync if either side changes.
-        await CreateUserIfMissingAsync(userMgr, "admin@lotv-demo.org", "DevPassword1!",
+        // keep these two in sync if either side changes. No real email on file;
+        // a recovery email can be added later via Admin > User Management.
+        await CreateUserIfMissingAsync(userMgr, "mary.roberts", null, "DevPassword1!",
             "Mary", "Roberts", UserRole.HQAdmin, chapterId: null);
-        await CreateUserIfMissingAsync(userMgr, "chicago@lotv-demo.org", "DevPassword1!",
+        await CreateUserIfMissingAsync(userMgr, "claire.hoffman", null, "DevPassword1!",
             "Claire", "Hoffman", UserRole.ChapterStaff, chapterId: 1);
+
+        // ── Real staff accounts (dev credentials only — rotate before any real
+        // deployment; these are NOT meant to be used outside local dev). These
+        // people don't have real email addresses on file, so they sign in with
+        // a plain username (firstname.lastname) rather than an email — a
+        // recovery email can be added later via Admin > User Management for
+        // forgot-password to work.
+        await CreateUserIfMissingAsync(userMgr, "whitney.whitmore", null, "DevPassword1!",
+            "Whitney", "Whitmore", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "cynthia.destefano", null, "DevPassword1!",
+            "Cynthia", "DeStefano", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "chris.kremer", null, "DevPassword1!",
+            "Chris", "Kremer", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "admin", null, "DevPassword1!",
+            "Admin", "Account", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "tech", null, "DevPassword1!",
+            "Tech", "Account", UserRole.HQAdmin, chapterId: null);
+
+        // Chapter-scoped staff — ChapterStaff is the least-privileged role that
+        // still sees Cases/Kanban/Queue; it also currently includes the
+        // Volunteers/Programs nav section (there's no narrower "kanban-only"
+        // role yet). Defaulted to Chapter 1 (Chicago Metro) pending real
+        // chapter assignments.
+        await CreateUserIfMissingAsync(userMgr, "jamie-lee.lavelle", null, "DevPassword1!",
+            "Jamie-Lee", "Lavelle", UserRole.ChapterStaff, chapterId: 1);
+        await CreateUserIfMissingAsync(userMgr, "maegan.dobner", null, "DevPassword1!",
+            "Maegan", "Dobner", UserRole.ChapterStaff, chapterId: 1);
+        await CreateUserIfMissingAsync(userMgr, "stephanie.caccamo", null, "DevPassword1!",
+            "Stephanie", "Caccamo", UserRole.ChapterStaff, chapterId: 1);
+        await CreateUserIfMissingAsync(userMgr, "sammi.weaver", null, "DevPassword1!",
+            "Sammi", "Weaver", UserRole.ChapterStaff, chapterId: 1);
+        await CreateUserIfMissingAsync(userMgr, "stephanie.mercado-carrillo", null, "DevPassword1!",
+            "Stephanie", "Mercado Carrillo", UserRole.ChapterStaff, chapterId: 1);
     }
 
     private static async Task CreateUserIfMissingAsync(UserManager<LotvIdentityUser> userMgr,
-        string email, string password, string firstName, string lastName, UserRole role, int? chapterId)
+        string username, string? email, string password, string firstName, string lastName, UserRole role, int? chapterId)
     {
-        if (await userMgr.FindByEmailAsync(email) is not null) return;
+        if (await userMgr.FindByNameAsync(username) is not null) return;
 
         var user = new LotvIdentityUser
         {
-            UserName = email,
+            UserName = username,
             Email = email,
-            EmailConfirmed = true,
+            EmailConfirmed = email is not null,
             FirstName = firstName,
             LastName = lastName,
             Role = role,

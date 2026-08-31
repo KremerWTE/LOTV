@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!--
+    Holds SQL-Server-specific EF Core migrations only. The main Migrations/
+    folder in Lotv.Api was scaffolded while the active provider was SQLite,
+    so its Up() methods bake in SQLite column types (e.g. type: "TEXT") that
+    don't produce correct DDL against SQL Server. EF Core's supported fix for
+    running the same DbContext against multiple providers is a separate
+    migrations assembly per provider (see Program.cs's UseSqlServer(...
+    MigrationsAssembly(...)) call) - this project is that assembly.
+  -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lotv.Api\Lotv.Api.csproj" />
+  </ItemGroup>
+
+</Project>

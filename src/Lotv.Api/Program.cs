@@ -1,4 +1,6 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 using Lotv.Api.Auth;
 using Serilog;
@@ -44,7 +46,17 @@ builder.Host.UseSerilog((ctx, services, cfg) =>
 });
 
 // ── Database ──────────────────────────────────────────────────────────────────
-if (builder.Environment.IsDevelopment())
+// Database:Provider = "SqlServer" targets a SQL Server instance regardless of
+// environment (used for the real ministry database at 10.100.1.87). Otherwise
+// Development defaults to local SQLite and everything else to Postgres.
+var dbProvider = builder.Configuration["Database:Provider"];
+if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddDbContext<LotvDbContext>(o =>
+        o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+            sql => sql.MigrationsAssembly("Lotv.Migrations.SqlServer")));
+}
+else if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddDbContext<LotvDbContext>(o =>
         o.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=lotv-dev.db"));
@@ -119,6 +131,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IChapterContextService, ChapterContextService>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<IAutoAssignmentService, AutoAssignmentService>();
+builder.Services.AddScoped<IDuplicateFamilyDetectionService, DuplicateFamilyDetectionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IScheduledReportService, ScheduledReportService>();
 builder.Services.AddScoped<IFinancialAuditService, FinancialAuditService>();
@@ -241,8 +254,13 @@ app.MapHealthChecks("/health").AllowAnonymous();
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
-    if (app.Environment.IsDevelopment())
-        db.Database.EnsureCreated();    // fast for SQLite dev; skips migration table
+    // The existing migration history was scaffolded against SQLite and doesn't
+    // cleanly replay under SQL Server (provider-specific column-type annotations
+    // trigger a "pending model changes" error) — EnsureCreated derives DDL fresh
+    // from the live model instead, which is what LegacyImport already used to
+    // stand up the real SQL Server database.
+    if (app.Environment.IsDevelopment() || string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+        db.Database.EnsureCreated();
     else
         db.Database.Migrate();          // runs pending EF Core migrations in production
 }
@@ -259,12 +277,17 @@ app.MapHub<AuctionHub>("/hubs/auction");
 var publicIntake = app.MapGroup("/api/v1/public").WithTags("Public").AllowAnonymous().RequireRateLimiting("auth");
 
 // Family intake: creates a Family record + PackageRequest and triggers auto-assignment
-publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IPushSender pushSvc) =>
+publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IDuplicateFamilyDetectionService dupSvc, IPushSender pushSvc) =>
 {
     if (string.IsNullOrWhiteSpace(body.Family.Parent1FirstName) ||
         string.IsNullOrWhiteSpace(body.Family.Parent1LastName) ||
         string.IsNullOrWhiteSpace(body.Family.Email))
         return Results.BadRequest(new { error = "First name, last name, and email are required." });
+
+    // Check for a possible duplicate before creating the new Family record. We still
+    // create it either way — the request just gets held for staff review instead of
+    // silently merging (family identity is too sensitive to guess automatically).
+    var dupMatch = await dupSvc.FindPossibleDuplicateAsync(body.Family, body.Family.ChapterId);
 
     body.Family.CreatedAt = DateTime.UtcNow;
     // PrivacyPreference is sent as part of the Family object from the form
@@ -298,22 +321,43 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         InternalNotes  = referrerNote,
         Status         = CaseStatus.New,
         CreatedAt      = DateTime.UtcNow,
-        UpdatedAt      = DateTime.UtcNow
+        UpdatedAt      = DateTime.UtcNow,
+        // KanbanCard reads Request.ChildrenInitials, not Family.ChildrenInitials —
+        // copy it over so the bracelet initials actually show up on the card.
+        ChildrenInitials          = body.Family.ChildrenInitials,
+        NeedsDuplicateReview     = dupMatch is not null,
+        PossibleDuplicateFamilyId = dupMatch?.Family.Id,
+        DuplicateMatchReason      = dupMatch?.Reason
     };
     db.Requests.Add(req);
+    // Set via the Request navigation, not a scalar RequestId = req.Id copy — req.Id is
+    // still an EF-internal temp key at this point, and a scalar copy into an otherwise
+    // unrelated tracked entity doesn't register as a real relationship, so SaveChanges
+    // has no reason to insert Requests first or resolve the temp value. That silently
+    // fails the RequestActivities FK the moment SQLite enforces it.
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = req.Id, ActorId = "public", ActorName = "Public Intake Form",
+        Request = req, ActorId = "public", ActorName = "Public Intake Form",
         ActivityType = ActivityType.Created, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
-    await autoAssign.TryAutoAssignAsync(req.Id);
 
-    _ = pushSvc.SendToAllAsync("New request submitted",
-        $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package.",
-        $"/admin/cases/{req.Id}");
+    // Hold flagged submissions out of auto-assignment until a human confirms they're
+    // not the same family — assigning a volunteer to what might be a duplicate case
+    // just creates more cleanup work later.
+    if (dupMatch is null)
+        await autoAssign.TryAutoAssignAsync(req.Id);
 
-    return Results.Created($"/api/v1/requests/{req.Id}", new { familyId = body.Family.Id, requestId = req.Id });
+    await CreateFollowUpTrackerIfLossKnownAsync(db, body.Family);
+
+    _ = pushSvc.SendToAllAsync(
+        dupMatch is null ? "New request submitted" : "New request submitted — possible duplicate",
+        dupMatch is null
+            ? $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package."
+            : $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package. {dupMatch.Reason} — needs review.",
+        dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
+
+    return Results.Created($"/api/v1/requests/{req.Id}", new { familyId = body.Family.Id, requestId = req.Id, needsDuplicateReview = dupMatch is not null });
 });
 
 // Donation intake: creates Donor + Donation records
@@ -403,7 +447,10 @@ auth.MapPost("/register", async (RegisterRequest req, UserManager<LotvIdentityUs
 auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> userMgr,
     JwtTokenService tokenSvc, LotvDbContext db) =>
 {
-    var user = await userMgr.FindByEmailAsync(req.Email);
+    if (string.IsNullOrWhiteSpace(req.Username))
+        return Results.Unauthorized();
+
+    var user = await userMgr.FindByNameAsync(req.Username);
     if (user is null || !await userMgr.CheckPasswordAsync(user, req.Password))
         return Results.Unauthorized();
     if (!user.IsActive)
@@ -417,6 +464,42 @@ auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> us
 
     return Results.Ok(new { accessToken, refreshToken = refreshToken.Token, user.Role, user.ChapterId });
 });
+
+// Sign-in is by username, not email (several seeded/staff accounts don't have a
+// real deliverable address) — so password recovery has to be a separate opt-in
+// step where a user records a recovery email against their account first (see
+// PUT /api/v1/users/{id}/email), rather than the email being assumed to exist.
+auth.MapPost("/forgot-password", async (ForgotPasswordRequest req, UserManager<LotvIdentityUser> userMgr, INotificationService notify) =>
+{
+    var user = string.IsNullOrWhiteSpace(req.Username) ? null : await userMgr.FindByNameAsync(req.Username);
+    if (user is not null && !string.IsNullOrWhiteSpace(user.Email))
+    {
+        var token = await userMgr.GeneratePasswordResetTokenAsync(user);
+        var link = $"/reset-password?u={Uri.EscapeDataString(user.UserName ?? req.Username)}&t={Uri.EscapeDataString(token)}";
+        _ = notify.SendEmailAsync(user.Email, user.FullName, "Reset your LOTV Staff Portal password",
+            $"<p>A password reset was requested for the account <strong>{user.UserName}</strong>.</p>" +
+            $"<p>Click below to choose a new password. This link expires in 2 hours. If you didn't request this, you can ignore this email.</p>" +
+            $"<p><a href=\"{link}\">{link}</a></p>");
+    }
+    // Always return the same response whether or not the account/email exists,
+    // so this endpoint can't be used to enumerate valid usernames.
+    return Results.Ok(new { message = "If that account has a recovery email on file, a reset link has been sent." });
+}).AllowAnonymous();
+
+auth.MapPost("/reset-password", async (ResetPasswordRequest req, UserManager<LotvIdentityUser> userMgr) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username))
+        return Results.BadRequest(new { error = "Invalid or expired reset link." });
+
+    var user = await userMgr.FindByNameAsync(req.Username);
+    if (user is null) return Results.BadRequest(new { error = "Invalid or expired reset link." });
+
+    var result = await userMgr.ResetPasswordAsync(user, req.Token, req.NewPassword);
+    if (!result.Succeeded)
+        return Results.BadRequest(new { error = result.Errors.FirstOrDefault()?.Description ?? "Invalid or expired reset link." });
+
+    return Results.Ok(new { message = "Password updated — you can now sign in." });
+}).AllowAnonymous();
 
 auth.MapPost("/refresh", async (RefreshRequest req, LotvDbContext db,
     UserManager<LotvIdentityUser> userMgr, JwtTokenService tokenSvc) =>
@@ -455,9 +538,14 @@ auth.MapPost("/logout", async (RefreshRequest req, LotvDbContext db) =>
 var cases = app.MapGroup("/api/v1/requests").WithTags("Requests").RequireAuthorization("Staff");
 
 cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
-    string? status, string? priority, bool? overdue) =>
+    string? status, string? priority, bool? overdue, bool? historical) =>
 {
     var q = db.Requests.Include(r => r.Family).AsQueryable();
+    // Historical (prior-year import) cases are excluded from the active pipeline
+    // views by default — see /admin/historical for a dedicated read-only browser.
+    q = historical == true
+        ? q.Where(r => r.Family != null && r.Family.IsHistorical)
+        : q.Where(r => r.Family == null || !r.Family.IsHistorical);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
         q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     if (!string.IsNullOrEmpty(status) && Enum.TryParse<CaseStatus>(status, true, out var cs))
@@ -472,7 +560,9 @@ cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
 
 cases.MapGet("/queue", async (LotvDbContext db, IChapterContextService ctx) =>
 {
-    var q = db.Requests.Where(r => r.AssignedToId == null && r.Status == CaseStatus.New);
+    // Requests flagged NeedsDuplicateReview are held out of the normal queue until
+    // staff resolve them at /admin/families/duplicate-review.
+    var q = db.Requests.Where(r => r.AssignedToId == null && r.Status == CaseStatus.New && !r.NeedsDuplicateReview);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
         q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     return await q.OrderBy(r => r.CreatedAt).ToListAsync();
@@ -520,14 +610,22 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
 }).RequireAuthorization("Authenticated");
 
 cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDbContext db,
-    IChapterContextService ctx, IHubContext<RequestsHub> hub) =>
+    IChapterContextService ctx, IHubContext<RequestsHub> hub, INotificationService notify, IPushSender pushSvc,
+    UserManager<LotvIdentityUser> userMgr) =>
 {
-    var r = await db.Requests.FindAsync(id);
+    var r = await db.Requests.Include(r => r.Family).FirstOrDefaultAsync(r => r.Id == id);
     if (r is null) return Results.NotFound();
     if (!ctx.IsHqAdmin && r.ChapterId != ctx.ChapterId) return Results.Forbid();
     var old = r.Status;
+
+    if (!CaseStatusTransitions.IsValid(old, body.Status))
+        return Results.BadRequest(new { error = $"Can't move a case from {old} directly to {body.Status}." });
+    if (body.Status == CaseStatus.Shipped && string.IsNullOrWhiteSpace(r.TrackingNumber))
+        return Results.BadRequest(new { error = "A tracking number is required before marking a case Shipped." });
+
     r.Status = body.Status;
     r.UpdatedAt = DateTime.UtcNow;
+    if (body.Status == CaseStatus.Shipped && r.ShippedDate is null) r.ShippedDate = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
         RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
@@ -536,6 +634,31 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
     });
     await db.SaveChangesAsync();
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseStatusChanged", id, body.Status.ToString(), ctx.UserId);
+
+    // Let the family know their package is on its way, and let the assigned
+    // volunteer know once it's shipped or the case is fully wrapped up — neither
+    // of these were ever surfaced anywhere outside an internal SignalR refresh.
+    if (body.Status is CaseStatus.Shipped or CaseStatus.Fulfilled)
+    {
+        if (body.Status == CaseStatus.Shipped && r.Family is not null && !string.IsNullOrWhiteSpace(r.Family.Email))
+        {
+            var trackingLine = string.IsNullOrWhiteSpace(r.TrackingNumber) ? "" : $"<p>Tracking number: <strong>{r.TrackingNumber}</strong></p>";
+            _ = notify.SendEmailAsync(r.Family.Email, r.Family.FullName, "Your Prayer Care Package Is On Its Way",
+                $"<p>Dear {r.Family.FullName},</p><p>Your Prayer Care Package has shipped and is on its way to you. We are keeping you close in prayer.</p>{trackingLine}");
+        }
+        if (r.AssignedToId.HasValue)
+        {
+            var vol = await db.Volunteers.FindAsync(r.AssignedToId.Value);
+            if (vol is not null && !string.IsNullOrEmpty(vol.Email))
+            {
+                var ident = await userMgr.FindByEmailAsync(vol.Email);
+                if (ident is not null)
+                    _ = pushSvc.SendToUserAsync(ident.Id, $"Request #{id} — {body.Status}",
+                        $"Request #{id} for {r.Family?.FullName ?? "a family"} is now {body.Status}.", $"/admin/cases/{id}");
+            }
+        }
+    }
+
     return Results.Ok(r);
 });
 
@@ -550,6 +673,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     r.AssignedToId = vol.Id;
     r.AssignedTo = vol.FullName;
     r.Status = CaseStatus.InProgress;
+    if (r.ProcessStage == ProcessStage.Unassigned) r.ProcessStage = ProcessStage.Assigned;
     r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
@@ -582,6 +706,20 @@ cases.MapPut("/{id:int}/priority", async (int id, PriorityRequest body, LotvDbCo
     return Results.Ok(r);
 });
 
+cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var r = await db.Requests.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    r.ProcessStage = body.ProcessStage; r.UpdatedAt = DateTime.UtcNow;
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        ActivityType = ActivityType.ProcessStageChanged, NewValue = body.ProcessStage.ToString(), Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+    return Results.Ok(r);
+});
+
 cases.MapPut("/{id:int}/due-date", async (int id, DueDateRequest body, LotvDbContext db, IChapterContextService ctx) =>
 {
     var r = await db.Requests.FindAsync(id);
@@ -607,6 +745,82 @@ cases.MapPatch("/{id:int}", async (int id, RequestPatchRequest body, LotvDbConte
     r.UpdatedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
     return Results.Ok(r);
+}).RequireAuthorization("Staff");
+
+// ── Packing list — what's physically going into this family's package ─────────
+cases.MapGet("/{id:int}/items", async (int id, LotvDbContext db) =>
+    await db.PackageContentItems.Include(p => p.ResourceItem)
+        .Where(p => p.PackageRequestId == id).OrderBy(p => p.CreatedAt).ToListAsync());
+
+cases.MapPost("/{id:int}/items", async (int id, PackageItemRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var r = await db.Requests.FindAsync(id);
+    if (r is null) return Results.NotFound(new { message = "Request not found" });
+    var item = await db.ResourceItems.FindAsync(body.ResourceItemId);
+    if (item is null) return Results.NotFound(new { message = "Inventory item not found" });
+    if (body.Quantity <= 0) return Results.BadRequest(new { error = "Quantity must be greater than zero." });
+    if (body.Quantity > item.QuantityAvailable) return Results.BadRequest(new { error = "Quantity exceeds available stock." });
+
+    item.QuantityReserved += body.Quantity;
+    item.UpdatedAt = DateTime.UtcNow;
+    var content = new PackageContentItem
+    {
+        PackageRequestId = id, ResourceItemId = body.ResourceItemId, Quantity = body.Quantity
+    };
+    db.PackageContentItems.Add(content);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/requests/{id}/items/{content.Id}", content);
+}).RequireAuthorization("Staff");
+
+cases.MapPut("/{id:int}/items/{itemId:int}/pack", async (int id, int itemId, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var content = await db.PackageContentItems.Include(p => p.ResourceItem)
+        .FirstOrDefaultAsync(p => p.Id == itemId && p.PackageRequestId == id);
+    if (content is null) return Results.NotFound();
+    if (!content.Packed)
+    {
+        content.Packed = true;
+        content.PackedAt = DateTime.UtcNow;
+        content.PackedBy = ctx.UserId;
+        if (content.ResourceItem is not null)
+        {
+            // Packed = the item has physically left the shelf: move it out of both
+            // on-hand stock and the reserved count (reserved was only a hold).
+            content.ResourceItem.QuantityOnHand -= content.Quantity;
+            content.ResourceItem.QuantityReserved -= content.Quantity;
+            content.ResourceItem.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+    else
+    {
+        content.Packed = false;
+        content.PackedAt = null;
+        content.PackedBy = null;
+        if (content.ResourceItem is not null)
+        {
+            content.ResourceItem.QuantityOnHand += content.Quantity;
+            content.ResourceItem.QuantityReserved += content.Quantity;
+            content.ResourceItem.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok(content);
+}).RequireAuthorization("Staff");
+
+cases.MapDelete("/{id:int}/items/{itemId:int}", async (int id, int itemId, LotvDbContext db) =>
+{
+    var content = await db.PackageContentItems.Include(p => p.ResourceItem)
+        .FirstOrDefaultAsync(p => p.Id == itemId && p.PackageRequestId == id);
+    if (content is null) return Results.NotFound();
+    if (content.ResourceItem is not null)
+    {
+        content.ResourceItem.QuantityReserved -= content.Packed ? 0 : content.Quantity;
+        content.ResourceItem.QuantityOnHand += content.Packed ? content.Quantity : 0;
+        content.ResourceItem.UpdatedAt = DateTime.UtcNow;
+    }
+    db.PackageContentItems.Remove(content);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
 }).RequireAuthorization("Staff");
 
 cases.MapPost("/{id:int}/accept", async (int id, LotvDbContext db, IChapterContextService ctx) =>
@@ -766,6 +980,76 @@ families.MapPut("/{id:int}", async (int id, Family family, LotvDbContext db) =>
     db.Families.Update(family);
     await db.SaveChangesAsync();
     return Results.Ok(family);
+});
+
+// ── Possible-duplicate review queue ─────────────────────────────────────────────
+// Requests flagged at intake (see IDuplicateFamilyDetectionService) sit here until
+// staff either confirm the new family is genuinely distinct, or merge it into the
+// existing one it matched.
+families.MapGet("/duplicate-review", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.Requests
+        .Include(r => r.Family)
+        .Include(r => r.PossibleDuplicateFamily)
+        .Where(r => r.NeedsDuplicateReview);
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
+        q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    return await q.OrderBy(r => r.CreatedAt).ToListAsync();
+});
+
+families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
+    int requestId, DuplicateResolveRequest body, LotvDbContext db, IAutoAssignmentService autoAssign) =>
+{
+    var req = await db.Requests.FirstOrDefaultAsync(r => r.Id == requestId);
+    if (req is null) return Results.NotFound();
+    if (!req.NeedsDuplicateReview) return Results.BadRequest(new { error = "This request isn't pending duplicate review." });
+
+    if (body.Action == "merge")
+    {
+        if (req.PossibleDuplicateFamilyId is not int targetFamilyId)
+            return Results.BadRequest(new { error = "No matched family to merge into." });
+
+        var newFamily = await db.Families.FindAsync(req.FamilyId);
+        var targetFamily = await db.Families.FindAsync(targetFamilyId);
+        if (newFamily is null || targetFamily is null) return Results.NotFound();
+
+        // Repoint the request at the existing family and retire the one created at
+        // intake rather than deleting it, so nothing else referencing it (activity
+        // log, notes) breaks and the merge stays visible in the record.
+        req.FamilyId = targetFamilyId;
+        newFamily.Status = FamilyStatus.Closed;
+        newFamily.ContactNotes = $"Merged into Family #{targetFamilyId} on {DateTime.UtcNow:MMM d, yyyy} (duplicate review)."
+            + (string.IsNullOrWhiteSpace(newFamily.ContactNotes) ? "" : "\n\n" + newFamily.ContactNotes);
+
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = req.Id, ActorId = "staff", ActorName = "Duplicate Review",
+            ActivityType = ActivityType.NoteAdded, Timestamp = DateTime.UtcNow,
+            Details = $"Merged into existing family #{targetFamilyId} ({targetFamily.FullName})."
+        });
+    }
+    else if (body.Action == "confirm-new")
+    {
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = req.Id, ActorId = "staff", ActorName = "Duplicate Review",
+            ActivityType = ActivityType.NoteAdded, Timestamp = DateTime.UtcNow,
+            Details = "Confirmed as a distinct family, not a duplicate."
+        });
+    }
+    else
+    {
+        return Results.BadRequest(new { error = "Action must be 'merge' or 'confirm-new'." });
+    }
+
+    req.NeedsDuplicateReview = false;
+    req.UpdatedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+
+    // Now that a human has cleared it, let the case flow into the normal queue.
+    await autoAssign.TryAutoAssignAsync(req.Id);
+
+    return Results.Ok(req);
 });
 
 // ── Volunteers ────────────────────────────────────────────────────────────────
@@ -980,12 +1264,23 @@ var workload = app.MapGroup("/api/v1/workload").WithTags("Workload").RequireAuth
 
 workload.MapGet("/", async (LotvDbContext db, IChapterContextService ctx) =>
 {
+    var overdueCutoff = DateTime.UtcNow.AddDays(-7);
+    var overdueByVolunteer = await db.Requests
+        .Where(r => r.AssignedToId != null && r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled && r.CreatedAt < overdueCutoff)
+        .GroupBy(r => r.AssignedToId!.Value)
+        .Select(g => new { VolunteerId = g.Key, Count = g.Count() })
+        .ToDictionaryAsync(x => x.VolunteerId, x => x.Count);
+
     var q = db.Volunteers.Where(v => v.Status == VolunteerStatus.Active);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(v => v.ChapterId == ctx.ChapterId.Value);
-    return await q.Select(v => new
+    var volunteers = await q.ToListAsync();
+    var capacityByChapter = await db.Chapters.ToDictionaryAsync(c => c.Id, c => c.MaxActiveCasesPerVolunteer);
+    return volunteers.Select(v => new
     {
-        v.Id, v.FullName, Role = v.Role.ToString(), v.ActiveCases, v.TotalCasesFulfilled
-    }).ToListAsync();
+        v.Id, v.FullName, Role = v.Role.ToString(), v.ActiveCases, v.TotalCasesFulfilled,
+        OverdueCases = overdueByVolunteer.GetValueOrDefault(v.Id, 0),
+        Capacity = capacityByChapter.GetValueOrDefault(v.ChapterId, 6)
+    }).ToList();
 });
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -1395,8 +1690,23 @@ users.MapPut("/me/avatar", async (AvatarUpdateRequest body, IChapterContextServi
 });
 
 users.MapGet("/", async (UserManager<LotvIdentityUser> userMgr) =>
-    userMgr.Users.Select(u => new { u.Id, u.Email, u.FullName, u.Role, u.ChapterId, u.IsActive, u.AvatarUrl }).ToList()
+    userMgr.Users.Select(u => new { u.Id, u.UserName, u.Email, u.FullName, u.Role, u.ChapterId, u.IsActive, u.AvatarUrl }).ToList()
 ).RequireAuthorization("ChapterAdmin");
+
+// Recovery email — separate from sign-in (which is by username). Staff/admins
+// without a real email on file can't use forgot-password until one is set here.
+users.MapPut("/{id}/email", async (string id, UpdateEmailRequest body, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(id);
+    if (user is null) return Results.NotFound();
+    var email = string.IsNullOrWhiteSpace(body.Email) ? null : body.Email.Trim();
+    if (email is not null && !new EmailAddressAttribute().IsValid(email))
+        return Results.BadRequest(new { error = "That doesn't look like a valid email address." });
+    user.Email = email;
+    user.EmailConfirmed = false;
+    await userMgr.UpdateAsync(user);
+    return Results.Ok(new { user.Email });
+}).RequireAuthorization("ChapterAdmin");
 
 users.MapDelete("/{id}/avatar", async (string id, UserManager<LotvIdentityUser> userMgr) =>
 {
@@ -1840,6 +2150,44 @@ static async Task<bool> ValidateApiKey(HttpContext http, LotvDbContext db, ApiKe
     key.LastUsedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
     return true;
+}
+
+// Auto-creates a Stephen's Ministry-style bereavement follow-up tracker (3wk/3mo/6mo/11mo
+// touchpoints) for a newly-intaken family, mirroring what LegacyImport did one-time for
+// historical cases. Only when DateOfLoss is known — that's both the real-world signal for
+// "an actual loss occurred" (excludes Infertility, which has no lost child) and the value
+// the milestone due dates are computed from, so a request without it can't be scheduled
+// anyway. Offsets (+21 days, +3/+6/+11 calendar months) match the live "SM (2026)" tracking
+// sheet's actual due-date deltas exactly, confirmed against real rows.
+static async Task CreateFollowUpTrackerIfLossKnownAsync(LotvDbContext db, Family family)
+{
+    if (family.DateOfLoss is not { } lossDate) return;
+
+    var tracker = new FollowUpTracker
+    {
+        FamilyId = family.Id,
+        Parent1Name = $"{family.Parent1FirstName} {family.Parent1LastName}".Trim(),
+        Parent2Name = string.IsNullOrEmpty(family.Parent2FirstName) ? null : $"{family.Parent2FirstName} {family.Parent2LastName}".Trim(),
+        Email = family.Email,
+        Phone = family.Phone,
+        StreetAddress = family.StreetAddress,
+        Apt = family.Apt,
+        City = family.City,
+        State = family.State,
+        Zip = family.Zip,
+        Reason = family.Reason.ToString(),
+        ChildName = family.ChildrenInitials,
+        DateOfLoss = lossDate,
+        Milestones =
+        [
+            new() { Type = FollowUpMilestoneType.ThreeWeeks,   DueDate = lossDate.AddDays(21) },
+            new() { Type = FollowUpMilestoneType.ThreeMonths,  DueDate = lossDate.AddMonths(3) },
+            new() { Type = FollowUpMilestoneType.SixMonths,    DueDate = lossDate.AddMonths(6) },
+            new() { Type = FollowUpMilestoneType.ElevenMonths, DueDate = lossDate.AddMonths(11) },
+        ]
+    };
+    db.FollowUpTrackers.Add(tracker);
+    await db.SaveChangesAsync();
 }
 
 var publicApi = app.MapGroup("/api/public/v1").WithTags("Public API");
@@ -3390,6 +3738,262 @@ app.MapPost("/api/v1/webhooks/duda", async (
     return Results.Ok();
 }).WithTags("Webhooks").AllowAnonymous();
 
+// ── JotForm prayer-package-request webhook ──────────────────────────────────────
+// JotForm posts multipart/form-data with a "pretty" field: a comma-separated
+// "Question Label:answer" string using the form's actual visible labels — the same
+// shape Duda's webhook already parses above, just delivered differently. We match on
+// label substrings rather than JotForm's internal field IDs (q3_..., q17_...) since
+// those IDs are only knowable from a live submission and would silently break if the
+// form is ever edited. Verify this mapping against a real test submission from
+// https://form.jotform.com/261395566857171 once it's pointed at this endpoint —
+// "pretty" formatting for composite fields (name/address) can vary and this is
+// best-effort until confirmed against one.
+app.MapPost("/api/v1/webhooks/jotform", async (
+    HttpRequest request,
+    LotvDbContext db,
+    IDuplicateFamilyDetectionService dupSvc,
+    IAutoAssignmentService autoAssign,
+    IPushSender pushSvc,
+    ILogger<Program> log) =>
+{
+    if (!request.HasFormContentType) return Results.Ok(); // never return non-200 to JotForm
+
+    var form = await request.ReadFormAsync();
+    var submissionId = form["submissionID"].FirstOrDefault();
+    var pretty = form["pretty"].FirstOrDefault() ?? "";
+
+    if (string.IsNullOrWhiteSpace(submissionId))
+    {
+        log.LogWarning("JotForm webhook: missing submissionID, ignoring");
+        return Results.Ok();
+    }
+
+    if (await db.WebhookEvents.AnyAsync(w => w.Source == "jotform" && w.ExternalId == submissionId))
+        return Results.Ok(); // already processed
+
+    // Split "Label:value, Label2:value2" on commas that are followed by the start
+    // of the next known question label. A generic punctuation heuristic doesn't
+    // work here — several of this form's real labels contain "?" (e.g. "How did
+    // you hear about us?") or embedded commas (e.g. "Please Share..., Your
+    // Story:"), so we match against the exact label text of every question on
+    // live form 261395566857171 instead of guessing at allowed characters.
+    // Kept as an ORDERED list (not a Dictionary) because labels are NOT unique —
+    // the husband and wife sections both use the bare labels "Email", "Phone
+    // Number", and "Address" — so a Dictionary would throw once both are filled.
+    // Reconciled 2026-08-11 against a live pull of form/261395566857171/questions —
+    // several labels below carry a trailing space or an embedded colon in their
+    // JotForm "text" property (e.g. "Faith Tradition ", "Date of Recent Loss: "),
+    // which is why the split regex tolerates optional whitespace before the
+    // separator colon rather than requiring an exact "label:" match.
+    var knownLabels = new[]
+    {
+        "Prayer Care Package Options", "Husband's Name", "Email", "Phone Number",
+        "Wife's Name", "Recipient's Address",
+        "Reason for Prayer Package Request", "Date of Recent Loss", "Quaterly Grief Support",
+        "Faith Tradition", "Diocese", "Parish", "How did you hear",
+        "Would you like us to mention that this package is from you or prefer to remain anonymous?",
+        "Include a custom message to your recipient",
+        "Please Share With Us, As Much As You're Comfortable, Your Story",
+        // Widget field (control_widget) whose visible label is its full instructional
+        // text — matched verbatim so the split lands on the real answer boundary
+        // instead of the label's own embedded "Bracelet:" colon. Still unverified
+        // against a real submission (multi-row widget answers may not fit the plain
+        // "Label:value" pretty shape at all) — confirm once a live submission lands.
+        "Children for Bracelet: We would like to include a personalized bracelet in your Prayer Care Package. " +
+        "Please share the initials of all your children in birth order, including those in heaven. If your child " +
+        "was not named or if you're experiencing infertility, we will place special Heart beads on your bracelet.",
+        "Opt-in Communications", "Requester Name", "Requester Email", "Requester Phone", "Requester Address",
+    };
+    var labelAlternation = string.Join("|", knownLabels.OrderByDescending(l => l.Length).Select(Regex.Escape));
+    // Anchor each segment on its matched known label rather than blindly splitting
+    // on the first colon — a plain Split(':', 2) breaks for any label whose text
+    // itself contains a colon before the end (e.g. "Children for Bracelet: We
+    // would like...", where the real answer separator is a different, later
+    // colon). Matching the known label explicitly and consuming exactly one
+    // separator colon after it gets the right boundary regardless of where the
+    // label's own colons fall.
+    var pairs = Regex.Split(pretty, $@",\s+(?=(?:{labelAlternation})\s*:)")
+        .Select(p => Regex.Match(p, $@"^\s*(?<label>{labelAlternation})\s*:(?<rest>.*)$", RegexOptions.Singleline))
+        .Where(m => m.Success)
+        // A handful of labels (e.g. "...Your Story:") end in a colon that isn't
+        // part of knownLabels' entry for them, so one colon of JotForm's own
+        // separator still lands inside "rest" — strip the resulting stray
+        // leading colon rather than special-case those fields.
+        .Select(m => (Key: m.Groups["label"].Value.Trim(), Value: m.Groups["rest"].Value.TrimStart(':').Trim()))
+        .ToList();
+
+    // First match wins, which — given the husband section precedes the wife
+    // section on the form — naturally resolves the ambiguous shared labels
+    // above to the husband's answer when both are present.
+    string? Field(params string[] labels) =>
+        pairs.FirstOrDefault(kv => labels.Any(l => kv.Key.Contains(l, StringComparison.OrdinalIgnoreCase))).Value;
+
+    (string First, string Last) SplitName(string? full)
+    {
+        full = (full ?? "").Trim();
+        if (full.Length == 0) return ("", "");
+        var idx = full.LastIndexOf(' ');
+        return idx < 0 ? (full, "") : (full[..idx].Trim(), full[(idx + 1)..].Trim());
+    }
+
+    // JotForm's control_address renders as one combined value in "pretty", e.g.
+    // "123 Main St, Springfield, IL 62704" — there are no separate top-level
+    // "City:"/"State:"/"Zip:" pairs to look up.
+    (string Street, string City, string State, string Zip) SplitAddress(string? full)
+    {
+        full = (full ?? "").Trim();
+        if (full.Length == 0) return ("", "", "", "");
+        var m = Regex.Match(full, @"^(?<street>.+?),\s*(?<city>[^,]+),\s*(?<state>[A-Za-z]{2})\s+(?<zip>\d{5}(-\d{4})?)$");
+        return m.Success
+            ? (m.Groups["street"].Value.Trim(), m.Groups["city"].Value.Trim(), m.Groups["state"].Value.ToUpperInvariant(), m.Groups["zip"].Value)
+            : (full, "", "", ""); // couldn't parse the compound value — keep it as the street line rather than lose it
+    }
+
+    var packageType = Field("Prayer Care Package Options", "package option") ?? "";
+    var forSelf = !packageType.Contains("someone else", StringComparison.OrdinalIgnoreCase);
+
+    var (husbandFirst, husbandLast) = SplitName(Field("Husband's Name", "husband name"));
+    var (wifeFirst, wifeLast) = SplitName(Field("Wife's Name", "wife name"));
+    var (reqFirst, reqLast) = SplitName(Field("Requester Name"));
+
+    // Prefer the husband/wife names as the family of record; fall back to whoever
+    // submitted the form if that section was left blank (e.g. single-parent intake).
+    var parent1First = !string.IsNullOrEmpty(husbandFirst) ? husbandFirst : reqFirst;
+    var parent1Last  = !string.IsNullOrEmpty(husbandLast)  ? husbandLast  : reqLast;
+    var email = Field("Email") ?? Field("Requester Email") ?? "";
+    var phone = Field("Phone Number") ?? Field("Requester Phone");
+    var (street, addrCity, addrState, addrZip) = SplitAddress(Field("Address") ?? Field("Requester Address"));
+
+    if (string.IsNullOrWhiteSpace(parent1First) || string.IsNullOrWhiteSpace(parent1Last) || string.IsNullOrWhiteSpace(email))
+    {
+        log.LogWarning("JotForm webhook {SubmissionId}: couldn't parse required name/email fields from pretty string: {Pretty}", submissionId, pretty);
+        db.WebhookEvents.Add(new WebhookEvent { Source = "jotform", ExternalId = submissionId, EventType = "unparsed", Payload = pretty.Length > 32_000 ? pretty[..32_000] : pretty });
+        await db.SaveChangesAsync();
+        return Results.Ok();
+    }
+
+    var reasonRaw = Field("Reason for Prayer Package", "request reason") ?? "";
+    var reason = reasonRaw switch
+    {
+        var r when r.Contains("infertil", StringComparison.OrdinalIgnoreCase) => PackageReason.Infertility,
+        var r when r.Contains("life-limiting", StringComparison.OrdinalIgnoreCase) || r.Contains("life limiting", StringComparison.OrdinalIgnoreCase) => PackageReason.PrenatalLifeLimitingDiagnosis,
+        var r when r.Contains("prenatal", StringComparison.OrdinalIgnoreCase) => PackageReason.PrenatalDiagnosis,
+        var r when r.Contains("miscarriage", StringComparison.OrdinalIgnoreCase) => PackageReason.Miscarriage,
+        var r when r.Contains("stillbirth", StringComparison.OrdinalIgnoreCase) => PackageReason.Stillbirth,
+        var r when r.Contains("infant", StringComparison.OrdinalIgnoreCase) => PackageReason.InfantLoss,
+        _ => PackageReason.Other
+    };
+
+    // Label's own text ends in "Loss: ", so its pretty rendering is
+    // "...Loss: :answer" (colon, space, colon) — the space survives TrimStart(':').
+    var lossDateRaw = Field("Date of Recent Loss")?.TrimStart(':').Trim();
+    DateTime? dateOfLoss = DateTime.TryParse(lossDateRaw, out var parsedLossDate) ? parsedLossDate : null;
+
+    var attribution = Field("mention that this package", "remain anonymous") ?? "";
+    var privacy = attribution.Contains("anonymous", StringComparison.OrdinalIgnoreCase)
+        ? PrivacyPreference.Anonymous
+        : attribution.Contains("mention", StringComparison.OrdinalIgnoreCase)
+            ? PrivacyPreference.Public
+            : PrivacyPreference.Private;
+
+    // Hidden field on the form (if configured) can target a specific chapter;
+    // otherwise route by the submitter's state (matched against Chapter.State),
+    // falling back to the first active chapter if there's no match.
+    var chapterIdStr = Field("chapter_id", "chapter");
+    Chapter? chapter = int.TryParse(chapterIdStr, out var cid)
+        ? await db.Chapters.FindAsync(cid)
+        : null;
+    chapter ??= !string.IsNullOrEmpty(addrState)
+        ? await db.Chapters.Where(c => c.IsActive && c.State == addrState).OrderBy(c => c.Id).FirstOrDefaultAsync()
+        : null;
+    chapter ??= await db.Chapters.Where(c => c.IsActive).OrderBy(c => c.Id).FirstOrDefaultAsync();
+
+    if (chapter is null)
+    {
+        log.LogWarning("JotForm webhook {SubmissionId}: no active chapter to assign to", submissionId);
+        return Results.Ok();
+    }
+
+    var family = new Family
+    {
+        Parent1FirstName = parent1First,
+        Parent1LastName  = parent1Last,
+        Parent2FirstName = string.IsNullOrEmpty(wifeFirst) ? null : wifeFirst,
+        Parent2LastName  = string.IsNullOrEmpty(wifeLast) ? null : wifeLast,
+        Email            = email,
+        Phone            = phone,
+        StreetAddress    = street,
+        City             = addrCity,
+        State            = addrState,
+        Zip              = addrZip,
+        Reason           = reason,
+        FaithTradition   = Field("Faith Tradition"),
+        DateOfLoss       = dateOfLoss,
+        ChildrenInitials = Field("Bracelet", "initials"),
+        Story            = Field("Your Story", "recipient story"),
+        ParishName       = Field("Parish"),
+        DioceseName      = Field("Diocese"),
+        HowHeard         = Field("How did you hear", "referral source"),
+        ChapterId        = chapter.Id,
+        PrivacyPreference = privacy,
+        CreatedAt        = DateTime.UtcNow
+    };
+
+    var dupMatch = await dupSvc.FindPossibleDuplicateAsync(family, chapter.Id);
+
+    db.Families.Add(family);
+    await db.SaveChangesAsync();
+
+    var req = new PackageRequest
+    {
+        FamilyId      = family.Id,
+        ChapterId     = family.ChapterId,
+        Reason        = family.Reason,
+        Category      = RequestCategory.PackageDelivery,
+        IsForSelf     = forSelf,
+        ReferrerName  = forSelf ? null : $"{reqFirst} {reqLast}".Trim(),
+        ReferrerEmail = forSelf ? null : Field("Requester Email"),
+        Status        = CaseStatus.New,
+        CreatedAt     = DateTime.UtcNow,
+        UpdatedAt     = DateTime.UtcNow,
+        // KanbanCard reads Request.ChildrenInitials, not Family.ChildrenInitials —
+        // copy it over so the bracelet initials actually show up on the card.
+        ChildrenInitials          = family.ChildrenInitials,
+        NeedsDuplicateReview      = dupMatch is not null,
+        PossibleDuplicateFamilyId = dupMatch?.Family.Id,
+        DuplicateMatchReason      = dupMatch?.Reason
+    };
+    db.Requests.Add(req);
+    db.WebhookEvents.Add(new WebhookEvent
+    {
+        Source = "jotform", ExternalId = submissionId, EventType = "prayer-package-request",
+        Payload = pretty.Length > 32_000 ? pretty[..32_000] : pretty
+    });
+    await db.SaveChangesAsync();
+
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = req.Id, ActorId = "jotform", ActorName = "JotForm Intake",
+        ActivityType = ActivityType.Created, Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+
+    if (dupMatch is null)
+        await autoAssign.TryAutoAssignAsync(req.Id);
+
+    await CreateFollowUpTrackerIfLossKnownAsync(db, family);
+
+    _ = pushSvc.SendToAllAsync(
+        dupMatch is null ? "New prayer package request (JotForm)" : "New prayer package request — possible duplicate",
+        dupMatch is null
+            ? $"{family.Parent1FirstName} {family.Parent1LastName} requested a prayer care package."
+            : $"{family.Parent1FirstName} {family.Parent1LastName} requested a prayer care package. {dupMatch.Reason} — needs review.",
+        dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
+
+    log.LogInformation("JotForm webhook: created request {RequestId} for {Name}", req.Id, family.FullName);
+    return Results.Ok();
+}).WithTags("Webhooks").AllowAnonymous();
+
 // ── Retreats ──────────────────────────────────────────────────────────────────
 var retreatsGroup = app.MapGroup("/api/v1/retreats").WithTags("Retreats").RequireAuthorization("Staff");
 
@@ -3846,6 +4450,65 @@ announcements.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
     return Results.NoContent();
 });
 
+// ─── Mailing lists (Mother's Day / Father's Day annual mailing) ────────────────
+var mailingList = app.MapGroup("/api/v1/mailing-list").WithTags("MailingList").RequireAuthorization("Staff");
+
+mailingList.MapGet("/", async (LotvDbContext db, int? year, bool? flagged, bool? sent) =>
+{
+    var q = db.MailingListEntries.AsQueryable();
+    if (year.HasValue) q = q.Where(m => m.Year == year.Value);
+    if (flagged.HasValue) q = q.Where(m => m.FlaggedForReview == flagged.Value);
+    if (sent.HasValue) q = q.Where(m => m.Sent == sent.Value);
+    return Results.Ok(await q.OrderBy(m => m.MotherName).ToListAsync());
+});
+
+mailingList.MapPut("/{id:int}/flag", async (int id, FlagMailingRequest body, LotvDbContext db) =>
+{
+    var m = await db.MailingListEntries.FindAsync(id);
+    if (m is null) return Results.NotFound();
+    m.FlaggedForReview = body.Flagged;
+    m.ReviewNote = body.Note;
+    await db.SaveChangesAsync();
+    return Results.Ok(m);
+});
+
+mailingList.MapPut("/{id:int}/sent", async (int id, MarkSentRequest body, LotvDbContext db) =>
+{
+    var m = await db.MailingListEntries.FindAsync(id);
+    if (m is null) return Results.NotFound();
+    m.Sent = body.Sent;
+    m.SentAt = body.Sent ? DateTime.UtcNow : null;
+    await db.SaveChangesAsync();
+    return Results.Ok(m);
+});
+
+mailingList.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var m = await db.MailingListEntries.FindAsync(id);
+    if (m is null) return Results.NotFound();
+    db.MailingListEntries.Remove(m);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+// ─── Bereavement follow-up tracking (Stephen's Ministry-style touchpoints) ─────
+var followUp = app.MapGroup("/api/v1/follow-up-trackers").WithTags("FollowUp").RequireAuthorization("Staff");
+
+followUp.MapGet("/", async (LotvDbContext db) =>
+    Results.Ok(await db.FollowUpTrackers
+        .Include(t => t.Milestones)
+        .OrderBy(t => t.Parent1Name)
+        .ToListAsync()));
+
+followUp.MapPut("/milestones/{id:int}/sent", async (int id, MarkSentRequest body, LotvDbContext db) =>
+{
+    var m = await db.FollowUpMilestones.FindAsync(id);
+    if (m is null) return Results.NotFound();
+    m.BookSent = body.Sent;
+    await db.SaveChangesAsync();
+    return Results.Ok(m);
+});
+
 app.MapGet("/api/public/v1/announcements", async (LotvDbContext db, string? audience) =>
 {
     var now = DateTime.UtcNow;
@@ -4091,11 +4754,18 @@ record PublicApplyRequest(
 );
 record PublicGiveRequest(Donor Donor, Donation Donation);
 record RegisterRequest(string Email, string Password, string FirstName, string LastName, UserRole Role, int? ChapterId);
-record LoginRequest(string Email, string Password);
+record DuplicateResolveRequest(string Action); // "merge" | "confirm-new"
+record LoginRequest(string Username, string Password);
 record RefreshRequest(string RefreshToken);
+record ForgotPasswordRequest(string Username);
+record ResetPasswordRequest(string Username, string Token, string NewPassword);
+record UpdateEmailRequest(string? Email);
+record FlagMailingRequest(bool Flagged, string? Note);
+record MarkSentRequest(bool Sent);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
 record PriorityRequest(RequestPriority Priority);
+record ProcessStageRequest(ProcessStage ProcessStage);
 record DueDateRequest(DateTime DueDate);
 record DeclineRequest(string? Reason);
 record EscalateRequest(string Reason);
@@ -4105,6 +4775,7 @@ record BidRequest(int BidderId, decimal BidAmount);
 record RoleChangeRequest(UserRole Role, int? ChapterId);
 record AuditLogRequest(string UserName, string Action, string Entity, string? EntityId, string? Details);
 record RequestPatchRequest(string? TrackingNumber, DateTime? ShippedDate, string? InternalNotes);
+record PackageItemRequest(int ResourceItemId, int Quantity);
 record ApproveAllocationRequest(string ApprovedBy);
 record RejectAllocationRequest(string Reason);
 record DonorPrivacyRequest(bool IsAnonymous);

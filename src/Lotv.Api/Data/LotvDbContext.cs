@@ -37,6 +37,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
 
     // ─── Inventory ───────────────────────────────────────────────────────────
     public DbSet<ResourceItem> ResourceItems => Set<ResourceItem>();
+    public DbSet<PackageContentItem> PackageContentItems => Set<PackageContentItem>();
 
     // ─── Recurring giving & pledges ──────────────────────────────────────────
     public DbSet<RecurringDonation> RecurringDonations => Set<RecurringDonation>();
@@ -100,6 +101,13 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     // ─── Announcements ────────────────────────────────────────────────────────
     public DbSet<Announcement> Announcements => Set<Announcement>();
 
+    // ─── Mailing lists (Mother's Day / Father's Day annual mailings) ────────────
+    public DbSet<MailingListEntry> MailingListEntries => Set<MailingListEntry>();
+
+    // ─── Bereavement follow-up tracking (Stephen's Ministry) ────────────────────
+    public DbSet<FollowUpTracker> FollowUpTrackers => Set<FollowUpTracker>();
+    public DbSet<FollowUpMilestone> FollowUpMilestones => Set<FollowUpMilestone>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -141,6 +149,8 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(r => new { r.ChapterId, r.AssignedToId });                // workload view per chapter
             e.HasIndex(r => new { r.ChapterId, r.Status, r.CreatedAt });         // overdue-by-chapter (status filter + age sort)
             e.HasOne(r => r.Family).WithMany().HasForeignKey(r => r.FamilyId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.PossibleDuplicateFamily).WithMany().HasForeignKey(r => r.PossibleDuplicateFamilyId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(r => r.NeedsDuplicateReview);
             e.Ignore(r => r.Chapter);
         });
 
@@ -273,6 +283,15 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(r => r.ChapterId);
             e.Property(r => r.Name).HasMaxLength(100);
             e.Property(r => r.Unit).HasMaxLength(30);
+        });
+
+        // ── PackageContentItem ────────────────────────────────────────────────
+        builder.Entity<PackageContentItem>(e =>
+        {
+            e.HasOne(p => p.PackageRequest).WithMany().HasForeignKey(p => p.PackageRequestId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.ResourceItem).WithMany().HasForeignKey(p => p.ResourceItemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(p => p.PackageRequestId);
+            e.Property(p => p.PackedBy).HasMaxLength(100);
         });
 
         // ── ApiKey ───────────────────────────────────────────────────────────

@@ -1,18 +1,18 @@
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.AspNetCore.Components.Authorization;
 using Lotv.Core.Services;
 using Lotv.Web;
 using Lotv.Web.Services;
 
-var builder = WebAssemblyHostBuilder.CreateDefault(args);
-builder.RootComponents.Add<App>("#app");
-builder.RootComponents.Add<HeadOutlet>("head::after");
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 
 // ── HTTP client → LOTV API ────────────────────────────────────────────────────
-// ApiBaseUrl comes from wwwroot/appsettings.{Environment}.json — same config
-// key SignalRService / AuctionSignalRService already read, with the same
-// localhost:5275 fallback for local dev when no appsettings.json is served.
+// Runs server-side now (Blazor Server), same as every other outbound call in
+// this app - ApiBaseUrl still comes from config (appsettings.{Environment}.json
+// under the server's own config system now, not wwwroot), same key
+// SignalRService / AuctionSignalRService already read.
 builder.Services.AddScoped(sp => new HttpClient
 {
     BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5275")
@@ -23,6 +23,7 @@ builder.Services.AddScoped<JwtAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(
     sp => sp.GetRequiredService<JwtAuthStateProvider>());
 builder.Services.AddAuthorizationCore();
+builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthService>();
 
 // ── API + real-time ───────────────────────────────────────────────────────────
@@ -31,21 +32,27 @@ builder.Services.AddScoped<SignalRService>();
 builder.Services.AddScoped<AuctionSignalRService>();
 
 // ── Localization + currency ───────────────────────────────────────────────────
-builder.Services.AddSingleton<LocalizationService>();
+// LocalizationService was Singleton under WASM, where one app instance is one
+// user anyway. On the server, a Singleton can't consume the Scoped
+// IJSRuntime (each circuit/user gets its own) - DI validation catches this
+// correctly. Scoped is also the behaviorally right lifetime now that a
+// single server process serves multiple concurrent users.
+builder.Services.AddScoped<LocalizationService>();
 builder.Services.AddScoped<CurrencyService>();
 
+var app = builder.Build();
 
-var host = builder.Build();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+}
 
-// Restore session from sessionStorage before first render
-var auth = host.Services.GetRequiredService<AuthService>();
-await auth.TryRestoreSessionAsync();
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseAntiforgery();
 
-// Restore preferred culture
-var loc = host.Services.GetRequiredService<LocalizationService>();
-await loc.InitializeAsync();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
-var cur = host.Services.GetRequiredService<CurrencyService>();
-await cur.InitializeAsync();
-
-await host.RunAsync();
+app.Run();

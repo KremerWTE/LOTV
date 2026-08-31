@@ -29,8 +29,17 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 EXPOSE 8080
 
-# Run as non-root
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+# curl for docker-compose.yml's healthcheck — the base aspnet image has neither
+# curl nor wget, so that healthcheck silently failed with "executable not found"
+# regardless of whether the app itself was healthy.
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Run as non-root — /data is where the SQLite volume mounts (docker-compose.yml);
+# create it with appuser ownership now so Docker carries that ownership over
+# when it initializes the named volume from this image on first run.
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser \
+    && mkdir -p /data && chown appuser:appgroup /data
 USER appuser
 
 COPY --from=publish /app/publish .

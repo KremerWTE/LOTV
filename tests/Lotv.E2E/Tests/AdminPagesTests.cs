@@ -7,7 +7,7 @@ namespace Lotv.E2E.Tests;
 /// navigating to protected routes. They verify that each admin page renders
 /// its core layout and produces no unhandled JavaScript errors.
 ///
-/// NOTE: These tests require the dev seed account to exist (admin@lotv-demo.org).
+/// NOTE: These tests require the dev seed account to exist (mary.roberts).
 /// They are skipped gracefully if the API is not running (login fails).
 /// </summary>
 public class AdminPagesTests : E2ETestBase

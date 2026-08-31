@@ -7,16 +7,16 @@ on:
 
 jobs:
   deploy-production:
-    name: Deploy release tag to Production
+    name: Publish & Deploy release tag → Production
     runs-on: ubuntu-latest
     environment: production
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup .NET 9
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '9.0.x'
 
@@ -26,55 +26,54 @@ jobs:
       - name: Install EF Core tools
         run: dotnet tool install --global dotnet-ef --version 9.*
 
+      # See the matching comment in deploy-staging.yml - this must build
+      # before the migrations step so Lotv.Api's post-build copy target has
+      # something to copy when `dotnet ef` rebuilds it below.
+      - name: Build SQL Server migrations assembly
+        run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release
+
       - name: Run database migrations (production)
         run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
         env:
           ASPNETCORE_ENVIRONMENT: Production
-          ConnectionStrings__Default: ${{ secrets.DB_CONNECTION_STRING }}
+          Database__Provider: SqlServer
+          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
 
       - name: Extract release version
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Log in to container registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ secrets.REGISTRY_HOST }}
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+      # No Docker: publish each project as plain framework-dependent output
+      # and zip-deploy straight to App Service. Web is Blazor Server now (not
+      # WASM), so it's a normal Kestrel app just like the API - both run on
+      # a Linux App Service plan, no IIS/web.config/static-hosting needed.
+      - name: Publish API
+        run: dotnet publish src/Lotv.Api/Lotv.Api.csproj --configuration Release --no-build -o publish/api
 
-      - name: Build & push API image (production tag)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: src/Lotv.Api/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_HOST }}/lotv-api:production
-            ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ steps.version.outputs.VERSION }}
+      - name: Publish Web
+        run: dotnet publish src/Lotv.Web/Lotv.Web.csproj --configuration Release --no-build -o publish/web
 
-      - name: Build & push Web image (production tag)
-        uses: docker/build-push-action@v7
+      - name: Log in to Azure
+        uses: azure/login@v2
         with:
-          context: .
-          file: src/Lotv.Web/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_HOST }}/lotv-web:production
-            ${{ secrets.REGISTRY_HOST }}/lotv-web:${{ steps.version.outputs.VERSION }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # ── Deploy step: swap for your actual hosting ──────────────────────────
-      # Example: Azure Container Apps
-      # - name: Deploy API to production
-      #   uses: azure/container-apps-deploy-action@v1
-      #   with:
-      #     acrName: ${{ secrets.ACR_NAME }}
-      #     containerAppName: lotv-api-prod
-      #     resourceGroup: ${{ secrets.AZURE_RG }}
-      #     imageToDeploy: ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ steps.version.outputs.VERSION }}
+      - name: Deploy API to Azure App Service (production)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_API_NAME_PROD }}
+          package: publish/api
+
+      - name: Deploy Web to Azure App Service (production)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_WEB_NAME_PROD }}
+          package: publish/web
 
       - name: Create GitHub Release notes
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
 

@@ -103,7 +103,7 @@ public class PublicPagesTests : E2ETestBase
     {
         await GoToAsync("/login");
         await WaitForBlazorAsync();
-        await AssertVisibleAsync("input[type='email'], input[placeholder*='email' i]");
+        await AssertVisibleAsync("#login-username, input[type='email'], input[placeholder*='email' i]");
         await AssertVisibleAsync("input[type='password']");
         await AssertVisibleAsync("button[type='submit'], button:has-text('Sign In'), button:has-text('Login')");
         Assert.Empty(_jsErrors);

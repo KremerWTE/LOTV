@@ -64,7 +64,9 @@
             { <option value="@ch.ToString()">@ch</option> }
           </select>
           <button class="btn btn-sm" @onclick="BulkSetChannel">Set Channel</button>
-          <button class="btn btn-sm" @onclick="() => _selected.Clear()">Clear</button>
+          <button class="btn btn-sm" @onclick="() => { _selected.Clear(); _bulkError = null; }">Clear</button>
+          @if (!string.IsNullOrEmpty(_bulkError))
+          { <div style="color:var(--red);font-size:.78rem;margin-top:6px;">⚠ @_bulkError</div> }
         </caption>
       }
       <thead>
@@ -76,6 +78,7 @@
           </th>
           <th>#</th>
           <th>Donor</th>
+          <th>Diocese</th>
           <th style="cursor:pointer;user-select:none;" @onclick='() => Sort("Amount")'>
             Amount @SortArrow("Amount")
           </th>
@@ -84,6 +87,7 @@
           </th>
           <th>Channel</th>
           <th>Campaign</th>
+          <th>Status</th>
           <th>Allocation</th>
           <th></th>
         </tr>
@@ -96,10 +100,28 @@
                 @onclick="@((MouseEventArgs e) => ToggleClick(d.Id, e))" /></td>
             <td style="font-size:.74rem;color:var(--text-light);">#@d.Id</td>
             <td><strong>@(d.Donor?.FullName ?? "—")</strong></td>
+            <td style="font-size:.78rem;color:var(--text-mid);">@(d.Donor?.DioceseName ?? "—")</td>
             <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Amount" /></td>
             <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
             <td><span class="badge badge-new" style="font-size:.68rem;">@d.Channel</span></td>
             <td style="font-size:.78rem;color:var(--text-mid);">@(d.Campaign ?? "—")</td>
+            <td>
+              @switch (d.ContributionStatus)
+              {
+                case ContributionStatus.Processed:
+                  <span class="badge badge-fulfilled" style="font-size:.68rem;">Processed</span>
+                  break;
+                case ContributionStatus.Pending:
+                  <span class="badge badge-inprogress" style="font-size:.68rem;">Pending</span>
+                  break;
+                case ContributionStatus.Failed:
+                  <span class="badge badge-cancelled" style="font-size:.68rem;">Failed</span>
+                  break;
+                default:
+                  <span class="badge badge-onhold" style="font-size:.68rem;">Refunded</span>
+                  break;
+              }
+            </td>
             <td>
               @switch (d.AllocationStatus)
               {
@@ -122,7 +144,7 @@
         }
         @if (Filtered.Count() > _visible)
         {
-          <tr><td colspan="9" style="text-align:center;padding:14px;border-top:1px solid var(--border);">
+          <tr><td colspan="11" style="text-align:center;padding:14px;border-top:1px solid var(--border);">
             <button class="btn btn-sm" data-autoload @onclick="() => _visible += 50">Load 50 more (@(Filtered.Count() - _visible) hidden)</button>
           </td></tr>
         }
@@ -257,17 +279,20 @@
     _selected.Clear();
     if (on) foreach (var d in Filtered.Take(_visible)) _selected.Add(d.Id);
   }
+  private string? _bulkError;
   private async Task BulkSet(string status)
   {
     var n = await Api.BulkAllocateAsync(_selected.ToArray(), status);
-    if (n > 0) { _selected.Clear(); _all = await Api.GetDonationsAsync(); }
+    if (n > 0) { _bulkError = null; _selected.Clear(); _all = await Api.GetDonationsAsync(); }
+    else { _bulkError = $"Failed to update {_selected.Count} donation(s). Please try again."; }
   }
 
   private string _bulkChannel = nameof(DonationChannel.Online);
   private async Task BulkSetChannel()
   {
     var n = await Api.BulkChannelAsync(_selected.ToArray(), _bulkChannel);
-    if (n > 0) { _selected.Clear(); _all = await Api.GetDonationsAsync(); }
+    if (n > 0) { _bulkError = null; _selected.Clear(); _all = await Api.GetDonationsAsync(); }
+    else { _bulkError = $"Failed to update channel for {_selected.Count} donation(s). Please try again."; }
   }
 
   private readonly string[] _filters = ["All", "This Month", "Online", "Check", "Gala", "Unallocated", "Recurring", "One-time"];

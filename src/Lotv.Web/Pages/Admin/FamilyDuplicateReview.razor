@@ -1,0 +1,127 @@
+@page "/admin/families/duplicate-review"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Possible Duplicate Families — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Possible Duplicate Families</h2>
+    <p>New intake submissions that matched an existing family — confirm they're distinct, or merge them</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+    <a href="/admin/queue" class="btn btn-sm">Unassigned Queue</a>
+  </div>
+</div>
+
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">🔍</div>
+    <div class="kpi-label">Pending Review</div>
+    <div class="kpi-value" style="color:var(--amber)">@_queue.Count</div>
+  </div>
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🕐</div>
+    <div class="kpi-label">Oldest Waiting</div>
+    <div class="kpi-value" style="color:var(--navy)">@_oldestAge</div>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading possible duplicates…" />
+}
+else if (!_queue.Any())
+{
+  <div class="panel">
+    <div class="panel-body">
+      <div class="empty-state">
+        <div class="icon">✅</div>
+        <p>No possible duplicates waiting on review.</p>
+      </div>
+    </div>
+  </div>
+}
+else
+{
+  @foreach (var r in _queue)
+  {
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3>Request #@r.Id — @r.Family?.FullName</h3>
+        <span style="font-size:.76rem;color:var(--text-light);">Submitted @r.CreatedAt.ToString("MMM d, yyyy")</span>
+      </div>
+      <div class="panel-body">
+        <div style="background:var(--amber-pale, #fef3e2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:.84rem;color:var(--text-dark);">
+          ⚠ @r.DuplicateMatchReason
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+            <div class="detail-label" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:8px;">New Submission</div>
+            <div style="font-size:.86rem;line-height:1.7;">
+              <div><strong>@r.Family?.FullName</strong></div>
+              <div>@r.Family?.Email</div>
+              <div>@r.Family?.Phone</div>
+              <div>@r.Family?.StreetAddress, @r.Family?.City, @r.Family?.State @r.Family?.Zip</div>
+              <div style="color:var(--text-mid);">Reason: @r.Reason.ToDisplayName()</div>
+            </div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:var(--bg);">
+            <div class="detail-label" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:8px;">Existing Family Match — #@r.PossibleDuplicateFamily?.Id</div>
+            <div style="font-size:.86rem;line-height:1.7;">
+              <div><strong>@r.PossibleDuplicateFamily?.FullName</strong></div>
+              <div>@r.PossibleDuplicateFamily?.Email</div>
+              <div>@r.PossibleDuplicateFamily?.Phone</div>
+              <div>@r.PossibleDuplicateFamily?.StreetAddress, @r.PossibleDuplicateFamily?.City, @r.PossibleDuplicateFamily?.State @r.PossibleDuplicateFamily?.Zip</div>
+              <div style="color:var(--text-mid);">On file since @r.PossibleDuplicateFamily?.CreatedAt.ToString("MMM d, yyyy")</div>
+              <a href="/admin/families?family=@r.PossibleDuplicateFamily?.Id" style="font-size:.8rem;">View family →</a>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button class="btn btn-primary" disabled="@_working" @onclick='() => ResolveAsync(r, "confirm-new")'>
+            Not a Duplicate — Keep as New Family
+          </button>
+          <button class="btn" disabled="@_working" @onclick='() => ResolveAsync(r, "merge")'>
+            Merge into Existing Family #@r.PossibleDuplicateFamily?.Id
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private List<PackageRequest> _queue = [];
+  private bool _loading = true;
+  private bool _working;
+  private string _oldestAge = "—";
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _queue = await Api.GetDuplicateReviewQueueAsync();
+    var oldest = _queue.OrderBy(r => r.CreatedAt).FirstOrDefault();
+    _oldestAge = oldest is not null ? GetAge(oldest.CreatedAt) : "—";
+    _loading = false;
+  }
+
+  private async Task ResolveAsync(PackageRequest r, string action)
+  {
+    _working = true;
+    await Api.ResolveDuplicateReviewAsync(r.Id, action);
+    _working = false;
+    await LoadAsync();
+  }
+
+  private static string GetAge(DateTime dt)
+  {
+    var d = (int)(DateTime.UtcNow - dt).TotalDays;
+    return d == 0 ? "Today" : $"{d}d";
+  }
+}

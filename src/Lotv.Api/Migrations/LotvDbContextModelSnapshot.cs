@@ -924,6 +924,9 @@ namespace Lotv.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("DateOfLoss")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("DioceseName")
                         .HasColumnType("TEXT");
 
@@ -936,6 +939,9 @@ namespace Lotv.Api.Migrations
 
                     b.Property<string>("HowHeard")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsHistorical")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Parent1FirstName")
                         .IsRequired()
@@ -1029,6 +1035,91 @@ namespace Lotv.Api.Migrations
                     b.ToTable("FamilyNotes");
                 });
 
+            modelBuilder.Entity("Lotv.Core.Models.FollowUpMilestone", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("BookSent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FollowUpTrackerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FollowUpTrackerId");
+
+                    b.ToTable("FollowUpMilestones");
+                });
+
+            modelBuilder.Entity("Lotv.Core.Models.FollowUpTracker", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Apt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ChildName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DateOfLoss")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("FamilyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Parent1Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Parent2Name")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StreetAddress")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Zip")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FamilyId");
+
+                    b.ToTable("FollowUpTrackers");
+                });
+
             modelBuilder.Entity("Lotv.Core.Models.FundAllocation", b =>
                 {
                     b.Property<int>("Id")
@@ -1116,6 +1207,72 @@ namespace Lotv.Api.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("Grants");
+                });
+
+            modelBuilder.Entity("Lotv.Core.Models.MailingListEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Apt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Country")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("FamilyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FatherName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("FlaggedForReview")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MotherName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("MothersDayOnly")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Sent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StreetAddress")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Zip")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FamilyId");
+
+                    b.ToTable("MailingListEntries");
                 });
 
             modelBuilder.Entity("Lotv.Core.Models.MinistryEvent", b =>
@@ -1219,6 +1376,43 @@ namespace Lotv.Api.Migrations
                     b.ToTable("NotificationPrefs");
                 });
 
+            modelBuilder.Entity("Lotv.Core.Models.PackageContentItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PackageRequestId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Packed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("PackedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PackedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ResourceItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PackageRequestId");
+
+                    b.HasIndex("ResourceItemId");
+
+                    b.ToTable("PackageContentItems");
+                });
+
             modelBuilder.Entity("Lotv.Core.Models.PackageRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -1246,6 +1440,9 @@ namespace Lotv.Api.Migrations
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DuplicateMatchReason")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("FamilyId")
                         .HasColumnType("INTEGER");
 
@@ -1260,6 +1457,12 @@ namespace Lotv.Api.Migrations
 
                     b.Property<double?>("Longitude")
                         .HasColumnType("REAL");
+
+                    b.Property<bool>("NeedsDuplicateReview")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PossibleDuplicateFamilyId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Priority")
                         .HasColumnType("INTEGER");
@@ -1297,6 +1500,10 @@ namespace Lotv.Api.Migrations
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("FamilyId");
+
+                    b.HasIndex("NeedsDuplicateReview");
+
+                    b.HasIndex("PossibleDuplicateFamilyId");
 
                     b.HasIndex("Status");
 
@@ -2545,6 +2752,26 @@ namespace Lotv.Api.Migrations
                     b.Navigation("Family");
                 });
 
+            modelBuilder.Entity("Lotv.Core.Models.FollowUpMilestone", b =>
+                {
+                    b.HasOne("Lotv.Core.Models.FollowUpTracker", "FollowUpTracker")
+                        .WithMany("Milestones")
+                        .HasForeignKey("FollowUpTrackerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FollowUpTracker");
+                });
+
+            modelBuilder.Entity("Lotv.Core.Models.FollowUpTracker", b =>
+                {
+                    b.HasOne("Lotv.Core.Models.Family", "Family")
+                        .WithMany()
+                        .HasForeignKey("FamilyId");
+
+                    b.Navigation("Family");
+                });
+
             modelBuilder.Entity("Lotv.Core.Models.FundAllocation", b =>
                 {
                     b.HasOne("Lotv.Core.Models.Donation", "Donation")
@@ -2556,6 +2783,34 @@ namespace Lotv.Api.Migrations
                     b.Navigation("Donation");
                 });
 
+            modelBuilder.Entity("Lotv.Core.Models.MailingListEntry", b =>
+                {
+                    b.HasOne("Lotv.Core.Models.Family", "Family")
+                        .WithMany()
+                        .HasForeignKey("FamilyId");
+
+                    b.Navigation("Family");
+                });
+
+            modelBuilder.Entity("Lotv.Core.Models.PackageContentItem", b =>
+                {
+                    b.HasOne("Lotv.Core.Models.PackageRequest", "PackageRequest")
+                        .WithMany()
+                        .HasForeignKey("PackageRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Lotv.Core.Models.ResourceItem", "ResourceItem")
+                        .WithMany()
+                        .HasForeignKey("ResourceItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PackageRequest");
+
+                    b.Navigation("ResourceItem");
+                });
+
             modelBuilder.Entity("Lotv.Core.Models.PackageRequest", b =>
                 {
                     b.HasOne("Lotv.Core.Models.Family", "Family")
@@ -2564,7 +2819,14 @@ namespace Lotv.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Lotv.Core.Models.Family", "PossibleDuplicateFamily")
+                        .WithMany()
+                        .HasForeignKey("PossibleDuplicateFamilyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Family");
+
+                    b.Navigation("PossibleDuplicateFamily");
                 });
 
             modelBuilder.Entity("Lotv.Core.Models.Parish", b =>
@@ -2747,6 +3009,11 @@ namespace Lotv.Api.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Lotv.Core.Models.FollowUpTracker", b =>
+                {
+                    b.Navigation("Milestones");
                 });
 
             modelBuilder.Entity("Lotv.Core.Models.Retreat", b =>

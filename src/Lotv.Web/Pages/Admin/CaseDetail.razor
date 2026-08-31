@@ -64,7 +64,8 @@ else
           <div class="form-group">
             <label class="form-label">Status</label>
             <select class="form-input" @bind="_editStatus">
-              @foreach (var s in Enum.GetValues<CaseStatus>())
+              <option value="@_request.Status">@_request.Status (current)</option>
+              @foreach (var s in CaseStatusTransitions.ValidNextStates(_request.Status))
               { <option value="@s">@s</option> }
             </select>
           </div>
@@ -321,28 +322,60 @@ else
       <div class="panel">
         <div class="panel-header">Quick Actions</div>
         <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
-          @if (_request.Status == CaseStatus.New || _request.Status == CaseStatus.InProgress)
+          @foreach (var s in CaseStatusTransitions.ValidNextStates(_request.Status))
           {
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.AwaitingShipment)'>📦 Mark Awaiting Shipment</button>
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Fulfilled)'>✅ Mark Fulfilled</button>
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.OnHold)'>⏸ Put On Hold</button>
-          }
-          @if (_request.Status == CaseStatus.AwaitingShipment)
-          {
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Shipped)'>📦 Mark Shipped</button>
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.Fulfilled)'>✅ Mark Fulfilled</button>
-          }
-          @if (_request.Status == CaseStatus.OnHold)
-          {
-            <button class="btn btn-sm" @onclick='() => QuickStatusAsync(CaseStatus.InProgress)'>▶ Resume (→ In Progress)</button>
-          }
-          @if (_request.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled))
-          {
-            <button class="btn btn-sm" style="background:#fff3cd;color:#856404;border-color:#f0d060;"
-                    @onclick='() => QuickStatusAsync(CaseStatus.Cancelled)'>✖ Cancel Case</button>
+            <button class="btn btn-sm"
+                    style="@(s == CaseStatus.Cancelled ? "background:#fff3cd;color:#856404;border-color:#f0d060;" : "")"
+                    @onclick="() => QuickStatusAsync(s)" disabled="@_quickBusy">
+              @QuickActionIcon(s) @QuickActionLabel(s)
+            </button>
           }
           <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;" />
           <a href="/admin/cases?familyId=@_request.FamilyId" class="btn btn-sm">+ New Case for This Family</a>
+        </div>
+      </div>
+
+      <!-- PACKING LIST -->
+      <div class="panel">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Packing List</span>
+          <span style="font-size:.76rem;color:var(--text-light);">@_packageItems.Count(i => i.Packed) / @_packageItems.Count packed</span>
+        </div>
+        <div class="panel-body">
+          @if (!_packageItems.Any())
+          {
+            <div class="empty-state" style="padding:16px;"><p>No items added to this package yet.</p></div>
+          }
+          else
+          {
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+              @foreach (var item in _packageItems)
+              {
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.84rem;">
+                  <input type="checkbox" checked="@item.Packed" @onchange="() => TogglePackedAsync(item)" />
+                  <span style="flex:1;@(item.Packed ? "text-decoration:line-through;color:var(--text-light);" : "")">
+                    @(item.ResourceItem?.Name ?? "Item") × @item.Quantity
+                  </span>
+                  <button class="btn btn-sm" style="padding:2px 8px;font-size:.7rem;" @onclick="() => RemovePackageItemAsync(item)">Remove</button>
+                </div>
+              }
+            </div>
+          }
+          @if (_request.Status is CaseStatus.Shipped or CaseStatus.AwaitingShipment && _packageItems.Any() && _packageItems.Any(i => !i.Packed))
+          {
+            <div style="font-size:.76rem;color:var(--amber);margin-bottom:10px;">⚠ Not everything is packed yet.</div>
+          }
+          <div style="display:flex;gap:6px;">
+            <select class="form-input" style="font-size:.8rem;" @bind="_newItemResourceId">
+              <option value="0">— Select item —</option>
+              @foreach (var inv in _inventory.Where(i => i.QuantityAvailable > 0))
+              { <option value="@inv.Id">@inv.Name (@inv.QuantityAvailable available)</option> }
+            </select>
+            <input class="form-input" style="width:60px;font-size:.8rem;" type="number" min="1" @bind="_newItemQty" />
+            <button class="btn btn-sm" @onclick="AddPackageItemAsync" disabled="@(_newItemResourceId == 0)">Add</button>
+          </div>
+          @if (!string.IsNullOrEmpty(_packingError))
+          { <div style="font-size:.76rem;color:var(--red);margin-top:8px;">⚠ @_packingError</div> }
         </div>
       </div>
 
@@ -381,6 +414,14 @@ else
   // Feedback messages
   private string _saveMsg = "";
   private string _errorMsg = "";
+  private bool _quickBusy;
+
+  // Packing list
+  private List<PackageContentItem> _packageItems = [];
+  private List<ResourceItem> _inventory = [];
+  private int _newItemResourceId;
+  private int _newItemQty = 1;
+  private string? _packingError;
 
   protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -400,13 +441,17 @@ else
     var t3 = Api.GetRequestActivityAsync(Id);
     var t4 = Api.GetAllocationsAsync();
     var t5 = Api.GetVolunteersAsync("Active");
-    await Task.WhenAll(t1, t2, t3, t4, t5);
+    var t6 = Api.GetPackageItemsAsync(Id);
+    var t7 = Api.GetInventoryAsync();
+    await Task.WhenAll(t1, t2, t3, t4, t5, t6, t7);
 
     _request   = t1.Result;
     _notes     = t2.Result;
     _activity  = t3.Result;
     _allocations = t4.Result;
     _volunteers  = t5.Result;
+    _packageItems = t6.Result;
+    _inventory    = t7.Result;
 
     if (_request is not null)
     {
@@ -447,9 +492,6 @@ else
     _saving = true;
     _saveMsg = _errorMsg = "";
 
-    if (_editStatus != _request.Status)
-      await Api.UpdateRequestStatusAsync(_request.Id, _editStatus);
-
     if (_editPriority != _request.Priority)
       await Api.UpdateRequestPriorityAsync(_request.Id, _editPriority);
 
@@ -459,7 +501,21 @@ else
     if (_editDueDate.HasValue && _editDueDate != _request.DueDate)
       await Api.UpdateRequestDueDateAsync(_request.Id, _editDueDate.Value);
 
+    // Patch tracking BEFORE status — the backend requires a tracking number to
+    // already be saved before it will allow a transition into Shipped. Also runs
+    // after assign, since assign forces status back to InProgress as a side effect.
     await Api.PatchRequestAsync(_request.Id, _editTracking, _editShippedDate, _editInternalNotes);
+
+    if (_editStatus != _request.Status)
+    {
+      var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(_request.Id, _editStatus);
+      if (!ok)
+      {
+        _saving = false;
+        _errorMsg = error ?? "Failed to update status.";
+        return;
+      }
+    }
 
     _saving = false;
     _saveMsg = "Changes saved successfully.";
@@ -468,11 +524,66 @@ else
 
   private async Task QuickStatusAsync(CaseStatus status)
   {
-    if (_request is null) return;
+    if (_request is null || _quickBusy) return;
+    _quickBusy = true;
     _saveMsg = _errorMsg = "";
-    var ok = await Api.UpdateRequestStatusAsync(_request.Id, status);
+    var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(_request.Id, status);
     if (ok) { _saveMsg = $"Status updated to {status}."; await LoadAsync(); }
-    else _errorMsg = "Failed to update status.";
+    else _errorMsg = error ?? "Failed to update status.";
+    _quickBusy = false;
+  }
+
+  private static string QuickActionIcon(CaseStatus s) => s switch
+  {
+    CaseStatus.InProgress       => "▶",
+    CaseStatus.AwaitingShipment => "📦",
+    CaseStatus.Shipped          => "🚚",
+    CaseStatus.Fulfilled        => "✅",
+    CaseStatus.OnHold           => "⏸",
+    CaseStatus.Cancelled        => "✖",
+    CaseStatus.New              => "↩",
+    _ => "•"
+  };
+
+  private static string QuickActionLabel(CaseStatus s) => s switch
+  {
+    CaseStatus.Cancelled => "Cancel Case",
+    CaseStatus.OnHold    => "Put On Hold",
+    _                    => $"Mark {s}"
+  };
+
+  private async Task AddPackageItemAsync()
+  {
+    if (_request is null || _newItemResourceId == 0) return;
+    _packingError = null;
+    var (ok, error) = await Api.AddPackageItemAsync(_request.Id, _newItemResourceId, _newItemQty);
+    if (!ok) { _packingError = error; return; }
+    _newItemResourceId = 0;
+    _newItemQty = 1;
+    _packageItems = await Api.GetPackageItemsAsync(_request.Id);
+    _inventory    = await Api.GetInventoryAsync();
+  }
+
+  private async Task TogglePackedAsync(PackageContentItem item)
+  {
+    if (_request is null) return;
+    var ok = await Api.TogglePackedAsync(_request.Id, item.Id);
+    if (ok)
+    {
+      _packageItems = await Api.GetPackageItemsAsync(_request.Id);
+      _inventory    = await Api.GetInventoryAsync();
+    }
+  }
+
+  private async Task RemovePackageItemAsync(PackageContentItem item)
+  {
+    if (_request is null) return;
+    var ok = await Api.RemovePackageItemAsync(_request.Id, item.Id);
+    if (ok)
+    {
+      _packageItems = await Api.GetPackageItemsAsync(_request.Id);
+      _inventory    = await Api.GetInventoryAsync();
+    }
   }
 
   private async Task AddNoteAsync()
