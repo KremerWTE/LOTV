@@ -8,7 +8,7 @@ Verified the JotForm intake pipeline against the ministry's actual, currently-in
 
 ## Spreadsheet Audit
 
-Read the `2026` sheet (1,276 real rows — their live, currently-active tracking) and the `SM (2026)` sheet (Stephen's Ministry bereavement tracking) directly via `openpyxl`, and cross-checked every column against what the webhook/data model actually capture.
+Read the `2026` sheet (1,276 total rows, but only 342 have an actual name/case in them — the other ~934 are blank template rows the sheet reserves for future entries, not data; corrected in a follow-up pass) and the `SM (2026)` sheet (Stephen's Ministry bereavement tracking) directly via `openpyxl`, and cross-checked every column against what the webhook/data model actually capture.
 
 **Confirmed good:**
 - Core intake fields (names, contact, address, reason, story, faith, bracelet initials, parish/diocese, date of loss) all map cleanly, and this session's earlier fixes (2026-08-12/13) already closed the real gaps that existed.
