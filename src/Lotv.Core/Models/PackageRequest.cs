@@ -17,6 +17,7 @@ public class PackageRequest
     public RequestPriority Priority { get; set; } = RequestPriority.Normal;
     public int? AssignedToId { get; set; }         // VolunteerId or null
     public string? AssignedTo { get; set; }        // display name (kept for UI compat)
+    public ProcessStage ProcessStage { get; set; } = ProcessStage.Unassigned;
     public DateTime? DueDate { get; set; }
     public int ChapterId { get; set; }
     public Chapter? Chapter { get; set; }
@@ -29,6 +30,16 @@ public class PackageRequest
     public bool StaffOutreachRequested { get; set; } = true;
     public double? Latitude { get; set; }   // for geo-based auto-assignment scoring
     public double? Longitude { get; set; }
+
+    // Set at intake when the submitted family looks like it may already exist in the
+    // system (see IDuplicateFamilyDetectionService). While NeedsDuplicateReview is true,
+    // the request is held out of the Unassigned Queue and auto-assignment, and instead
+    // shows on /admin/families/duplicate-review until staff confirm or merge it.
+    public bool NeedsDuplicateReview { get; set; }
+    public int? PossibleDuplicateFamilyId { get; set; }
+    public Family? PossibleDuplicateFamily { get; set; }
+    public string? DuplicateMatchReason { get; set; }
+
     public bool IsOverdue => Status is not (CaseStatus.Fulfilled or CaseStatus.Shipped or CaseStatus.Cancelled or CaseStatus.OnHold) && CreatedAt < DateTime.UtcNow.AddDays(-7);
 }
 
@@ -49,6 +60,19 @@ public enum RequestPriority
     High,
     Normal,
     Low
+}
+
+// Fulfillment checklist a volunteer manually advances as they work a package —
+// tracked alongside Status (which drives the pipeline columns), not instead of it.
+public enum ProcessStage
+{
+    Unassigned,
+    Assigned,
+    Confirmed,
+    Packing,
+    Notes,
+    Shipping,
+    Delivered
 }
 
 public enum RequestCategory

@@ -27,6 +27,12 @@ public class Family
     public FamilyStatus Status { get; set; } = FamilyStatus.Active;
     public string? ContactNotes { get; set; }
     public PrivacyPreference PrivacyPreference { get; set; } = PrivacyPreference.Anonymous;
+    public DateTime? DateOfLoss { get; set; }
+
+    // True for records imported from a prior year's closed-out request log — kept
+    // out of the active Kanban pipeline and surfaced instead in the read-only
+    // Historical section.
+    public bool IsHistorical { get; set; }
 
     public string FullName => string.IsNullOrEmpty(Parent2FirstName)
         ? $"{Parent1FirstName} {Parent1LastName}"

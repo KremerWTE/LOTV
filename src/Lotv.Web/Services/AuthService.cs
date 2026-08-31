@@ -34,6 +34,7 @@ public class AuthService
         }
     }
     public string UserEmail => GetClaim(JwtRegisteredClaimNames.Email) ?? "";
+    public string UserId    => GetClaim(ClaimTypes.NameIdentifier) ?? "";
     public string UserRole  => GetClaim("role") ?? "";
     public int? ChapterId
     {
@@ -71,12 +72,12 @@ public class AuthService
     public event Action? OnChange;
 
     // ── Login ─────────────────────────────────────────────────────────────────
-    public async Task<bool> LoginAsync(string email, string password)
+    public async Task<bool> LoginAsync(string username, string password)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/api/v1/auth/login",
-                new { Email = email, Password = password });
+                new { Username = username, Password = password });
 
             if (!resp.IsSuccessStatusCode) return false;
 
@@ -98,6 +99,29 @@ public class AuthService
         }
     }
 
+    // ── Password recovery ────────────────────────────────────────────────────
+    // Always reports success regardless of whether the account/recovery-email
+    // exists — the server intentionally never reveals that, to avoid leaking
+    // which usernames are valid.
+    public async Task ForgotPasswordAsync(string username)
+    {
+        try { await _http.PostAsJsonAsync("/api/v1/auth/forgot-password", new { Username = username }); }
+        catch { }
+    }
+
+    public async Task<(bool Ok, string? Error)> ResetPasswordAsync(string username, string token, string newPassword)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/v1/auth/reset-password",
+                new { Username = username, Token = token, NewPassword = newPassword });
+            if (resp.IsSuccessStatusCode) return (true, null);
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "Failed to reset password.");
+        }
+        catch { return (false, "Network error — please try again."); }
+    }
+
     // ── Restore session on page load ──────────────────────────────────────────
     public async Task TryRestoreSessionAsync()
     {
@@ -112,10 +136,25 @@ public class AuthService
     }
 
     // ── Token refresh ─────────────────────────────────────────────────────────
-    public async Task<bool> RefreshTokenAsync()
-    {
-        if (string.IsNullOrEmpty(_refreshToken)) return false;
+    // The server rotates refresh tokens (single-use — each /auth/refresh call
+    // revokes the old token and issues a new one). Several API calls can hit a
+    // 401 around the same moment (e.g. a page that fires many GetAsync calls on
+    // load) and would otherwise each independently race to consume the same
+    // refresh token: only the first wins, and every other caller gets a 401
+    // back from an already-revoked token and logs the user out. Sharing one
+    // in-flight refresh Task across concurrent callers avoids that race —
+    // Blazor WASM runs single-threaded, so setting _refreshInFlight is safe
+    // without a lock as long as it happens before the first await.
+    private Task<bool>? _refreshInFlight;
 
+    public Task<bool> RefreshTokenAsync()
+    {
+        if (string.IsNullOrEmpty(_refreshToken)) return Task.FromResult(false);
+        return _refreshInFlight ??= RefreshTokenCoreAsync();
+    }
+
+    private async Task<bool> RefreshTokenCoreAsync()
+    {
         try
         {
             var resp = await _http.PostAsJsonAsync("/api/v1/auth/refresh",
@@ -139,6 +178,10 @@ public class AuthService
         catch
         {
             return false;
+        }
+        finally
+        {
+            _refreshInFlight = null;
         }
     }
 

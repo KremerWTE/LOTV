@@ -108,7 +108,7 @@ public class RequestsApiTests
         regResp.EnsureSuccessStatusCode();
 
         var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login",
-            new { Email = email, Password = password });
+            new { Username = email, Password = password });
         loginResp.EnsureSuccessStatusCode();
 
         var body = await loginResp.Content.ReadFromJsonAsync<LoginResponseDto>();

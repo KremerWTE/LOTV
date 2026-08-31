@@ -45,7 +45,9 @@
     <VolunteerRecognition />
     break;
   case "pending":
-    <VolunteerPending />
+    @* Fully qualified — Lotv.Web.Pages.VolunteerPending (the volunteer-facing
+       pending-assignment page) shares this short name, which RZ9985s on publish. *@
+    <Lotv.Web.Pages.Admin.VolunteerPending />
     break;
   case "reactivation":
     <VolunteerReactivation />

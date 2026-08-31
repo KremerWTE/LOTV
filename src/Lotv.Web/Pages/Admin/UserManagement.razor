@@ -16,12 +16,12 @@
   <div class="panel-body" style="padding:0;">
     <table class="data-table">
       <thead>
-        <tr><th></th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th></th></tr>
+        <tr><th></th><th>Name</th><th>Username</th><th>Recovery Email</th><th>Role</th><th>Status</th><th>Last Login</th><th></th></tr>
       </thead>
       <tbody>
         @foreach (var u in _users)
         {
-          var isMe = u.Email?.Equals(Auth.UserEmail, StringComparison.OrdinalIgnoreCase) == true;
+          var isMe = u.Id == _myId;
           <tr style="@(isMe ? "background:var(--green-pale);" : "")">
             <td style="width:42px;">
               @if (!string.IsNullOrEmpty(u.AvatarUrl))
@@ -34,10 +34,16 @@
               }
             </td>
             <td>
-              <strong>@(u.FullName ?? u.Email ?? u.Id)</strong>
+              <strong>@(u.FullName ?? u.UserName ?? u.Id)</strong>
               @if (isMe) { <span class="badge badge-fulfilled" style="font-size:.6rem;margin-left:6px;">You</span> }
             </td>
-            <td style="font-size:.78rem;color:var(--text-light);">@u.Email</td>
+            <td style="font-size:.78rem;color:var(--text-light);">@u.UserName</td>
+            <td style="font-size:.78rem;color:var(--text-light);">
+              @if (string.IsNullOrEmpty(u.Email))
+              { <span style="color:var(--amber);">Not set</span> }
+              else
+              { @u.Email }
+            </td>
             <td><span class="badge @RoleBadge(u.Role)" style="font-size:.68rem;">@u.Role</span></td>
             <td>
               @if (u.IsActive)
@@ -49,7 +55,7 @@
             <td style="display:flex;gap:6px;">
               @if (!isMe)
               {
-                <button class="btn btn-sm" @onclick="() => OpenEdit(u)">Edit Role</button>
+                <button class="btn btn-sm" @onclick="() => OpenEdit(u)">Edit</button>
                 <button class="btn btn-sm" title="Send test push" @onclick="() => PushTest(u)">🔔</button>
                 @if (!string.IsNullOrEmpty(u.AvatarUrl))
                 {
@@ -78,7 +84,11 @@
       {
         <div class="form-group">
           <label class="form-label">User</label>
-          <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@(_editUser.FullName ?? _editUser.Email ?? _editUser.Id)</div>
+          <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@(_editUser.FullName ?? _editUser.UserName ?? _editUser.Id)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username (sign-in)</label>
+          <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_editUser.UserName</div>
         </div>
       }
       <div class="form-group">
@@ -88,6 +98,13 @@
           { <option value="@r">@r</option> }
         </select>
       </div>
+      @if (_editUser is not null)
+      {
+        <div class="form-group">
+          <label class="form-label">Recovery Email</label>
+          <input class="form-input" @bind="_formEmail" placeholder="name@example.com (optional — needed for forgot-password)" />
+        </div>
+      }
       @if (!string.IsNullOrEmpty(_formError))
       { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_formError</div> }
     </div>
@@ -110,16 +127,22 @@
   private bool _drawerOpen;
   private StaffUserDto? _editUser;
   private UserRole _formRole = UserRole.ChapterStaff;
+  private string? _formEmail;
   private string _formError  = "";
   private string? _toast;
+  private string _myId = "";
 
   protected override async Task OnInitializedAsync()
-    => _users = await Api.GetUsersAsync();
+  {
+    _myId = Auth.UserId;
+    _users = await Api.GetUsersAsync();
+  }
 
   private void OpenAdd()
   {
     _editUser   = null;
     _formRole   = UserRole.ChapterStaff;
+    _formEmail  = null;
     _formError  = "";
     _drawerOpen = true;
   }
@@ -128,6 +151,7 @@
   {
     _editUser   = u;
     _formRole   = u.Role;
+    _formEmail  = u.Email;
     _formError  = "";
     _drawerOpen = true;
   }
@@ -136,10 +160,19 @@
   {
     _formError = "";
     if (_editUser == null) { await ShowToast("Invite not yet supported — use the register endpoint."); _drawerOpen = false; return; }
-    await Api.UpdateUserRoleAsync(_editUser.Id, _formRole, _editUser.ChapterId);
+
+    if (_formRole != _editUser.Role)
+      await Api.UpdateUserRoleAsync(_editUser.Id, _formRole, _editUser.ChapterId);
+
+    if (_formEmail != _editUser.Email)
+    {
+      var (ok, error) = await Api.UpdateUserEmailAsync(_editUser.Id, _formEmail);
+      if (!ok) { _formError = error ?? "Failed to update email."; return; }
+    }
+
     _users = await Api.GetUsersAsync();
     _drawerOpen = false;
-    await ShowToast("Role updated");
+    await ShowToast("Saved");
   }
 
   private void CloseDrawer() { _drawerOpen = false; _formError = ""; }
@@ -147,7 +180,7 @@
   private async Task PushTest(StaffUserDto u)
   {
     var ok = await Api.SendTestPushToUserAsync(u.Id);
-    await ShowToast(ok ? $"Test push sent to {u.FullName ?? u.Email}" : "Could not send test push");
+    await ShowToast(ok ? $"Test push sent to {u.FullName ?? u.UserName ?? u.Email}" : "Could not send test push");
   }
 
   private async Task ClearAvatar(StaffUserDto u)

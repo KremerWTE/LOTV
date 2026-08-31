@@ -1,0 +1,157 @@
+@page "/admin/mothers-day"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Mother's Day Mailing — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Mother's Day Mailing</h2>
+    <p>Annual card mailing list — @_year cycle (Mother's Day to Mother's Day)</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">💌</div>
+    <div class="kpi-label">Total Recipients</div>
+    <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">⚠</div>
+    <div class="kpi-label">Flagged for Review</div>
+    <div class="kpi-value" style="color:var(--amber)">@_all.Count(m => m.FlaggedForReview)</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-label">Sent</div>
+    <div class="kpi-value" style="color:var(--green)">@_all.Count(m => m.Sent)</div>
+  </div>
+  <div class="kpi-card kpi-gold">
+    <div class="kpi-icon">📬</div>
+    <div class="kpi-label">Remaining</div>
+    <div class="kpi-value" style="color:var(--gold)">@_all.Count(m => !m.Sent)</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  @foreach (var f in _filters)
+  {
+    <button class="filter-chip @(_activeFilter == f ? "active" : "")" aria-pressed="@(_activeFilter == f)" @onclick="() => SetFilter(f)">@f</button>
+  }
+  <input class="form-input" style="width:240px;padding:5px 12px;font-size:.82rem;" placeholder="🔍 Search recipients..." aria-label="Search recipients" @bind="_search" @bind:event="oninput" @bind:after="ApplyFilter" />
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading mailing list…" />
+}
+else
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Mother</th>
+            <th>Father</th>
+            <th>Address</th>
+            <th>MD Only</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (!_filtered.Any())
+          {
+            <tr><td colspan="6"><div class="empty-state"><div class="icon">💌</div><p>No recipients match this filter.</p></div></td></tr>
+          }
+          @foreach (var m in _filtered.Take(_visibleCount))
+          {
+            <tr>
+              <td>
+                <strong>@m.MotherName</strong>
+                @if (m.FlaggedForReview)
+                { <span class="badge badge-overdue" style="margin-left:6px;" title="@m.ReviewNote">Flagged</span> }
+              </td>
+              <td style="font-size:.82rem;color:var(--text-mid);">@(m.FatherName ?? "—")</td>
+              <td style="font-size:.78rem;color:var(--text-light);">@m.StreetAddress, @m.City, @m.State @m.Zip</td>
+              <td style="font-size:.8rem;">@(m.MothersDayOnly ? "MD only" : "MD + FD")</td>
+              <td><span class="badge @(m.Sent ? "badge-fulfilled" : "badge-new")">@(m.Sent ? "Sent" : "Pending")</span></td>
+              <td style="display:flex;gap:6px;">
+                <button class="btn btn-sm @(m.Sent ? "" : "btn-primary")" @onclick="() => ToggleSentAsync(m)">@(m.Sent ? "Mark Unsent" : "Mark Sent")</button>
+                <button class="btn btn-sm" @onclick="() => ToggleFlagAsync(m)">@(m.FlaggedForReview ? "Unflag" : "Flag")</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (_filtered.Count > _visibleCount)
+    {
+      <div style="padding:14px;text-align:center;">
+        <button class="btn btn-sm" @onclick="() => _visibleCount += 100">Show 100 more (@(_filtered.Count - _visibleCount) remaining)</button>
+      </div>
+    }
+  </div>
+}
+
+@code {
+  private List<MailingListEntry> _all = [];
+  private List<MailingListEntry> _filtered = [];
+  private bool _loading = true;
+  private int _year = 2026;
+  private string _activeFilter = "All";
+  private string _search = "";
+  private int _visibleCount = 100;
+
+  private readonly string[] _filters = ["All", "Flagged", "Pending", "Sent"];
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _all = await Api.GetMailingListAsync(year: _year);
+    ApplyFilter();
+    _loading = false;
+  }
+
+  private void SetFilter(string f) { _activeFilter = f; ApplyFilter(); }
+
+  private void ApplyFilter()
+  {
+    _visibleCount = 100;
+    _filtered = _all.Where(m =>
+    {
+      var matchFilter = _activeFilter switch
+      {
+        "Flagged" => m.FlaggedForReview,
+        "Pending" => !m.Sent,
+        "Sent"    => m.Sent,
+        _         => true
+      };
+      var matchSearch = string.IsNullOrEmpty(_search) ||
+        m.MotherName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+        (m.FatherName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+      return matchFilter && matchSearch;
+    }).OrderBy(m => m.MotherName).ToList();
+  }
+
+  private async Task ToggleSentAsync(MailingListEntry m)
+  {
+    var ok = await Api.MarkMailingEntrySentAsync(m.Id, !m.Sent);
+    if (ok) { m.Sent = !m.Sent; ApplyFilter(); }
+  }
+
+  private async Task ToggleFlagAsync(MailingListEntry m)
+  {
+    var ok = await Api.FlagMailingEntryAsync(m.Id, !m.FlaggedForReview, m.ReviewNote);
+    if (ok) { m.FlaggedForReview = !m.FlaggedForReview; ApplyFilter(); }
+  }
+}

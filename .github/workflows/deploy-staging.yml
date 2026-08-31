@@ -1,24 +1,23 @@
 name: Deploy — Staging
 
 # Disabled from auto-run on push: this repo has no staging environment yet
-# (DB_CONNECTION_STRING / REGISTRY_HOST / REGISTRY_USER / REGISTRY_PASSWORD
-# secrets aren't set). Trigger manually once those exist, or restore the
-# `push: branches: [main]` trigger below.
+# (DB_CONNECTION_STRING / Azure secrets aren't set). Trigger manually once
+# those exist, or restore the `push: branches: [main]` trigger below.
 on:
   workflow_dispatch: {}
 
 jobs:
   deploy-staging:
-    name: Build & Push Docker images → Staging
+    name: Publish & Deploy → Staging
     runs-on: ubuntu-latest
     environment: staging
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup .NET 9
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '9.0.x'
 
@@ -28,53 +27,51 @@ jobs:
       - name: Install EF Core tools
         run: dotnet tool install --global dotnet-ef --version 9.*
 
+      # Must build this explicitly, in this order, before the migrations step:
+      # Lotv.Api's UseSqlServer(...) loads this assembly by name at runtime
+      # (Assembly.Load), and a ProjectReference back from Lotv.Api would be
+      # circular (this project already references Lotv.Api for the
+      # DbContext). Lotv.Api's post-build target copies this DLL into its own
+      # output once it exists on disk - but only if it already exists when
+      # Lotv.Api itself gets (re)built by the `dotnet ef` command below.
+      - name: Build SQL Server migrations assembly
+        run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release
+
       - name: Run database migrations (staging)
         run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
         env:
           ASPNETCORE_ENVIRONMENT: Staging
-          ConnectionStrings__Default: ${{ secrets.DB_CONNECTION_STRING }}
+          Database__Provider: SqlServer
+          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
 
-      - name: Log in to container registry
-        uses: docker/login-action@v4
+      # No Docker: publish each project as plain framework-dependent output
+      # and zip-deploy straight to App Service. Web is Blazor Server now (not
+      # WASM), so it's a normal Kestrel app just like the API - both run on
+      # a Linux App Service plan, no IIS/web.config/static-hosting needed.
+      - name: Publish API
+        run: dotnet publish src/Lotv.Api/Lotv.Api.csproj --configuration Release --no-build -o publish/api
+
+      - name: Publish Web
+        run: dotnet publish src/Lotv.Web/Lotv.Web.csproj --configuration Release --no-build -o publish/web
+
+      - name: Log in to Azure
+        uses: azure/login@v2
         with:
-          registry: ${{ secrets.REGISTRY_HOST }}
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Set image tag
-        id: tag
-        run: echo "TAG=${{ secrets.REGISTRY_HOST }}/lotv:${{ github.sha }}" >> $GITHUB_OUTPUT
-
-      - name: Build & push API image
-        uses: docker/build-push-action@v7
+      - name: Deploy API to Azure App Service (staging)
+        uses: azure/webapps-deploy@v3
         with:
-          context: .
-          file: src/Lotv.Api/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_HOST }}/lotv-api:staging
-            ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ github.sha }}
+          app-name: ${{ secrets.AZURE_WEBAPP_API_NAME }}
+          package: publish/api
 
-      - name: Build & push Web image
-        uses: docker/build-push-action@v7
+      - name: Deploy Web to Azure App Service (staging)
+        uses: azure/webapps-deploy@v3
         with:
-          context: .
-          file: src/Lotv.Web/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_HOST }}/lotv-web:staging
-            ${{ secrets.REGISTRY_HOST }}/lotv-web:${{ github.sha }}
-
-      # ── Deploy step: swap for your actual hosting (Azure / Railway / etc.) ──
-      # Example: Azure Container Apps
-      # - name: Deploy API to staging
-      #   uses: azure/container-apps-deploy-action@v1
-      #   with:
-      #     appSourcePath: ${{ github.workspace }}
-      #     acrName: ${{ secrets.ACR_NAME }}
-      #     containerAppName: lotv-api-staging
-      #     resourceGroup: ${{ secrets.AZURE_RG }}
-      #     imageToDeploy: ${{ secrets.REGISTRY_HOST }}/lotv-api:${{ github.sha }}
+          app-name: ${{ secrets.AZURE_WEBAPP_WEB_NAME }}
+          package: publish/web
 
       - name: Notify on failure
         if: failure()

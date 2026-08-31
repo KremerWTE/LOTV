@@ -1,0 +1,134 @@
+@page "/admin/historical"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Historical Cases — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Historical Cases</h2>
+    <p>Read-only archive of closed-out requests from prior years — not part of the active Kanban pipeline</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/cases" class="btn btn-sm">Active Cases</a>
+    <a href="/admin/kanban" class="btn btn-sm">☷ Kanban Board</a>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">📚</div>
+    <div class="kpi-label">Total Historical Cases</div>
+    <div class="kpi-value" style="color:var(--navy)">@_all.Count</div>
+  </div>
+  @foreach (var yearGroup in _all.GroupBy(r => r.CreatedAt.Year).OrderByDescending(g => g.Key))
+  {
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-icon">🗓</div>
+      <div class="kpi-label">@yearGroup.Key</div>
+      <div class="kpi-value" style="color:var(--gold)">@yearGroup.Count()</div>
+    </div>
+  }
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <select class="form-input" style="width:auto;font-size:.82rem;padding:5px 10px;" @bind="_yearFilter" @bind:after="ApplyFilter">
+    <option value="">All Years</option>
+    @foreach (var y in _all.Select(r => r.CreatedAt.Year).Distinct().OrderByDescending(y => y))
+    { <option value="@y">@y</option> }
+  </select>
+  <select class="form-input" style="width:auto;font-size:.82rem;padding:5px 10px;" @bind="_reasonFilter" @bind:after="ApplyFilter">
+    <option value="">All Reasons</option>
+    @foreach (var r in Enum.GetValues<PackageReason>())
+    { <option value="@r">@r.ToDisplayName()</option> }
+  </select>
+  <input class="form-input" style="width:240px;padding:5px 12px;font-size:.82rem;" placeholder="🔍 Search families..." aria-label="Search families" @bind="_search" @bind:event="oninput" @bind:after="ApplyFilter" />
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading historical cases…" />
+}
+else
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Family</th>
+            <th>Reason</th>
+            <th>Status</th>
+            <th>State</th>
+            <th>Year</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (!_filtered.Any())
+          {
+            <tr><td colspan="7"><div class="empty-state"><div class="icon">📚</div><p>No historical cases match this filter.</p></div></td></tr>
+          }
+          @foreach (var r in _filtered.Take(_visibleCount))
+          {
+            <tr>
+              <td style="font-size:.76rem;color:var(--text-light);">#@r.Id</td>
+              <td><strong>@r.Family?.FullName</strong></td>
+              <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason.ToDisplayName()</td>
+              <td><span class="badge @GetStatusBadge(r.Status)">@r.Status</span></td>
+              <td style="font-size:.8rem;color:var(--text-mid);">@(r.Family?.State ?? "—")</td>
+              <td style="font-size:.76rem;color:var(--text-light);">@r.CreatedAt.Year</td>
+              <td><a href="/admin/cases/@r.Id" class="btn btn-sm">Details</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (_filtered.Count > _visibleCount)
+    {
+      <div style="padding:14px;text-align:center;">
+        <button class="btn btn-sm" @onclick="() => _visibleCount += 100">Show 100 more (@(_filtered.Count - _visibleCount) remaining)</button>
+      </div>
+    }
+  </div>
+}
+
+@code {
+  private List<PackageRequest> _all = [];
+  private List<PackageRequest> _filtered = [];
+  private bool _loading = true;
+  private string _yearFilter = "";
+  private string _reasonFilter = "";
+  private string _search = "";
+  private int _visibleCount = 100;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _all = await Api.GetRequestsAsync(historical: true);
+    ApplyFilter();
+    _loading = false;
+  }
+
+  private void ApplyFilter()
+  {
+    _visibleCount = 100;
+    _filtered = _all.Where(r =>
+    {
+      var matchYear = string.IsNullOrEmpty(_yearFilter) || r.CreatedAt.Year.ToString() == _yearFilter;
+      var matchReason = string.IsNullOrEmpty(_reasonFilter) || r.Reason.ToString() == _reasonFilter;
+      var matchSearch = string.IsNullOrEmpty(_search) ||
+        (r.Family?.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+      return matchYear && matchReason && matchSearch;
+    }).OrderByDescending(r => r.CreatedAt).ToList();
+  }
+
+  private static string GetStatusBadge(CaseStatus s) => s switch
+  {
+    CaseStatus.Fulfilled => "badge-fulfilled",
+    CaseStatus.Cancelled => "badge-cancelled",
+    _ => "badge-onhold"
+  };
+}

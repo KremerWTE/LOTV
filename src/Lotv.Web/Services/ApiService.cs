@@ -2,6 +2,8 @@ using Lotv.Core.Models;
 using Lotv.Core.Reporting;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Lotv.Web.Services;
 
@@ -15,6 +17,17 @@ public class ApiService
     private readonly JwtAuthStateProvider _authState;
     private readonly AuthService _auth;
 
+    // The API serializes enums as strings (ConfigureHttpJsonOptions in Lotv.Api/Program.cs
+    // adds JsonStringEnumConverter). System.Net.Http.Json's default options do NOT include
+    // that converter, so without this, any ReadFromJsonAsync<T> for a type with an enum
+    // property (PackageRequest.Status, .Reason, .Category, ...) throws a JsonException that
+    // GetAsync's catch-all silently swallows into an empty list/null — the request looks
+    // like it succeeded (200 OK) but the page renders as if there were no data at all.
+    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     public ApiService(HttpClient http, JwtAuthStateProvider authState, AuthService auth)
     {
         _http = http;
@@ -23,9 +36,9 @@ public class ApiService
     }
 
     // ── Requests / Cases ──────────────────────────────────────────────────────
-    public Task<List<PackageRequest>> GetRequestsAsync(string? status = null, bool? overdue = null, int? familyId = null)
+    public Task<List<PackageRequest>> GetRequestsAsync(string? status = null, bool? overdue = null, int? familyId = null, bool? historical = null)
     {
-        var qs = BuildQs(("status", status), ("overdue", overdue?.ToString().ToLower()), ("familyId", familyId?.ToString()));
+        var qs = BuildQs(("status", status), ("overdue", overdue?.ToString().ToLower()), ("familyId", familyId?.ToString()), ("historical", historical?.ToString().ToLower()));
         return GetListAsync<PackageRequest>($"/api/v1/requests{qs}");
     }
 
@@ -42,7 +55,7 @@ public class ApiService
     {
         var resp = await AuthedPostAsync("/api/v1/requests", req);
         return resp?.IsSuccessStatusCode == true
-            ? await resp.Content.ReadFromJsonAsync<PackageRequest>() : null;
+            ? await resp.Content.ReadFromJsonAsync<PackageRequest>(JsonOpts) : null;
     }
 
     public Task<List<RequestNote>> GetRequestNotesAsync(int id) =>
@@ -52,7 +65,7 @@ public class ApiService
     {
         var resp = await AuthedPostAsync($"/api/v1/requests/{id}/notes", note);
         return resp?.IsSuccessStatusCode == true
-            ? await resp.Content.ReadFromJsonAsync<RequestNote>() : null;
+            ? await resp.Content.ReadFromJsonAsync<RequestNote>(JsonOpts) : null;
     }
 
     public Task<List<RequestActivity>> GetRequestActivityAsync(int id) =>
@@ -64,6 +77,15 @@ public class ApiService
 
     public Task<Family?> GetFamilyAsync(int id) =>
         GetAsync<Family>($"/api/v1/families/{id}");
+
+    public Task<List<PackageRequest>> GetDuplicateReviewQueueAsync() =>
+        GetListAsync<PackageRequest>("/api/v1/families/duplicate-review");
+
+    public async Task<bool> ResolveDuplicateReviewAsync(int requestId, string action)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/families/duplicate-review/{requestId}/resolve", new { Action = action });
+        return resp?.IsSuccessStatusCode == true;
+    }
 
     // ── Volunteers ────────────────────────────────────────────────────────────
     public Task<List<Volunteer>> GetVolunteersAsync(string? status = null) =>
@@ -105,7 +127,7 @@ public class ApiService
     public async Task<EventAttendee?> CreateAttendeeAsync(int eventId, EventAttendee attendee)
     {
         var resp = await AuthedPostAsync($"/api/v1/events/{eventId}/attendees", attendee);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<EventAttendee>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<EventAttendee>(JsonOpts) : null;
     }
 
     public async Task<bool> CheckInAttendeeAsync(int eventId, int attendeeId)
@@ -120,19 +142,19 @@ public class ApiService
         if (resp is null) return null;
         if (resp.IsSuccessStatusCode)
         {
-            var body = await resp.Content.ReadFromJsonAsync<ScanOkBody>();
+            var body = await resp.Content.ReadFromJsonAsync<ScanOkBody>(JsonOpts);
             var name = body?.Attendee?.Donor?.FullName;
             var tickets = body?.Attendee?.TicketCount ?? 1;
             return new CheckinScanResult(true, "Checked in!", name, tickets);
         }
         if ((int)resp.StatusCode == 409)
         {
-            var body = await resp.Content.ReadFromJsonAsync<ScanErrorBody>();
+            var body = await resp.Content.ReadFromJsonAsync<ScanErrorBody>(JsonOpts);
             var name = body?.Attendee?.Donor?.FullName;
             var tickets = body?.Attendee?.TicketCount ?? 1;
             return new CheckinScanResult(false, body?.Error ?? "Already checked in.", name, tickets);
         }
-        var err = await resp.Content.ReadFromJsonAsync<ScanErrorBody>();
+        var err = await resp.Content.ReadFromJsonAsync<ScanErrorBody>(JsonOpts);
         return new CheckinScanResult(false, err?.Error ?? "Ticket not found.", null, 0);
     }
 
@@ -142,7 +164,7 @@ public class ApiService
     public async Task<SilentAuctionItem?> CreateAuctionItemAsync(int eventId, SilentAuctionItem item)
     {
         var resp = await AuthedPostAsync($"/api/v1/events/{eventId}/auction", item);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<SilentAuctionItem>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<SilentAuctionItem>(JsonOpts) : null;
     }
 
     public async Task<bool> PlaceBidAsync(int eventId, int itemId, int bidderId, decimal amount)
@@ -231,7 +253,7 @@ public class ApiService
             var resp = await _http.PostAsJsonAsync($"/api/public/v1/donors/{donorId}/billing-portal",
                 new { Token = token });
             if (!resp.IsSuccessStatusCode) return null;
-            var doc = await resp.Content.ReadFromJsonAsync<BillingPortalDto>();
+            var doc = await resp.Content.ReadFromJsonAsync<BillingPortalDto>(JsonOpts);
             return doc?.Url;
         }
         catch { return null; }
@@ -244,7 +266,7 @@ public class ApiService
         {
             var resp = await _http.PostAsync("/api/v1/donors/send-portal-link/bulk", null);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<BulkLinkResult>();
+            return await resp.Content.ReadFromJsonAsync<BulkLinkResult>(JsonOpts);
         }
         catch { return null; }
     }
@@ -254,7 +276,7 @@ public class ApiService
         {
             var resp = await _http.PostAsync($"/api/v1/donors/send-portal-link/bulk-diocese?diocese={Uri.EscapeDataString(diocese)}", null);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<BulkLinkResult>();
+            return await resp.Content.ReadFromJsonAsync<BulkLinkResult>(JsonOpts);
         }
         catch { return null; }
     }
@@ -293,7 +315,7 @@ public class ApiService
             Website = website, TaxId = taxId, Tier = tier, CommittedAmount = committed,
             RenewalDate = renewal, Notes = notes, Status = "Active"
         });
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<SponsorDto>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<SponsorDto>(JsonOpts) : null;
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────
@@ -346,7 +368,7 @@ public class ApiService
     public async Task<WishListItem?> CreateWishListItemAsync(WishListItem item)
     {
         var resp = await AuthedPostAsync("/api/v1/wishlist", item);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<WishListItem>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<WishListItem>(JsonOpts) : null;
     }
 
     public async Task<bool> CancelWishListItemAsync(int id)
@@ -446,7 +468,7 @@ public class ApiService
         {
             var resp = await _http.PutAsJsonAsync("/api/v1/users/me/avatar", new { AvatarUrl = avatarUrl });
             if (!resp.IsSuccessStatusCode) return null;
-            var doc = await resp.Content.ReadFromJsonAsync<AvatarResp>();
+            var doc = await resp.Content.ReadFromJsonAsync<AvatarResp>(JsonOpts);
             return doc?.AvatarUrl;
         }
         catch { return null; }
@@ -465,7 +487,7 @@ public class ApiService
         {
             var resp = await _http.PostAsJsonAsync("/api/public/v1/volunteer/refresh-session", new { Token = token });
             if (!resp.IsSuccessStatusCode) return null;
-            var doc = await resp.Content.ReadFromJsonAsync<VolMagicLinkResp>();
+            var doc = await resp.Content.ReadFromJsonAsync<VolMagicLinkResp>(JsonOpts);
             return doc?.ExpiresAt;
         }
         catch { return null; }
@@ -477,7 +499,7 @@ public class ApiService
         {
             var resp = await _http.PostAsJsonAsync("/api/public/v1/volunteer/verify-link", new { Token = token });
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<VolMagicLinkResp>();
+            return await resp.Content.ReadFromJsonAsync<VolMagicLinkResp>(JsonOpts);
         }
         catch { return null; }
     }
@@ -487,7 +509,7 @@ public class ApiService
     {
         try
         {
-            var resp = await _http.GetFromJsonAsync<VolCountDto>($"/api/public/v1/volunteers/{volunteerId}/assignment-count");
+            var resp = await _http.GetFromJsonAsync<VolCountDto>($"/api/public/v1/volunteers/{volunteerId}/assignment-count", JsonOpts);
             return resp?.Count ?? 0;
         }
         catch { return 0; }
@@ -510,7 +532,7 @@ public class ApiService
         {
             var resp = await _http.PostAsJsonAsync("/api/public/v1/donor/refresh-session", new { Token = token });
             if (!resp.IsSuccessStatusCode) return null;
-            var doc = await resp.Content.ReadFromJsonAsync<MagicLinkResp>();
+            var doc = await resp.Content.ReadFromJsonAsync<MagicLinkResp>(JsonOpts);
             return doc?.ExpiresAt;
         }
         catch { return null; }
@@ -522,7 +544,7 @@ public class ApiService
         {
             var resp = await _http.PostAsJsonAsync("/api/public/v1/donor/verify-link", new { Token = token });
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<MagicLinkResp>();
+            return await resp.Content.ReadFromJsonAsync<MagicLinkResp>(JsonOpts);
         }
         catch { return null; }
     }
@@ -546,7 +568,7 @@ public class ApiService
         {
             var resp = await _http.PostAsJsonAsync("/api/v1/donations/bulk-allocate", new { Ids = ids, Status = status });
             if (!resp.IsSuccessStatusCode) return 0;
-            var doc = await resp.Content.ReadFromJsonAsync<BulkAllocateResp>();
+            var doc = await resp.Content.ReadFromJsonAsync<BulkAllocateResp>(JsonOpts);
             return doc?.Updated ?? 0;
         }
         catch { return 0; }
@@ -559,7 +581,7 @@ public class ApiService
         {
             var resp = await _http.PostAsJsonAsync("/api/v1/donations/bulk-channel", new { Ids = ids, Channel = channel });
             if (!resp.IsSuccessStatusCode) return 0;
-            var doc = await resp.Content.ReadFromJsonAsync<BulkAllocateResp>();
+            var doc = await resp.Content.ReadFromJsonAsync<BulkAllocateResp>(JsonOpts);
             return doc?.Updated ?? 0;
         }
         catch { return 0; }
@@ -577,7 +599,7 @@ public class ApiService
         {
             var resp = await _http.DeleteAsync($"/api/v1/admin/webhooks/old?days={days}");
             if (!resp.IsSuccessStatusCode) return null;
-            var doc = await resp.Content.ReadFromJsonAsync<PruneResp>();
+            var doc = await resp.Content.ReadFromJsonAsync<PruneResp>(JsonOpts);
             return doc?.Deleted;
         }
         catch { return null; }
@@ -591,7 +613,7 @@ public class ApiService
         {
             var resp = await _http.PostAsync("/api/v1/admin/vapid/generate", null);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<VapidKeyPair>();
+            return await resp.Content.ReadFromJsonAsync<VapidKeyPair>(JsonOpts);
         }
         catch { return null; }
     }
@@ -644,7 +666,7 @@ public class ApiService
     // ── Multi-currency ────────────────────────────────────────────────────
     public async Task<List<CurrencyDto>?> GetCurrenciesAsync()
     {
-        try { return await _http.GetFromJsonAsync<List<CurrencyDto>>("/api/public/v1/currencies"); }
+        try { return await _http.GetFromJsonAsync<List<CurrencyDto>>("/api/public/v1/currencies", JsonOpts); }
         catch { return null; }
     }
     public record CurrencyDto(string Code, string Symbol, string Name, decimal RateToUsd);
@@ -656,7 +678,7 @@ public class ApiService
             var resp = await _http.PostAsJsonAsync("/api/v1/payments/intent",
                 new { Amount = amount, Currency = currency });
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<PaymentIntentDto>();
+            return await resp.Content.ReadFromJsonAsync<PaymentIntentDto>(JsonOpts);
         }
         catch { return null; }
     }
@@ -688,6 +710,23 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    private record ErrorBody(string? error);
+
+    // Same endpoint as UpdateRequestStatusAsync, but surfaces the server's validation
+    // message (invalid transition, missing tracking number, etc.) instead of just true/false.
+    public async Task<(bool Ok, string? Error)> UpdateRequestStatusWithErrorAsync(int id, CaseStatus status)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{id}/status", new { Status = status });
+        if (resp is null) return (false, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (true, null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<ErrorBody>(JsonOpts);
+            return (false, body?.error ?? "Failed to update status.");
+        }
+        catch { return (false, "Failed to update status."); }
+    }
+
     public async Task<bool> AssignRequestAsync(int id, int volunteerId)
     {
         var resp = await AuthedPutAsync($"/api/v1/requests/{id}/assign", new { VolunteerId = volunteerId });
@@ -697,6 +736,12 @@ public class ApiService
     public async Task<bool> UpdateRequestPriorityAsync(int id, RequestPriority priority)
     {
         var resp = await AuthedPutAsync($"/api/v1/requests/{id}/priority", new { Priority = priority });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> UpdateRequestProcessStageAsync(int id, ProcessStage stage)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{id}/process-stage", new { ProcessStage = stage });
         return resp?.IsSuccessStatusCode == true;
     }
 
@@ -713,6 +758,35 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    // ── Packing list ──────────────────────────────────────────────────────────
+    public Task<List<PackageContentItem>> GetPackageItemsAsync(int requestId) =>
+        GetListAsync<PackageContentItem>($"/api/v1/requests/{requestId}/items");
+
+    public async Task<(bool Ok, string? Error)> AddPackageItemAsync(int requestId, int resourceItemId, int quantity)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/requests/{requestId}/items", new { ResourceItemId = resourceItemId, Quantity = quantity });
+        if (resp is null) return (false, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (true, null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<ErrorBody>(JsonOpts);
+            return (false, body?.error ?? "Failed to add item.");
+        }
+        catch { return (false, "Failed to add item."); }
+    }
+
+    public async Task<bool> TogglePackedAsync(int requestId, int itemId)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{requestId}/items/{itemId}/pack", new { });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> RemovePackageItemAsync(int requestId, int itemId)
+    {
+        try { var r = await _http.DeleteAsync($"/api/v1/requests/{requestId}/items/{itemId}"); return r.IsSuccessStatusCode; }
+        catch { return false; }
+    }
+
     public async Task<bool> AddRequestNoteAsync(int id, string content, bool isInternal = true)
     {
         var resp = await AuthedPostAsync($"/api/v1/requests/{id}/notes", new { Content = content, IsInternal = isInternal });
@@ -723,65 +797,65 @@ public class ApiService
     public async Task<Family?> CreateFamilyAsync(Family family)
     {
         var resp = await AuthedPostAsync("/api/v1/families", family);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Family>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Family>(JsonOpts) : null;
     }
 
     public async Task<Family?> UpdateFamilyAsync(int id, Family family)
     {
         var resp = await AuthedPutAsync($"/api/v1/families/{id}", family);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Family>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Family>(JsonOpts) : null;
     }
 
     // ── Volunteers mutations ───────────────────────────────────────────────────
     public async Task<Volunteer?> CreateVolunteerAsync(Volunteer vol)
     {
         var resp = await AuthedPostAsync("/api/v1/volunteers", vol);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Volunteer>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Volunteer>(JsonOpts) : null;
     }
 
     public async Task<Volunteer?> UpdateVolunteerAsync(int id, Volunteer vol)
     {
         var resp = await AuthedPutAsync($"/api/v1/volunteers/{id}", vol);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Volunteer>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Volunteer>(JsonOpts) : null;
     }
 
     // ── Donors mutations ───────────────────────────────────────────────────────
     public async Task<Donor?> CreateDonorAsync(Donor donor)
     {
         var resp = await AuthedPostAsync("/api/v1/donors", donor);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donor>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donor>(JsonOpts) : null;
     }
 
     public async Task<Donor?> UpdateDonorAsync(int id, Donor donor)
     {
         var resp = await AuthedPutAsync($"/api/v1/donors/{id}", donor);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donor>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donor>(JsonOpts) : null;
     }
 
     // ── Donations mutations ────────────────────────────────────────────────────
     public async Task<Donation?> CreateDonationAsync(Donation donation)
     {
         var resp = await AuthedPostAsync("/api/v1/donations", donation);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donation>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donation>(JsonOpts) : null;
     }
 
     public async Task<Donation?> UpdateDonationAsync(int id, Donation donation)
     {
         var resp = await AuthedPutAsync($"/api/v1/donations/{id}", donation);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donation>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donation>(JsonOpts) : null;
     }
 
     // ── Allocations mutations ──────────────────────────────────────────────────
     public async Task<FundAllocation?> CreateAllocationAsync(FundAllocation alloc)
     {
         var resp = await AuthedPostAsync("/api/v1/allocations", alloc);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<FundAllocation>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<FundAllocation>(JsonOpts) : null;
     }
 
     public async Task<FundAllocation?> UpdateAllocationAsync(int id, FundAllocation alloc)
     {
         var resp = await AuthedPutAsync($"/api/v1/allocations/{id}", alloc);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<FundAllocation>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<FundAllocation>(JsonOpts) : null;
     }
 
     public Task<List<ResourceItem>> GetInventoryAsync(string? category = null) =>
@@ -798,13 +872,13 @@ public class ApiService
     public async Task<MinistryEvent?> CreateEventAsync(MinistryEvent evt)
     {
         var resp = await AuthedPostAsync("/api/v1/events", evt);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<MinistryEvent>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<MinistryEvent>(JsonOpts) : null;
     }
 
     public async Task<MinistryEvent?> UpdateEventAsync(int id, MinistryEvent evt)
     {
         var resp = await AuthedPutAsync($"/api/v1/events/{id}", evt);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<MinistryEvent>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<MinistryEvent>(JsonOpts) : null;
     }
 
     // ── Public Intake (no auth required) ─────────────────────────────────────
@@ -881,6 +955,19 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    public async Task<(bool Ok, string? Error)> UpdateUserEmailAsync(string id, string? email)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/users/{id}/email", new { Email = email });
+        if (resp is null) return (false, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (true, null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>(JsonOpts);
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "Failed to update email.");
+        }
+        catch { return (false, "Failed to update email."); }
+    }
+
     // ─── Private helpers ─────────────────────────────────────────────────────
 
     private void SetAuthHeader()
@@ -904,7 +991,7 @@ public class ApiService
                     resp = await _http.GetAsync(url);
                 }
             }
-            return resp.IsSuccessStatusCode ? await resp.Content.ReadFromJsonAsync<T>() : null;
+            return resp.IsSuccessStatusCode ? await resp.Content.ReadFromJsonAsync<T>(JsonOpts) : null;
         }
         catch { return null; }
     }
@@ -990,7 +1077,7 @@ public class ApiService
     {
         var resp = await AuthedPostAsync("/api/v1/retreats", body);
         return resp?.IsSuccessStatusCode == true
-            ? await resp.Content.ReadFromJsonAsync<RetreatListDto>() : null;
+            ? await resp.Content.ReadFromJsonAsync<RetreatListDto>(JsonOpts) : null;
     }
 
     public async Task<bool> UpdateRetreatAsync(int id, object body)
@@ -1013,7 +1100,7 @@ public class ApiService
     {
         var resp = await AuthedPostAsync($"/api/v1/retreats/{id}/registrations", body);
         return resp?.IsSuccessStatusCode == true
-            ? await resp.Content.ReadFromJsonAsync<RetreatRegistrationDto>() : null;
+            ? await resp.Content.ReadFromJsonAsync<RetreatRegistrationDto>(JsonOpts) : null;
     }
 
     public async Task<bool> UpdateRegistrationPaymentAsync(int id, int regId, object body)
@@ -1036,7 +1123,7 @@ public class ApiService
     {
         var resp = await AuthedPostAsync($"/api/v1/retreats/{id}/expenses", body);
         return resp?.IsSuccessStatusCode == true
-            ? await resp.Content.ReadFromJsonAsync<RetreatExpenseDto>() : null;
+            ? await resp.Content.ReadFromJsonAsync<RetreatExpenseDto>(JsonOpts) : null;
     }
 
     public async Task<bool> DeleteExpenseAsync(int id, int expId)
@@ -1052,7 +1139,7 @@ public class ApiService
         if (since is not null) url += $"&since={since}";
         var resp = await AuthedPostAsync(url, new { });
         return resp?.IsSuccessStatusCode == true
-            ? await resp.Content.ReadFromJsonAsync<GbSyncResultDto>() : null;
+            ? await resp.Content.ReadFromJsonAsync<GbSyncResultDto>(JsonOpts) : null;
     }
 
     // ── Chapter management ────────────────────────────────────────────────────
@@ -1152,7 +1239,7 @@ public class ApiService
     public async Task<ResourceItem?> CreateInventoryItemAsync(ResourceItem item)
     {
         var resp = await AuthedPostAsync("/api/v1/inventory", item);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<ResourceItem>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<ResourceItem>(JsonOpts) : null;
     }
 
     public async Task<bool> UpdateInventoryItemAsync(int id, ResourceItem item)
@@ -1177,7 +1264,7 @@ public class ApiService
     public async Task<DonorPledge?> CreatePledgeAsync(DonorPledge pledge)
     {
         var resp = await AuthedPostAsync("/api/v1/pledges", pledge);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<DonorPledge>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<DonorPledge>(JsonOpts) : null;
     }
 
     public async Task<bool> UpdatePledgeAsync(int id, DonorPledge pledge)
@@ -1305,7 +1392,7 @@ public class ApiService
     public async Task<Expense?> CreateExpenseAsync(Expense body)
     {
         var resp = await AuthedPostAsync("/api/v1/expenses", body);
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Expense>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Expense>(JsonOpts) : null;
     }
 
     public async Task<bool> UpdateExpenseAsync(int id, Expense body)
@@ -1332,7 +1419,7 @@ public class ApiService
     {
         var resp = await AuthedPostAsync("/api/v1/apikeys",
             new { PartnerName = partnerName, ContactEmail = contactEmail, Scope = scope, ExpiresAt = expiresAt });
-        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<ApiKeyCreateResult>() : null;
+        return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<ApiKeyCreateResult>(JsonOpts) : null;
     }
 
     public async Task<bool> RevokeApiKeyAsync(int id)
@@ -1360,6 +1447,40 @@ public class ApiService
     public async Task<bool> DeleteAnnouncementAsync(int id)
     {
         var resp = await AuthedDeleteAsync($"/api/v1/announcements/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    // ── Mailing list (Mother's Day / Father's Day annual mailing) ──────────────
+    public Task<List<MailingListEntry>> GetMailingListAsync(int? year = null, bool? flagged = null, bool? sent = null)
+    {
+        var qs = BuildQs(("year", year?.ToString()), ("flagged", flagged?.ToString().ToLower()), ("sent", sent?.ToString().ToLower()));
+        return GetListAsync<MailingListEntry>($"/api/v1/mailing-list{qs}");
+    }
+
+    public async Task<bool> FlagMailingEntryAsync(int id, bool flagged, string? note)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/flag", new { Flagged = flagged, Note = note });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> MarkMailingEntrySentAsync(int id, bool sent)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/sent", new { Sent = sent });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public Task<List<FollowUpTracker>> GetFollowUpTrackersAsync() =>
+        GetListAsync<FollowUpTracker>("/api/v1/follow-up-trackers");
+
+    public async Task<bool> MarkFollowUpMilestoneSentAsync(int milestoneId, bool sent)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/follow-up-trackers/milestones/{milestoneId}/sent", new { Sent = sent });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> DeleteMailingEntryAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/mailing-list/{id}");
         return resp?.IsSuccessStatusCode == true;
     }
 }
@@ -1417,7 +1538,8 @@ public record DashboardStatsDto(
     decimal DonationsThisMonth, decimal DonationsLastMonth, int ActiveVolunteers);
 
 public record WorkloadRowDto(
-    int Id, string FullName, string Role, int ActiveCases, int TotalCasesFulfilled);
+    int Id, string FullName, string Role, int ActiveCases, int TotalCasesFulfilled,
+    int OverdueCases, int Capacity);
 
 public record ChannelBreakdownDto(
     string Channel, decimal TotalAmount, int GiftCount, double Percentage);
@@ -1427,7 +1549,7 @@ public record PersonBreakdownDto(
     decimal TotalAmount, int GiftCount, double AverageGift);
 
 public record StaffUserDto(
-    string Id, string? Email, string? FullName, UserRole Role, int? ChapterId, bool IsActive, string? AvatarUrl);
+    string Id, string? UserName, string? Email, string? FullName, UserRole Role, int? ChapterId, bool IsActive, string? AvatarUrl);
 
 public record EventRevenueDto(decimal Tickets, decimal Auction, decimal Total);
 public record CheckinScanResult(bool Success, string Message, string? AttendeeName, int TicketCount);

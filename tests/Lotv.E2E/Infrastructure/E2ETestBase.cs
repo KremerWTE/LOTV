@@ -55,11 +55,11 @@ public abstract class E2ETestBase : IAsyncLifetime
 
     // ── Auth helpers ──────────────────────────────────────────────────────────
 
-    protected async Task LoginAsync(string email, string password)
+    protected async Task LoginAsync(string username, string password)
     {
         await GoToAsync("/login");
         await WaitForBlazorAsync();
-        await Page.FillAsync("input[type='email'], input[placeholder*='email' i]", email);
+        await Page.FillAsync("#login-username, input[type='email'], input[placeholder*='email' i]", username);
         await Page.FillAsync("input[type='password']", password);
         await Page.ClickAsync("button[type='submit'], button:has-text('Sign In'), button:has-text('Login')");
         // Wait for redirect away from login page
@@ -69,8 +69,8 @@ public abstract class E2ETestBase : IAsyncLifetime
         });
     }
 
-    protected Task LoginAsAdminAsync()    => LoginAsync(E2ESettings.AdminEmail,    E2ESettings.AdminPassword);
-    protected Task LoginAsStaffAsync()    => LoginAsync(E2ESettings.StaffEmail,    E2ESettings.StaffPassword);
+    protected Task LoginAsAdminAsync()    => LoginAsync(E2ESettings.AdminUsername, E2ESettings.AdminPassword);
+    protected Task LoginAsStaffAsync()    => LoginAsync(E2ESettings.StaffUsername, E2ESettings.StaffPassword);
 
     // ── Assertion helpers ─────────────────────────────────────────────────────
 
