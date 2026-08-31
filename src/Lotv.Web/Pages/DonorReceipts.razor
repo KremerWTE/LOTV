@@ -25,7 +25,7 @@
         @foreach (var y in _years) { <option value="@y">@y Statement</option> }
       </select>
       <a class="btn btn-primary" target="_blank" rel="noopener"
-         href="@($"/api/v1/donations/year-end/{DonorId}/{_year}?format=pdf")">Download PDF</a>
+         href="@($"{Api.BaseUrl}/api/v1/donations/year-end/{DonorId}/{_year}?format=pdf")">Download PDF</a>
     </div>
   </div>
 
@@ -52,10 +52,10 @@
               <td style="padding:12px 16px;">@d.Channel</td>
               <td style="padding:12px 16px;text-align:right;font-weight:600;"><Money Amount="@d.Amount" /></td>
               <td style="padding:12px 16px;text-align:right;">
-                <a target="_blank" rel="noopener" href="@($"/api/public/v1/donations/{d.Id}/receipt?format=pdf")"
+                <a target="_blank" rel="noopener" href="@($"{Api.BaseUrl}/api/public/v1/donations/{d.Id}/receipt?format=pdf")"
                    style="color:var(--green);font-weight:600;font-size:.84rem;text-decoration:none;">PDF &darr;</a>
                 <span style="color:var(--text-light);margin:0 6px;">·</span>
-                <a target="_blank" rel="noopener" href="@($"/api/public/v1/donations/{d.Id}/receipt")"
+                <a target="_blank" rel="noopener" href="@($"{Api.BaseUrl}/api/public/v1/donations/{d.Id}/receipt")"
                    style="color:var(--text-mid);font-size:.84rem;text-decoration:none;">HTML</a>
               </td>
             </tr>

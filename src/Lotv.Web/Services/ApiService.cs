@@ -35,6 +35,15 @@ public class ApiService
         _auth = auth;
     }
 
+    // For pages that need a plain <a href> straight to an API endpoint (PDF
+    // downloads, QR images) rather than a fetch-and-render call through this
+    // service. A relative "/api/..." href resolves against the *Web* app's
+    // own origin, not the API's - broken under both the old Docker/nginx
+    // setup (no /api/ proxy rule existed there either) and this app's
+    // current split-origin dev/deploy setup. Confirmed live: a relative link
+    // 404s against Web's origin; the same path against this returns 200.
+    public string BaseUrl => _http.BaseAddress?.ToString().TrimEnd('/') ?? "";
+
     // ── Requests / Cases ──────────────────────────────────────────────────────
     public Task<List<PackageRequest>> GetRequestsAsync(string? status = null, bool? overdue = null, int? familyId = null, bool? historical = null)
     {

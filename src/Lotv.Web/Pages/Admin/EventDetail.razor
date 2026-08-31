@@ -195,7 +195,7 @@ else
                   <td style="font-size:.78rem;color:var(--text-mid);">@a.PaymentChannel</td>
                   <td style="font-size:.76rem;color:var(--text-light);">@a.RegisteredAt.ToString("MMM d")</td>
                   <td>
-                    <a href="@($"/api/v1/events/{_event.Id}/attendees/{a.Id}/qr")" target="_blank"
+                    <a href="@($"{Api.BaseUrl}/api/v1/events/{_event.Id}/attendees/{a.Id}/qr")" target="_blank"
                        style="font-size:.74rem;color:var(--navy);text-decoration:none;"
                        aria-label="View QR ticket for @(a.Donor?.FullName ?? "attendee")">
                       ⛶ QR

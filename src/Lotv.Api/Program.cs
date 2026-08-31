@@ -3397,9 +3397,10 @@ settingsGroup.MapPut("", async (LotvDbContext db, IChapterContextService ctx,
 
 // ── Payments (Stripe webhook) ─────────────────────────────────────────────────
 // Create a PaymentIntent — returns client_secret to mount Stripe Elements client-side.
-// In a real deployment, install Stripe.net and call StripeConfiguration.ApiKey + new PaymentIntentService().Create(...).
-// For now this returns a deterministic stub so the front-end Stripe Elements wiring can be exercised end-to-end
-// once a real key is configured. When Stripe.net is added, replace the stub block with the SDK call.
+// Falls back to a mock response (no real Stripe call) only when Stripe:SecretKey
+// isn't configured yet, so the front-end Elements wiring can be exercised without
+// a real account. Once Stripe:SecretKey is set (real deployment), this calls the
+// actual Stripe.net SDK below - no further code change needed.
 app.MapPost("/api/v1/payments/intent", async (PaymentIntentRequest body, IConfiguration cfg) =>
 {
     if (body.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than 0." });

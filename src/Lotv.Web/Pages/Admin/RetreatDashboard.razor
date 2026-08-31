@@ -132,7 +132,7 @@ else
                        @bind="_regSearch" @bind:event="oninput" @bind:after="LoadRegistrations" />
             </div>
             <div style="display:flex;gap:8px">
-                <a href="/api/v1/retreats/@RetreatId/registrations/export" class="btn btn-secondary" target="_blank">↓ CSV</a>
+                <a href="@($"{Api.BaseUrl}/api/v1/retreats/{RetreatId}/registrations/export")" class="btn btn-secondary" target="_blank">↓ CSV</a>
                 <button class="btn btn-primary" @onclick="() => _showAddReg = true">+ Add Manual</button>
             </div>
         </div>
