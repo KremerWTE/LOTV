@@ -53,7 +53,8 @@ var dbProvider = builder.Configuration["Database:Provider"];
 if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddDbContext<LotvDbContext>(o =>
-        o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+        o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+            sql => sql.MigrationsAssembly("Lotv.Migrations.SqlServer")));
 }
 else if (builder.Environment.IsDevelopment())
 {

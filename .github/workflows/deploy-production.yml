@@ -30,7 +30,8 @@ jobs:
         run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
         env:
           ASPNETCORE_ENVIRONMENT: Production
-          ConnectionStrings__Default: ${{ secrets.DB_CONNECTION_STRING }}
+          Database__Provider: SqlServer
+          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
 
       - name: Extract release version
         id: version
