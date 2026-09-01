@@ -234,11 +234,32 @@ else
             <div><strong>Name:</strong> @_request.Family.FullName</div>
             <div><strong>Email:</strong> @_request.Family.Email</div>
             <div><strong>Phone:</strong> @(_request.Family.Phone ?? "—")</div>
-            <div><strong>Location:</strong> @(_request.Family.City ?? "—"), @(_request.Family.State ?? "—")</div>
+            <div>
+              <strong>Shipping Address:</strong>
+              @if (!string.IsNullOrEmpty(_request.Family.StreetAddress))
+              {
+                <text>@_request.Family.StreetAddress</text>
+                @if (!string.IsNullOrEmpty(_request.Family.Apt))
+                { <text>, Apt @_request.Family.Apt</text> }
+                <text>, @_request.Family.City, @_request.Family.State @_request.Family.Zip</text>
+              }
+              else
+              { <text>—</text> }
+            </div>
             <div><strong>Parish:</strong> @(_request.Family.ParishName ?? "—")</div>
+            <div><strong>Diocese:</strong> @(_request.Family.DioceseName ?? "—")</div>
             <div><strong>Faith:</strong> @(_request.Family.FaithTradition ?? "Not specified")</div>
             @if (!string.IsNullOrEmpty(_request.Family.ChildrenInitials))
             { <div><strong>Children's Initials:</strong> @_request.Family.ChildrenInitials</div> }
+            <div><strong>Date of Loss:</strong> @(_request.Family.DateOfLoss?.ToString("MMM d, yyyy") ?? "—")</div>
+            <div><strong>How They Heard:</strong> @(_request.Family.HowHeard ?? "—")</div>
+            @if (!string.IsNullOrEmpty(_request.Family.Story))
+            {
+              <div>
+                <strong>Story:</strong>
+                <div style="margin-top:4px;font-style:italic;color:var(--text-mid);border-left:3px solid var(--green);padding-left:10px;">@_request.Family.Story</div>
+              </div>
+            }
           </div>
         </div>
       }
