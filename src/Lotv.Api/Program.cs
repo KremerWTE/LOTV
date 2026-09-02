@@ -3790,7 +3790,7 @@ app.MapPost("/api/v1/webhooks/jotform", async (
     {
         "Prayer Care Package Options", "Husband's Name", "Email", "Phone Number",
         "Wife's Name", "Recipient's Address",
-        "Reason for Prayer Package Request", "Date of Recent Loss", "Quaterly Grief Support",
+        "Reason for Prayer Package Request", "Date of Recent Loss", "Quarterly Grief Support",
         "Faith Tradition", "Diocese", "Parish", "How did you hear",
         "Would you like us to mention that this package is from you or prefer to remain anonymous?",
         "Include a custom message to your recipient",
