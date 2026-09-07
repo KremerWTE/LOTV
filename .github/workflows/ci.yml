@@ -22,6 +22,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # ubuntu-latest ships ~30GB of preinstalled toolchains we don't use
+      # (Android SDK, GHC, Swift, CodeQL bundle) on top of its already-tight
+      # ~14GB free disk. The restore/build/publish x2/Playwright/test/E2E
+      # pipeline below runs out of space without this — "No space left on
+      # device" failures during Worker startup, incl. on Dependabot PR runs.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android \
+                      /opt/ghc \
+                      /usr/local/.ghcup \
+                      /usr/share/swift \
+                      /usr/local/share/boost \
+                      /opt/hostedtoolcache/CodeQL
+          docker image prune -af || true
+          df -h /
+
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v6
         with:
