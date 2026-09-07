@@ -13,8 +13,10 @@ namespace Lotv.Tests.Integration;
 /// "Children for Bracelet" label was never in knownLabels, so its answer glued
 /// onto the end of the "Your Story" field and ChildrenInitials came through null —
 /// plus the 2026-08-11 desync against the live form's actual current labels
-/// (Recipient's Address, "Quaterly Grief Support", "How did you hear",
-/// "Date of Recent Loss") that broke parsing further.
+/// (Recipient's Address, "Quarterly Grief Support", "How did you hear",
+/// "Date of Recent Loss") that broke parsing further. "Quarterly Grief Support"
+/// was itself "Quaterly" (a typo on the live form) until the ministry fixed it
+/// 2026-09-01 — knownLabels/this test data updated to match in the same sitting.
 /// </summary>
 [Collection("Integration")]
 public class JotFormWebhookTests
@@ -50,7 +52,7 @@ public class JotFormWebhookTests
         "Recipient's Address:123 Main St, Springfield, IL 62704, " +
         "Reason for Prayer Package Request:Miscarriage, " +
         "Date of Recent Loss: :06/01/2026, " +
-        "Quaterly Grief Support :Yes, " +
+        "Quarterly Grief Support :Yes, " +
         "Faith Tradition :Catholic, " +
         "Diocese:Test Diocese, " +
         "Parish:Test Parish, " +
@@ -77,7 +79,7 @@ public class JotFormWebhookTests
         "Phone Number:5551112222, " +
         "Recipient's Address:1 Test Way, Springfield, IL 62704, " +
         "Reason for Prayer Package Request:Infertility, " +
-        "Quaterly Grief Support :No, " +
+        "Quarterly Grief Support :No, " +
         "Faith Tradition :Catholic, " +
         "Requester Name:Alex Rivera, " +
         "Requester Email:alex@example.com";

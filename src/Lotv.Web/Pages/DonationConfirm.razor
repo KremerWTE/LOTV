@@ -1,6 +1,7 @@
 @page "/donate/confirm"
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ApiService Api
 
 <PageTitle>Donation Confirmed — LOTV Ministry</PageTitle>
 
@@ -108,7 +109,7 @@
   {
     if (DonationId.HasValue && DonationId.Value > 0)
     {
-      var url = $"/api/public/v1/donations/{DonationId.Value}/receipt";
+      var url = $"{Api.BaseUrl}/api/public/v1/donations/{DonationId.Value}/receipt";
       await JS.InvokeVoidAsync("window.open", url, "_blank");
     }
     // Receipt is also emailed automatically on successful donation
