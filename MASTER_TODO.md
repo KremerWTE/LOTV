@@ -616,6 +616,11 @@
 
 *Tasks that don't fit a phase yet, or are post-launch improvements.*
 
+### Platform Upgrade
+
+- [ ] **Upgrade to .NET 10** — target framework change from `net9.0` → `net10.0` across all projects (`Lotv.Api`, `Lotv.Core`, `Lotv.Web`, `Lotv.Tests`, `Lotv.E2E`, `Lotv.Migrations.SqlServer`); update all `PackageReference` versions to their .NET 10 equivalents; update CI/CD workflows (`DOTNET_VERSION: '10.0.x'`). .NET 10 is the next LTS release (Boneforte already targets it). Do this before migrating to IIS deploy pattern — IIS notes already assume .NET 10.
+- [ ] **Audit and fix NuGet vulnerability warnings** — run `dotnet list package --vulnerable --include-transitive` across the solution; triage and upgrade any packages with known CVEs. Run after the .NET 10 upgrade since many vulnerability advisories will be resolved by the package version bumps the upgrade requires.
+
 ### Financial & Compliance
 - [x] Tax receipt / charitable receipt PDF generation — HTML receipt via `IReceiptService` / `ReceiptService`; `GET /api/v1/donations/{id}/receipt` + `GET /api/v1/donations/year-end/{donorId}/{year}`; IRS § 170 compliant language, EIN placeholder
 - [x] Payment reconciliation report (compare Stripe records vs. internal contribution records) — `PaymentReconciliation.razor` at `/admin/reconciliation`; period selector, run-report action, KPI strip (matched/discrepancy/stripe-only/internal-only), filterable results table, resolution guide panel, CSV export stub
