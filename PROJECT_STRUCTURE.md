@@ -1,7 +1,7 @@
 # Project Structure — LOTV
 
 **Project:** Lily of the Valley (LOTV) — SaaS Social Services Coordination Platform
-**Stack:** .NET 9 · ASP.NET Core Web API · Blazor Server · SQL Server 2019 · xUnit · Playwright
+**Stack:** .NET 10 · ASP.NET Core Web API · Blazor Server · SQL Server 2019 · xUnit · Playwright
 **Last Updated:** 2026-09-09
 
 ---
@@ -39,7 +39,7 @@ LOTV/
 
 ```
 src/
-├── Lotv.Api/                       # ASP.NET Core Web API (.NET 9)
+├── Lotv.Api/                       # ASP.NET Core Web API (.NET 10)
 │   ├── Controllers/                # REST endpoint controllers
 │   ├── Data/                       # EF Core DbContext, SeedData, migrations config
 │   ├── Hubs/                       # SignalR hubs (RequestsHub, AuctionHub)
@@ -51,19 +51,19 @@ src/
 │   ├── appsettings.Production.json  # Placeholder — real values injected at deploy time
 │   └── Program.cs                  # App bootstrap, DI registration, JotForm webhook handler
 │
-├── Lotv.Core/                      # Domain models, interfaces, shared logic (.NET 9)
+├── Lotv.Core/                      # Domain models, interfaces, shared logic (.NET 10)
 │   ├── Models/                     # All entity types (Family, PackageRequest, Donor, Volunteer, etc.)
 │   ├── Interfaces/                 # Service contracts (IServiceRequestService, IDonorService, etc.)
 │   ├── Services/                   # Domain service implementations
 │   ├── DTOs/                       # Data transfer objects
 │   └── Enums/                      # Domain enumerations
 │
-├── Lotv.Migrations.SqlServer/      # SQL Server-specific EF Core migrations (.NET 9)
+├── Lotv.Migrations.SqlServer/      # SQL Server-specific EF Core migrations (.NET 10)
 │   ├── Migrations/                 # InitialCreate + subsequent migrations
 │   ├── baseline-existing-database.sql  # Run once on prod DB before first CI deploy
 │   └── rotate-app-credential.sql      # Credential rotation script (sa → lotv_app)
 │
-└── Lotv.Web/                       # Blazor Server frontend (.NET 9)
+└── Lotv.Web/                       # Blazor Server frontend (.NET 10)
     ├── Components/                 # Shared Razor components (charts, modals, toasts)
     ├── Pages/                      # All 312 @page Razor views organized by role/feature
     │   ├── Admin/                  # Staff and admin views (Dashboard, Kanban, Queue, etc.)
@@ -185,9 +185,9 @@ See `docs/iis-deployment-notes.md` for IIS migration analysis (pending decision)
 
 | Component | Technology | Status |
 |-----------|-----------|--------|
-| Backend API | ASP.NET Core Web API (.NET 9) | ✅ Complete |
-| Frontend | Blazor Server (.NET 9) | ✅ Complete (converted from WASM 2026-08-31) |
-| Domain | Class Library (.NET 9) | ✅ Complete |
+| Backend API | ASP.NET Core Web API (.NET 10) | ✅ Complete |
+| Frontend | Blazor Server (.NET 10) | ✅ Complete (converted from WASM 2026-08-31) |
+| Domain | Class Library (.NET 10) | ✅ Complete |
 | Auth | ASP.NET Core Identity + JWT | ✅ Complete |
 | Database | SQL Server 2019 at `10.100.1.87` | ✅ Live (real ministry data imported) |
 | Real-time | SignalR (`RequestsHub`, `AuctionHub`) | ✅ Complete |

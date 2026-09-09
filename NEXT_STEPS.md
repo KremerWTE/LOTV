@@ -1,33 +1,36 @@
 # Next Steps — LOTV
 
-**Updated:** 2026-09-09 (session 2) | **Branch:** pateep_dev_branch | **Phase:** Phase 6 — Deployment & Launch
+**Updated:** 2026-09-09 (session 3) | **Branch:** pateep_dev_branch | **Phase:** Phase 6 — Deployment & Launch
 
 ---
 
 ## 🎯 Current Focus: Phase 6 — Deployment & Launch
 
-**Status:** CI/CD pipeline built and validated; Azure App Service hosting decided; blocked on Azure account access and prod DB credential rotation.
+**Status:** IIS confirmed as deploy target. Email/SMTP secrets set. .NET 10 upgrade in progress.
 
 **Next Tasks (Priority Order):**
-1. **Decide: IIS vs Azure App Service** — see `docs/iis-deployment-notes.md`; IIS matches WTE's existing Boneforte pattern; Azure is what's currently built
-2. **Upgrade to .NET 10** — prereq for IIS migration path; update all 6 projects + CI workflow `DOTNET_VERSION`; run `dotnet list package --vulnerable` after
-3. Rotate `sa` SQL Server credential → create `lotv_app` least-privilege login (requires prod DB admin access) — script at `src/Lotv.Migrations.SqlServer/rotate-app-credential.sql`
-4. Run baseline migration script on prod DB (`baseline-existing-database.sql`) before CI deploy touches it
-5. Provision hosting (IIS site/pool or Azure App Service) + add GitHub secrets to `wtesolutions/LOTV`
-6. Configure Stripe account + webhook endpoint + store keys in secrets manager
-7. Add stable webhook URLs for Duda and GiveButter (replace session-only cloudflared URLs)
+1. ~~**Upgrade to .NET 10**~~ ✅ Done — 433/433 tests passing on net10.0
+2. **Write `deploy-to-iis.yml`** — PointShopMall 3-job pattern (build → deploy-web → deploy-api) + Boneforte secret injection + LOTV EF migrations step; replaces deploy-staging.yml + deploy-production.yml
+3. **Provision IIS sites on `wte_apps3`** — `lotv_web` (port 80) + `lotv_api` (port TBD); requires server access
+4. Rotate `sa` SQL Server credential → create `lotv_app` least-privilege login — script at `src/Lotv.Migrations.SqlServer/rotate-app-credential.sql`
+5. Run baseline migration script on prod DB (`baseline-existing-database.sql`) before CI deploy touches it
+6. Add remaining GitHub secrets to `wtesolutions/LOTV`: `PROD_DB_CONNECTION_STRING`, `JWT_KEY`, Stripe, SendGrid, Twilio, VAPID keys
+7. Configure Stripe account + webhook endpoint
+8. Add stable webhook URLs for Duda and GiveButter
 
-**Completed in Current Phase:**
-- ✅ Azure App Service hosting decided (code-based, no Docker in deploy path)
-- ✅ CI/CD pipelines built and validated (ci.yml, deploy-staging.yml, deploy-production.yml)
-- ✅ SQL Server migrations project created + connection string bug fixed
-- ✅ EF migration history reconciled for SQL Server
+**Completed This Session:**
+- ✅ IIS confirmed as deploy target (not Azure); Azure workflows to be replaced
+- ✅ Email/SMTP secrets set in `wtesolutions/LOTV` (9 secrets)
+- ✅ IIS deployment notes updated with PointShopMall dual-project pattern
+- ✅ Gap report updated to reflect IIS decision + partial secret completion
+- ✅ .NET 10 upgrade complete — all 6 projects, 433/433 tests passing
+- ✅ NuGet vulnerability audit — SQLitePCLRaw fixed; 2 upstream-unresolvable CVEs documented
 
 ---
 
-## 📊 Recent Completion: Onboarding + Directives
+## 📊 Previously Completed: Onboarding + Directives (Session 2)
 
-**Achievement:** CI/CD reference doc, IIS deployment notes (vs Boneforte pattern), GAP report, PROJECT_STRUCTURE.md, README.md rewrite, .NET 10 upgrade TODO added.
+**Achievement:** Directive v1.4 installed, CI/CD reference doc, IIS deployment notes (Boneforte), GAP report, PROJECT_STRUCTURE.md, README.md rewrite.
 
 ---
 

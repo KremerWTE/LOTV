@@ -1,8 +1,8 @@
 # MASTER_TODO — Lily of the Valley (LOTV)
 
 **Project**: LOTV SaaS Social Services Coordination Platform
-**Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-08-05 (bereavement follow-up UI, Kanban process-stage sub-lanes, JotForm intake cleanup — see sessions/2026-08-05-jotform-intake-fixes-and-followup-tracker-ui.md) — built the admin UI for the bereavement follow-up tracker data imported 2026-07-27 (`FollowUpTrackers.razor`, `ProcessStage` sub-lane model for the Kanban "In Progress" pipeline); spent most of the session cleaning up the live JotForm prayer-package-request intake form (261395566857171) directly via its MCP integration — fixed duplicate/orphaned questions and broken conditional logic, but repeated tool failures corrupted the form's notification-email settings and ~40 other form-level properties, requiring a manual revision-history rollback; discovered the webhook that ingests this form's submissions (`POST /api/v1/webhooks/jotform` in `Program.cs`) has a live data-loss bug independent of this session (bracelet initials silently dropped on every submission) plus new fragility from the label edits made this session — **not yet fixed in code**, see backlog
+**Stack**: .NET 9 → upgrading to .NET 10 · ASP.NET Core Web API · Blazor Server · xUnit
+**Last Updated**: 2026-09-09 (session 2 — directive onboarding, IIS deployment decision, CI/CD + gap analysis docs, email/SMTP secrets set in wtesolutions/LOTV, .NET 10 upgrade in progress)
 **Previous Update**: 2026-07-27 (username auth + real data import — see sessions/2026-07-27-username-auth-and-real-data-import.md) — migrated staff sign-in from email to username (firstname.lastname) with forgot/reset-password flow; cross-linked + cleaned up Kanban/Queue/My-Work-Queue; imported the ministry's real historical spreadsheet (1,046 cases, 425 Mother's Day mailing entries, 47 bereavement follow-up trackers) into a real SQL Server production database at 10.100.1.87 — Phase 6 database hosting decision now made
 **Org Model**: Centralized nonprofit — National HQ → Local Chapters (2-tier)
 
@@ -17,7 +17,7 @@
 | 2 | Core Domain (Lotv.Core) | ✅ COMPLETE |
 | 3 | API (Lotv.Api) | ✅ COMPLETE |
 | 4 | Frontend (Lotv.Web) | ✅ COMPLETE |
-| 5 | Testing | 🔄 IN PROGRESS |
+| 5 | Testing | ✅ COMPLETE — 433/433 tests, 86.4% line / 94.3% branch coverage |
 | 6 | Deployment & Launch | 🔄 IN PROGRESS |
 
 ### Key Platform Characteristics
@@ -563,10 +563,14 @@
 ### Infrastructure Setup
 - [x] Choose hosting — **decided 2026-08-31**: Azure App Service, code-based (no Docker in the deploy path per instruction). `deploy-staging.yml`/`deploy-production.yml` now `dotnet publish` the API and Web projects and zip-deploy via `azure/webapps-deploy`'s `package` input; **Web needs a Windows App Service plan** — the Blazor WASM SDK auto-generates `web.config` (SPA fallback rewrite rule) into the publish root expecting `wwwroot` as a sibling folder, confirmed via a real local `dotnet publish`; a Linux plan has no server component to serve static output at all. **Verified against the real `wtesolutions/LOTV` staging environment**: triggered the actual `Deploy — Staging` workflow four times while fixing it live — found and fixed a genuine assembly-loading bug in the new SQL Server migrations project (`Lotv.Migrations.SqlServer.dll` wasn't reaching `Lotv.Api`'s output; fixed with an explicit build step ordered before the migrations step, since nothing else in CI ever built that project) plus a wrong `ConnectionStrings__Default` vs `GetConnectionString("DefaultConnection")` key mismatch (see EF/SQL Server entry). The pipeline now runs cleanly through tests → migrations-assembly build → publish, and stops exactly where it should: `DB_CONNECTION_STRING` isn't set. **Still needed**: provision the App Service resources (Web on a Windows plan) and add the GitHub secrets (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_WEBAPP_API_NAME`, `AZURE_WEBAPP_WEB_NAME`, `AZURE_WEBAPP_API_NAME_PROD`, `AZURE_WEBAPP_WEB_NAME_PROD`, `DB_CONNECTION_STRING`) on `wtesolutions/LOTV` — needs Azure account access I don't have. Also worth knowing: `origin` in this working copy is a personal fork (`KremerWTE/LOTV`); the real repo with the GitHub environments/history is `wtesolutions/LOTV` — both remotes now have this session's work pushed.
 - [x] Choose database hosting — **decided**: SQL Server 2019, self-hosted at `10.100.1.87` (not Azure SQL/RDS/Supabase/Railway as originally scoped); `Database:Provider=SqlServer` config flag added to `Program.cs`, independent of environment; real ministry case/mailing/follow-up data imported and live there (see sessions/2026-07-27-username-auth-and-real-data-import.md) — **follow-up needed**: rotate the `sa` credential used to set this up and create a dedicated least-privilege app login; EF migration history needs reconciling for this provider (see note below)
-- [ ] Set up blob storage account (Azure Blob / S3) for receipts and documents
-- [ ] Set up Redis (if chosen for caching/sessions)
-- [ ] Configure secrets management (Azure Key Vault / AWS Secrets Manager)
-- [ ] Set up CDN for Blazor WASM static assets (Azure CDN / Cloudflare)
+- [x] **Hosting platform decided 2026-09-09: IIS on self-hosted runner `wte_apps3` (NOT Azure App Service).** Two separate IIS sites: `lotv_web` (port 80) and `lotv_api` (port TBD). Deploy pattern follows PointShopMall dual-project pipeline. See `docs/iis-deployment-notes.md`.
+- [ ] Provision IIS sites + app pools on `wte_apps3`: `lotv_web` (`D:\Websites\lotv_web`) and `lotv_api` (`D:\Websites\lotv_api`) — requires server access
+- [ ] Write `deploy-to-iis.yml` — replaces `deploy-staging.yml` + `deploy-production.yml`; follows PointShopMall 3-job pattern (build → deploy-web → deploy-api) + Boneforte secret injection + LOTV EF migrations step
+- [ ] Write `rollback.yml` — adapt from Boneforte, cover both IIS sites
+- [ ] ~~Set up blob storage account (Azure Blob / S3)~~ — not needed; PDFs streamed on-demand
+- [ ] Set up Redis (if chosen for caching/sessions) — deferred, no current bottleneck
+- [ ] ~~Configure secrets management (Azure Key Vault / AWS Secrets Manager)~~ — using IIS + GitHub secrets
+- [ ] ~~Set up CDN for Blazor WASM static assets~~ — not applicable; converted to Blazor Server
 
 ### Containerization
 - [x] Write `Dockerfile` for Lotv.Api (multi-stage, non-root user)
@@ -576,8 +580,8 @@
 
 ### CI/CD
 - [x] GitHub Actions workflow: build + test on every PR — `.github/workflows/ci.yml` (restore → build → test with coverage → TRX results → coverage comment on PR)
-- [x] GitHub Actions workflow: deploy to staging on merge to `main` — `.github/workflows/deploy-staging.yml` (test gate → build + push Docker images → deploy stub)
-- [x] GitHub Actions workflow: deploy to production on release tag — `.github/workflows/deploy-production.yml` (triggered on `v*.*.*` tag → test gate → tagged images → GitHub Release notes)
+- [x] GitHub Actions workflow: deploy to staging on merge to `main` — `.github/workflows/deploy-staging.yml` (**to be replaced by `deploy-to-iis.yml`**)
+- [x] GitHub Actions workflow: deploy to production on release tag — `.github/workflows/deploy-production.yml` (**to be replaced by `deploy-to-iis.yml`**)
 - [x] Environment configuration: `dev / staging / prod` via environment variables — `appsettings.Staging.json` added; full secrets reference in `docs/environment-config.md`
 - [x] Database migration step in deployment pipeline — `dotnet ef database update` in both `deploy-staging.yml` and `deploy-production.yml`
 
@@ -618,8 +622,9 @@
 
 ### Platform Upgrade
 
-- [ ] **Upgrade to .NET 10** — target framework change from `net9.0` → `net10.0` across all projects (`Lotv.Api`, `Lotv.Core`, `Lotv.Web`, `Lotv.Tests`, `Lotv.E2E`, `Lotv.Migrations.SqlServer`); update all `PackageReference` versions to their .NET 10 equivalents; update CI/CD workflows (`DOTNET_VERSION: '10.0.x'`). .NET 10 is the next LTS release (Boneforte already targets it). Do this before migrating to IIS deploy pattern — IIS notes already assume .NET 10.
-- [ ] **Audit and fix NuGet vulnerability warnings** — run `dotnet list package --vulnerable --include-transitive` across the solution; triage and upgrade any packages with known CVEs. Run after the .NET 10 upgrade since many vulnerability advisories will be resolved by the package version bumps the upgrade requires.
+- [x] **Upgrade to .NET 10** — completed 2026-09-09: all 6 projects targeting `net10.0`; Microsoft packages bumped to `10.0.0`; CI workflows updated to `DOTNET_VERSION: '10.0.x'`; 433/433 tests passing.
+- [x] **Audit and fix NuGet vulnerability warnings** — completed 2026-09-09: `SQLitePCLRaw.lib.e_sqlite3` fixed (pinned 2.1.12). Two known-upstream unresolvable CVEs remain: `Microsoft.OpenApi` 2.x (no patched 2.x exists — mitigate by restricting `/openapi/*` in prod IIS) and `System.Security.Cryptography.Xml` 9.0.0 (NuGet graph artifact; at .NET 10 runtime the framework ships the patched version). Both documented and tracked.
+- [x] **Email/SMTP secrets set in `wtesolutions/LOTV`** (2026-09-09): `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `NOTIFICATION_EMAIL_FROM`, `NOTIFICATION_EMAIL_TO`, `NOTIFICATION_EMAIL_USERNAME`, `NOTIFICATION_EMAIL_PASSWORD`, `NOTIFICATION_EMAIL_RECIPIENTS`
 
 ### Financial & Compliance
 - [x] Tax receipt / charitable receipt PDF generation — HTML receipt via `IReceiptService` / `ReceiptService`; `GET /api/v1/donations/{id}/receipt` + `GET /api/v1/donations/year-end/{donorId}/{year}`; IRS § 170 compliant language, EIN placeholder

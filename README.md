@@ -19,7 +19,7 @@ LOTV connects five types of users — families in need, donors, volunteers, chap
 
 | Layer | Technology |
 |-------|-----------|
-| Runtime | .NET 9 |
+| Runtime | .NET 10 |
 | API | ASP.NET Core Web API (`Lotv.Api`) |
 | Frontend | **Blazor Server** (`Lotv.Web`) |
 | Domain | Class Library (`Lotv.Core`) |
@@ -51,7 +51,7 @@ LOTV connects five types of users — families in need, donors, volunteers, chap
 
 ### Prerequisites
 
-- .NET 9 SDK
+- .NET 10 SDK
 - (Optional) Docker Desktop for local containerized dev
 
 ### Build

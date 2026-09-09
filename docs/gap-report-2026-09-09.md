@@ -46,33 +46,36 @@ The `InitialCreate` EF migration must be marked as already-applied on the live d
 
 ---
 
-### GAP-03: Azure App Service provisioning + GitHub secrets
+### GAP-03: IIS provisioning + GitHub secrets
 
 **Category:** Infrastructure Setup
-**Status:** Open — blocked on Azure account access + GitHub repo admin
+**Status:** Partially complete — email/SMTP secrets done; IIS sites and app secrets pending
 
-The deploy workflows (`deploy-staging.yml`, `deploy-production.yml`) are fully built and have been validated to run correctly up to the secrets injection step. What's missing:
+**Decision made 2026-09-09:** Deploying to IIS (not Azure App Service). Azure deploy workflows will be replaced with a new `deploy-to-iis.yml` following the PointShopMall dual-project pattern. See `docs/iis-deployment-notes.md`.
 
-**Azure resources to create:**
-- App Service plan for API
-- App Service plan for Web (or shared)
-- Two App Service instances (staging API, staging Web)
-- Two App Service instances (prod API, prod Web)
+**GitHub secrets already set** in `wtesolutions/LOTV` (2026-09-09):
+- `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`
+- `NOTIFICATION_EMAIL_FROM`, `NOTIFICATION_EMAIL_TO`, `NOTIFICATION_EMAIL_USERNAME`, `NOTIFICATION_EMAIL_PASSWORD`, `NOTIFICATION_EMAIL_RECIPIENTS`
 
-**GitHub secrets to add** to `wtesolutions/LOTV`:
+**GitHub secrets still needed:**
 
 | Secret | Value source |
 |--------|-------------|
-| `AZURE_CLIENT_ID` | Azure federated identity app registration |
-| `AZURE_TENANT_ID` | Azure tenant |
-| `AZURE_SUBSCRIPTION_ID` | Azure subscription |
-| `AZURE_WEBAPP_API_NAME` | Staging API App Service name |
-| `AZURE_WEBAPP_WEB_NAME` | Staging Web App Service name |
-| `AZURE_WEBAPP_API_NAME_PROD` | Prod API App Service name |
-| `AZURE_WEBAPP_WEB_NAME_PROD` | Prod Web App Service name |
-| `DB_CONNECTION_STRING` | SQL Server connection string (uses `lotv_app` login after GAP-01 is fixed) |
+| `PROD_DB_CONNECTION_STRING` | SQL Server `lotv_app` login (after GAP-01 is fixed) |
+| `JWT_KEY` | Generate a secure random 256-bit key |
+| `STRIPE_SECRET_KEY` | Stripe dashboard (after GAP-04) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe dashboard (after GAP-04) |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe dashboard (after GAP-04) |
+| `SENDGRID_API_KEY` | SendGrid account |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | Twilio account |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Generate via `web-push generate-vapid-keys` |
 
-> **Note:** IIS deployment may replace Azure App Service — see `docs/iis-deployment-notes.md`. If IIS is adopted, the Azure secrets are not needed and the deploy workflows will be rewritten.
+**IIS infrastructure still needed** (requires server access to `wte_apps3`):
+- Create IIS site + app pool `lotv_web` (port 80, path `D:\Websites\lotv_web`)
+- Create IIS site + app pool `lotv_api` (port TBD, path `D:\Websites\lotv_api`)
+
+**Code still needed:**
+- Write `deploy-to-iis.yml` (replaces `deploy-staging.yml` + `deploy-production.yml`)
 
 ---
 
