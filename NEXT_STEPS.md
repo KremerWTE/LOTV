@@ -10,7 +10,7 @@
 
 **Next Tasks (Priority Order):**
 1. ~~**Upgrade to .NET 10**~~ ✅ Done — 433/433 tests passing on net10.0
-2. **Write `deploy-to-iis.yml`** — PointShopMall 3-job pattern (build → deploy-web → deploy-api) + Boneforte secret injection + LOTV EF migrations step; replaces deploy-staging.yml + deploy-production.yml
+2. ~~**Write `deploy-to-iis.yml`**~~ ✅ Done — 6-job pipeline written; see `.github/workflows/deploy-to-iis.yml`
 3. **Provision IIS sites on `wte_apps3`** — `lotv_web` (port 80) + `lotv_api` (port TBD); requires server access
 4. Rotate `sa` SQL Server credential → create `lotv_app` least-privilege login — script at `src/Lotv.Migrations.SqlServer/rotate-app-credential.sql`
 5. Run baseline migration script on prod DB (`baseline-existing-database.sql`) before CI deploy touches it
@@ -25,6 +25,7 @@
 - ✅ Gap report updated to reflect IIS decision + partial secret completion
 - ✅ .NET 10 upgrade complete — all 6 projects, 433/433 tests passing
 - ✅ NuGet vulnerability audit — SQLitePCLRaw fixed; 2 upstream-unresolvable CVEs documented
+- ✅ `deploy-to-iis.yml` written — 6-job pipeline (build+test → migrations → deploy-web → deploy-api → tag → notify)
 
 ---
 
