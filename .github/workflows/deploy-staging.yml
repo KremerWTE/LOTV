@@ -73,6 +73,34 @@ jobs:
           app-name: ${{ secrets.AZURE_WEBAPP_WEB_NAME }}
           package: publish/web
 
+      # See the matching comment in deploy-production.yml - zip-deploy only
+      # ships code, the App Service still needs its own runtime Application
+      # Settings (DB connection, JWT signing key, SMTP, CORS).
+      - name: Configure API App Service settings (staging)
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.AZURE_WEBAPP_API_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION_STRING }}" \
+              Database__Provider="SqlServer" \
+              Jwt__Key="${{ secrets.JWT_SIGNING_KEY }}" \
+              Smtp__Host="${{ secrets.SMTP_SERVER }}" \
+              Smtp__Port="${{ secrets.SMTP_PORT }}" \
+              Smtp__Username="${{ secrets.SMTP_USERNAME }}" \
+              Smtp__Password="${{ secrets.SMTP_PASSWORD }}" \
+              Smtp__FromEmail="${{ secrets.NOTIFICATION_EMAIL_FROM }}" \
+              Notifications__IntakeStaffEmail="${{ secrets.NOTIFICATION_EMAIL_TO }}" \
+              AllowedOrigins__0="${{ vars.DUDA_SITE_ORIGIN }}"
+
+      - name: Configure Web App Service settings (staging)
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.AZURE_WEBAPP_WEB_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              ApiBaseUrl="https://${{ secrets.AZURE_WEBAPP_API_NAME }}.azurewebsites.net"
+
       - name: Notify on failure
         if: failure()
         run: |

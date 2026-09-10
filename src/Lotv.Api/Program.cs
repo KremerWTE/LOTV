@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 using Lotv.Api.Auth;
 using Serilog;
@@ -119,9 +118,20 @@ builder.Services.AddAuthentication(o =>
 builder.Services.AddAuthorization(o =>
 {
     o.AddPolicy("HQAdmin",       p => p.RequireClaim("role", nameof(UserRole.HQAdmin)));
-    o.AddPolicy("ChapterAdmin",  p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin)));
-    o.AddPolicy("Staff",         p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff)));
-    o.AddPolicy("Volunteer",     p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Volunteer)));
+    // Director is "near-admin": same operational access as ChapterAdmin
+    // (cases, donations, volunteers), but never HQAdmin-only endpoints.
+    o.AddPolicy("ChapterAdmin",  p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.Director)));
+    o.AddPolicy("Staff",         p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Director)));
+    o.AddPolicy("Volunteer",     p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Volunteer), nameof(UserRole.Director)));
+    // Board: read-only governance role, deliberately its own policy rather
+    // than folded into Staff/ChapterAdmin — kept off every case/family/
+    // operational-admin endpoint even if a Board user guesses a URL. Only
+    // wired onto the specific aggregate-only report endpoints the Board
+    // portal calls (stats/money/resources/timeline) — those are pulled out
+    // of the "Staff"-gated dashboard group specifically so this policy can
+    // apply instead of stacking with it. Includes everyone who already had
+    // access via "Staff" (existing Dashboard.razor usage) plus Board.
+    o.AddPolicy("Board",         p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Director), nameof(UserRole.Board)));
     o.AddPolicy("Authenticated", p => p.RequireAuthenticatedUser());
     o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
 });
@@ -193,7 +203,7 @@ builder.Services.AddRateLimiter(o =>
             QueueLimit           = 0
         }));
 
-    // Payment webhook: Stripe can retry on 429
+    // Payment webhook: GiveButter can retry on 429
     o.AddPolicy("payment", httpContext => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions
@@ -277,7 +287,7 @@ app.MapHub<AuctionHub>("/hubs/auction");
 var publicIntake = app.MapGroup("/api/v1/public").WithTags("Public").AllowAnonymous().RequireRateLimiting("auth");
 
 // Family intake: creates a Family record + PackageRequest and triggers auto-assignment
-publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IDuplicateFamilyDetectionService dupSvc, IPushSender pushSvc) =>
+publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IDuplicateFamilyDetectionService dupSvc, IPushSender pushSvc, INotificationService notify, IConfiguration cfg) =>
 {
     if (string.IsNullOrWhiteSpace(body.Family.Parent1FirstName) ||
         string.IsNullOrWhiteSpace(body.Family.Parent1LastName) ||
@@ -357,11 +367,39 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
             : $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package. {dupMatch.Reason} — needs review.",
         dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
 
+    // Confirmation goes to whoever actually submitted the form, not always the
+    // family — if someone referred this on the family's behalf, an automated
+    // "your request has been received" email to the family they referred (who
+    // may not yet know a package is coming) is a pastoral-sensitivity risk;
+    // the referrer gets confirmed instead, and staff make the family contact.
+    var submitterEmail = body.ForSelf ? body.Family.Email : (body.ReferrerEmail ?? body.Family.Email);
+    var submitterName  = body.ForSelf ? body.Family.Parent1FirstName : (body.ReferrerFirstName ?? body.Family.Parent1FirstName);
+    if (!string.IsNullOrWhiteSpace(submitterEmail))
+    {
+        _ = notify.SendEmailAsync(submitterEmail, submitterName ?? "Friend", "Your Prayer Care Package Request Has Been Received",
+            $"<p>Dear {submitterName},</p>" +
+            "<p>Thank you for reaching out to Lily of the Valley Ministry. Your request has been received, and a member of our team will review it within 1–2 business days. " +
+            "A volunteer will be assigned to assemble the comfort package, which ships directly at no cost. " +
+            "Please know that you and your family are being held in our prayers.</p>");
+    }
+
+    // Staff notification email — Notifications:IntakeStaffEmail must be set in
+    // appsettings/production config; falls back to a placeholder if unset so
+    // this never silently no-ops without a visible address in the log.
+    var staffEmail = cfg["Notifications:IntakeStaffEmail"] ?? "info@lotvministry.org";
+    _ = notify.SendEmailAsync(staffEmail, "LOTV Staff",
+        dupMatch is null ? "New Prayer Care Package Request" : "New Prayer Care Package Request — Possible Duplicate",
+        $"<p>{body.Family.Parent1FirstName} {body.Family.Parent1LastName} " +
+        $"({(body.ForSelf ? "for themselves" : "referred by " + body.ReferrerFirstName + " " + body.ReferrerLastName)}) " +
+        $"requested a comfort package.</p>" +
+        (dupMatch is not null ? $"<p><strong>Possible duplicate:</strong> {dupMatch.Reason}</p>" : "") +
+        $"<p><a href=\"/admin/cases/{req.Id}\">View this request</a></p>");
+
     return Results.Created($"/api/v1/requests/{req.Id}", new { familyId = body.Family.Id, requestId = req.Id, needsDuplicateReview = dupMatch is not null });
 });
 
 // Donation intake: creates Donor + Donation records
-publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db, IConfiguration cfg) =>
+publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(body.Donor.FirstName) ||
         string.IsNullOrWhiteSpace(body.Donor.LastName) ||
@@ -378,26 +416,6 @@ publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db, I
         db.Donors.Add(body.Donor);
         await db.SaveChangesAsync();
         donor = body.Donor;
-    }
-
-    // Create a Stripe Customer if configured and we don't already have one — lets webhook
-    // events linked to this customer-id flow back to the right donor.
-    var secretKey = cfg["Stripe:SecretKey"];
-    if (!string.IsNullOrEmpty(secretKey) && string.IsNullOrEmpty(donor.StripeCustomerId))
-    {
-        try
-        {
-            Stripe.StripeConfiguration.ApiKey = secretKey;
-            var cust = await new Stripe.CustomerService().CreateAsync(new Stripe.CustomerCreateOptions
-            {
-                Email = donor.Email,
-                Name  = donor.FullName,
-                Metadata = new Dictionary<string, string> { ["donorId"] = donor.Id.ToString() },
-            });
-            donor.StripeCustomerId = cust.Id;
-            await db.SaveChangesAsync();
-        }
-        catch { /* non-fatal — donation still records without Stripe link */ }
     }
 
     body.Donation.DonorId = donor.Id;
@@ -1669,6 +1687,107 @@ dashboard.MapGet("/resources", async (LotvDbContext db, IChapterContextService c
     return byCategory;
 });
 
+// ── Board (governance role) ─────────────────────────────────────────────────
+// Deliberately separate, dedicated routes rather than reusing /api/v1/dashboard/*
+// — that group sits behind the "Staff" policy and includes /donations/by-person
+// (donor names/PII). These are new routes with their own "Board" policy so
+// nothing about the existing Staff-only dashboard endpoints changes, and Board
+// can never reach anything beyond these aggregate-only numbers.
+var board = app.MapGroup("/api/v1/board").WithTags("Board").RequireAuthorization("Board");
+
+board.MapGet("/summary", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var chapterId = ctx.ChapterId;
+    var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+    var lastMonth = startOfMonth.AddMonths(-1);
+
+    var openCases = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId) && (r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress));
+    var fulfilledCases = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId) && (r.Status == CaseStatus.Fulfilled || r.Status == CaseStatus.Shipped));
+    var familiesServed = await db.Families.CountAsync(f => !chapterId.HasValue || f.ChapterId == chapterId);
+    var activeVolunteers = await db.Volunteers.CountAsync(v => (!chapterId.HasValue || v.ChapterId == chapterId) && v.Status == VolunteerStatus.Active);
+    var totalDonations = await db.Donations.Where(d => !chapterId.HasValue || d.ChapterId == chapterId).SumAsync(d => (decimal?)d.Amount) ?? 0m;
+    var donationsThisMonth = await db.Donations.Where(d => (!chapterId.HasValue || d.ChapterId == chapterId) && d.Date >= startOfMonth).SumAsync(d => (decimal?)d.Amount) ?? 0m;
+    var donationsLastMonth = await db.Donations.Where(d => (!chapterId.HasValue || d.ChapterId == chapterId) && d.Date >= lastMonth && d.Date < startOfMonth).SumAsync(d => (decimal?)d.Amount) ?? 0m;
+    var dioceses = await db.Families.Where(f => (!chapterId.HasValue || f.ChapterId == chapterId) && f.DioceseName != null).Select(f => f.DioceseName).Distinct().CountAsync();
+
+    return Results.Ok(new
+    {
+        openCases, fulfilledCases, familiesServed, activeVolunteers,
+        totalDonations, donationsThisMonth, donationsLastMonth, dioceses
+    });
+});
+
+board.MapGet("/money-flow", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.FundAllocations.Include(a => a.Donation).AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
+        q = q.Where(a => a.Donation != null && a.Donation.ChapterId == ctx.ChapterId.Value);
+    var all = await q.ToListAsync();
+    var total = all.Sum(a => (double)a.Amount);
+    if (total == 0) total = 1d;
+    var byCategory = all
+        .GroupBy(a =>
+        {
+            var t = a.AllocatedTo ?? "General";
+            foreach (var sep in new[] { " — ", " - ", " (", ":" })
+                if (t.Contains(sep)) return t[..t.IndexOf(sep, StringComparison.Ordinal)].Trim();
+            return t.Trim();
+        })
+        .Select(g => new
+        {
+            Category   = g.Key,
+            Amount     = g.Sum(a => a.Amount),
+            Percentage = Math.Round(g.Sum(a => (double)a.Amount) / total * 100, 1)
+        }).OrderByDescending(x => x.Amount).ToList();
+    return Results.Ok(byCategory);
+});
+
+board.MapGet("/resources", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.ResourceItems.AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    var all = await q.ToListAsync();
+    var totalQty = all.Sum(r => r.QuantityOnHand);
+    if (totalQty == 0) totalQty = 1;
+    var byCategory = all.GroupBy(r => r.Category.ToString()).Select(g => new
+    {
+        ResourceType = g.Key,
+        Quantity     = g.Sum(r => r.QuantityOnHand),
+        Percentage   = Math.Round((double)g.Sum(r => r.QuantityOnHand) / totalQty * 100, 1)
+    }).OrderByDescending(x => x.Quantity).ToList();
+    return Results.Ok(byCategory);
+});
+
+board.MapGet("/timeline", async (LotvDbContext db, IChapterContextService ctx, int months = 12) =>
+{
+    var cutoff = DateTime.UtcNow.AddMonths(-months);
+    var donQ = db.Donations.AsQueryable();
+    var reqQ = db.Requests.AsQueryable();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
+    {
+        donQ = donQ.Where(d => d.ChapterId == ctx.ChapterId.Value);
+        reqQ = reqQ.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    }
+    var donations = await donQ.Where(d => d.Date >= cutoff)
+        .GroupBy(d => new { d.Date.Year, d.Date.Month })
+        .Select(g => new { g.Key.Year, g.Key.Month, Amount = g.Sum(d => d.Amount) })
+        .ToListAsync();
+    var fulfilled = await reqQ
+        .Where(r => (r.Status == CaseStatus.Fulfilled || r.Status == CaseStatus.Shipped) && r.UpdatedAt >= cutoff)
+        .GroupBy(r => new { r.UpdatedAt.Year, r.UpdatedAt.Month })
+        .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+        .ToListAsync();
+
+    var result = Enumerable.Range(0, months).Select(i =>
+    {
+        var dt = DateTime.UtcNow.AddMonths(-months + 1 + i);
+        var don = donations.FirstOrDefault(d => d.Year == dt.Year && d.Month == dt.Month)?.Amount ?? 0m;
+        var ful = fulfilled.FirstOrDefault(f => f.Year == dt.Year && f.Month == dt.Month)?.Count ?? 0;
+        return new { Period = dt.ToString("MMM yyyy"), Donations = don, RequestsFulfilled = ful };
+    }).ToList();
+    return Results.Ok(result);
+});
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 var users = app.MapGroup("/api/v1/users").WithTags("Users").RequireAuthorization();
 
@@ -2002,65 +2121,36 @@ recurring.MapPut("/{id:int}", async (int id, RecurringDonation body, LotvDbConte
     return Results.Ok(existing);
 }).RequireAuthorization("ChapterAdmin");
 
-recurring.MapPost("/{id:int}/pause", async (int id, LotvDbContext db, IConfiguration cfg) =>
+// Pause/cancel/resume update LOTV's own tracking only — recurring donations are
+// now managed on GiveButter's side (their widget supports monthly/quarterly/yearly
+// frequency and donors manage their own recurring gifts there). Staff should mirror
+// any change made in the GiveButter dashboard here to keep LOTV's records accurate.
+recurring.MapPost("/{id:int}/pause", async (int id, LotvDbContext db) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
     r.Status = RecurringStatus.Paused;
-    await SyncStripeRecurringAsync(r, "pause", cfg);
     await db.SaveChangesAsync();
     return Results.Ok(r);
 }).RequireAuthorization("ChapterAdmin");
 
-recurring.MapPost("/{id:int}/cancel", async (int id, LotvDbContext db, IConfiguration cfg) =>
+recurring.MapPost("/{id:int}/cancel", async (int id, LotvDbContext db) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
     r.Status = RecurringStatus.Cancelled;
-    await SyncStripeRecurringAsync(r, "cancel", cfg);
     await db.SaveChangesAsync();
     return Results.Ok(r);
 }).RequireAuthorization("ChapterAdmin");
 
-recurring.MapPost("/{id:int}/resume", async (int id, LotvDbContext db, IConfiguration cfg) =>
+recurring.MapPost("/{id:int}/resume", async (int id, LotvDbContext db) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
     r.Status = RecurringStatus.Active;
-    await SyncStripeRecurringAsync(r, "resume", cfg);
     await db.SaveChangesAsync();
     return Results.Ok(r);
 }).RequireAuthorization("ChapterAdmin");
-
-static async Task SyncStripeRecurringAsync(RecurringDonation r, string action, IConfiguration cfg)
-{
-    var key = cfg["Stripe:SecretKey"];
-    if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(r.StripeSubscriptionId)) return;
-    Stripe.StripeConfiguration.ApiKey = key;
-    var svc = new Stripe.SubscriptionService();
-    try
-    {
-        switch (action)
-        {
-            case "pause":
-                await svc.UpdateAsync(r.StripeSubscriptionId, new Stripe.SubscriptionUpdateOptions
-                {
-                    PauseCollection = new Stripe.SubscriptionPauseCollectionOptions { Behavior = "void" }
-                });
-                break;
-            case "resume":
-                await svc.UpdateAsync(r.StripeSubscriptionId, new Stripe.SubscriptionUpdateOptions
-                {
-                    PauseCollection = null
-                });
-                break;
-            case "cancel":
-                await svc.CancelAsync(r.StripeSubscriptionId);
-                break;
-        }
-    }
-    catch { /* swallow — DB state is the source of truth; admin can reconcile */ }
-}
 
 // ── Pledges ───────────────────────────────────────────────────────────────────
 var pledges = app.MapGroup("/api/v1/pledges").WithTags("Pledges").RequireAuthorization("Staff");
@@ -2593,41 +2683,14 @@ publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRe
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
-// Stripe Customer Portal session for donor self-service (cards, subscriptions, invoices).
-// Requires the caller to present a valid (used/unexpired) DonorMagicLink token for the donorId.
-publicApi.MapPost("/donors/{donorId:int}/billing-portal", async (int donorId, BillingPortalRequest body, LotvDbContext db, IConfiguration cfg) =>
-{
-    if (string.IsNullOrEmpty(body.Token)) return Results.Unauthorized();
-    var link = await db.DonorMagicLinks
-        .Where(l => l.DonorId == donorId && l.Token == body.Token && l.ExpiresAt > DateTime.UtcNow.AddHours(-1))
-        .FirstOrDefaultAsync();
-    if (link is null) return Results.Unauthorized();
-
-    var donor = await db.Donors.FindAsync(donorId);
-    if (donor is null) return Results.NotFound();
-    var key = cfg["Stripe:SecretKey"];
-    if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(donor.StripeCustomerId))
-        return Results.BadRequest(new { error = "Stripe billing not configured for this donor." });
-    Stripe.StripeConfiguration.ApiKey = key;
-    var session = await new Stripe.BillingPortal.SessionService().CreateAsync(new Stripe.BillingPortal.SessionCreateOptions
-    {
-        Customer  = donor.StripeCustomerId,
-        ReturnUrl = "/donor/portal",
-    });
-    return Results.Ok(new { url = session.Url });
-}).AllowAnonymous();
-
-// Lightweight donor capability check for the portal — does this donor have a Stripe customer + recurring?
+// Lightweight donor capability check for the portal — recurring gifts are managed
+// on GiveButter's side now, so this only reports LOTV's own tracked status.
 publicApi.MapGet("/donors/{id:int}/portal-status", async (int id, LotvDbContext db) =>
 {
     var donor = await db.Donors.FindAsync(id);
     if (donor is null) return Results.NotFound();
     var hasRecurring = await db.RecurringDonations.AnyAsync(r => r.DonorId == id && r.Status == RecurringStatus.Active);
-    return Results.Ok(new
-    {
-        hasStripeCustomer = !string.IsNullOrEmpty(donor.StripeCustomerId),
-        hasActiveRecurring = hasRecurring,
-    });
+    return Results.Ok(new { hasActiveRecurring = hasRecurring });
 }).AllowAnonymous();
 
 // Donor avatar update (self-service via magic-link query param)
@@ -2669,6 +2732,20 @@ publicApi.MapGet("/volunteers/{id:int}/assignment-count", async (int id, LotvDbC
         r.AssignedToId == id &&
         (r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress || r.Status == CaseStatus.AwaitingShipment));
     return Results.Ok(new { count });
+}).AllowAnonymous();
+
+// Public volunteer profile summary — just enough for the self-service portal
+// to show a level-appropriate view (onboarding checklist for New, recognition
+// panel for Senior/Lead). No email/phone/address here; that's on /my-profile.
+publicApi.MapGet("/volunteers/{id:int}/summary", async (int id, LotvDbContext db) =>
+{
+    var v = await db.Volunteers.FindAsync(id);
+    if (v is null) return Results.NotFound();
+    return Results.Ok(new
+    {
+        v.FirstName, Level = v.Level.ToString(), Role = v.Role.ToString(),
+        v.TotalCasesFulfilled, v.JoinedDate
+    });
 }).AllowAnonymous();
 
 // ── Volunteer magic-link self-service auth ───────────────────────────────────
@@ -2897,39 +2974,6 @@ sponsors.MapPut("/{id:int}", async (int id, Sponsor body, LotvDbContext db) =>
     return Results.Ok(existing);
 }).RequireAuthorization("ChapterAdmin");
 
-// ── Payment Reconciliation ────────────────────────────────────────────────────
-var reconciliation = app.MapGroup("/api/v1/reconciliation").WithTags("Reconciliation").RequireAuthorization("Staff");
-
-reconciliation.MapGet("/", async (LotvDbContext db, IChapterContextService ctx, string? period) =>
-{
-    var now = DateTime.UtcNow;
-    (DateTime from, DateTime to) = (period ?? "this-month") switch
-    {
-        "last-month"   => (new DateTime(now.Year, now.Month, 1).AddMonths(-1), new DateTime(now.Year, now.Month, 1)),
-        "this-quarter" => (new DateTime(now.Year, (now.Month - 1) / 3 * 3 + 1, 1), now),
-        "this-year"    => (new DateTime(now.Year, 1, 1), now),
-        _              => (new DateTime(now.Year, now.Month, 1), now)
-    };
-
-    var donations = await db.Donations
-        .Include(d => d.Donor)
-        .Where(d => d.ChapterId == ctx.ChapterId && d.Date >= from && d.Date < to)
-        .OrderBy(d => d.Date)
-        .ToListAsync();
-
-    var rows = donations.Select(d => new
-    {
-        Date           = d.Date,
-        StripeId       = d.StripePaymentIntentId,
-        InternalId     = d.Id.ToString(),
-        DonorName      = d.Donor != null ? $"{d.Donor.FirstName} {d.Donor.LastName}" : "Unknown",
-        StripeAmount   = d.StripePaymentIntentId != null ? (decimal?)d.Amount : null,
-        InternalAmount = (decimal?)d.Amount
-    });
-
-    return Results.Ok(rows);
-});
-
 // ── Notifications (broadcast & marketing email) ───────────────────────────────
 // Push subscription registration (any authenticated user)
 var push = app.MapGroup("/api/v1/push").WithTags("Push").RequireAuthorization();
@@ -3096,29 +3140,6 @@ app.MapGet("/api/v1/admin/webhooks/{id:int}", async (int id, LotvDbContext db) =
     return w is null ? Results.NotFound() : Results.Ok(w);
 }).RequireAuthorization("ChapterAdmin");
 
-// Replay a stored Stripe webhook event by deleting the idempotency row and re-running handler logic on the cached payload.
-app.MapPost("/api/v1/admin/webhooks/{id:int}/replay", async (int id, LotvDbContext db, IConfiguration cfg, IPushSender pushSvc) =>
-{
-    var w = await db.WebhookEvents.FindAsync(id);
-    if (w is null || w.Source != "stripe" || string.IsNullOrEmpty(w.Payload)) return Results.NotFound();
-    var secretKey = cfg["Stripe:SecretKey"] ?? "";
-    if (string.IsNullOrEmpty(secretKey)) return Results.BadRequest(new { error = "Stripe secret key not configured." });
-
-    Stripe.Event ev;
-    try { ev = Stripe.EventUtility.ParseEvent(w.Payload); }
-    catch (Exception ex) { return Results.BadRequest(new { error = ex.Message }); }
-
-    Stripe.StripeConfiguration.ApiKey = secretKey;
-    db.WebhookEvents.Remove(w);
-    db.WebhookEvents.Add(new WebhookEvent
-    {
-        Source = "stripe", ExternalId = ev.Id + "-replay-" + DateTime.UtcNow.Ticks,
-        EventType = ev.Type + " (replay)", Payload = w.Payload,
-    });
-    await db.SaveChangesAsync();
-    return Results.Ok(new { replayed = true, eventType = ev.Type });
-}).RequireAuthorization("ChapterAdmin");
-
 app.MapDelete("/api/v1/admin/webhooks/old", async (int? days, LotvDbContext db) =>
 {
     var d = days ?? 90;
@@ -3155,7 +3176,6 @@ app.MapGet("/api/v1/admin/diagnostics", async (LotvDbContext db) =>
     var pending       = (await db.Database.GetPendingMigrationsAsync()).Count();
     var webhookCount  = await db.WebhookEvents.CountAsync(w => w.ReceivedAt >= DateTime.UtcNow.AddDays(-7));
     var webhook24h    = await db.WebhookEvents.CountAsync(w => w.ReceivedAt >= DateTime.UtcNow.AddHours(-24));
-    var stripeCustomers = await db.Donors.CountAsync(d => d.StripeCustomerId != null);
     return Results.Ok(new
     {
         pushSubscriptionCount = pushCount,
@@ -3165,7 +3185,6 @@ app.MapGet("/api/v1/admin/diagnostics", async (LotvDbContext db) =>
         pendingMigrations = pending,
         webhookEvents7d = webhookCount,
         webhookEvents24h = webhook24h,
-        donorsWithStripeCustomer = stripeCustomers,
     });
 }).RequireAuthorization("ChapterAdmin");
 
@@ -3395,150 +3414,6 @@ settingsGroup.MapPut("", async (LotvDbContext db, IChapterContextService ctx,
     return Results.Ok();
 });
 
-// ── Payments (Stripe webhook) ─────────────────────────────────────────────────
-// Create a PaymentIntent — returns client_secret to mount Stripe Elements client-side.
-// Falls back to a mock response (no real Stripe call) only when Stripe:SecretKey
-// isn't configured yet, so the front-end Elements wiring can be exercised without
-// a real account. Once Stripe:SecretKey is set (real deployment), this calls the
-// actual Stripe.net SDK below - no further code change needed.
-app.MapPost("/api/v1/payments/intent", async (PaymentIntentRequest body, IConfiguration cfg) =>
-{
-    if (body.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than 0." });
-    var publishableKey = cfg["Stripe:PublishableKey"] ?? "";
-    var secretKey      = cfg["Stripe:SecretKey"] ?? "";
-
-    if (string.IsNullOrEmpty(secretKey))
-    {
-        return Results.Ok(new { clientSecret = (string?)null, publishableKey, mock = true });
-    }
-
-    Stripe.StripeConfiguration.ApiKey = secretKey;
-    var options = new Stripe.PaymentIntentCreateOptions
-    {
-        Amount   = (long)(body.Amount * 100m),
-        Currency = (body.Currency ?? "usd").ToLowerInvariant(),
-        AutomaticPaymentMethods = new Stripe.PaymentIntentAutomaticPaymentMethodsOptions { Enabled = true },
-    };
-    var intent = await new Stripe.PaymentIntentService().CreateAsync(options);
-    return Results.Ok(new { clientSecret = intent.ClientSecret, publishableKey, mock = false });
-}).AllowAnonymous();
-
-app.MapPost("/api/v1/payments/webhook", async (HttpRequest request, LotvDbContext db,
-    IConfiguration cfg, ILogger<Program> log, IPushSender pushSvc) =>
-{
-    var sigSecret = cfg["Stripe:WebhookSecret"] ?? "";
-    var secretKey = cfg["Stripe:SecretKey"] ?? "";
-    if (string.IsNullOrEmpty(secretKey)) return Results.Ok(); // unconfigured — accept silently
-
-    request.EnableBuffering();
-    using var sr = new StreamReader(request.Body, leaveOpen: true);
-    var json = await sr.ReadToEndAsync();
-    request.Body.Position = 0;
-
-    Stripe.Event ev;
-    try
-    {
-        var sig = request.Headers["Stripe-Signature"].FirstOrDefault() ?? "";
-        ev = string.IsNullOrEmpty(sigSecret)
-            ? Stripe.EventUtility.ParseEvent(json)
-            : Stripe.EventUtility.ConstructEvent(json, sig, sigSecret);
-    }
-    catch (Exception ex)
-    {
-        log.LogWarning(ex, "Stripe webhook signature failed");
-        db.AuditEntries.Add(new AuditEntry
-        {
-            Entity    = "StripeWebhook",
-            EntityId  = "0",
-            Action    = "SignatureFailed",
-            UserName  = "Stripe (anon)",
-            Timestamp = DateTime.UtcNow,
-            Details   = ex.Message,
-        });
-        await db.SaveChangesAsync();
-        return Results.BadRequest();
-    }
-
-    // Idempotency: skip if already processed
-    if (await db.WebhookEvents.AnyAsync(w => w.Source == "stripe" && w.ExternalId == ev.Id))
-        return Results.Ok(new { duplicate = true });
-    db.WebhookEvents.Add(new WebhookEvent
-    {
-        Source = "stripe", ExternalId = ev.Id, EventType = ev.Type,
-        Payload = json.Length > 32_000 ? json[..32_000] : json,
-    });
-    await db.SaveChangesAsync();
-
-    Stripe.StripeConfiguration.ApiKey = secretKey;
-
-    switch (ev.Type)
-    {
-        case "customer.subscription.created":
-        case "customer.subscription.updated":
-        {
-            if (ev.Data.Object is not Stripe.Subscription sub) break;
-            // Match by Stripe customer id → Donor
-            var donor = await db.Donors.FirstOrDefaultAsync(d => d.StripeCustomerId == sub.CustomerId);
-            if (donor is null) break;
-            var existing = await db.RecurringDonations.FirstOrDefaultAsync(r => r.StripeSubscriptionId == sub.Id);
-            var amount = sub.Items?.Data?.FirstOrDefault()?.Price?.UnitAmount is long c ? c / 100m : 0m;
-            if (existing is null)
-            {
-                db.RecurringDonations.Add(new RecurringDonation
-                {
-                    DonorId = donor.Id, ChapterId = donor.ChapterId,
-                    Amount = amount, Frequency = RecurringFrequency.Monthly,
-                    Status = sub.Status == "active" ? RecurringStatus.Active : RecurringStatus.Paused,
-                    StripeSubscriptionId = sub.Id,
-                });
-            }
-            else if (sub.Status == "canceled")
-            {
-                existing.Status = RecurringStatus.Cancelled;
-            }
-            await db.SaveChangesAsync();
-            break;
-        }
-        case "invoice.payment_succeeded":
-        {
-            if (ev.Data.Object is not Stripe.Invoice inv) break;
-            var donor = await db.Donors.FirstOrDefaultAsync(d => d.StripeCustomerId == inv.CustomerId);
-            if (donor is null) break;
-            db.Donations.Add(new Donation
-            {
-                DonorId   = donor.Id,
-                ChapterId = donor.ChapterId,
-                Amount    = (inv.AmountPaid) / 100m,
-                Date      = DateTime.UtcNow,
-                Channel   = DonationChannel.Online,
-                IsRecurring = !string.IsNullOrEmpty(inv.SubscriptionId),
-                StripePaymentIntentId = inv.PaymentIntentId,
-            });
-            var amt = inv.AmountPaid / 100m;
-            donor.TotalGiven  += amt;
-            donor.GiftCount   += 1;
-            donor.LastGiftDate = DateTime.UtcNow;
-            await db.SaveChangesAsync();
-
-            // Notify admins on large gifts so finance can recognise major donors quickly.
-            if (amt >= 1000m)
-            {
-                _ = pushSvc.SendToAllAsync("Major gift received",
-                    $"{donor.FullName} gave {amt:C0}.", $"/admin/by-donor");
-            }
-            break;
-        }
-        case "customer.subscription.deleted":
-        {
-            if (ev.Data.Object is not Stripe.Subscription sub) break;
-            var existing = await db.RecurringDonations.FirstOrDefaultAsync(r => r.StripeSubscriptionId == sub.Id);
-            if (existing is not null) { existing.Status = RecurringStatus.Cancelled; await db.SaveChangesAsync(); }
-            break;
-        }
-    }
-    return Results.Ok();
-}).WithTags("Payments").AllowAnonymous().RequireRateLimiting("payment");
-
 // ── GiveButter webhook ────────────────────────────────────────────────────────
 app.MapPost("/api/v1/payments/givebutter/webhook", async (
     HttpRequest request,
@@ -3736,262 +3611,6 @@ app.MapPost("/api/v1/webhooks/duda", async (
     db.RetreatRegistrations.Add(reg);
     await db.SaveChangesAsync();
     log.LogInformation("Duda webhook: registered {Name} for retreat {Id}", reg.FullName, retreat.Id);
-    return Results.Ok();
-}).WithTags("Webhooks").AllowAnonymous();
-
-// ── JotForm prayer-package-request webhook ──────────────────────────────────────
-// JotForm posts multipart/form-data with a "pretty" field: a comma-separated
-// "Question Label:answer" string using the form's actual visible labels — the same
-// shape Duda's webhook already parses above, just delivered differently. We match on
-// label substrings rather than JotForm's internal field IDs (q3_..., q17_...) since
-// those IDs are only knowable from a live submission and would silently break if the
-// form is ever edited. Verify this mapping against a real test submission from
-// https://form.jotform.com/261395566857171 once it's pointed at this endpoint —
-// "pretty" formatting for composite fields (name/address) can vary and this is
-// best-effort until confirmed against one.
-app.MapPost("/api/v1/webhooks/jotform", async (
-    HttpRequest request,
-    LotvDbContext db,
-    IDuplicateFamilyDetectionService dupSvc,
-    IAutoAssignmentService autoAssign,
-    IPushSender pushSvc,
-    ILogger<Program> log) =>
-{
-    if (!request.HasFormContentType) return Results.Ok(); // never return non-200 to JotForm
-
-    var form = await request.ReadFormAsync();
-    var submissionId = form["submissionID"].FirstOrDefault();
-    var pretty = form["pretty"].FirstOrDefault() ?? "";
-
-    if (string.IsNullOrWhiteSpace(submissionId))
-    {
-        log.LogWarning("JotForm webhook: missing submissionID, ignoring");
-        return Results.Ok();
-    }
-
-    if (await db.WebhookEvents.AnyAsync(w => w.Source == "jotform" && w.ExternalId == submissionId))
-        return Results.Ok(); // already processed
-
-    // Split "Label:value, Label2:value2" on commas that are followed by the start
-    // of the next known question label. A generic punctuation heuristic doesn't
-    // work here — several of this form's real labels contain "?" (e.g. "How did
-    // you hear about us?") or embedded commas (e.g. "Please Share..., Your
-    // Story:"), so we match against the exact label text of every question on
-    // live form 261395566857171 instead of guessing at allowed characters.
-    // Kept as an ORDERED list (not a Dictionary) because labels are NOT unique —
-    // the husband and wife sections both use the bare labels "Email", "Phone
-    // Number", and "Address" — so a Dictionary would throw once both are filled.
-    // Reconciled 2026-08-11 against a live pull of form/261395566857171/questions —
-    // several labels below carry a trailing space or an embedded colon in their
-    // JotForm "text" property (e.g. "Faith Tradition ", "Date of Recent Loss: "),
-    // which is why the split regex tolerates optional whitespace before the
-    // separator colon rather than requiring an exact "label:" match.
-    var knownLabels = new[]
-    {
-        "Prayer Care Package Options", "Husband's Name", "Email", "Phone Number",
-        "Wife's Name", "Recipient's Address",
-        "Reason for Prayer Package Request", "Date of Recent Loss", "Quarterly Grief Support",
-        "Faith Tradition", "Diocese", "Parish", "How did you hear",
-        "Would you like us to mention that this package is from you or prefer to remain anonymous?",
-        "Include a custom message to your recipient",
-        "Please Share With Us, As Much As You're Comfortable, Your Story",
-        // Widget field (control_widget) whose visible label is its full instructional
-        // text — matched verbatim so the split lands on the real answer boundary
-        // instead of the label's own embedded "Bracelet:" colon. Still unverified
-        // against a real submission (multi-row widget answers may not fit the plain
-        // "Label:value" pretty shape at all) — confirm once a live submission lands.
-        "Children for Bracelet: We would like to include a personalized bracelet in your Prayer Care Package. " +
-        "Please share the initials of all your children in birth order, including those in heaven. If your child " +
-        "was not named or if you're experiencing infertility, we will place special Heart beads on your bracelet.",
-        "Opt-in Communications", "Requester Name", "Requester Email", "Requester Phone", "Requester Address",
-    };
-    var labelAlternation = string.Join("|", knownLabels.OrderByDescending(l => l.Length).Select(Regex.Escape));
-    // Anchor each segment on its matched known label rather than blindly splitting
-    // on the first colon — a plain Split(':', 2) breaks for any label whose text
-    // itself contains a colon before the end (e.g. "Children for Bracelet: We
-    // would like...", where the real answer separator is a different, later
-    // colon). Matching the known label explicitly and consuming exactly one
-    // separator colon after it gets the right boundary regardless of where the
-    // label's own colons fall.
-    var pairs = Regex.Split(pretty, $@",\s+(?=(?:{labelAlternation})\s*:)")
-        .Select(p => Regex.Match(p, $@"^\s*(?<label>{labelAlternation})\s*:(?<rest>.*)$", RegexOptions.Singleline))
-        .Where(m => m.Success)
-        // A handful of labels (e.g. "...Your Story:") end in a colon that isn't
-        // part of knownLabels' entry for them, so one colon of JotForm's own
-        // separator still lands inside "rest" — strip the resulting stray
-        // leading colon rather than special-case those fields.
-        .Select(m => (Key: m.Groups["label"].Value.Trim(), Value: m.Groups["rest"].Value.TrimStart(':').Trim()))
-        .ToList();
-
-    // First match wins, which — given the husband section precedes the wife
-    // section on the form — naturally resolves the ambiguous shared labels
-    // above to the husband's answer when both are present.
-    string? Field(params string[] labels) =>
-        pairs.FirstOrDefault(kv => labels.Any(l => kv.Key.Contains(l, StringComparison.OrdinalIgnoreCase))).Value;
-
-    (string First, string Last) SplitName(string? full)
-    {
-        full = (full ?? "").Trim();
-        if (full.Length == 0) return ("", "");
-        var idx = full.LastIndexOf(' ');
-        return idx < 0 ? (full, "") : (full[..idx].Trim(), full[(idx + 1)..].Trim());
-    }
-
-    // JotForm's control_address renders as one combined value in "pretty", e.g.
-    // "123 Main St, Springfield, IL 62704" — there are no separate top-level
-    // "City:"/"State:"/"Zip:" pairs to look up.
-    (string Street, string City, string State, string Zip) SplitAddress(string? full)
-    {
-        full = (full ?? "").Trim();
-        if (full.Length == 0) return ("", "", "", "");
-        var m = Regex.Match(full, @"^(?<street>.+?),\s*(?<city>[^,]+),\s*(?<state>[A-Za-z]{2})\s+(?<zip>\d{5}(-\d{4})?)$");
-        return m.Success
-            ? (m.Groups["street"].Value.Trim(), m.Groups["city"].Value.Trim(), m.Groups["state"].Value.ToUpperInvariant(), m.Groups["zip"].Value)
-            : (full, "", "", ""); // couldn't parse the compound value — keep it as the street line rather than lose it
-    }
-
-    var packageType = Field("Prayer Care Package Options", "package option") ?? "";
-    var forSelf = !packageType.Contains("someone else", StringComparison.OrdinalIgnoreCase);
-
-    var (husbandFirst, husbandLast) = SplitName(Field("Husband's Name", "husband name"));
-    var (wifeFirst, wifeLast) = SplitName(Field("Wife's Name", "wife name"));
-    var (reqFirst, reqLast) = SplitName(Field("Requester Name"));
-
-    // Prefer the husband/wife names as the family of record; fall back to whoever
-    // submitted the form if that section was left blank (e.g. single-parent intake).
-    var parent1First = !string.IsNullOrEmpty(husbandFirst) ? husbandFirst : reqFirst;
-    var parent1Last  = !string.IsNullOrEmpty(husbandLast)  ? husbandLast  : reqLast;
-    var email = Field("Email") ?? Field("Requester Email") ?? "";
-    var phone = Field("Phone Number") ?? Field("Requester Phone");
-    var (street, addrCity, addrState, addrZip) = SplitAddress(Field("Address") ?? Field("Requester Address"));
-
-    if (string.IsNullOrWhiteSpace(parent1First) || string.IsNullOrWhiteSpace(parent1Last) || string.IsNullOrWhiteSpace(email))
-    {
-        log.LogWarning("JotForm webhook {SubmissionId}: couldn't parse required name/email fields from pretty string: {Pretty}", submissionId, pretty);
-        db.WebhookEvents.Add(new WebhookEvent { Source = "jotform", ExternalId = submissionId, EventType = "unparsed", Payload = pretty.Length > 32_000 ? pretty[..32_000] : pretty });
-        await db.SaveChangesAsync();
-        return Results.Ok();
-    }
-
-    var reasonRaw = Field("Reason for Prayer Package", "request reason") ?? "";
-    var reason = reasonRaw switch
-    {
-        var r when r.Contains("infertil", StringComparison.OrdinalIgnoreCase) => PackageReason.Infertility,
-        var r when r.Contains("life-limiting", StringComparison.OrdinalIgnoreCase) || r.Contains("life limiting", StringComparison.OrdinalIgnoreCase) => PackageReason.PrenatalLifeLimitingDiagnosis,
-        var r when r.Contains("prenatal", StringComparison.OrdinalIgnoreCase) => PackageReason.PrenatalDiagnosis,
-        var r when r.Contains("miscarriage", StringComparison.OrdinalIgnoreCase) => PackageReason.Miscarriage,
-        var r when r.Contains("stillbirth", StringComparison.OrdinalIgnoreCase) => PackageReason.Stillbirth,
-        var r when r.Contains("infant", StringComparison.OrdinalIgnoreCase) => PackageReason.InfantLoss,
-        _ => PackageReason.Other
-    };
-
-    // Label's own text ends in "Loss: ", so its pretty rendering is
-    // "...Loss: :answer" (colon, space, colon) — the space survives TrimStart(':').
-    var lossDateRaw = Field("Date of Recent Loss")?.TrimStart(':').Trim();
-    DateTime? dateOfLoss = DateTime.TryParse(lossDateRaw, out var parsedLossDate) ? parsedLossDate : null;
-
-    var attribution = Field("mention that this package", "remain anonymous") ?? "";
-    var privacy = attribution.Contains("anonymous", StringComparison.OrdinalIgnoreCase)
-        ? PrivacyPreference.Anonymous
-        : attribution.Contains("mention", StringComparison.OrdinalIgnoreCase)
-            ? PrivacyPreference.Public
-            : PrivacyPreference.Private;
-
-    // Hidden field on the form (if configured) can target a specific chapter;
-    // otherwise route by the submitter's state (matched against Chapter.State),
-    // falling back to the first active chapter if there's no match.
-    var chapterIdStr = Field("chapter_id", "chapter");
-    Chapter? chapter = int.TryParse(chapterIdStr, out var cid)
-        ? await db.Chapters.FindAsync(cid)
-        : null;
-    chapter ??= !string.IsNullOrEmpty(addrState)
-        ? await db.Chapters.Where(c => c.IsActive && c.State == addrState).OrderBy(c => c.Id).FirstOrDefaultAsync()
-        : null;
-    chapter ??= await db.Chapters.Where(c => c.IsActive).OrderBy(c => c.Id).FirstOrDefaultAsync();
-
-    if (chapter is null)
-    {
-        log.LogWarning("JotForm webhook {SubmissionId}: no active chapter to assign to", submissionId);
-        return Results.Ok();
-    }
-
-    var family = new Family
-    {
-        Parent1FirstName = parent1First,
-        Parent1LastName  = parent1Last,
-        Parent2FirstName = string.IsNullOrEmpty(wifeFirst) ? null : wifeFirst,
-        Parent2LastName  = string.IsNullOrEmpty(wifeLast) ? null : wifeLast,
-        Email            = email,
-        Phone            = phone,
-        StreetAddress    = street,
-        City             = addrCity,
-        State            = addrState,
-        Zip              = addrZip,
-        Reason           = reason,
-        FaithTradition   = Field("Faith Tradition"),
-        DateOfLoss       = dateOfLoss,
-        ChildrenInitials = Field("Bracelet", "initials"),
-        Story            = Field("Your Story", "recipient story"),
-        ParishName       = Field("Parish"),
-        DioceseName      = Field("Diocese"),
-        HowHeard         = Field("How did you hear", "referral source"),
-        ChapterId        = chapter.Id,
-        PrivacyPreference = privacy,
-        CreatedAt        = DateTime.UtcNow
-    };
-
-    var dupMatch = await dupSvc.FindPossibleDuplicateAsync(family, chapter.Id);
-
-    db.Families.Add(family);
-    await db.SaveChangesAsync();
-
-    var req = new PackageRequest
-    {
-        FamilyId      = family.Id,
-        ChapterId     = family.ChapterId,
-        Reason        = family.Reason,
-        Category      = RequestCategory.PackageDelivery,
-        IsForSelf     = forSelf,
-        ReferrerName  = forSelf ? null : $"{reqFirst} {reqLast}".Trim(),
-        ReferrerEmail = forSelf ? null : Field("Requester Email"),
-        Status        = CaseStatus.New,
-        CreatedAt     = DateTime.UtcNow,
-        UpdatedAt     = DateTime.UtcNow,
-        // KanbanCard reads Request.ChildrenInitials, not Family.ChildrenInitials —
-        // copy it over so the bracelet initials actually show up on the card.
-        ChildrenInitials          = family.ChildrenInitials,
-        NeedsDuplicateReview      = dupMatch is not null,
-        PossibleDuplicateFamilyId = dupMatch?.Family.Id,
-        DuplicateMatchReason      = dupMatch?.Reason
-    };
-    db.Requests.Add(req);
-    db.WebhookEvents.Add(new WebhookEvent
-    {
-        Source = "jotform", ExternalId = submissionId, EventType = "prayer-package-request",
-        Payload = pretty.Length > 32_000 ? pretty[..32_000] : pretty
-    });
-    await db.SaveChangesAsync();
-
-    db.RequestActivities.Add(new RequestActivity
-    {
-        RequestId = req.Id, ActorId = "jotform", ActorName = "JotForm Intake",
-        ActivityType = ActivityType.Created, Timestamp = DateTime.UtcNow
-    });
-    await db.SaveChangesAsync();
-
-    if (dupMatch is null)
-        await autoAssign.TryAutoAssignAsync(req.Id);
-
-    await CreateFollowUpTrackerIfLossKnownAsync(db, family);
-
-    _ = pushSvc.SendToAllAsync(
-        dupMatch is null ? "New prayer package request (JotForm)" : "New prayer package request — possible duplicate",
-        dupMatch is null
-            ? $"{family.Parent1FirstName} {family.Parent1LastName} requested a prayer care package."
-            : $"{family.Parent1FirstName} {family.Parent1LastName} requested a prayer care package. {dupMatch.Reason} — needs review.",
-        dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
-
-    log.LogInformation("JotForm webhook: created request {RequestId} for {Name}", req.Id, family.FullName);
     return Results.Ok();
 }).WithTags("Webhooks").AllowAnonymous();
 
@@ -4840,8 +4459,6 @@ record PublicIntakeRequest(string FamilyLastName, int ChapterId, PackageReason R
 record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,
     string? DonorFirstName, string? DonorLastName, string? StripePaymentIntentId);
 record AvatarUpdateRequest(string? AvatarUrl);
-record PaymentIntentRequest(decimal Amount, string? Currency);
-record BillingPortalRequest(string Token);
 record BulkAllocateRequest(int[] Ids, string Status);
 record BulkChannelRequest(int[] Ids, string Channel);
 record PushSubscriptionRequest(string Endpoint, string P256dh, string Auth);

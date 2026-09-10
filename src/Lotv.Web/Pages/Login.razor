@@ -72,7 +72,7 @@
   protected override void OnInitialized()
   {
     if (Auth.IsAuthenticated)
-      Nav.NavigateTo("/admin/dashboard", replace: true);
+      Nav.NavigateTo(PostLoginUrl(), replace: true);
   }
 
   private async Task DoLogin()
@@ -82,13 +82,17 @@
     StateHasChanged();
 
     if (await Auth.LoginAsync(_username, _password))
-      Nav.NavigateTo("/admin/dashboard", replace: true);
+      Nav.NavigateTo(PostLoginUrl(), replace: true);
     else
     {
       _error   = "Invalid username or password.";
       _loading = false;
     }
   }
+
+  // Board is a read-only governance role with its own minimal portal, not
+  // AdminLayout — everyone else lands on the normal staff dashboard.
+  private string PostLoginUrl() => Auth.UserRole == "Board" ? "/board/portal" : "/admin/dashboard";
 
   private async Task OnKeyDown(KeyboardEventArgs e)
   {
