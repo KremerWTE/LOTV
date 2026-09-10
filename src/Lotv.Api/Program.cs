@@ -619,7 +619,7 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
 
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = req.Id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = req.Id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.Created, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
@@ -651,7 +651,7 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
     if (body.Status == CaseStatus.Shipped && r.ShippedDate is null) r.ShippedDate = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.StatusChanged,
         OldValue = old.ToString(), NewValue = body.Status.ToString(), Timestamp = DateTime.UtcNow
     });
@@ -700,7 +700,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.Assigned, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
@@ -722,7 +722,7 @@ cases.MapPut("/{id:int}/priority", async (int id, PriorityRequest body, LotvDbCo
     r.Priority = body.Priority; r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.PriorityChanged, NewValue = body.Priority.ToString(), Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
@@ -736,7 +736,7 @@ cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body,
     r.ProcessStage = body.ProcessStage; r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.ProcessStageChanged, NewValue = body.ProcessStage.ToString(), Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
@@ -750,7 +750,7 @@ cases.MapPut("/{id:int}/due-date", async (int id, DueDateRequest body, LotvDbCon
     r.DueDate = body.DueDate; r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.DueDateSet, NewValue = body.DueDate.ToString("O"), Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
@@ -877,7 +877,7 @@ cases.MapPost("/{id:int}/escalate", async (int id, EscalateRequest body, LotvDbC
     r.Status = CaseStatus.OnHold; r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.Escalated, Details = body.Reason, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
@@ -894,7 +894,7 @@ cases.MapPost("/{id:int}/fulfill", async (int id, FulfillRequest body, LotvDbCon
     r.Status = CaseStatus.Fulfilled; r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.Fulfilled, Details = body.Notes, Timestamp = DateTime.UtcNow
     });
     if (r.AssignedToId.HasValue)
@@ -914,7 +914,7 @@ cases.MapPost("/{id:int}/checkin", async (int id, LotvDbContext db, IChapterCont
     if (r is null) return Results.NotFound();
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.NoteAdded,
         Details = $"Volunteer checked in. {(string.IsNullOrWhiteSpace(body.Note) ? "" : body.Note)}",
         Timestamp = DateTime.UtcNow
@@ -945,11 +945,14 @@ cases.MapGet("/{id:int}/notes", async (int id, LotvDbContext db) =>
 
 cases.MapPost("/{id:int}/notes", async (int id, NoteRequest body, LotvDbContext db, IChapterContextService ctx) =>
 {
-    var note = new RequestNote { RequestId = id, AuthorId = ctx.UserId, AuthorName = ctx.UserId, Content = body.Content, IsInternal = body.IsInternal };
+    if (string.IsNullOrWhiteSpace(body.Content))
+        return Results.BadRequest(new { error = "Note content is required." });
+
+    var note = new RequestNote { RequestId = id, AuthorId = ctx.UserId, AuthorName = ctx.UserName, Content = body.Content, IsInternal = body.IsInternal };
     db.RequestNotes.Add(note);
     db.RequestActivities.Add(new RequestActivity
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserId,
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.NoteAdded, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();

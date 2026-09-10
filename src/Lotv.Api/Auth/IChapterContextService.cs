@@ -12,6 +12,10 @@ public interface IChapterContextService
     /// <summary>The authenticated user's ID.</summary>
     string UserId { get; }
 
+    /// <summary>The authenticated user's display name (from JWT given/surname claims), for
+    /// attribution on notes and activity log entries. Falls back to UserId if unavailable.</summary>
+    string UserName { get; }
+
     /// <summary>True if the current user is HQAdmin (no chapter filter).</summary>
     bool IsHqAdmin { get; }
 }
