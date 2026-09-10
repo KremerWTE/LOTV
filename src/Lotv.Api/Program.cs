@@ -383,17 +383,22 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
             "Please know that you and your family are being held in our prayers.</p>");
     }
 
-    // Staff notification email — Notifications:IntakeStaffEmail must be set in
-    // appsettings/production config; falls back to a placeholder if unset so
-    // this never silently no-ops without a visible address in the log.
-    var staffEmail = cfg["Notifications:IntakeStaffEmail"] ?? "info@lotvministry.org";
-    _ = notify.SendEmailAsync(staffEmail, "LOTV Staff",
-        dupMatch is null ? "New Prayer Care Package Request" : "New Prayer Care Package Request — Possible Duplicate",
+    // Team notification email — Notifications:IntakeTeamEmails is a comma/
+    // semicolon-separated list (set via Application Settings in staging/prod),
+    // falling back to Notifications:IntakeStaffEmail (single address) and then
+    // a placeholder so this never silently no-ops without a visible address
+    // in the log.
+    var teamEmailsRaw = cfg["Notifications:IntakeTeamEmails"] ?? cfg["Notifications:IntakeStaffEmail"] ?? "info@lotvministry.org";
+    var teamEmails = teamEmailsRaw.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    var teamSubject = dupMatch is null ? "New Prayer Care Package Request" : "New Prayer Care Package Request — Possible Duplicate";
+    var teamBody =
         $"<p>{body.Family.Parent1FirstName} {body.Family.Parent1LastName} " +
         $"({(body.ForSelf ? "for themselves" : "referred by " + body.ReferrerFirstName + " " + body.ReferrerLastName)}) " +
         $"requested a comfort package.</p>" +
         (dupMatch is not null ? $"<p><strong>Possible duplicate:</strong> {dupMatch.Reason}</p>" : "") +
-        $"<p><a href=\"/admin/cases/{req.Id}\">View this request</a></p>");
+        $"<p><a href=\"/admin/cases/{req.Id}\">View this request</a></p>";
+    foreach (var teamEmail in teamEmails)
+        _ = notify.SendEmailAsync(teamEmail, "LOTV Team", teamSubject, teamBody);
 
     return Results.Created($"/api/v1/requests/{req.Id}", new { familyId = body.Family.Id, requestId = req.Id, needsDuplicateReview = dupMatch is not null });
 });

@@ -92,7 +92,7 @@ jobs:
               Smtp__Username="${{ secrets.SMTP_USERNAME }}" \
               Smtp__Password="${{ secrets.SMTP_PASSWORD }}" \
               Smtp__FromEmail="${{ secrets.NOTIFICATION_EMAIL_FROM }}" \
-              Notifications__IntakeStaffEmail="${{ secrets.NOTIFICATION_EMAIL_TO }}" \
+              Notifications__IntakeTeamEmails="${{ secrets.NOTIFICATION_EMAIL_RECIPIENTS }}" \
               AllowedOrigins__0="${{ vars.DUDA_SITE_ORIGIN }}"
 
       - name: Configure Web App Service settings (production)
