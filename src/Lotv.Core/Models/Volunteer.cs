@@ -8,6 +8,7 @@ public class Volunteer
     public string Email { get; set; } = "";
     public string? Phone { get; set; }
     public VolunteerRole Role { get; set; }
+    public VolunteerLevel Level { get; set; } = VolunteerLevel.New;
     public VolunteerStatus Status { get; set; } = VolunteerStatus.Active;
     public string? ParishName { get; set; }
     public string? DioceseName { get; set; }
@@ -39,6 +40,30 @@ public enum VolunteerStatus
     Active,
     Inactive,
     Onboarding
+}
+
+// Tenure/seniority tier — distinct from VolunteerRole (what they do) and
+// VolunteerStatus (are they currently active). Drives which extra content
+// shows in the self-service volunteer portal (onboarding checklist for
+// New, recognition/mentoring panel for Senior/Lead).
+public enum VolunteerLevel
+{
+    New,
+    Standard,
+    Senior,
+    Lead
+}
+
+public static class VolunteerLevelExtensions
+{
+    public static string ToDisplayName(this VolunteerLevel l) => l switch
+    {
+        VolunteerLevel.New      => "New Volunteer",
+        VolunteerLevel.Standard => "Volunteer",
+        VolunteerLevel.Senior   => "Senior Volunteer",
+        VolunteerLevel.Lead     => "Lead Volunteer",
+        _                       => l.ToString()
+    };
 }
 
 public static class VolunteerRoleExtensions

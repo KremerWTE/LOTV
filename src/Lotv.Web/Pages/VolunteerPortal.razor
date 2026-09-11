@@ -21,7 +21,13 @@
   else
   {
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:24px;">
-      <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0;">Welcome back.</h1>
+      <h1 style="font-family:var(--ff-head);color:var(--navy);margin:0;">Welcome back@(_summary is not null ? $", {_summary.FirstName}" : "").</h1>
+      @if (_summary is not null)
+      {
+        <span style="font-size:.74rem;background:var(--green-pale);border:1px solid var(--green);border-radius:14px;padding:3px 10px;color:var(--green-dark);font-weight:700;">
+          @LevelDisplayName(_summary.Level)
+        </span>
+      }
       @if (_sessionExpiresIn is not null)
       {
         <span title="Magic-link session expiry"
@@ -30,6 +36,31 @@
         </span>
       }
     </div>
+
+    @if (_summary?.Level == "New")
+    {
+      <div style="background:var(--green-pale);border:1px solid var(--green);border-radius:10px;padding:16px 20px;margin-bottom:20px;">
+        <strong style="color:var(--navy);">Getting started as a new volunteer</strong>
+        <ul style="margin:8px 0 0;padding-left:18px;font-size:.86rem;color:var(--text-mid);line-height:1.8;">
+          <li>Check <strong>Available Requests Near Me</strong> to pick up your first assignment</li>
+          <li>Complete your profile — address and availability help us match you to nearby families</li>
+          <li>Questions? Reach out to your chapter coordinator any time</li>
+        </ul>
+      </div>
+    }
+    else if (_summary?.Level is "Senior" or "Lead")
+    {
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;">
+        <div style="font-size:1.6rem;">🌟</div>
+        <div>
+          <strong style="color:var(--navy);">Thank you for @_summary.TotalCasesFulfilled fulfilled @(_summary.TotalCasesFulfilled == 1 ? "package" : "packages") since @_summary.JoinedDate.ToString("MMMM yyyy").</strong>
+          <p style="font-size:.84rem;color:var(--text-mid);margin:4px 0 0;">
+            As a @(LevelDisplayName(_summary.Level).ToLowerInvariant()), new volunteers may reach out to you with questions — thank you for your experience and steady service.
+          </p>
+        </div>
+      </div>
+    }
+
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;">
       <a href="@($"/volunteer/my-assignments?VolunteerId={VolunteerId}")" class="panel" style="text-decoration:none;position:relative;">
         @if (_activeCount > 0)
@@ -71,11 +102,24 @@
   [Parameter, SupplyParameterFromQuery] public int? VolunteerId { get; set; }
   private int _activeCount;
   private string? _sessionExpiresIn;
+  private ApiService.VolunteerSummaryDto? _summary;
+
+  private static string LevelDisplayName(string level) => level switch
+  {
+    "New"      => "New Volunteer",
+    "Standard" => "Volunteer",
+    "Senior"   => "Senior Volunteer",
+    "Lead"     => "Lead Volunteer",
+    _          => level
+  };
 
   protected override async Task OnInitializedAsync()
   {
     if (VolunteerId is int id && id > 0)
+    {
       _activeCount = await Api.GetVolunteerAssignmentCountAsync(id);
+      _summary = await Api.GetVolunteerSummaryAsync(id);
+    }
     try
     {
       var token = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.volunteerToken");

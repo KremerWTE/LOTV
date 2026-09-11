@@ -14,6 +14,17 @@ public class ChapterContextService : IChapterContextService
     public string UserId =>
         User?.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
+    public string UserName
+    {
+        get
+        {
+            var given = User?.FindFirstValue(ClaimTypes.GivenName);
+            var surname = User?.FindFirstValue(ClaimTypes.Surname);
+            var full = $"{given} {surname}".Trim();
+            return string.IsNullOrWhiteSpace(full) ? UserId : full;
+        }
+    }
+
     public int? ChapterId
     {
         get

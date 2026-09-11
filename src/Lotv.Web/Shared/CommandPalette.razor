@@ -126,7 +126,7 @@
     var p when p.Contains("/admin/inventory/") && p.EndsWith("/allocate") => "📦",
     var p when p.Contains("/admin/chapters/") && !p.EndsWith("/edit") && !p.EndsWith("/new") => "🏛",
     "/admin/settings" or "/admin/users" or "/admin/diocese-data" or "/admin/health" => "⚙",
-    "/admin/reconciliation" or "/admin/reports/schedule" => "📋",
+    "/admin/reports/schedule" => "📋",
     "/admin/notifications" or "/admin/marketing" => "✉",
     _ => "📄",
   };
@@ -168,7 +168,6 @@
     new("Users", "/admin/users"),
     new("Diocese Data", "/admin/diocese-data"),
     new("Health", "/admin/health"),
-    new("Reconciliation", "/admin/reconciliation"),
     new("Scheduled Reports", "/admin/reports/schedule"),
     new("Send Notification", "/admin/notifications"),
     new("Marketing Email", "/admin/marketing"),
