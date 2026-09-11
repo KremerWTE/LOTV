@@ -46,8 +46,8 @@ public class PublicPagesTests : E2ETestBase
     {
         await GoToAsync("/give");
         await WaitForBlazorAsync();
-        // Should show donation form or amount buttons
-        await AssertVisibleAsync("input[type='number'], button[class*='amount'], [class*='donate'], form");
+        // Donations go through the embedded GiveButter widget (no native form/inputs)
+        await AssertVisibleAsync("[class*='donate']");
         Assert.Empty(_jsErrors);
     }
 
