@@ -1,0 +1,115 @@
+@page "/admin/reconciliation"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Reconciliation — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div><h2>Fund Reconciliation</h2><p>Donations received vs. funds allocated and spent, by month</p></div>
+  <div class="page-hd-actions">
+    <a href="/admin/expenses/summary" class="btn btn-sm">Expense Summary</a>
+    <a href="/admin/budget" class="btn btn-sm">Budget</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading reconciliation data…" />
+}
+else
+{
+  <!-- KPI STRIP -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Total Received</div>
+      <div class="kpi-value" style="color:var(--green)"><Money Amount="@_totalReceived" /></div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">📤</div>
+      <div class="kpi-label">Total Allocated</div>
+      <div class="kpi-value" style="color:var(--navy)"><Money Amount="@_totalAllocated" /></div>
+    </div>
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon">🧾</div>
+      <div class="kpi-label">Total Spent</div>
+      <div class="kpi-value" style="color:var(--red)"><Money Amount="@_totalSpent" /></div>
+    </div>
+    <div class="kpi-card @(_totalUnreconciled >= 0 ? "kpi-amber" : "")" style="@(_totalUnreconciled < 0 ? "background:#fff1f2;" : "")">
+      <div class="kpi-icon">⚖️</div>
+      <div class="kpi-label">Unreconciled Balance</div>
+      <div class="kpi-value" style="color:@(_totalUnreconciled < 0 ? "var(--red)" : "var(--amber)")"><Money Amount="@_totalUnreconciled" /></div>
+    </div>
+  </div>
+
+  <!-- MONTHLY RECONCILIATION TABLE -->
+  <div class="panel reconciliation-panel">
+    <div class="panel-head"><h3>Monthly Reconciliation</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th style="text-align:right;">Received</th>
+            <th style="text-align:right;">Allocated</th>
+            <th style="text-align:right;">Spent</th>
+            <th style="text-align:right;">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var p in _periods)
+          {
+            <tr class="period-row">
+              <td style="font-weight:600;">@p.Label</td>
+              <td style="text-align:right;color:var(--green);"><Money Amount="@p.Received" /></td>
+              <td style="text-align:right;color:var(--navy);"><Money Amount="@p.Allocated" /></td>
+              <td style="text-align:right;color:var(--red);"><Money Amount="@p.Spent" /></td>
+              <td style="text-align:right;font-weight:700;color:@(p.Balance < 0 ? "var(--red)" : "var(--text-mid)");">
+                <Money Amount="@p.Balance" />
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private record PeriodRow(string Label, int Year, int Month, decimal Received, decimal Allocated, decimal Spent)
+  {
+    public decimal Balance => Received - Allocated - Spent;
+  }
+
+  private bool _loading = true;
+  private List<PeriodRow> _periods = [];
+  private decimal _totalReceived, _totalAllocated, _totalSpent, _totalUnreconciled;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var donations  = await Api.GetDonationsAsync();
+    var allocations = await Api.GetAllocationsAsync();
+    var expenses   = await Api.GetExpensesAsync();
+
+    var now = DateTime.UtcNow;
+    _periods = Enumerable.Range(0, 12)
+      .Select(i => now.AddMonths(-i))
+      .Reverse()
+      .Select(m => new PeriodRow(
+        m.ToString("MMM yyyy"),
+        m.Year,
+        m.Month,
+        donations.Where(d => d.Date.Year == m.Year && d.Date.Month == m.Month).Sum(d => d.Amount),
+        allocations.Where(a => a.CreatedAt.Year == m.Year && a.CreatedAt.Month == m.Month).Sum(a => a.Amount),
+        expenses.Where(e => e.PaidAt.Year == m.Year && e.PaidAt.Month == m.Month).Sum(e => e.Amount)))
+      .ToList();
+
+    _totalReceived  = _periods.Sum(p => p.Received);
+    _totalAllocated = _periods.Sum(p => p.Allocated);
+    _totalSpent     = _periods.Sum(p => p.Spent);
+    _totalUnreconciled = _totalReceived - _totalAllocated - _totalSpent;
+
+    _loading = false;
+  }
+}
