@@ -72,6 +72,37 @@ jobs:
           app-name: ${{ secrets.AZURE_WEBAPP_WEB_NAME_PROD }}
           package: publish/web
 
+      # zip-deploy only ships code - the running App Service still needs its
+      # own runtime config (DB connection, JWT signing key, SMTP, CORS).
+      # These are Application Settings, never committed to appsettings.*.json.
+      # NotificationService (SMTP) and AllowedOrigins fall back to safe no-op
+      # defaults if any of these secrets/vars aren't set yet, so this step
+      # won't break a deploy - it just won't be fully configured until they are.
+      - name: Configure API App Service settings (production)
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.AZURE_WEBAPP_API_NAME_PROD }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP_PROD }} \
+            --settings \
+              ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION_STRING }}" \
+              Database__Provider="SqlServer" \
+              Jwt__Key="${{ secrets.JWT_SIGNING_KEY }}" \
+              Smtp__Host="${{ secrets.SMTP_SERVER }}" \
+              Smtp__Port="${{ secrets.SMTP_PORT }}" \
+              Smtp__Username="${{ secrets.SMTP_USERNAME }}" \
+              Smtp__Password="${{ secrets.SMTP_PASSWORD }}" \
+              Smtp__FromEmail="${{ secrets.NOTIFICATION_EMAIL_FROM }}" \
+              Notifications__IntakeTeamEmails="${{ secrets.NOTIFICATION_EMAIL_RECIPIENTS }}" \
+              AllowedOrigins__0="${{ vars.DUDA_SITE_ORIGIN }}"
+
+      - name: Configure Web App Service settings (production)
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.AZURE_WEBAPP_WEB_NAME_PROD }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP_PROD }} \
+            --settings \
+              ApiBaseUrl="https://${{ secrets.AZURE_WEBAPP_API_NAME_PROD }}.azurewebsites.net"
+
       - name: Create GitHub Release notes
         uses: softprops/action-gh-release@v3
         with:

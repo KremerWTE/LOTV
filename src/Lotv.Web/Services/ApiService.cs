@@ -226,6 +226,20 @@ public class ApiService
     public Task<List<TimelinePointDto>> GetTimelineAsync() =>
         GetListAsync<TimelinePointDto>("/api/v1/dashboard/timeline");
 
+    // ── Board (governance role) — dedicated aggregate-only endpoints, see
+    // Program.cs's "board" route group for why these aren't /api/v1/dashboard/*.
+    public Task<BoardSummaryDto?> GetBoardSummaryAsync() =>
+        GetAsync<BoardSummaryDto>("/api/v1/board/summary");
+
+    public Task<List<BoardMoneyFlowDto>> GetBoardMoneyFlowAsync() =>
+        GetListAsync<BoardMoneyFlowDto>("/api/v1/board/money-flow");
+
+    public Task<List<BoardResourceDto>> GetBoardResourcesAsync() =>
+        GetListAsync<BoardResourceDto>("/api/v1/board/resources");
+
+    public Task<List<BoardTimelinePointDto>> GetBoardTimelineAsync() =>
+        GetListAsync<BoardTimelinePointDto>("/api/v1/board/timeline");
+
     // Public endpoints (no auth required)
     public Task<PublicImpactDto?> GetPublicImpactAsync() =>
         GetAsync<PublicImpactDto>("/api/public/v1/impact");
@@ -253,21 +267,7 @@ public class ApiService
 
     public Task<DonorPortalStatusDto?> GetDonorPortalStatusAsync(int donorId) =>
         GetAsync<DonorPortalStatusDto>($"/api/public/v1/donors/{donorId}/portal-status");
-    public record DonorPortalStatusDto(bool HasStripeCustomer, bool HasActiveRecurring);
-
-    public async Task<string?> CreateBillingPortalUrlAsync(int donorId, string token)
-    {
-        try
-        {
-            var resp = await _http.PostAsJsonAsync($"/api/public/v1/donors/{donorId}/billing-portal",
-                new { Token = token });
-            if (!resp.IsSuccessStatusCode) return null;
-            var doc = await resp.Content.ReadFromJsonAsync<BillingPortalDto>(JsonOpts);
-            return doc?.Url;
-        }
-        catch { return null; }
-    }
-    private record BillingPortalDto(string Url);
+    public record DonorPortalStatusDto(bool HasActiveRecurring);
 
     public async Task<BulkLinkResult?> SendBulkPortalLinksAsync()
     {
@@ -525,6 +525,13 @@ public class ApiService
     }
     private record VolCountDto(int Count);
 
+    public async Task<VolunteerSummaryDto?> GetVolunteerSummaryAsync(int volunteerId)
+    {
+        try { return await _http.GetFromJsonAsync<VolunteerSummaryDto>($"/api/public/v1/volunteers/{volunteerId}/summary", JsonOpts); }
+        catch { return null; }
+    }
+    public record VolunteerSummaryDto(string FirstName, string Level, string Role, int TotalCasesFulfilled, DateTime JoinedDate);
+
     // ── Donor magic-link auth ─────────────────────────────────────────────
     public async Task<bool> RequestDonorMagicLinkAsync(string email)
     {
@@ -596,12 +603,6 @@ public class ApiService
         catch { return 0; }
     }
 
-    public async Task<bool> ReplayWebhookAsync(int id)
-    {
-        try { return (await _http.PostAsync($"/api/v1/admin/webhooks/{id}/replay", null)).IsSuccessStatusCode; }
-        catch { return false; }
-    }
-
     public async Task<int?> PruneWebhooksAsync(int days = 90)
     {
         try
@@ -631,8 +632,7 @@ public class ApiService
     public Task<DiagnosticsDto?> GetDiagnosticsAsync() =>
         GetAsync<DiagnosticsDto>("/api/v1/admin/diagnostics");
     public record DiagnosticsDto(int PushSubscriptionCount, DateTime? FxLatest, double? FxAgeHours,
-        string? LastMigration, int PendingMigrations, int WebhookEvents7d, int DonorsWithStripeCustomer,
-        int WebhookEvents24h);
+        string? LastMigration, int PendingMigrations, int WebhookEvents7d, int WebhookEvents24h);
 
     public Task<List<PushSubRow>> GetPushSubscriptionsAsync() =>
         GetListAsync<PushSubRow>("/api/v1/push/subscriptions");
@@ -679,19 +679,6 @@ public class ApiService
         catch { return null; }
     }
     public record CurrencyDto(string Code, string Symbol, string Name, decimal RateToUsd);
-
-    public async Task<PaymentIntentDto?> CreatePaymentIntentAsync(decimal amount, string currency = "usd")
-    {
-        try
-        {
-            var resp = await _http.PostAsJsonAsync("/api/v1/payments/intent",
-                new { Amount = amount, Currency = currency });
-            if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<PaymentIntentDto>(JsonOpts);
-        }
-        catch { return null; }
-    }
-    public record PaymentIntentDto(string? ClientSecret, string PublishableKey, bool Mock);
 
     public Task<List<ChannelBreakdownDto>> GetDonationsByChannelAsync() =>
         GetListAsync<ChannelBreakdownDto>("/api/v1/dashboard/donations/by-channel");
@@ -1038,10 +1025,6 @@ public class ApiService
         try { return await _http.DeleteAsync(url); }
         catch { return null; }
     }
-
-    // ── Reconciliation ────────────────────────────────────────────────────────
-    public Task<List<ReconciliationRowDto>> GetReconciliationAsync(string period) =>
-        GetListAsync<ReconciliationRowDto>($"/api/v1/reconciliation?period={Uri.EscapeDataString(period)}");
 
     // ── Onboarding ────────────────────────────────────────────────────────────
     public async Task<bool> CompleteStaffOnboardingAsync(
@@ -1542,6 +1525,13 @@ public record RecurringScheduleDto(
     DateTime? EndsOn, string Status, string? Campaign, DateTime CreatedAt,
     DateTime? LastChargedAt, string Channel);
 
+public record BoardSummaryDto(
+    int OpenCases, int FulfilledCases, int FamiliesServed, int ActiveVolunteers,
+    decimal TotalDonations, decimal DonationsThisMonth, decimal DonationsLastMonth, int Dioceses);
+public record BoardMoneyFlowDto(string Category, decimal Amount, double Percentage);
+public record BoardResourceDto(string ResourceType, int Quantity, double Percentage);
+public record BoardTimelinePointDto(string Period, decimal Donations, int RequestsFulfilled);
+
 public record DashboardStatsDto(
     int OpenCases, int Overdue,
     decimal DonationsThisMonth, decimal DonationsLastMonth, int ActiveVolunteers);
@@ -1569,18 +1559,6 @@ public record TimelinePointDto(string Period, decimal Donations, int RequestsFul
 public record DonationByCityDto(string City, string State, int TotalDonors, decimal TotalAmount);
 public record DonationByAmountBandDto(string Band, int GiftCount, decimal TotalAmount, double Percentage);
 public record DonationByDioceseDto(int DioceseId, string DioceseName, string City, string State, int TotalDonors, decimal TotalAmount, double AverageGift);
-
-public record ReconciliationRowDto(
-    DateTime Date, string? StripeId, string? InternalId, string? DonorName,
-    decimal? StripeAmount, decimal? InternalAmount)
-{
-    public decimal Delta        => (StripeAmount ?? 0) - (InternalAmount ?? 0);
-    public string RecordStatus  =>
-        StripeId is null   ? "Internal Only" :
-        InternalId is null ? "Stripe Only"   :
-        Delta != 0         ? "Discrepancy"   :
-                             "Matched";
-}
 
 // ── Retreat DTOs ──────────────────────────────────────────────────────────────
 public record RetreatListDto(

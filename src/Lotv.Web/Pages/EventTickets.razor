@@ -164,14 +164,15 @@
 
         @if (_totalPrice > 0)
         {
-          <!-- PAYMENT (Stripe stub) -->
+          <!-- PAYMENT (GiveButter stub — see Give.razor / the prayer-care intake confirmation
+               screen for the real widget pattern; this event-ticket flow isn't wired up yet) -->
           <div class="panel" style="margin-bottom:20px;">
             <div class="panel-header">Payment</div>
             <div class="panel-body">
               <div style="background:var(--bg);border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;color:var(--text-light);font-size:.84rem;">
                 <div style="font-size:1.4rem;margin-bottom:6px;">💳</div>
-                Stripe secure payment form loads here in production.<br/>
-                <span style="font-size:.76rem;">(@_totalPrice.ToString("C2") will be charged via Stripe)</span>
+                GiveButter secure payment form loads here in production.<br/>
+                <span style="font-size:.76rem;">(@_totalPrice.ToString("C2") will be charged via GiveButter)</span>
               </div>
             </div>
           </div>
@@ -217,7 +218,7 @@
 
         <div class="panel" style="margin-top:12px;">
           <div class="panel-body" style="font-size:.8rem;color:var(--text-mid);">
-            <div style="margin-bottom:6px;">🔒 Secure checkout powered by Stripe</div>
+            <div style="margin-bottom:6px;">🔒 Secure checkout powered by GiveButter</div>
             <div>💌 Confirmation email with ticket barcode</div>
           </div>
         </div>

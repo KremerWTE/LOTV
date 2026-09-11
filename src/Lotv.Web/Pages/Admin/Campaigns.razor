@@ -119,7 +119,7 @@
         </div>
       </div>
 
-      <label class="form-label">External Code <span style="color:var(--text-light);font-size:.74rem;">(GiveButter slug / Stripe campaign ID)</span></label>
+      <label class="form-label">External Code <span style="color:var(--text-light);font-size:.74rem;">(GiveButter slug)</span></label>
       <input class="form-input" style="margin-bottom:14px;" @bind="_form.ExternalCode" placeholder="e.g. spring-2026" />
 
       @if (!string.IsNullOrEmpty(_err)) { <div class="alert alert-danger">@_err</div> }

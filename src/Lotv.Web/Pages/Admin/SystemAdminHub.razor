@@ -1,0 +1,76 @@
+@page "/admin/system-admin-hub"
+@layout AdminLayout
+
+<PageTitle>System Admin — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>System Admin</h2>
+    <p>Platform configuration, users, and diagnostics</p>
+  </div>
+</div>
+
+<div class="tab-bar" style="display:flex;gap:4px;margin-bottom:20px;background:white;border:1px solid var(--border);border-radius:var(--radius, 10px);padding:4px;width:fit-content;flex-wrap:wrap;">
+  @foreach (var t in _tabs)
+  {
+    <button class="tab-btn @(_active == t.Key ? "active" : "")"
+            style="padding:8px 16px;border-radius:7px;border:none;background:@(_active == t.Key ? "var(--green)" : "none");color:@(_active == t.Key ? "white" : "var(--text-mid)");font-size:.85rem;font-weight:500;cursor:pointer;"
+            @onclick="() => _active = t.Key">
+      @t.Label
+    </button>
+  }
+</div>
+
+@switch (_active)
+{
+  case "diocese":
+    <DioceseData />
+    break;
+  case "health":
+    <Health />
+    break;
+  case "settings":
+    <Settings />
+    break;
+  case "users":
+    <UserManagement />
+    break;
+  case "push":
+    <PushSubscriptions />
+    break;
+  case "notification-prefs":
+    <NotificationPrefs />
+    break;
+  case "migrations":
+    <Migrations />
+    break;
+  case "webhooks":
+    <Webhooks />
+    break;
+  case "chapters":
+    <Chapters />
+    break;
+  case "api-keys":
+    <ApiKeys />
+    break;
+}
+
+@code {
+  private record TabDef(string Key, string Label);
+
+  private readonly List<TabDef> _tabs =
+  [
+    new("diocese", "Diocese & Parish Data"),
+    new("health", "Platform Health"),
+    new("settings", "Settings"),
+    new("users", "User Management"),
+    new("push", "Push Subscriptions"),
+    new("notification-prefs", "Notification Prefs"),
+    new("migrations", "DB Migrations"),
+    new("webhooks", "Webhook Events"),
+    new("chapters", "Chapters"),
+    new("api-keys", "API Keys"),
+  ];
+
+  private string _active = "diocese";
+}

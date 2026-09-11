@@ -9,7 +9,6 @@
   <div><h2>Webhook Events</h2><p>Last 100 inbound webhook deliveries (idempotency ledger).</p></div>
   <div class="page-hd-actions" style="display:flex;gap:8px;">
     <button class="btn btn-sm @(_filter is null ? "btn-primary" : "")" @onclick="() => Apply(null)">All</button>
-    <button class="btn btn-sm @(_filter == "stripe" ? "btn-primary" : "")" @onclick='() => Apply("stripe")'>Stripe</button>
     <button class="btn btn-sm @(_filter == "givebutter" ? "btn-primary" : "")" @onclick='() => Apply("givebutter")'>GiveButter</button>
     <button class="btn btn-sm" @onclick="Load">↻ Refresh</button>
     <button class="btn btn-sm" @onclick="Prune">🗑 Prune &gt;90d</button>
@@ -69,13 +68,6 @@
       <div style="font-size:.78rem;color:var(--text-light);margin-bottom:8px;">
         @_detail.ReceivedAt.ToLocalTime().ToString("MMM d, yyyy h:mm:ss tt") · @_detail.ExternalId
       </div>
-      @if (_detail.Source == "stripe" && !string.IsNullOrEmpty(_detail.Payload))
-      {
-        <div style="margin-bottom:10px;">
-          <button class="btn btn-sm" @onclick="() => Replay(_detail.Id)">↻ Replay event</button>
-          <span style="font-size:.74rem;color:var(--text-light);margin-left:8px;">Re-runs the handler against the cached payload.</span>
-        </div>
-      }
       <pre style="background:var(--bg);border-radius:6px;padding:12px;font-size:.72rem;overflow:auto;max-height:60vh;white-space:pre-wrap;word-break:break-all;">@(_detail.Payload ?? "(payload not stored)")</pre>
     </div>
   </div>
@@ -124,13 +116,6 @@
   }
 
   private async Task Load() => _rows = await Api.GetWebhookEventsAsync(_filter);
-
-  private async Task Replay(int id)
-  {
-    var ok = await JS.InvokeAsync<bool>("confirm", "Replay this webhook event? Idempotency for the original delivery is reset.");
-    if (!ok) return;
-    if (await Api.ReplayWebhookAsync(id)) { _detail = null; await Load(); }
-  }
 
   private async Task Prune()
   {
