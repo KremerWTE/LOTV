@@ -1,3 +1,5 @@
+> **SUPERSEDED 2026-09-10 — no action needed on anything below.** JotForm was removed from the app entirely per direct client instruction ("we don't need to have Stripe or JotForm"). Intake now runs through a standalone Duda-embeddable form (`docs/duda-embed/prayer-care-intake.html`) posting directly to `Lotv.Api`, with no third-party HIPAA-BAA account involved. See `MASTER_TODO.md`'s 2026-09-10 session section and `docs/LOTV-PM-Plan.md` risk register R-26. Kept below for historical reference only.
+
 # JotForm Prayer Care Package Intake — Remaining Fixes
 
 **Form:** `261395566857171` (`form.jotform.com/261395566857171`, hosted under the account's HIPAA subdomain)
