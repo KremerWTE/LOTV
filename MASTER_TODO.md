@@ -591,11 +591,14 @@ Pulled from `origin/kremer-dev` into `pateep_dev_branch`:
 - [x] Choose database hosting — **decided**: SQL Server 2019, self-hosted at `10.100.1.87` (not Azure SQL/RDS/Supabase/Railway as originally scoped); `Database:Provider=SqlServer` config flag added to `Program.cs`, independent of environment; real ministry case/mailing/follow-up data imported and live there (see sessions/2026-07-27-username-auth-and-real-data-import.md) — **follow-up needed**: rotate the `sa` credential used to set this up and create a dedicated least-privilege app login; EF migration history needs reconciling for this provider (see note below)
 - [x] **Hosting platform decided 2026-09-09: IIS on self-hosted runner `wte_apps3` (NOT Azure App Service).** Two separate IIS sites: `LOTV_WEB` (lotv.wte.net, port 80, `D:\websites\LOTV\web`) and `LOTV_API` (lotv_api.wte.net, port 80, `D:\websites\LOTV\api`). Deploy pattern follows PointShopMall dual-project pipeline. See `docs/iis-deployment-notes.md`.
 - [x] **IIS sites provisioned on `wte_apps3` — 2026-09-14.** App pools + sites created: LOTV_WEB → lotv.wte.net, LOTV_API → lotv_api.wte.net. Deploy workflow updated to match real paths/names; provisioning steps removed from CI.
-- [x] Write `deploy-to-iis.yml` — completed 2026-09-09; updated 2026-09-14: real site names (LOTV_WEB/LOTV_API), deployment paths, hostnames, Stripe injection removed (Stripe removed from platform), API health check fixed to use hostname
+- [x] Write `deploy-to-iis.yml` — completed 2026-09-09; updated 2026-09-14: real site names (LOTV_WEB/LOTV_API), deployment paths, hostnames, Stripe injection removed, API health check fixed, `shell: pwsh` throughout (fixes PowerShell 5.1 encoding bug), migration steps removed
+- [x] **CI/CD pipeline hardened 2026-09-14** — PR chain: `pateep_dev_branch → stage` (CI: build+test+notify) → `main` (IIS deploy on merged PR); no actions on branch push; Dependabot deleted; legacy Azure deploy workflows disabled; deploy pipeline: first full successful run (PR #28/run 34873002152)
 - [x] **`PROD_DB_CONNECTION_STRING` set in GitHub secrets** — 2026-09-14: `Server=69.166.143.87;Database=LOTV;User Id=LotvUser;TrustServerCertificate=True`; local dev via `dotnet user-secrets` (not committed)
 - [x] **`JWT_KEY` set in GitHub secrets** — 2026-09-14
+- [x] **SMTP secrets set in GitHub secrets** — 2026-09-14: `NOTIFICATION_EMAIL_FROM`, `NOTIFICATION_EMAIL_RECIPIENTS`, `NOTIFICATION_EMAIL_USERNAME`, `NOTIFICATION_EMAIL_PASSWORD`, `SMTP_SERVER`, `SMTP_PORT`
 - [ ] **Set remaining GitHub secrets** — `SENDGRID_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
 - [ ] Write `rollback.yml` — adapt from Boneforte, cover both IIS sites
+- [ ] **Write dev start/stop scripts** — `scripts/dev/StartApp.ps1` and `StopApp.ps1` modeled on Boneforte equivalents; must start both `Lotv.Api` and `Lotv.Web` in separate windows, open browser on Web URL; `StopApp.ps1` kills both processes
 - [ ] ~~Set up blob storage account (Azure Blob / S3)~~ — not needed; PDFs streamed on-demand
 - [ ] Set up Redis (if chosen for caching/sessions) — deferred, no current bottleneck
 - [ ] ~~Configure secrets management (Azure Key Vault / AWS Secrets Manager)~~ — using IIS + GitHub secrets
@@ -608,11 +611,11 @@ Pulled from `origin/kremer-dev` into `pateep_dev_branch`:
 - [x] Write `.dockerignore` (excludes bin/obj/tests/data/sessions)
 
 ### CI/CD
-- [x] GitHub Actions workflow: build + test on every PR — `.github/workflows/ci.yml` (restore → build → test with coverage → TRX results → coverage comment on PR)
-- [x] GitHub Actions workflow: deploy to staging on merge to `main` — `.github/workflows/deploy-staging.yml` (**to be replaced by `deploy-to-iis.yml`**)
-- [x] GitHub Actions workflow: deploy to production on release tag — `.github/workflows/deploy-production.yml` (**to be replaced by `deploy-to-iis.yml`**)
-- [x] Environment configuration: `dev / staging / prod` via environment variables — `appsettings.Staging.json` added; full secrets reference in `docs/environment-config.md`
-- [x] Database migration step in deployment pipeline — `dotnet ef database update` in both `deploy-staging.yml` and `deploy-production.yml`
+- [x] GitHub Actions workflow: build + test on PR → stage — `.github/workflows/ci.yml` (restore → build → test → TRX results → email notify on pass/fail)
+- [x] GitHub Actions workflow: deploy to IIS on merged PR → main — `.github/workflows/deploy-to-iis.yml`; deploys both LOTV_API and LOTV_WEB to `wte_apps3`
+- [x] Legacy Azure deploy workflows disabled — `deploy-staging.yml` and `deploy-production.yml` require manual "ENABLE" input; will not trigger accidentally
+- [x] Environment configuration: `dev / staging / prod` via appsettings per environment; secrets injected by deploy workflow from GitHub secrets
+- [x] Database migration step removed from deploy pipeline — migrations run manually against prod DB; `baseline-existing-database.sql` prepared
 
 ### Payment Processor Setup
 - [x] ~~Register Stripe account~~ **Obsolete 2026-09-10**: Stripe removed from the app entirely per direct client instruction ("everything for donation is through GiveButter"). All Stripe code, config, and the `Stripe.net` package reference deleted. Donations go through GiveButter's embedded JS widget instead — see R-26 in `docs/LOTV-PM-Plan.md`. GiveButter donor account/widget ID (`esQKeyJhOUHIb71A`) already confirmed live on lotvministry.org's own donate page; a webhook (`/api/v1/givebutter/webhooks`) already exists and auto-syncs transactions into Donor/Donation records — just needs a public URL to register with GiveButter once hosting exists (same blocker as everything else in this section)

@@ -9,12 +9,11 @@
 **Status:** IIS provisioned. Logging fully config-driven. Build clean. 415/415 tests passing. PR #32 open (pateep_dev_branch → stage). Remaining secrets needed before first real deploy.
 
 **Next Tasks (Priority Order):**
-1. **Merge PR #32** (pateep_dev_branch → stage) — CI must pass first
-2. **Open PR stage → main** to trigger IIS deploy
+1. **Verify deploy** — PR #33 merged → main; IIS deploy run `34878998078` in progress; check `lotv.wte.net` + `lotv_api.wte.net`
+2. **Write dev start/stop scripts** — `scripts/dev/StartApp.ps1` / `StopApp.ps1` (modeled on Boneforte); must launch both Lotv.Api and Lotv.Web
 3. **Set remaining GitHub secrets** — `SENDGRID_API_KEY`, `TWILIO_*` (3), `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
-4. Run baseline migration script on prod DB (`baseline-existing-database.sql`) before CI deploy touches it
+4. Run baseline migration script on prod DB (`baseline-existing-database.sql`)
 5. Add stable webhook URLs for Duda and GiveButter
-6. Verify `lotv.wte.net` and `lotv_api.wte.net` responding after deploy
 
 **Completed This Session (2026-09-14):**
 - ✅ Merged `origin/kremer-dev` into `pateep_dev_branch` — GiveButter intake, admin nav hubs, Board/Director roles, bug fixes
