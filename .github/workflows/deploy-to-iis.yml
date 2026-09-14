@@ -6,11 +6,13 @@
 #
 # PIPELINE SHAPE:
 #   build-and-test  (wte_apps3)
-#       └── run-migrations  (wte_apps3, needs: build-and-test)
-#               └── deploy-web  (wte_apps3, needs: run-migrations)
-#                       └── deploy-api  (wte_apps3, needs: deploy-web)  ← sequential
-#                               └── tag-and-release  (wte_apps3, needs: deploy-web + deploy-api)
+#       └── deploy-web  (wte_apps3, needs: build-and-test)
+#               └── deploy-api  (wte_apps3, needs: deploy-web)  ← sequential
+#                       └── tag-and-release  (wte_apps3, needs: deploy-web + deploy-api)
 #   send-notification  (ubuntu-latest, always, needs: all above)
+#
+# NOTE: DB migrations are run manually via rotate-app-credential.sql /
+#       baseline-existing-database.sql before first deploy, then as needed.
 #
 # TRIGGERS:
 #   - Push to main (direct push or PR merge)
@@ -49,9 +51,9 @@
 name: Deploy LOTV to IIS
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    branches: [main]
+    types: [closed]
   workflow_dispatch:
 
 permissions:
@@ -74,6 +76,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build-and-test:
     name: Build + Test
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: [wte_apps3]
     environment: production
 
@@ -230,56 +233,12 @@ jobs:
         Write-Host "[OK] appsettings.Production.json patched ($fileSize bytes)"
 
   # ---------------------------------------------------------------------------
-  # 2. Run EF Core database migrations.
-  #    Must complete before any deploy job copies files, because the app will
-  #    attempt to use the schema immediately on startup.
-  #    Requires network access to 10.100.1.87 — wte_apps3 is on the same LAN.
-  # ---------------------------------------------------------------------------
-  run-migrations:
-    name: Run DB Migrations
-    needs: build-and-test
-    if: github.ref == 'refs/heads/main'
-    runs-on: [wte_apps3]
-    environment: production
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v7
-
-    - name: Setup .NET ${{ env.DOTNET_VERSION }}
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-
-    - name: Build SQL Server migrations project
-      run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release
-
-    - name: Run EF Core migrations
-      shell: pwsh
-      env:
-        Database__Provider: SqlServer
-        ConnectionStrings__DefaultConnection: ${{ secrets.PROD_DB_CONNECTION_STRING }}
-      run: |
-        $ErrorActionPreference = "Stop"
-        if ([string]::IsNullOrWhiteSpace($env:ConnectionStrings__DefaultConnection)) {
-          Write-Error "[ERROR] PROD_DB_CONNECTION_STRING is not set. Cannot run migrations."
-          exit 1
-        }
-        Write-Host "[INFO] Running EF Core migrations against production database..."
-        dotnet ef database update `
-          --project src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj `
-          --startup-project src/Lotv.Api/Lotv.Api.csproj `
-          --configuration Release `
-          --no-build
-        Write-Host "[OK] Migrations complete."
-
-  # ---------------------------------------------------------------------------
-  # 3. Deploy Web — runs after migrations, sequential before API.
+  # 2. Deploy Web — runs after build-and-test, sequential before API.
   # ---------------------------------------------------------------------------
   deploy-web:
     name: Deploy Web
-    needs: run-migrations
-    if: github.ref == 'refs/heads/main'
+    needs: build-and-test
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: [wte_apps3]
     environment: production
 
@@ -405,7 +364,7 @@ jobs:
   deploy-api:
     name: Deploy API
     needs: deploy-web
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: [wte_apps3]
     environment: production
 
@@ -549,7 +508,7 @@ jobs:
   tag-and-release:
     name: Tag + Release
     needs: [deploy-web, deploy-api]
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: [wte_apps3]
     steps:
     - name: Checkout
@@ -570,7 +529,7 @@ jobs:
   # ---------------------------------------------------------------------------
   send-notification:
     name: Send Notification
-    needs: [build-and-test, run-migrations, deploy-web, deploy-api]
+    needs: [build-and-test, deploy-web, deploy-api]
     if: always()
     runs-on: ubuntu-latest
 
@@ -591,7 +550,7 @@ jobs:
       shell: bash
       env:
         BUILD_RESULT:      ${{ needs.build-and-test.result }}
-        MIGRATE_RESULT:    ${{ needs.run-migrations.result }}
+
         WEB_RESULT:        ${{ needs.deploy-web.result }}
         API_RESULT:        ${{ needs.deploy-api.result }}
         PR_BODY:           ${{ steps.pr-body.outputs.body }}
@@ -627,7 +586,7 @@ jobs:
         printf 'Run #:        %s\r\n' "${{ github.run_number }}"    >> email.txt
         printf 'Triggered by: %s\r\n\r\n' "${{ github.actor }}"     >> email.txt
         printf 'Build + Test:    %s\r\n' "$(label "$BUILD_RESULT")"   >> email.txt
-        printf 'DB Migrations:   %s\r\n' "$(label "$MIGRATE_RESULT")" >> email.txt
+
         printf 'Web Deploy:      %s\r\n' "$(label "$WEB_RESULT")"     >> email.txt
         printf 'API Deploy:      %s\r\n' "$(label "$API_RESULT")"     >> email.txt
         printf '\r\nChanges in this deploy:\r\n%s\r\n' "$PR_BODY"    >> email.txt

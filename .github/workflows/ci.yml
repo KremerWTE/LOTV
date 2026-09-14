@@ -2,9 +2,7 @@ name: CI — Build & Test
 
 on:
   pull_request:
-    branches: [main, stage]
-  push:
-    branches: [main, stage]
+    branches: [stage]
 
 permissions:
   contents: read
