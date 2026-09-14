@@ -30,42 +30,8 @@ Log.Logger = new LoggerConfiguration()
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, services, cfg) =>
-{
-    var isDevelopment = ctx.HostingEnvironment.IsDevelopment();
-    var template = isDevelopment
-        ? "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
-        : "{Timestamp:o} [{Level:u3}] {SourceContext}: {Message:j}{NewLine}{Exception}";
-
-    var connStr = ctx.Configuration.GetConnectionString("DefaultConnection");
-
     cfg.ReadFrom.Configuration(ctx.Configuration)
-       .ReadFrom.Services(services)
-       .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-       .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
-       .Enrich.FromLogContext()
-       .WriteTo.Console(outputTemplate: template,
-           restrictedToMinimumLevel: LogEventLevel.Information)
-       .WriteTo.File(
-           path: "logs/lotv-.log",
-           rollingInterval: RollingInterval.Day,
-           retainedFileCountLimit: 30,
-           outputTemplate: "{Timestamp:o} [{Level:u3}] {SourceContext}: {Message:j}{NewLine}{Exception}",
-           restrictedToMinimumLevel: LogEventLevel.Information);
-
-    // SQL Server sink — only when a real SQL Server connection string is available
-    if (!isDevelopment && !string.IsNullOrWhiteSpace(connStr) && connStr.Contains("Server="))
-    {
-        cfg.WriteTo.MSSqlServer(
-            connectionString: connStr,
-            sinkOptions: new Serilog.Sinks.MSSqlServer.MSSqlServerSinkOptions
-            {
-                TableName = "AppLogs",
-                AutoCreateSqlTable = true,
-                SchemaName = "dbo"
-            },
-            restrictedToMinimumLevel: LogEventLevel.Warning);
-    }
-});
+       .ReadFrom.Services(services));
 
 // ── Database ──────────────────────────────────────────────────────────────────
 // Database:Provider = "SqlServer" targets a SQL Server instance regardless of
