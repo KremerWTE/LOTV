@@ -109,7 +109,7 @@ jobs:
         fail-on-error: false
 
     - name: Stamp build number into appsettings.json (Web)
-      shell: powershell
+      shell: pwsh
       run: |
         $buildNum  = "${{ github.run_number }}"
         $timestamp = Get-Date -Format "yyyyMMdd"
@@ -125,7 +125,7 @@ jobs:
         }
 
     - name: Stamp build number into appsettings.json (API)
-      shell: powershell
+      shell: pwsh
       run: |
         $buildNum  = "${{ github.run_number }}"
         $timestamp = Get-Date -Format "yyyyMMdd"
@@ -141,7 +141,7 @@ jobs:
         }
 
     - name: Publish Web
-      shell: powershell
+      shell: pwsh
       run: |
         $out = "$env:ARTIFACTS_ROOT\web"
         New-Item -ItemType Directory -Path $out -Force | Out-Null
@@ -149,7 +149,7 @@ jobs:
         Write-Host "[OK] Web published to: $out"
 
     - name: Publish API
-      shell: powershell
+      shell: pwsh
       run: |
         $out = "$env:ARTIFACTS_ROOT\api"
         New-Item -ItemType Directory -Path $out -Force | Out-Null
@@ -238,7 +238,7 @@ jobs:
 
     steps:
     - name: Deployment summary header
-      shell: powershell
+      shell: pwsh
       run: |
         "## Deploy Web" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         "- Physical Path: $env:WEBSITE_PATH" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
@@ -246,7 +246,7 @@ jobs:
         "- Commit: ${{ github.sha }}" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
     - name: Take site offline (app_offline.htm + stop pool)
-      shell: powershell
+      shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
         Import-Module WebAdministration
@@ -284,7 +284,7 @@ jobs:
         Write-Host "[OK] Pool stopped: $env:APP_POOL_NAME"
 
     - name: Backup current deployment (keep last 1)
-      shell: powershell
+      shell: pwsh
       run: |
         $backupRoot = "D:\Websites\Backups\$env:APP_POOL_NAME"
         $fileCount  = (Get-ChildItem -Path $env:WEBSITE_PATH -File -ErrorAction SilentlyContinue).Count
@@ -299,7 +299,7 @@ jobs:
         }
 
     - name: Deploy files to IIS
-      shell: powershell
+      shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
         if (-not (Test-Path $env:PUBLISH_PATH)) { Write-Error "Publish path not found: $env:PUBLISH_PATH"; exit 1 }
@@ -315,7 +315,7 @@ jobs:
 
     - name: Start app pool (always — even on deploy failure)
       if: always()
-      shell: powershell
+      shell: pwsh
       run: |
         $ErrorActionPreference = "Continue"
         Import-Module WebAdministration
@@ -333,7 +333,7 @@ jobs:
         Write-Host "[OK] App pool running: $env:APP_POOL_NAME"
 
     - name: Health check (pool state)
-      shell: powershell
+      shell: pwsh
       run: |
         Start-Sleep -Seconds 5
         Import-Module WebAdministration
@@ -364,7 +364,7 @@ jobs:
 
     steps:
     - name: Deployment summary header
-      shell: powershell
+      shell: pwsh
       run: |
         "## Deploy API" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         "- Physical Path: $env:WEBSITE_PATH" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
@@ -372,7 +372,7 @@ jobs:
         "- Commit: ${{ github.sha }}" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
     - name: Take API offline (app_offline.htm + stop pool)
-      shell: powershell
+      shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
         Import-Module WebAdministration
@@ -405,7 +405,7 @@ jobs:
         Write-Host "[OK] Pool stopped: $env:APP_POOL_NAME"
 
     - name: Backup current deployment (keep last 1)
-      shell: powershell
+      shell: pwsh
       run: |
         $backupRoot = "D:\Websites\Backups\$env:APP_POOL_NAME"
         $fileCount  = (Get-ChildItem -Path $env:WEBSITE_PATH -File -ErrorAction SilentlyContinue).Count
@@ -420,7 +420,7 @@ jobs:
         }
 
     - name: Deploy files to IIS
-      shell: powershell
+      shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
         if (-not (Test-Path $env:PUBLISH_PATH)) { Write-Error "Publish path not found: $env:PUBLISH_PATH"; exit 1 }
@@ -434,7 +434,7 @@ jobs:
         Write-Host "[OK] API deployed to: $env:WEBSITE_PATH"
 
     - name: Cleanup old API logs (7-day retention)
-      shell: powershell
+      shell: pwsh
       run: |
         $logsPath = Join-Path $env:WEBSITE_PATH "logs"
         if (-not (Test-Path $logsPath)) { exit 0 }
@@ -444,7 +444,7 @@ jobs:
 
     - name: Start app pool (always — even on deploy failure)
       if: always()
-      shell: powershell
+      shell: pwsh
       run: |
         $ErrorActionPreference = "Continue"
         Import-Module WebAdministration
@@ -461,7 +461,7 @@ jobs:
         Write-Host "[OK] App pool running: $env:APP_POOL_NAME"
 
     - name: Health check (pool state + API /health endpoint)
-      shell: powershell
+      shell: pwsh
       run: |
         Start-Sleep -Seconds 10
         Import-Module WebAdministration
@@ -473,12 +473,12 @@ jobs:
           $resp = Invoke-WebRequest -Uri "http://$env:BINDING_HOST/health" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
           Write-Host "[OK] /health responded: HTTP $($resp.StatusCode)"
         } catch {
-          Write-Host "::warning::/health check failed (pool is running — may still be warming up): $_"
+          Write-Host "::warning::/health check failed (pool is running - may still be warming up): $_"
         }
 
     - name: Cleanup publish artifacts (always)
       if: always()
-      shell: powershell
+      shell: pwsh
       run: |
         $artifactRoot = "D:\Websites\DeploymentArtifacts\LOTV"
         if (Test-Path $artifactRoot) {
