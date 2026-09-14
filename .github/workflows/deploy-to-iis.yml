@@ -170,14 +170,22 @@ jobs:
       run: |
         $webConfigPath = "$env:ARTIFACTS_ROOT\web\web.config"
         if (-not (Test-Path $webConfigPath)) { Write-Warning "web.config not found, skipping"; exit 0 }
-        $content = Get-Content $webConfigPath -Raw
-        if ($content -notmatch 'ASPNETCORE_ENVIRONMENT') {
-          $content = $content -replace '(<environmentVariables>)', '$1<environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />'
-          if ($content -notmatch '<environmentVariables>') {
-            $content = $content -replace '(<aspNetCore[^>]*>)', '$1<environmentVariables><environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" /></environmentVariables>'
-          }
-          Set-Content $webConfigPath $content -Encoding UTF8
+        [xml]$xml = Get-Content $webConfigPath -Raw
+        $aspNetCore = $xml.SelectSingleNode('//aspNetCore')
+        if ($null -eq $aspNetCore) { Write-Warning "No <aspNetCore> element found"; exit 0 }
+        $envVars = $aspNetCore.SelectSingleNode('environmentVariables')
+        if ($null -eq $envVars) {
+          $envVars = $xml.CreateElement('environmentVariables')
+          $aspNetCore.AppendChild($envVars) | Out-Null
         }
+        $existing = $envVars.SelectSingleNode('environmentVariable[@name="ASPNETCORE_ENVIRONMENT"]')
+        if ($null -eq $existing) {
+          $envVar = $xml.CreateElement('environmentVariable')
+          $envVar.SetAttribute('name', 'ASPNETCORE_ENVIRONMENT')
+          $envVar.SetAttribute('value', 'Production')
+          $envVars.AppendChild($envVar) | Out-Null
+        }
+        $xml.Save($webConfigPath)
         Write-Host "[OK] ASPNETCORE_ENVIRONMENT=Production set in Web web.config"
 
     - name: Set ASPNETCORE_ENVIRONMENT=Production in web.config (API)
@@ -185,14 +193,22 @@ jobs:
       run: |
         $webConfigPath = "$env:ARTIFACTS_ROOT\api\web.config"
         if (-not (Test-Path $webConfigPath)) { Write-Warning "web.config not found, skipping"; exit 0 }
-        $content = Get-Content $webConfigPath -Raw
-        if ($content -notmatch 'ASPNETCORE_ENVIRONMENT') {
-          $content = $content -replace '(<environmentVariables>)', '$1<environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />'
-          if ($content -notmatch '<environmentVariables>') {
-            $content = $content -replace '(<aspNetCore[^>]*>)', '$1<environmentVariables><environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" /></environmentVariables>'
-          }
-          Set-Content $webConfigPath $content -Encoding UTF8
+        [xml]$xml = Get-Content $webConfigPath -Raw
+        $aspNetCore = $xml.SelectSingleNode('//aspNetCore')
+        if ($null -eq $aspNetCore) { Write-Warning "No <aspNetCore> element found"; exit 0 }
+        $envVars = $aspNetCore.SelectSingleNode('environmentVariables')
+        if ($null -eq $envVars) {
+          $envVars = $xml.CreateElement('environmentVariables')
+          $aspNetCore.AppendChild($envVars) | Out-Null
         }
+        $existing = $envVars.SelectSingleNode('environmentVariable[@name="ASPNETCORE_ENVIRONMENT"]')
+        if ($null -eq $existing) {
+          $envVar = $xml.CreateElement('environmentVariable')
+          $envVar.SetAttribute('name', 'ASPNETCORE_ENVIRONMENT')
+          $envVar.SetAttribute('value', 'Production')
+          $envVars.AppendChild($envVar) | Out-Null
+        }
+        $xml.Save($webConfigPath)
         Write-Host "[OK] ASPNETCORE_ENVIRONMENT=Production set in API web.config"
 
     - name: Inject secrets into appsettings.Production.json (API)
