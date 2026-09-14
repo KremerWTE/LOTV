@@ -16,14 +16,15 @@
 #   - Push to main (direct push or PR merge)
 #   - Manual dispatch (workflow_dispatch)
 #
+# IIS SITES (provisioned on wte_apps3 as of 2026-09-14):
+#   Web:  App Pool = LOTV_WEB  | Site = LOTV_WEB  | URL = lotv.wte.net      | Path = D:\websites\LOTV\web
+#   API:  App Pool = LOTV_API  | Site = LOTV_API  | URL = lotv_api.wte.net  | Path = D:\websites\LOTV\api
+#
 # GITHUB SECRETS REQUIRED (set in wtesolutions/LOTV):
 #
 #   App secrets (injected into appsettings.Production.json at deploy time):
 #   - PROD_DB_CONNECTION_STRING   Full SQL Server connection string (uses lotv_app login)
 #   - JWT_KEY                     32+ char random key for JWT token signing
-#   - STRIPE_SECRET_KEY           Stripe secret key (sk_live_...)
-#   - STRIPE_WEBHOOK_SECRET       Stripe webhook signing secret (whsec_...)
-#   - STRIPE_PUBLISHABLE_KEY      Stripe publishable key (pk_live_...)
 #   - SENDGRID_API_KEY            SendGrid API key for transactional email
 #   - TWILIO_ACCOUNT_SID          Twilio account SID
 #   - TWILIO_AUTH_TOKEN           Twilio auth token
@@ -43,7 +44,7 @@
 #   - Windows Server with IIS + .NET 10 Hosting Bundle installed
 #   - PowerShell 5.1+ with WebAdministration and IISAdministration modules
 #   - dotnet CLI in PATH
-#   - Write access to D:\Websites\
+#   - Write access to D:\websites\LOTV\
 
 name: Deploy LOTV to IIS
 
@@ -157,9 +158,6 @@ jobs:
       env:
         PROD_DB_CONNECTION_STRING: ${{ secrets.PROD_DB_CONNECTION_STRING }}
         JWT_KEY:                   ${{ secrets.JWT_KEY }}
-        STRIPE_SECRET_KEY:         ${{ secrets.STRIPE_SECRET_KEY }}
-        STRIPE_WEBHOOK_SECRET:     ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-        STRIPE_PUBLISHABLE_KEY:    ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
         SENDGRID_API_KEY:          ${{ secrets.SENDGRID_API_KEY }}
         TWILIO_ACCOUNT_SID:        ${{ secrets.TWILIO_ACCOUNT_SID }}
         TWILIO_AUTH_TOKEN:         ${{ secrets.TWILIO_AUTH_TOKEN }}
@@ -212,11 +210,6 @@ jobs:
           exit 1
         }
         Set-JsonPath -root $cfg -path @("Jwt","Key") -value $env:JWT_KEY
-
-        # Optional: Stripe (falls back to mock mode if absent)
-        Set-IfSet -root $cfg -path @("Stripe","SecretKey")      -envVal $env:STRIPE_SECRET_KEY
-        Set-IfSet -root $cfg -path @("Stripe","WebhookSecret")  -envVal $env:STRIPE_WEBHOOK_SECRET
-        Set-IfSet -root $cfg -path @("Stripe","PublishableKey") -envVal $env:STRIPE_PUBLISHABLE_KEY
 
         # Optional: SendGrid (stub — key path for when NotificationService is wired up)
         Set-IfSet -root $cfg -path @("SendGrid","ApiKey") -envVal $env:SENDGRID_API_KEY
@@ -292,13 +285,13 @@ jobs:
 
     env:
       PUBLISH_PATH:      D:\Websites\DeploymentArtifacts\LOTV\${{ github.run_id }}\web
-      WEBSITE_PATH:      D:\Websites\lotv_web
-      APP_POOL_NAME:     lotv_web
-      SITE_NAME:         lotv_web
+      WEBSITE_PATH:      D:\websites\LOTV\web
+      APP_POOL_NAME:     LOTV_WEB
+      SITE_NAME:         LOTV_WEB
       DLL_NAME:          Lotv.Web.dll
       BINDING_PROTOCOL:  http
       BINDING_PORT:      80
-      BINDING_HOST:      ""
+      BINDING_HOST:      lotv.wte.net
 
     steps:
     - name: Deployment summary header
@@ -308,31 +301,6 @@ jobs:
         "- Physical Path: $env:WEBSITE_PATH" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         "- App Pool: $env:APP_POOL_NAME" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         "- Commit: ${{ github.sha }}" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-
-    - name: Ensure IIS site + app pool exist
-      shell: powershell
-      run: |
-        $ErrorActionPreference = "Stop"
-        Import-Module WebAdministration
-        Import-Module IISAdministration
-
-        foreach ($dir in @("D:\Websites", "D:\Websites\Backups", $env:WEBSITE_PATH)) {
-          if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-        }
-
-        try   { $null = Get-IISAppPool -Name $env:APP_POOL_NAME -ErrorAction Stop }
-        catch { New-WebAppPool -Name $env:APP_POOL_NAME | Out-Null; Write-Host "[OK] Created app pool: $env:APP_POOL_NAME" }
-
-        try {
-          $site = Get-Website -Name $env:SITE_NAME -ErrorAction Stop
-          if ($site.PhysicalPath -ne $env:WEBSITE_PATH) {
-            Set-ItemProperty "IIS:\Sites\$env:SITE_NAME" -Name physicalPath -Value $env:WEBSITE_PATH
-          }
-        } catch {
-          New-Website -Name $env:SITE_NAME -PhysicalPath $env:WEBSITE_PATH `
-            -ApplicationPool $env:APP_POOL_NAME -Port ([int]$env:BINDING_PORT) | Out-Null
-          Write-Host "[OK] Created IIS site: $env:SITE_NAME"
-        }
 
     - name: Take site offline (app_offline.htm + stop pool)
       shell: powershell
@@ -443,13 +411,13 @@ jobs:
 
     env:
       PUBLISH_PATH:      D:\Websites\DeploymentArtifacts\LOTV\${{ github.run_id }}\api
-      WEBSITE_PATH:      D:\Websites\lotv_api
-      APP_POOL_NAME:     lotv_api
-      SITE_NAME:         lotv_api
+      WEBSITE_PATH:      D:\websites\LOTV\api
+      APP_POOL_NAME:     LOTV_API
+      SITE_NAME:         LOTV_API
       DLL_NAME:          Lotv.Api.dll
       BINDING_PROTOCOL:  http
-      BINDING_PORT:      8080
-      BINDING_HOST:      ""
+      BINDING_PORT:      80
+      BINDING_HOST:      lotv_api.wte.net
 
     steps:
     - name: Deployment summary header
@@ -459,31 +427,6 @@ jobs:
         "- Physical Path: $env:WEBSITE_PATH" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         "- App Pool: $env:APP_POOL_NAME" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         "- Commit: ${{ github.sha }}" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-
-    - name: Ensure IIS site + app pool exist
-      shell: powershell
-      run: |
-        $ErrorActionPreference = "Stop"
-        Import-Module WebAdministration
-        Import-Module IISAdministration
-
-        foreach ($dir in @("D:\Websites", "D:\Websites\Backups", $env:WEBSITE_PATH)) {
-          if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-        }
-
-        try   { $null = Get-IISAppPool -Name $env:APP_POOL_NAME -ErrorAction Stop }
-        catch { New-WebAppPool -Name $env:APP_POOL_NAME | Out-Null; Write-Host "[OK] Created app pool: $env:APP_POOL_NAME" }
-
-        try {
-          $site = Get-Website -Name $env:SITE_NAME -ErrorAction Stop
-          if ($site.PhysicalPath -ne $env:WEBSITE_PATH) {
-            Set-ItemProperty "IIS:\Sites\$env:SITE_NAME" -Name physicalPath -Value $env:WEBSITE_PATH
-          }
-        } catch {
-          New-Website -Name $env:SITE_NAME -PhysicalPath $env:WEBSITE_PATH `
-            -ApplicationPool $env:APP_POOL_NAME -Port ([int]$env:BINDING_PORT) | Out-Null
-          Write-Host "[OK] Created IIS site: $env:SITE_NAME (port $env:BINDING_PORT)"
-        }
 
     - name: Take API offline (app_offline.htm + stop pool)
       shell: powershell
@@ -584,7 +527,7 @@ jobs:
         Write-Host "[OK] Pool confirmed Started."
         # HTTP health check (advisory — pool state is the real gate)
         try {
-          $resp = Invoke-WebRequest -Uri "http://localhost:$env:BINDING_PORT/health" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+          $resp = Invoke-WebRequest -Uri "http://$env:BINDING_HOST/health" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
           Write-Host "[OK] /health responded: HTTP $($resp.StatusCode)"
         } catch {
           Write-Host "::warning::/health check failed (pool is running — may still be warming up): $_"
