@@ -159,9 +159,41 @@ jobs:
           if (-not $cfg.ConnectionStrings) { $cfg | Add-Member -MemberType NoteProperty -Name "ConnectionStrings" -Value ([pscustomobject]@{}) -Force }
           $cfg.ConnectionStrings | Add-Member -MemberType NoteProperty -Name "DefaultConnection" -Value $env:PROD_DB_CONNECTION_STRING -Force
         }
+        # ApiBaseUrl must point to the production API hostname
+        $cfg | Add-Member -MemberType NoteProperty -Name "ApiBaseUrl" -Value "http://lotv_api.wte.net" -Force
         $indented = $cfg | ConvertTo-Json -Depth 20
         [System.IO.File]::WriteAllText((Resolve-Path $prodPath).Path, $indented, [System.Text.Encoding]::UTF8)
         Write-Host "[OK] Web appsettings.Production.json patched"
+
+    - name: Set ASPNETCORE_ENVIRONMENT=Production in web.config (Web)
+      shell: pwsh
+      run: |
+        $webConfigPath = "$env:ARTIFACTS_ROOT\web\web.config"
+        if (-not (Test-Path $webConfigPath)) { Write-Warning "web.config not found, skipping"; exit 0 }
+        $content = Get-Content $webConfigPath -Raw
+        if ($content -notmatch 'ASPNETCORE_ENVIRONMENT') {
+          $content = $content -replace '(<environmentVariables>)', '$1<environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />'
+          if ($content -notmatch '<environmentVariables>') {
+            $content = $content -replace '(<aspNetCore[^>]*>)', '$1<environmentVariables><environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" /></environmentVariables>'
+          }
+          Set-Content $webConfigPath $content -Encoding UTF8
+        }
+        Write-Host "[OK] ASPNETCORE_ENVIRONMENT=Production set in Web web.config"
+
+    - name: Set ASPNETCORE_ENVIRONMENT=Production in web.config (API)
+      shell: pwsh
+      run: |
+        $webConfigPath = "$env:ARTIFACTS_ROOT\api\web.config"
+        if (-not (Test-Path $webConfigPath)) { Write-Warning "web.config not found, skipping"; exit 0 }
+        $content = Get-Content $webConfigPath -Raw
+        if ($content -notmatch 'ASPNETCORE_ENVIRONMENT') {
+          $content = $content -replace '(<environmentVariables>)', '$1<environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />'
+          if ($content -notmatch '<environmentVariables>') {
+            $content = $content -replace '(<aspNetCore[^>]*>)', '$1<environmentVariables><environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" /></environmentVariables>'
+          }
+          Set-Content $webConfigPath $content -Encoding UTF8
+        }
+        Write-Host "[OK] ASPNETCORE_ENVIRONMENT=Production set in API web.config"
 
     - name: Inject secrets into appsettings.Production.json (API)
       shell: pwsh
