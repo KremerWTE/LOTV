@@ -156,6 +156,26 @@ jobs:
         dotnet publish src/Lotv.Api/Lotv.Api.csproj -c Release -o $out --no-build
         Write-Host "[OK] API published to: $out"
 
+    - name: Inject secrets into appsettings.Production.json (Web)
+      shell: pwsh
+      env:
+        PROD_DB_CONNECTION_STRING: ${{ secrets.PROD_DB_CONNECTION_STRING }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        $prodPath = "$env:ARTIFACTS_ROOT\web\appsettings.Production.json"
+        if (-not (Test-Path $prodPath)) {
+          Write-Warning "appsettings.Production.json not found in Web publish output - skipping"
+          exit 0
+        }
+        $cfg = Get-Content $prodPath -Raw | ConvertFrom-Json
+        if (-not [string]::IsNullOrWhiteSpace($env:PROD_DB_CONNECTION_STRING)) {
+          if (-not $cfg.ConnectionStrings) { $cfg | Add-Member -MemberType NoteProperty -Name "ConnectionStrings" -Value ([pscustomobject]@{}) -Force }
+          $cfg.ConnectionStrings | Add-Member -MemberType NoteProperty -Name "DefaultConnection" -Value $env:PROD_DB_CONNECTION_STRING -Force
+        }
+        $indented = $cfg | ConvertTo-Json -Depth 20
+        [System.IO.File]::WriteAllText((Resolve-Path $prodPath).Path, $indented, [System.Text.Encoding]::UTF8)
+        Write-Host "[OK] Web appsettings.Production.json patched"
+
     - name: Inject secrets into appsettings.Production.json (API)
       shell: pwsh
       env:
@@ -312,6 +332,15 @@ jobs:
         $offline = Join-Path $env:WEBSITE_PATH "app_offline.htm"
         if (Test-Path $offline) { Remove-Item $offline -Force }
         Write-Host "[OK] Web deployed to: $env:WEBSITE_PATH"
+
+    - name: Cleanup old Web logs (7-day retention)
+      shell: pwsh
+      run: |
+        $logsPath = Join-Path $env:WEBSITE_PATH "logs"
+        if (-not (Test-Path $logsPath)) { exit 0 }
+        $cutoff = (Get-Date).AddDays(-7)
+        $old = Get-ChildItem -Path $logsPath -File | Where-Object { $_.LastWriteTime -lt $cutoff }
+        if ($old) { $old | Remove-Item -Force; Write-Host "Removed $($old.Count) old log file(s)." }
 
     - name: Start app pool (always — even on deploy failure)
       if: always()
