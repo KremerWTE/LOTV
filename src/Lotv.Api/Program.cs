@@ -31,9 +31,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, services, cfg) =>
 {
-    var template = ctx.HostingEnvironment.IsDevelopment()
+    var isDevelopment = ctx.HostingEnvironment.IsDevelopment();
+    var template = isDevelopment
         ? "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
         : "{Timestamp:o} [{Level:u3}] {SourceContext}: {Message:j}{NewLine}{Exception}";
+
+    var connStr = ctx.Configuration.GetConnectionString("DefaultConnection");
 
     cfg.ReadFrom.Configuration(ctx.Configuration)
        .ReadFrom.Services(services)
@@ -41,7 +44,27 @@ builder.Host.UseSerilog((ctx, services, cfg) =>
        .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
        .Enrich.FromLogContext()
        .WriteTo.Console(outputTemplate: template,
+           restrictedToMinimumLevel: LogEventLevel.Information)
+       .WriteTo.File(
+           path: "logs/lotv-.log",
+           rollingInterval: RollingInterval.Day,
+           retainedFileCountLimit: 30,
+           outputTemplate: "{Timestamp:o} [{Level:u3}] {SourceContext}: {Message:j}{NewLine}{Exception}",
            restrictedToMinimumLevel: LogEventLevel.Information);
+
+    // SQL Server sink — only when a real SQL Server connection string is available
+    if (!isDevelopment && !string.IsNullOrWhiteSpace(connStr) && connStr.Contains("Server="))
+    {
+        cfg.WriteTo.MSSqlServer(
+            connectionString: connStr,
+            sinkOptions: new Serilog.Sinks.MSSqlServer.MSSqlServerSinkOptions
+            {
+                TableName = "AppLogs",
+                AutoCreateSqlTable = true,
+                SchemaName = "dbo"
+            },
+            restrictedToMinimumLevel: LogEventLevel.Warning);
+    }
 });
 
 // ── Database ──────────────────────────────────────────────────────────────────
@@ -177,14 +200,25 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 builder.Services.AddOpenApi();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
-    ?? ["https://localhost:7000", "http://localhost:5000", "https://localhost:7001", "http://localhost:5001"];
+// "open" policy — all REST endpoints; AllowAnyOrigin is incompatible with
+// AllowCredentials so SignalR hubs use the "signalr" named policy below.
+builder.Services.AddCors(o =>
+{
+    o.AddDefaultPolicy(p =>
+        p.AllowAnyOrigin()
+         .AllowAnyHeader()
+         .AllowAnyMethod());
 
-builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins(allowedOrigins)
-     .AllowAnyHeader()
-     .AllowAnyMethod()
-     .AllowCredentials()));   // required for SignalR
+    // SignalR requires credentials (cookies/auth header) — must pin origins
+    var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+        ?? ["http://localhost:5000", "http://localhost:5001", "https://localhost:7000",
+            "http://lotv.wte.net", "https://lotv.wte.net"];
+    o.AddPolicy("signalr", p =>
+        p.WithOrigins(allowedOrigins)
+         .AllowAnyHeader()
+         .AllowAnyMethod()
+         .AllowCredentials());
+});
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 // Limits are permissive in Development (avoids test-run throttling).
@@ -276,8 +310,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
 }
 
 // ── SignalR Hubs ──────────────────────────────────────────────────────────────
-app.MapHub<RequestsHub>("/hubs/requests");
-app.MapHub<AuctionHub>("/hubs/auction");
+app.MapHub<RequestsHub>("/hubs/requests").RequireCors("signalr");
+app.MapHub<AuctionHub>("/hubs/auction").RequireCors("signalr");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API v1 Endpoints
