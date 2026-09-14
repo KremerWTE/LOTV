@@ -200,31 +200,15 @@ jobs:
           }
         }
 
-        # Required: database connection string
-        if ([string]::IsNullOrWhiteSpace($env:PROD_DB_CONNECTION_STRING)) {
-          Write-Error "[ERROR] PROD_DB_CONNECTION_STRING is not set. Cannot deploy without a database connection string."
-          exit 1
-        }
-        Set-JsonPath -root $cfg -path @("ConnectionStrings","DefaultConnection") -value $env:PROD_DB_CONNECTION_STRING
-
-        # Required: JWT key
-        if ([string]::IsNullOrWhiteSpace($env:JWT_KEY)) {
-          Write-Error "[ERROR] JWT_KEY is not set. Cannot deploy without a signing key."
-          exit 1
-        }
-        Set-JsonPath -root $cfg -path @("Jwt","Key") -value $env:JWT_KEY
-
-        # Optional: SendGrid (stub — key path for when NotificationService is wired up)
-        Set-IfSet -root $cfg -path @("SendGrid","ApiKey") -envVal $env:SENDGRID_API_KEY
-
-        # Optional: Twilio SMS (SmsService reads Twilio:AccountSid / AuthToken / FromNumber)
-        Set-IfSet -root $cfg -path @("Twilio","AccountSid") -envVal $env:TWILIO_ACCOUNT_SID
-        Set-IfSet -root $cfg -path @("Twilio","AuthToken")  -envVal $env:TWILIO_AUTH_TOKEN
-        Set-IfSet -root $cfg -path @("Twilio","FromNumber") -envVal $env:TWILIO_FROM_NUMBER
-
-        # Optional: Web Push VAPID (PushSenderService reads Push:VapidPublicKey / VapidPrivateKey)
-        Set-IfSet -root $cfg -path @("Push","VapidPublicKey")  -envVal $env:VAPID_PUBLIC_KEY
-        Set-IfSet -root $cfg -path @("Push","VapidPrivateKey") -envVal $env:VAPID_PRIVATE_KEY
+        # Inject each secret — skip silently if not set
+        Set-IfSet -root $cfg -path @("ConnectionStrings","DefaultConnection") -envVal $env:PROD_DB_CONNECTION_STRING
+        Set-IfSet -root $cfg -path @("Jwt","Key")                             -envVal $env:JWT_KEY
+        Set-IfSet -root $cfg -path @("SendGrid","ApiKey")                     -envVal $env:SENDGRID_API_KEY
+        Set-IfSet -root $cfg -path @("Twilio","AccountSid")                   -envVal $env:TWILIO_ACCOUNT_SID
+        Set-IfSet -root $cfg -path @("Twilio","AuthToken")                    -envVal $env:TWILIO_AUTH_TOKEN
+        Set-IfSet -root $cfg -path @("Twilio","FromNumber")                   -envVal $env:TWILIO_FROM_NUMBER
+        Set-IfSet -root $cfg -path @("Push","VapidPublicKey")                 -envVal $env:VAPID_PUBLIC_KEY
+        Set-IfSet -root $cfg -path @("Push","VapidPrivateKey")                -envVal $env:VAPID_PRIVATE_KEY
 
         # Write back — no BOM, 2-space indent
         $indented = $cfg | ConvertTo-Json -Depth 20
