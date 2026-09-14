@@ -226,10 +226,20 @@ var app = builder.Build();
 // ── Dev seed data (MOCK DATA — Development only, skipped when Testing:SkipSeed=true) ──
 if (app.Environment.IsDevelopment() && !app.Configuration.GetValue<bool>("Testing:SkipSeed"))
 {
-    using var scope = app.Services.CreateScope();
-    var seedDb = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
-    var seedUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
-    await DevSeedData.SeedAsync(seedDb, seedUserMgr);
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var seedDb = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var seedUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
+        await DevSeedData.SeedAsync(seedDb, seedUserMgr);
+    }
+    catch (Exception ex)
+    {
+        // DB unavailable or migration error — log and continue. The app is still usable
+        // for testing endpoints that don't require a seeded database.
+        var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+        startupLogger.LogWarning(ex, "Dev seed skipped — database unavailable or migration failed. App will continue without seed data.");
+    }
 }
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
