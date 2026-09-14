@@ -9,6 +9,9 @@
 
 using Lotv.Core.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Lotv.Api.Data;
 
@@ -23,7 +26,14 @@ public static class DevSeedData
     /// </summary>
     public static async Task SeedAsync(LotvDbContext db, UserManager<LotvIdentityUser> userMgr)
     {
-        await db.Database.EnsureCreatedAsync();
+        // EnsureCreatedAsync creates the DB file for SQLite but tries CREATE DATABASE
+        // on SQL Server (which the app login doesn't have permission for). For SQL Server
+        // the DB already exists — just run any pending migrations instead.
+        if (db.Database.IsSqlite())
+            await db.Database.EnsureCreatedAsync();
+        else
+            await db.Database.MigrateAsync();
+
         if (!db.Chapters.Any())
             await SeedMockDataAsync(db);
 
