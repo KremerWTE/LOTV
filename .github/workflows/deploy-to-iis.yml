@@ -49,9 +49,9 @@
 name: Deploy LOTV to IIS
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    branches: [main]
+    types: [closed]
   workflow_dispatch:
 
 permissions:
@@ -74,6 +74,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build-and-test:
     name: Build + Test
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: [wte_apps3]
     environment: production
 
