@@ -9,7 +9,7 @@ param(
 $RepoRoot   = (Resolve-Path "$PSScriptRoot\..\..")
 $ApiProject = Join-Path $RepoRoot "src\Lotv.Api"
 $WebProject = Join-Path $RepoRoot "src\Lotv.Web"
-$WebUrl     = "http://localhost:5205"
+$WebUrl     = "http://localhost:5101"
 
 # Kill any existing instances
 Write-Host "Stopping any existing LOTV processes..." -ForegroundColor Yellow
@@ -28,7 +28,7 @@ if (-not $NoBuild) {
 }
 
 # Launch API in a new window
-Write-Host "Launching Lotv.Api on http://localhost:5275 ..." -ForegroundColor Cyan
+Write-Host "Launching Lotv.Api on http://localhost:5100 ..." -ForegroundColor Cyan
 $apiCmd = "Write-Host 'LOTV API - close this window or press Ctrl+C to stop.' -ForegroundColor Cyan; " +
           "`$env:ASPNETCORE_ENVIRONMENT = 'Development'; " +
           "& dotnet run --project '$ApiProject' --launch-profile http --no-build; " +
