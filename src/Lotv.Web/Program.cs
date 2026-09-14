@@ -16,8 +16,24 @@ Log.Logger = new LoggerConfiguration()
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, services, cfg) =>
+{
     cfg.ReadFrom.Configuration(ctx.Configuration)
-       .ReadFrom.Services(services));
+       .ReadFrom.Services(services);
+
+    // MSSqlServer sink — wired in code so a missing/empty connection string
+    // never crashes the app. Config-driven resolution can't guard against null.
+    if (!ctx.HostingEnvironment.IsDevelopment())
+    {
+        var connStr = ctx.Configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrWhiteSpace(connStr))
+            cfg.WriteTo.MSSqlServer(
+                connectionString: connStr,
+                tableName: "AppLogs",
+                schemaName: "dbo",
+                autoCreateSqlTable: true,
+                restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Warning);
+    }
+});
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
