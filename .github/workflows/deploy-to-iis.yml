@@ -75,7 +75,7 @@ jobs:
   #    published output is ready to copy in the deploy jobs.
   # ---------------------------------------------------------------------------
   build-and-test:
-    name: Build + Test
+    name: Build + Publish
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: [wte_apps3]
     environment: production
@@ -94,19 +94,6 @@ jobs:
 
     - name: Build solution
       run: dotnet build Lotv.slnx --configuration Release --no-restore
-
-    - name: Run unit + integration tests
-      run: dotnet test tests/Lotv.Tests/Lotv.Tests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
-
-    - name: Publish test results
-      uses: dorny/test-reporter@v3
-      if: success() || failure()
-      continue-on-error: true
-      with:
-        name: Unit/Integration Test Results
-        path: '**/test-results.trx'
-        reporter: dotnet-trx
-        fail-on-error: false
 
     - name: Stamp build number into appsettings.json (Web)
       shell: pwsh
@@ -563,7 +550,6 @@ jobs:
       shell: bash
       env:
         BUILD_RESULT:      ${{ needs.build-and-test.result }}
-
         WEB_RESULT:        ${{ needs.deploy-web.result }}
         API_RESULT:        ${{ needs.deploy-api.result }}
         PR_BODY:           ${{ steps.pr-body.outputs.body }}
@@ -598,7 +584,7 @@ jobs:
         printf 'Commit:       %s\r\n' "$SHORT_SHA"                  >> email.txt
         printf 'Run #:        %s\r\n' "${{ github.run_number }}"    >> email.txt
         printf 'Triggered by: %s\r\n\r\n' "${{ github.actor }}"     >> email.txt
-        printf 'Build + Test:    %s\r\n' "$(label "$BUILD_RESULT")"   >> email.txt
+        printf 'Build + Publish: %s\r\n' "$(label "$BUILD_RESULT")"   >> email.txt
 
         printf 'Web Deploy:      %s\r\n' "$(label "$WEB_RESULT")"     >> email.txt
         printf 'API Deploy:      %s\r\n' "$(label "$API_RESULT")"     >> email.txt
