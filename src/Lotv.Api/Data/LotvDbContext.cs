@@ -122,6 +122,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
         builder.Entity<Diocese>(e =>
         {
             e.HasIndex(d => d.ChapterId);
+            e.Property(d => d.TotalDonations).HasPrecision(12, 2);
         });
 
         // ── Parish ───────────────────────────────────────────────────────────
@@ -239,6 +240,8 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(ev => ev.ChapterId);
             e.HasIndex(ev => ev.Date);                          // upcoming events sort
             e.HasIndex(ev => new { ev.Status, ev.Date });       // published upcoming filter
+            e.Property(ev => ev.GoalAmount).HasPrecision(12, 2);
+            e.Property(ev => ev.TicketPrice).HasPrecision(12, 2);
             e.Ignore(ev => ev.Chapter);
         });
 
@@ -258,6 +261,9 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
         builder.Entity<SilentAuctionItem>(e =>
         {
             e.HasIndex(i => i.EventId);
+            e.Property(i => i.FairMarketValue).HasPrecision(12, 2);
+            e.Property(i => i.StartingBid).HasPrecision(12, 2);
+            e.Property(i => i.WinningBid).HasPrecision(12, 2);
             e.HasOne(i => i.Event).WithMany().HasForeignKey(i => i.EventId).OnDelete(DeleteBehavior.Cascade);
             e.Ignore(i => i.Winner);
         });
@@ -266,6 +272,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
         builder.Entity<AuctionBid>(e =>
         {
             e.HasIndex(b => b.AuctionItemId);
+            e.Property(b => b.BidAmount).HasPrecision(12, 2);
             e.HasOne(b => b.AuctionItem).WithMany(i => i.Bids).HasForeignKey(b => b.AuctionItemId).OnDelete(DeleteBehavior.Cascade);
             e.Ignore(b => b.Bidder);
         });
