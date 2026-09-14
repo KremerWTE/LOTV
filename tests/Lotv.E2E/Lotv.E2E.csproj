@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- Excluded from solution-wide test runs; run manually with: dotnet test tests/Lotv.E2E -->
+    <IsTestProject>false</IsTestProject>
     <!-- Playwright requires this so the test runner can find browser binaries -->
     <EnablePlaywrightDriver>true</EnablePlaywrightDriver>
   </PropertyGroup>

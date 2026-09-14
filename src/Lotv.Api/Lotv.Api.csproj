@@ -7,10 +7,16 @@
     <UserSecretsId>1ebc9e45-23a7-4666-9021-36723aef9e7c</UserSecretsId>
   </PropertyGroup>
 
-  <!-- Transitive vulnerability overrides — pin to latest available; Microsoft.OpenApi 2.x CVE (GHSA-v5pm-xwqc-g5wc) has no patched version yet; mitigate by restricting /openapi/* in prod -->
+  <!--
+    Transitive vulnerability overrides.
+    Microsoft.OpenApi: Microsoft.AspNetCore.OpenApi 10.x requires the 2.x API — cannot upgrade to
+    3.x without a breaking change. Pin to 2.1.0 (highest 2.x available). CVE GHSA-v5pm-xwqc-g5wc
+    has no 2.x patch; suppressed below pending an upstream fix in Microsoft.AspNetCore.OpenApi.
+  -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.OpenApi" Version="2.0.2" />
+    <PackageReference Include="Microsoft.OpenApi" Version="2.1.0" />
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v5pm-xwqc-g5wc" />
   </ItemGroup>
 
   <ItemGroup>

@@ -16,10 +16,16 @@
     MigrationsAssembly(...)) call) - this project is that assembly.
   -->
 
-  <!-- Transitive vulnerability overrides — System.Security.Cryptography.Xml CVEs are in the standalone NuGet package; at .NET 10 the runtime provides a patched in-box version -->
+  <!--
+    Transitive vulnerability overrides.
+    Microsoft.OpenApi: same 2.x lock as Lotv.Api — cannot upgrade to 3.x. CVE GHSA-v5pm-xwqc-g5wc suppressed.
+    System.Security.Cryptography.Xml: bumped to 10.0.12 which patches all known CVEs.
+  -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.OpenApi" Version="2.0.2" />
+    <PackageReference Include="Microsoft.OpenApi" Version="2.1.0" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.12" />
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v5pm-xwqc-g5wc" />
   </ItemGroup>
 
   <ItemGroup>
