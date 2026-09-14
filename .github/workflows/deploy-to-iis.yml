@@ -1,0 +1,650 @@
+# Deploy LOTV to IIS (Production)
+#
+# PURPOSE: Build, test, and deploy both Lotv.Api and Lotv.Web to IIS on wte_apps3.
+#          Follows the PointShopMall dual-project pattern with Boneforte's secret
+#          injection and app_offline.htm graceful-drain approach.
+#
+# PIPELINE SHAPE:
+#   build-and-test  (wte_apps3)
+#       └── run-migrations  (wte_apps3, needs: build-and-test)
+#               └── deploy-web  (wte_apps3, needs: run-migrations)
+#                       └── deploy-api  (wte_apps3, needs: deploy-web)  ← sequential
+#                               └── tag-and-release  (wte_apps3, needs: deploy-web + deploy-api)
+#   send-notification  (ubuntu-latest, always, needs: all above)
+#
+# TRIGGERS:
+#   - Push to main (direct push or PR merge)
+#   - Manual dispatch (workflow_dispatch)
+#
+# IIS SITES (provisioned on wte_apps3 as of 2026-09-14):
+#   Web:  App Pool = LOTV_WEB  | Site = LOTV_WEB  | URL = lotv.wte.net      | Path = D:\websites\LOTV\web
+#   API:  App Pool = LOTV_API  | Site = LOTV_API  | URL = lotv_api.wte.net  | Path = D:\websites\LOTV\api
+#
+# GITHUB SECRETS REQUIRED (set in wtesolutions/LOTV):
+#
+#   App secrets (injected into appsettings.Production.json at deploy time):
+#   - PROD_DB_CONNECTION_STRING   Full SQL Server connection string (uses lotv_app login)
+#   - JWT_KEY                     32+ char random key for JWT token signing
+#   - SENDGRID_API_KEY            SendGrid API key for transactional email
+#   - TWILIO_ACCOUNT_SID          Twilio account SID
+#   - TWILIO_AUTH_TOKEN           Twilio auth token
+#   - TWILIO_FROM_NUMBER          Twilio outbound phone number
+#   - VAPID_PUBLIC_KEY            Web Push VAPID public key
+#   - VAPID_PRIVATE_KEY           Web Push VAPID private key
+#
+#   Pipeline notification email (already set 2026-09-09):
+#   - NOTIFICATION_EMAIL_FROM         autobuild@wte.net
+#   - NOTIFICATION_EMAIL_RECIPIENTS   pateep@wte.net,raphael@wte.net
+#   - NOTIFICATION_EMAIL_USERNAME     SMTP auth user
+#   - NOTIFICATION_EMAIL_PASSWORD     SMTP auth password
+#   - SMTP_SERVER                     smtp.socketlabs.com
+#   - SMTP_PORT                       587
+#
+# SELF-HOSTED RUNNER REQUIREMENTS (wte_apps3):
+#   - Windows Server with IIS + .NET 10 Hosting Bundle installed
+#   - PowerShell 5.1+ with WebAdministration and IISAdministration modules
+#   - dotnet CLI in PATH
+#   - Write access to D:\websites\LOTV\
+
+name: Deploy LOTV to IIS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  checks: write
+  pull-requests: read
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  APP_NAME: LOTV
+  ARTIFACTS_ROOT: D:\Websites\DeploymentArtifacts\LOTV\${{ github.run_id }}
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # 1. Build, test, and publish both projects.
+  #    Artifacts are written to a shared folder on disk (same runner = no upload).
+  #    Secret injection into appsettings.Production.json happens here so the
+  #    published output is ready to copy in the deploy jobs.
+  # ---------------------------------------------------------------------------
+  build-and-test:
+    name: Build + Test
+    runs-on: [wte_apps3]
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Setup .NET ${{ env.DOTNET_VERSION }}
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Restore dependencies
+      run: dotnet restore Lotv.slnx
+
+    - name: Build solution
+      run: dotnet build Lotv.slnx --configuration Release --no-restore
+
+    - name: Run unit + integration tests
+      run: dotnet test tests/Lotv.Tests/Lotv.Tests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+
+    - name: Publish test results
+      uses: dorny/test-reporter@v3
+      if: success() || failure()
+      continue-on-error: true
+      with:
+        name: Unit/Integration Test Results
+        path: '**/test-results.trx'
+        reporter: dotnet-trx
+        fail-on-error: false
+
+    - name: Stamp build number into appsettings.json (Web)
+      shell: powershell
+      run: |
+        $buildNum  = "${{ github.run_number }}"
+        $timestamp = Get-Date -Format "yyyyMMdd"
+        $shortSha  = "${{ github.sha }}".Substring(0, 7)
+        $full      = "1.0.${buildNum}.${timestamp}-${shortSha}"
+        $path      = "src/Lotv.Web/appsettings.json"
+        if (Test-Path $path) {
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          if (-not $json.Build) { $json | Add-Member -NotePropertyName "Build" -NotePropertyValue @{} -Force }
+          $json.Build | Add-Member -NotePropertyName "Number" -NotePropertyValue $full -Force
+          $json | ConvertTo-Json -Depth 10 | Set-Content $path
+          Write-Host "[OK] Web build number: $full"
+        }
+
+    - name: Stamp build number into appsettings.json (API)
+      shell: powershell
+      run: |
+        $buildNum  = "${{ github.run_number }}"
+        $timestamp = Get-Date -Format "yyyyMMdd"
+        $shortSha  = "${{ github.sha }}".Substring(0, 7)
+        $full      = "1.0.${buildNum}.${timestamp}-${shortSha}"
+        $path      = "src/Lotv.Api/appsettings.json"
+        if (Test-Path $path) {
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          if (-not $json.Build) { $json | Add-Member -NotePropertyName "Build" -NotePropertyValue @{} -Force }
+          $json.Build | Add-Member -NotePropertyName "Number" -NotePropertyValue $full -Force
+          $json | ConvertTo-Json -Depth 10 | Set-Content $path
+          Write-Host "[OK] API build number: $full"
+        }
+
+    - name: Publish Web
+      shell: powershell
+      run: |
+        $out = "$env:ARTIFACTS_ROOT\web"
+        New-Item -ItemType Directory -Path $out -Force | Out-Null
+        dotnet publish src/Lotv.Web/Lotv.Web.csproj -c Release -o $out --no-build
+        Write-Host "[OK] Web published to: $out"
+
+    - name: Publish API
+      shell: powershell
+      run: |
+        $out = "$env:ARTIFACTS_ROOT\api"
+        New-Item -ItemType Directory -Path $out -Force | Out-Null
+        dotnet publish src/Lotv.Api/Lotv.Api.csproj -c Release -o $out --no-build
+        Write-Host "[OK] API published to: $out"
+
+    - name: Inject secrets into appsettings.Production.json (API)
+      shell: pwsh
+      env:
+        PROD_DB_CONNECTION_STRING: ${{ secrets.PROD_DB_CONNECTION_STRING }}
+        JWT_KEY:                   ${{ secrets.JWT_KEY }}
+        SENDGRID_API_KEY:          ${{ secrets.SENDGRID_API_KEY }}
+        TWILIO_ACCOUNT_SID:        ${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN:         ${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_FROM_NUMBER:        ${{ secrets.TWILIO_FROM_NUMBER }}
+        VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
+        VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
+      run: |
+        $ErrorActionPreference = "Stop"
+
+        $prodPath = "$env:ARTIFACTS_ROOT\api\appsettings.Production.json"
+        if (-not (Test-Path $prodPath)) {
+          Write-Error "[ERROR] appsettings.Production.json not found in API publish output: $prodPath"
+          exit 1
+        }
+
+        $cfg = Get-Content $prodPath -Raw | ConvertFrom-Json
+
+        # Helper: set a leaf value by dotted key path, creating nodes as needed
+        function Set-JsonPath {
+          param($root, [string[]]$path, $value)
+          $node = $root
+          for ($i = 0; $i -lt $path.Length - 1; $i++) {
+            $seg = $path[$i]
+            if ($null -eq $node.$seg -or $node.$seg -isnot [System.Management.Automation.PSCustomObject]) {
+              $node | Add-Member -MemberType NoteProperty -Name $seg -Value ([pscustomobject]@{}) -Force
+            }
+            $node = $node.$seg
+          }
+          $node | Add-Member -MemberType NoteProperty -Name $path[-1] -Value $value -Force
+        }
+
+        # Helper: only set if env var is non-empty (allows optional secrets to be absent)
+        function Set-IfSet {
+          param($root, [string[]]$path, [string]$envVal)
+          if (-not [string]::IsNullOrWhiteSpace($envVal)) {
+            Set-JsonPath -root $root -path $path -value $envVal
+          }
+        }
+
+        # Required: database connection string
+        if ([string]::IsNullOrWhiteSpace($env:PROD_DB_CONNECTION_STRING)) {
+          Write-Error "[ERROR] PROD_DB_CONNECTION_STRING is not set. Cannot deploy without a database connection string."
+          exit 1
+        }
+        Set-JsonPath -root $cfg -path @("ConnectionStrings","DefaultConnection") -value $env:PROD_DB_CONNECTION_STRING
+
+        # Required: JWT key
+        if ([string]::IsNullOrWhiteSpace($env:JWT_KEY)) {
+          Write-Error "[ERROR] JWT_KEY is not set. Cannot deploy without a signing key."
+          exit 1
+        }
+        Set-JsonPath -root $cfg -path @("Jwt","Key") -value $env:JWT_KEY
+
+        # Optional: SendGrid (stub — key path for when NotificationService is wired up)
+        Set-IfSet -root $cfg -path @("SendGrid","ApiKey") -envVal $env:SENDGRID_API_KEY
+
+        # Optional: Twilio SMS (SmsService reads Twilio:AccountSid / AuthToken / FromNumber)
+        Set-IfSet -root $cfg -path @("Twilio","AccountSid") -envVal $env:TWILIO_ACCOUNT_SID
+        Set-IfSet -root $cfg -path @("Twilio","AuthToken")  -envVal $env:TWILIO_AUTH_TOKEN
+        Set-IfSet -root $cfg -path @("Twilio","FromNumber") -envVal $env:TWILIO_FROM_NUMBER
+
+        # Optional: Web Push VAPID (PushSenderService reads Push:VapidPublicKey / VapidPrivateKey)
+        Set-IfSet -root $cfg -path @("Push","VapidPublicKey")  -envVal $env:VAPID_PUBLIC_KEY
+        Set-IfSet -root $cfg -path @("Push","VapidPrivateKey") -envVal $env:VAPID_PRIVATE_KEY
+
+        # Write back — no BOM, 2-space indent
+        $indented = $cfg | ConvertTo-Json -Depth 20
+        [System.IO.File]::WriteAllText((Resolve-Path $prodPath).Path, $indented, [System.Text.Encoding]::UTF8)
+        $fileSize = (Get-Item $prodPath).Length
+        Write-Host "[OK] appsettings.Production.json patched ($fileSize bytes)"
+
+  # ---------------------------------------------------------------------------
+  # 2. Run EF Core database migrations.
+  #    Must complete before any deploy job copies files, because the app will
+  #    attempt to use the schema immediately on startup.
+  #    Requires network access to 10.100.1.87 — wte_apps3 is on the same LAN.
+  # ---------------------------------------------------------------------------
+  run-migrations:
+    name: Run DB Migrations
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: [wte_apps3]
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Setup .NET ${{ env.DOTNET_VERSION }}
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Build SQL Server migrations project
+      run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release
+
+    - name: Run EF Core migrations
+      shell: pwsh
+      env:
+        Database__Provider: SqlServer
+        ConnectionStrings__DefaultConnection: ${{ secrets.PROD_DB_CONNECTION_STRING }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        if ([string]::IsNullOrWhiteSpace($env:ConnectionStrings__DefaultConnection)) {
+          Write-Error "[ERROR] PROD_DB_CONNECTION_STRING is not set. Cannot run migrations."
+          exit 1
+        }
+        Write-Host "[INFO] Running EF Core migrations against production database..."
+        dotnet ef database update `
+          --project src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj `
+          --startup-project src/Lotv.Api/Lotv.Api.csproj `
+          --configuration Release `
+          --no-build
+        Write-Host "[OK] Migrations complete."
+
+  # ---------------------------------------------------------------------------
+  # 3. Deploy Web — runs after migrations, sequential before API.
+  # ---------------------------------------------------------------------------
+  deploy-web:
+    name: Deploy Web
+    needs: run-migrations
+    if: github.ref == 'refs/heads/main'
+    runs-on: [wte_apps3]
+    environment: production
+
+    env:
+      PUBLISH_PATH:      D:\Websites\DeploymentArtifacts\LOTV\${{ github.run_id }}\web
+      WEBSITE_PATH:      D:\websites\LOTV\web
+      APP_POOL_NAME:     LOTV_WEB
+      SITE_NAME:         LOTV_WEB
+      DLL_NAME:          Lotv.Web.dll
+      BINDING_PROTOCOL:  http
+      BINDING_PORT:      80
+      BINDING_HOST:      lotv.wte.net
+
+    steps:
+    - name: Deployment summary header
+      shell: powershell
+      run: |
+        "## Deploy Web" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        "- Physical Path: $env:WEBSITE_PATH" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        "- App Pool: $env:APP_POOL_NAME" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        "- Commit: ${{ github.sha }}" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+    - name: Take site offline (app_offline.htm + stop pool)
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Stop"
+        Import-Module WebAdministration
+
+        # Write app_offline.htm first so ASP.NET Core releases file locks before
+        # the pool is stopped — prevents "DLL in use" copy failures.
+        if (Test-Path $env:WEBSITE_PATH) {
+          $html = @(
+            '<!doctype html><html><head><meta charset="utf-8">',
+            '<title>Lily of the Valley — updating</title>',
+            '<style>body{font-family:system-ui,sans-serif;max-width:560px;margin:80px auto;padding:24px;color:#333}</style>',
+            '</head><body><h2>Briefly offline for an update</h2>',
+            '<p>We are applying an update. Please refresh in a moment.</p></body></html>'
+          ) -join ""
+          Set-Content -Path (Join-Path $env:WEBSITE_PATH "app_offline.htm") -Value $html -Encoding UTF8 -Force
+          Start-Sleep -Seconds 3
+        }
+
+        if ((Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value -ne "Stopped") {
+          Stop-WebAppPool -Name $env:APP_POOL_NAME
+        }
+        $deadline = (Get-Date).AddSeconds(90)
+        $killAt   = (Get-Date).AddSeconds(60)
+        $killed   = $false
+        while ((Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value -notin @("Stopped","Unknown")) {
+          if (-not $killed -and (Get-Date) -gt $killAt) {
+            Get-Process -Name "w3wp" -ErrorAction SilentlyContinue | ForEach-Object { $_.Kill() }
+            $killed = $true
+          }
+          if ((Get-Date) -gt $deadline) { Write-Error "Timed out waiting for pool to stop"; exit 1 }
+          Start-Sleep -Seconds 2
+        }
+        # Extra grace for AV / backup agents
+        Start-Sleep -Seconds 8
+        Write-Host "[OK] Pool stopped: $env:APP_POOL_NAME"
+
+    - name: Backup current deployment (keep last 1)
+      shell: powershell
+      run: |
+        $backupRoot = "D:\Websites\Backups\$env:APP_POOL_NAME"
+        $fileCount  = (Get-ChildItem -Path $env:WEBSITE_PATH -File -ErrorAction SilentlyContinue).Count
+        if ($fileCount -gt 0) {
+          New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+          Get-ChildItem -Path $backupRoot -Directory | Sort-Object Name -Descending |
+            Select-Object -Skip 1 | ForEach-Object { Remove-Item -Recurse -Force $_.FullName }
+          $backupPath = Join-Path $backupRoot (Get-Date -Format 'yyyyMMdd_HHmmss')
+          Get-ChildItem -Path $env:WEBSITE_PATH | Where-Object { $_.Name -notin @('logs') } |
+            ForEach-Object { Copy-Item -Path $_.FullName -Destination $backupPath -Recurse -Force }
+          Write-Host "[OK] Backed up to: $backupPath"
+        }
+
+    - name: Deploy files to IIS
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Stop"
+        if (-not (Test-Path $env:PUBLISH_PATH)) { Write-Error "Publish path not found: $env:PUBLISH_PATH"; exit 1 }
+        if ((Get-ChildItem -Path $env:PUBLISH_PATH -Recurse -File).Count -eq 0) { Write-Error "No files in publish path"; exit 1 }
+        Copy-Item -Path "$env:PUBLISH_PATH\*" -Destination $env:WEBSITE_PATH -Recurse -Force
+        if (-not (Test-Path (Join-Path $env:WEBSITE_PATH $env:DLL_NAME))) {
+          Write-Error "Critical DLL not found after deploy: $env:DLL_NAME"; exit 1
+        }
+        # Remove the offline marker — site comes back once the pool starts
+        $offline = Join-Path $env:WEBSITE_PATH "app_offline.htm"
+        if (Test-Path $offline) { Remove-Item $offline -Force }
+        Write-Host "[OK] Web deployed to: $env:WEBSITE_PATH"
+
+    - name: Start app pool (always — even on deploy failure)
+      if: always()
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Continue"
+        Import-Module WebAdministration
+        # Safety net: remove offline marker if deploy failed mid-copy
+        $offline = Join-Path $env:WEBSITE_PATH "app_offline.htm"
+        if (Test-Path $offline) { Remove-Item $offline -Force -ErrorAction SilentlyContinue }
+        $deadline = (Get-Date).AddSeconds(30)
+        while ((Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value -notin @("Stopped","Started","Unknown")) {
+          if ((Get-Date) -gt $deadline) { break }
+          Start-Sleep -Seconds 2
+        }
+        if ((Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value -ne "Started") {
+          Start-WebAppPool -Name $env:APP_POOL_NAME
+        }
+        Write-Host "[OK] App pool running: $env:APP_POOL_NAME"
+
+    - name: Health check (pool state)
+      shell: powershell
+      run: |
+        Start-Sleep -Seconds 5
+        Import-Module WebAdministration
+        $state = (Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value
+        if ($state -ne "Started") { Write-Error "Pool in unexpected state: $state"; exit 1 }
+        Write-Host "[OK] Pool confirmed Started."
+
+  # ---------------------------------------------------------------------------
+  # 4. Deploy API — runs after deploy-web (strictly sequential).
+  #    Artifact cleanup happens here since both deploy jobs share the folder.
+  # ---------------------------------------------------------------------------
+  deploy-api:
+    name: Deploy API
+    needs: deploy-web
+    if: github.ref == 'refs/heads/main'
+    runs-on: [wte_apps3]
+    environment: production
+
+    env:
+      PUBLISH_PATH:      D:\Websites\DeploymentArtifacts\LOTV\${{ github.run_id }}\api
+      WEBSITE_PATH:      D:\websites\LOTV\api
+      APP_POOL_NAME:     LOTV_API
+      SITE_NAME:         LOTV_API
+      DLL_NAME:          Lotv.Api.dll
+      BINDING_PROTOCOL:  http
+      BINDING_PORT:      80
+      BINDING_HOST:      lotv_api.wte.net
+
+    steps:
+    - name: Deployment summary header
+      shell: powershell
+      run: |
+        "## Deploy API" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        "- Physical Path: $env:WEBSITE_PATH" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        "- App Pool: $env:APP_POOL_NAME" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        "- Commit: ${{ github.sha }}" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+    - name: Take API offline (app_offline.htm + stop pool)
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Stop"
+        Import-Module WebAdministration
+
+        if (Test-Path $env:WEBSITE_PATH) {
+          $html = @(
+            '<!doctype html><html><head><meta charset="utf-8">',
+            '<title>LOTV API — updating</title>',
+            '</head><body><p>API update in progress. Please retry in a moment.</p></body></html>'
+          ) -join ""
+          Set-Content -Path (Join-Path $env:WEBSITE_PATH "app_offline.htm") -Value $html -Encoding UTF8 -Force
+          Start-Sleep -Seconds 3
+        }
+
+        if ((Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value -ne "Stopped") {
+          Stop-WebAppPool -Name $env:APP_POOL_NAME
+        }
+        $deadline = (Get-Date).AddSeconds(90)
+        $killAt   = (Get-Date).AddSeconds(60)
+        $killed   = $false
+        while ((Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value -notin @("Stopped","Unknown")) {
+          if (-not $killed -and (Get-Date) -gt $killAt) {
+            Get-Process -Name "w3wp" -ErrorAction SilentlyContinue | ForEach-Object { $_.Kill() }
+            $killed = $true
+          }
+          if ((Get-Date) -gt $deadline) { Write-Error "Timed out waiting for pool to stop"; exit 1 }
+          Start-Sleep -Seconds 2
+        }
+        Start-Sleep -Seconds 8
+        Write-Host "[OK] Pool stopped: $env:APP_POOL_NAME"
+
+    - name: Backup current deployment (keep last 1)
+      shell: powershell
+      run: |
+        $backupRoot = "D:\Websites\Backups\$env:APP_POOL_NAME"
+        $fileCount  = (Get-ChildItem -Path $env:WEBSITE_PATH -File -ErrorAction SilentlyContinue).Count
+        if ($fileCount -gt 0) {
+          New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+          Get-ChildItem -Path $backupRoot -Directory | Sort-Object Name -Descending |
+            Select-Object -Skip 1 | ForEach-Object { Remove-Item -Recurse -Force $_.FullName }
+          $backupPath = Join-Path $backupRoot (Get-Date -Format 'yyyyMMdd_HHmmss')
+          Get-ChildItem -Path $env:WEBSITE_PATH | Where-Object { $_.Name -notin @('logs') } |
+            ForEach-Object { Copy-Item -Path $_.FullName -Destination $backupPath -Recurse -Force }
+          Write-Host "[OK] Backed up to: $backupPath"
+        }
+
+    - name: Deploy files to IIS
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Stop"
+        if (-not (Test-Path $env:PUBLISH_PATH)) { Write-Error "Publish path not found: $env:PUBLISH_PATH"; exit 1 }
+        if ((Get-ChildItem -Path $env:PUBLISH_PATH -Recurse -File).Count -eq 0) { Write-Error "No files in publish path"; exit 1 }
+        Copy-Item -Path "$env:PUBLISH_PATH\*" -Destination $env:WEBSITE_PATH -Recurse -Force
+        if (-not (Test-Path (Join-Path $env:WEBSITE_PATH $env:DLL_NAME))) {
+          Write-Error "Critical DLL not found after deploy: $env:DLL_NAME"; exit 1
+        }
+        $offline = Join-Path $env:WEBSITE_PATH "app_offline.htm"
+        if (Test-Path $offline) { Remove-Item $offline -Force }
+        Write-Host "[OK] API deployed to: $env:WEBSITE_PATH"
+
+    - name: Cleanup old API logs (7-day retention)
+      shell: powershell
+      run: |
+        $logsPath = Join-Path $env:WEBSITE_PATH "logs"
+        if (-not (Test-Path $logsPath)) { exit 0 }
+        $cutoff = (Get-Date).AddDays(-7)
+        $old = Get-ChildItem -Path $logsPath -File | Where-Object { $_.LastWriteTime -lt $cutoff }
+        if ($old) { $old | Remove-Item -Force; Write-Host "Removed $($old.Count) old log file(s)." }
+
+    - name: Start app pool (always — even on deploy failure)
+      if: always()
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Continue"
+        Import-Module WebAdministration
+        $offline = Join-Path $env:WEBSITE_PATH "app_offline.htm"
+        if (Test-Path $offline) { Remove-Item $offline -Force -ErrorAction SilentlyContinue }
+        $deadline = (Get-Date).AddSeconds(30)
+        while ((Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value -notin @("Stopped","Started","Unknown")) {
+          if ((Get-Date) -gt $deadline) { break }
+          Start-Sleep -Seconds 2
+        }
+        if ((Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value -ne "Started") {
+          Start-WebAppPool -Name $env:APP_POOL_NAME
+        }
+        Write-Host "[OK] App pool running: $env:APP_POOL_NAME"
+
+    - name: Health check (pool state + API /health endpoint)
+      shell: powershell
+      run: |
+        Start-Sleep -Seconds 10
+        Import-Module WebAdministration
+        $state = (Get-WebAppPoolState -Name $env:APP_POOL_NAME).Value
+        if ($state -ne "Started") { Write-Error "Pool in unexpected state: $state"; exit 1 }
+        Write-Host "[OK] Pool confirmed Started."
+        # HTTP health check (advisory — pool state is the real gate)
+        try {
+          $resp = Invoke-WebRequest -Uri "http://$env:BINDING_HOST/health" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+          Write-Host "[OK] /health responded: HTTP $($resp.StatusCode)"
+        } catch {
+          Write-Host "::warning::/health check failed (pool is running — may still be warming up): $_"
+        }
+
+    - name: Cleanup publish artifacts (always)
+      if: always()
+      shell: powershell
+      run: |
+        $artifactRoot = "D:\Websites\DeploymentArtifacts\LOTV"
+        if (Test-Path $artifactRoot) {
+          Get-ChildItem -Path $artifactRoot -Directory |
+            ForEach-Object { Remove-Item -Recurse -Force $_.FullName; Write-Host "[OK] Cleaned: $($_.Name)" }
+        }
+
+  # ---------------------------------------------------------------------------
+  # 5. Tag + release.
+  # ---------------------------------------------------------------------------
+  tag-and-release:
+    name: Tag + Release
+    needs: [deploy-web, deploy-api]
+    if: github.ref == 'refs/heads/main'
+    runs-on: [wte_apps3]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Create GitHub release
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: prod-${{ github.run_number }}
+        name: Production Release ${{ github.run_number }}
+        generate_release_notes: true
+        make_latest: true
+
+  # ---------------------------------------------------------------------------
+  # 6. Email notification — always runs, reports all job results.
+  # ---------------------------------------------------------------------------
+  send-notification:
+    name: Send Notification
+    needs: [build-and-test, run-migrations, deploy-web, deploy-api]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Fetch most recently merged PR description
+      id: pr-body
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        PR_BODY=$(gh api \
+          "repos/${{ github.repository }}/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=5" \
+          --jq '[.[] | select(.merged_at != null)] | first | .body // "(no PR description)"' 2>/dev/null || echo "(unavailable)")
+        echo "body<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$PR_BODY" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+
+    - name: Send deployment notification email
+      shell: bash
+      env:
+        BUILD_RESULT:      ${{ needs.build-and-test.result }}
+        MIGRATE_RESULT:    ${{ needs.run-migrations.result }}
+        WEB_RESULT:        ${{ needs.deploy-web.result }}
+        API_RESULT:        ${{ needs.deploy-api.result }}
+        PR_BODY:           ${{ steps.pr-body.outputs.body }}
+        FROM_ADDR:         ${{ secrets.NOTIFICATION_EMAIL_FROM }}
+        TO_ADDR:           ${{ secrets.NOTIFICATION_EMAIL_RECIPIENTS }}
+        SMTP_USER:         ${{ secrets.NOTIFICATION_EMAIL_USERNAME }}
+        SMTP_PASS:         ${{ secrets.NOTIFICATION_EMAIL_PASSWORD }}
+        SMTP_SERVER:       ${{ secrets.SMTP_SERVER }}
+        SMTP_PORT:         ${{ secrets.SMTP_PORT }}
+      run: |
+        label() { [ "$1" == "success" ] && echo "✅ Passed" || ([ "$1" == "skipped" ] && echo "⏭️ Skipped" || echo "❌ Failed"); }
+
+        if [ "$WEB_RESULT" == "success" ] && [ "$API_RESULT" == "success" ]; then
+          STATUS="✅ SUCCESSFUL"; PRIORITY=""
+        else
+          STATUS="❌ FAILED"
+          PRIORITY="X-Priority: 1\r\nX-MSMail-Priority: High\r\nImportance: High\r\n"
+        fi
+
+        SHORT_SHA="${{ github.sha }}"
+        SHORT_SHA="${SHORT_SHA:0:7}"
+        RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+        printf 'From: "LOTV Deployments" <%s>\r\n' "$FROM_ADDR"       > email.txt
+        printf 'To: %s\r\n' "$TO_ADDR"                               >> email.txt
+        printf 'Subject: %s LOTV Deploy #${{ github.run_number }}\r\n' "$STATUS" >> email.txt
+        [ -n "$PRIORITY" ] && printf '%b' "$PRIORITY"                >> email.txt
+        printf 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n' >> email.txt
+        printf 'LOTV Production Deployment %s\r\n\r\n' "$STATUS"     >> email.txt
+        printf 'Repository:   %s\r\n' "${{ github.repository }}"    >> email.txt
+        printf 'Branch:       %s\r\n' "${{ github.ref_name }}"      >> email.txt
+        printf 'Commit:       %s\r\n' "$SHORT_SHA"                  >> email.txt
+        printf 'Run #:        %s\r\n' "${{ github.run_number }}"    >> email.txt
+        printf 'Triggered by: %s\r\n\r\n' "${{ github.actor }}"     >> email.txt
+        printf 'Build + Test:    %s\r\n' "$(label "$BUILD_RESULT")"   >> email.txt
+        printf 'DB Migrations:   %s\r\n' "$(label "$MIGRATE_RESULT")" >> email.txt
+        printf 'Web Deploy:      %s\r\n' "$(label "$WEB_RESULT")"     >> email.txt
+        printf 'API Deploy:      %s\r\n' "$(label "$API_RESULT")"     >> email.txt
+        printf '\r\nChanges in this deploy:\r\n%s\r\n' "$PR_BODY"    >> email.txt
+        printf '\r\nDetails: %s\r\n' "$RUN_URL"                      >> email.txt
+        printf '\r\n---\r\nAutomated notification from GitHub Actions\r\n' >> email.txt
+
+        RCPT_FLAGS=""
+        IFS=',' read -ra RECIPIENTS <<< "$TO_ADDR"
+        for r in "${RECIPIENTS[@]}"; do
+          r=$(echo "$r" | xargs)
+          RCPT_FLAGS="$RCPT_FLAGS --mail-rcpt $r"
+        done
+
+        curl --url "smtp://${SMTP_SERVER:-smtp.socketlabs.com}:${SMTP_PORT:-587}" \
+          --ssl-reqd \
+          --mail-from "$FROM_ADDR" \
+          $RCPT_FLAGS \
+          --user "$SMTP_USER:$SMTP_PASS" \
+          --upload-file email.txt --verbose || exit 0
+      continue-on-error: true
