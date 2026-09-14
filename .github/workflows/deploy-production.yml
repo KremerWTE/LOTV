@@ -1,9 +1,14 @@
+# DISABLED 2026-09-14 — Azure production environment does not exist; superseded
+# by deploy-to-iis.yml which deploys to IIS on wte_apps3.
+# To re-enable: restore the `on:` trigger and update secrets/environment refs.
 name: Deploy — Production
 
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'   # triggers on v1.0.0, v1.2.3, etc.
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type ENABLE to run (workflow is disabled)"
+        required: true
 
 jobs:
   deploy-production:
@@ -15,10 +20,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup .NET 9
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Run tests (gate)
         run: dotnet test Lotv.slnx --configuration Release --no-restore

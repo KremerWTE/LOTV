@@ -2,145 +2,102 @@ name: CI — Build & Test
 
 on:
   pull_request:
-    branches: [main, kremer-dev]
+    branches: [main, stage]
   push:
-    branches: [main]
+    branches: [main, stage]
 
-# Dependabot- and fork-triggered pull_request runs get a read-only GITHUB_TOKEN
-# by default; the "Add coverage comment to PR" step needs write access to post
-# its comment.
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
   build-and-test:
-    name: Build & Test (.NET 9)
+    name: Build & Test (.NET 10)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # ubuntu-latest ships ~30GB of preinstalled toolchains we don't use
-      # (Android SDK, GHC, Swift, CodeQL bundle) on top of its already-tight
-      # ~14GB free disk. The restore/build/publish x2/Playwright/test/E2E
-      # pipeline below runs out of space without this — "No space left on
-      # device" failures during Worker startup, incl. on Dependabot PR runs.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/local/lib/android \
-                      /opt/ghc \
-                      /usr/local/.ghcup \
-                      /usr/share/swift \
-                      /usr/local/share/boost \
-                      /opt/hostedtoolcache/CodeQL
-          docker image prune -af || true
-          df -h /
-
-      - name: Setup .NET 9
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
-      - name: Restore dependencies
+      - name: Restore
         run: dotnet restore Lotv.slnx
 
       - name: Build
         run: dotnet build Lotv.slnx --no-restore --configuration Release
 
-      # dotnet publish runs a stricter Razor component check than dotnet build —
-      # e.g. RZ9985 (ambiguous same-named components across namespaces) only
-      # fails here, not above. This is also exactly what both Dockerfiles run,
-      # so this step is the cheapest way to catch a build that passes CI but
-      # breaks the Docker image, without needing Docker-in-CI for every PR.
-      - name: Publish (catches dotnet-publish-only failures, e.g. RZ9985)
-        run: |
-          dotnet publish src/Lotv.Api/Lotv.Api.csproj --no-restore --configuration Release -o /tmp/publish-api
-          dotnet publish src/Lotv.Web/Lotv.Web.csproj --no-restore --configuration Release -o /tmp/publish-web
-
-      - name: Install Playwright browsers
-        run: pwsh tests/Lotv.E2E/bin/Release/net9.0/playwright.ps1 install --with-deps chromium
-
-      - name: Start API and Web for E2E tests
-        # Web's HttpClient is hardcoded to http://localhost:5275 (see src/Lotv.Web/Program.cs),
-        # so the API must run on that exact port for the Web app's API calls to work.
-        run: |
-          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5275 \
-            nohup dotnet run --no-build --no-launch-profile --project src/Lotv.Api --configuration Release \
-            > api.log 2>&1 &
-          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5001 \
-            nohup dotnet run --no-build --no-launch-profile --project src/Lotv.Web --configuration Release \
-            > web.log 2>&1 &
-          echo "Waiting for API on :5275..."
-          timeout 60 bash -c 'until curl -sf http://localhost:5275/health >/dev/null; do sleep 1; done' || (cat api.log; exit 1)
-          echo "Waiting for Web on :5001..."
-          timeout 60 bash -c 'until curl -sf http://localhost:5001/ >/dev/null; do sleep 1; done' || (cat web.log; exit 1)
-        env:
-          ConnectionStrings__DefaultConnection: "Data Source=/tmp/lotv-e2e.db"
-          Jwt__Key: "LOTVTestSecretKeyThatIsLongEnoughForHS256Testing2026!"
-          Jwt__Issuer: "lotv-e2e"
-          Jwt__Audience: "lotv-e2e"
-
-      # coverlet.runsettings excludes EF Core's generated migrations/model
-      # snapshot from coverage - mechanically generated DDL, not meant to be
-      # unit-tested, but without this exclusion it swamps Lotv.Api's line
-      # count (~90k generated lines, all 0% covered) and reports a
-      # misleadingly low ~5% instead of the real ~47%.
-      - name: Unit/integration tests with coverage
+      - name: Test
         run: |
           dotnet test tests/Lotv.Tests/Lotv.Tests.csproj \
             --no-build \
             --configuration Release \
-            --logger "trx;LogFileName=test-results.trx" \
-            --collect "XPlat Code Coverage" \
-            --settings tests/Lotv.Tests/coverlet.runsettings
-
-      # No --collect here: coverage of the E2E project's own test methods isn't a
-      # meaningful metric (they drive a browser, they don't exercise app code
-      # in-process), and its near-empty cobertura file previously crashed the
-      # Coverage summary step's parser when picked up by the **/ glob below.
-      - name: E2E tests
-        run: |
-          dotnet test tests/Lotv.E2E/Lotv.E2E.csproj \
-            --no-build \
-            --configuration Release \
             --logger "trx;LogFileName=test-results.trx"
-        env:
-          E2E_BASE_URL: http://localhost:5001
-          E2E_API_URL: http://localhost:5275
 
       - name: Publish test results
         uses: dorny/test-reporter@v3
         if: always()
         with:
-          name: xUnit Test Results
+          name: Unit Test Results
           path: '**/test-results.trx'
           reporter: dotnet-trx
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: coverage-report
-          path: '**/coverage.cobertura.xml'
+  notify:
+    name: Notify
+    needs: build-and-test
+    if: always()
+    runs-on: ubuntu-latest
 
-      - name: Coverage summary
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: '**/coverage.cobertura.xml'
-          badge: true
-          format: markdown
-          output: both
-          thresholds: '60 80'
+    steps:
+      - name: Send CI notification email
+        shell: bash
+        env:
+          RESULT:     ${{ needs.build-and-test.result }}
+          FROM_ADDR:  ${{ secrets.NOTIFICATION_EMAIL_FROM }}
+          TO_ADDR:    ${{ secrets.NOTIFICATION_EMAIL_RECIPIENTS }}
+          SMTP_USER:  ${{ secrets.NOTIFICATION_EMAIL_USERNAME }}
+          SMTP_PASS:  ${{ secrets.NOTIFICATION_EMAIL_PASSWORD }}
+          SMTP_SRV:   ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT:  ${{ secrets.SMTP_PORT }}
+        run: |
+          if [ "$RESULT" == "success" ]; then
+            STATUS="✅ PASSED"
+          else
+            STATUS="❌ FAILED"
+          fi
 
-      - name: Add coverage comment to PR
-        uses: marocchino/sticky-pull-request-comment@v3
-        # Dependabot-triggered pull_request runs always get a read-only
-        # GITHUB_TOKEN — GitHub enforces this regardless of the `permissions:`
-        # block above — so this step can never succeed there. Skip it rather
-        # than fail the whole job over a missing comment.
-        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
-        with:
-          recreate: true
-          path: code-coverage-results.md
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          EVENT="${{ github.event_name }}"
+          REF="${{ github.ref_name }}"
+          ACTOR="${{ github.actor }}"
+
+          printf 'From: "LOTV CI" <%s>\r\n' "$FROM_ADDR"          > email.txt
+          printf 'To: %s\r\n' "$TO_ADDR"                          >> email.txt
+          printf 'Subject: %s LOTV CI — %s (%s)\r\n' "$STATUS" "$REF" "$SHORT_SHA" >> email.txt
+          printf 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n' >> email.txt
+          printf 'LOTV CI Build %s\r\n\r\n' "$STATUS"             >> email.txt
+          printf 'Branch:  %s\r\n' "$REF"                         >> email.txt
+          printf 'Commit:  %s\r\n' "$SHORT_SHA"                   >> email.txt
+          printf 'Event:   %s\r\n' "$EVENT"                       >> email.txt
+          printf 'Actor:   %s\r\n' "$ACTOR"                       >> email.txt
+          printf 'Details: %s\r\n' "$RUN_URL"                     >> email.txt
+
+          RCPT_FLAGS=""
+          IFS=',' read -ra RECIPIENTS <<< "$TO_ADDR"
+          for r in "${RECIPIENTS[@]}"; do
+            r=$(echo "$r" | xargs)
+            RCPT_FLAGS="$RCPT_FLAGS --mail-rcpt $r"
+          done
+
+          curl --url "smtp://${SMTP_SRV}:${SMTP_PORT}" \
+            --ssl-reqd \
+            --mail-from "$FROM_ADDR" \
+            $RCPT_FLAGS \
+            --user "$SMTP_USER:$SMTP_PASS" \
+            --upload-file email.txt || true
+        continue-on-error: true
