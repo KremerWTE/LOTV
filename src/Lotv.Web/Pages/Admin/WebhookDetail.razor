@@ -62,15 +62,8 @@ else
       <div class="panel-head"><h3>Actions</h3></div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
         <div style="font-size:.84rem;color:var(--text-mid);line-height:1.6;">
-          Webhook events are received from external payment providers (Stripe, GiveButter) and logged for audit purposes. They can be replayed if processing failed.
+          Webhook events are received from external providers (GiveButter, Duda) and logged for audit purposes.
         </div>
-        <button class="btn btn-sm btn-primary" @onclick="Replay" disabled="@_replayBusy">
-          @(_replayBusy ? "Replaying…" : "🔁 Replay Event")
-        </button>
-        @if (!string.IsNullOrEmpty(_replayResult))
-        {
-          <div style="font-size:.82rem;color:@(_replayOk ? "var(--green)" : "var(--red)");font-weight:600;">@_replayResult</div>
-        }
       </div>
     </div>
   </div>
@@ -95,22 +88,12 @@ else
   [Inject] private IJSRuntime JS { get; set; } = default!;
 
   private ApiService.WebhookEventDetail? _event;
-  private bool _loading = true, _replayBusy, _replayOk;
-  private string _replayResult = "";
+  private bool _loading = true;
 
   protected override async Task OnInitializedAsync()
   {
     _event = await Api.GetWebhookEventAsync(Id);
     _loading = false;
-  }
-
-  private async Task Replay()
-  {
-    _replayBusy = true;
-    var ok = await Api.ReplayWebhookAsync(Id);
-    _replayOk = ok;
-    _replayResult = ok ? "Event queued for replay." : "Replay failed. Check API logs.";
-    _replayBusy = false;
   }
 
   private async Task CopyPayload()

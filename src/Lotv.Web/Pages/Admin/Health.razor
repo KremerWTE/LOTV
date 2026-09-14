@@ -125,7 +125,6 @@ else
             else { <span style="color:var(--green-dark);">none</span> }
           </div>
           <div><strong>Webhook events (7d):</strong> @_diag.WebhookEvents7d</div>
-          <div><strong>Donors w/ Stripe Customer:</strong> @_diag.DonorsWithStripeCustomer</div>
         </div>
       </div>
     }
@@ -166,7 +165,7 @@ else
     ("DB Provider", "SQLite (dev) / SQL Server (prod)"),
     ("Auth", "JWT Bearer"),
     ("Email", "SendGrid"),
-    ("Payments", "Stripe"),
+    ("Payments", "GiveButter"),
     ("Real-time", "SignalR")
   ];
 
@@ -201,7 +200,7 @@ else
       new("Authentication (JWT)", "Healthy", "Token issuance and validation working", 2),
       new("SignalR Hub", "Healthy", "RequestsHub broadcasting normally", 12),
       new("Email (SendGrid)", "Healthy", "SMTP relay connected, queue empty", 45),
-      new("Payment (Stripe)", "Healthy", "Webhook endpoint reachable, last event processed < 1 min ago", 60),
+      new("Payment (GiveButter)", "Healthy", "Webhook endpoint reachable, last event processed < 1 min ago", 60),
       new("Blob Storage", "Healthy", "Azure Blob Storage accessible, receipts container mounted", 22),
       new("Background Jobs", "Healthy", "Hangfire scheduler running, next digest in 14h 22m", 5)
     ]);

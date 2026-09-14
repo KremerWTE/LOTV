@@ -1,0 +1,83 @@
+@page "/admin/reports-hub"
+@layout AdminLayout
+@inject AuthService Auth
+
+<PageTitle>Reports — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Reports</h2>
+    <p>Mission, financial, and operational reporting</p>
+  </div>
+</div>
+
+<div class="tab-bar" style="display:flex;gap:4px;margin-bottom:20px;background:white;border:1px solid var(--border);border-radius:var(--radius, 10px);padding:4px;width:fit-content;flex-wrap:wrap;">
+  @foreach (var t in _tabs)
+  {
+    <button class="tab-btn @(_active == t.Key ? "active" : "")"
+            style="padding:8px 16px;border-radius:7px;border:none;background:@(_active == t.Key ? "var(--green)" : "none");color:@(_active == t.Key ? "white" : "var(--text-mid)");font-size:.85rem;font-weight:500;cursor:pointer;"
+            @onclick="() => _active = t.Key">
+      @t.Label
+    </button>
+  }
+</div>
+
+@switch (_active)
+{
+  case "resource-flow":
+    <ImpactDashboard />
+    break;
+  case "outcomes":
+    <ImpactReport />
+    break;
+  case "health-score":
+    <MinistryHealthScore />
+    break;
+  case "forecast":
+    <ResourceForecast />
+    break;
+  case "export":
+    <Export />
+    break;
+  case "audit":
+    <AuditLog />
+    break;
+  case "chapter-analytics":
+    <ChapterAnalytics />
+    break;
+  case "goals":
+    <MonthlyGoalTracker />
+    break;
+}
+
+@code {
+  private record TabDef(string Key, string Label);
+
+  // Financial Overview and Scheduled Reports already have their own hubs
+  // (/admin/financial-hub, /admin/reports/schedule-hub) — kept as separate
+  // top-level sidebar links rather than nested a third level deep here.
+  // Matches the same role gates AdminLayout used to apply per sidebar link:
+  // Export required _canSeeDonations, Audit/Chapter Analytics/Goals required
+  // _isAdmin. Filtered here so a lower-role user doesn't see tabs whose
+  // underlying page would just come back empty/unauthorized.
+  private bool _isAdmin => Auth.UserRole is "HQAdmin" or "ChapterAdmin";
+  private bool _canSeeDonations => Auth.UserRole is "HQAdmin" or "ChapterAdmin";
+
+  private List<TabDef> _tabs => new List<TabDef>
+  {
+    new("resource-flow", "Money & Resource Flow"),
+    new("outcomes", "Mission Outcomes"),
+    new("health-score", "Ministry Health Score"),
+    new("forecast", "Resource Forecast"),
+  }
+  .Concat(_canSeeDonations ? new[] { new TabDef("export", "Export Data") } : [])
+  .Concat(_isAdmin ? new[]
+  {
+    new TabDef("audit", "Audit Log"),
+    new TabDef("chapter-analytics", "Chapter Analytics"),
+    new TabDef("goals", "Goal Tracker"),
+  } : [])
+  .ToList();
+
+  private string _active = "resource-flow";
+}

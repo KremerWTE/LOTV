@@ -1,278 +1,65 @@
 @page "/give"
 @layout PublicLayout
-@inject ApiService Api
-@inject IJSRuntime JS
 
 <PageTitle>Donate — Lily of the Valley Ministry</PageTitle>
 
-@if (_submitted)
-{
-  <div style="max-width:580px;margin:80px auto;padding:0 24px;text-align:center;">
-    <div style="font-size:3rem;margin-bottom:16px;">💕</div>
-    <h2 style="font-family:var(--ff-head);font-size:1.8rem;color:var(--navy);margin:0 0 14px;">Thank you for your gift.</h2>
-    <p style="color:var(--text-mid);font-size:.96rem;line-height:1.7;margin:0 0 24px;">
-      Your generosity makes it possible to send comfort packages to families in their darkest moments.
-      @if (!string.IsNullOrEmpty(_dedicationMsg))
-      {
-        <span> Your gift in memory of <strong>@_dedicationMsg</strong> will be honored.</span>
-      }
+<!-- HERO -->
+<div style="background:var(--navy);color:white;padding:52px 24px 44px;text-align:center;">
+  <div style="max-width:540px;margin:0 auto;">
+    <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 12px;">Support a Grieving Family</h1>
+    <p style="color:rgba(255,255,255,.8);font-size:.94rem;line-height:1.7;margin:0;">
+      Every gift funds a hand-assembled comfort package delivered free of charge to a family navigating pregnancy or infant loss.
     </p>
-    <div style="background:var(--green-pale);border-radius:12px;padding:20px 24px;margin-bottom:28px;font-size:.88rem;color:var(--text-mid);line-height:1.7;">
-      <strong style="color:var(--navy);">Gift summary:</strong><br />
-      Amount: <strong>@_confirmedAmount.ToString("C0")</strong>
-      @if (_confirmedRecurring)
-      { <span> / month (recurring)</span> }
-      <br />Donor: <strong>@_confirmedName</strong>
-    </div>
-    <a href="/" style="padding:12px 28px;background:var(--navy);color:white;border-radius:9px;font-weight:700;font-size:.9rem;text-decoration:none;">Return Home</a>
   </div>
-}
-else
-{
-  <!-- HERO -->
-  <div style="background:var(--navy);color:white;padding:52px 24px 44px;text-align:center;">
-    <div style="max-width:540px;margin:0 auto;">
-      <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 12px;">Support a Grieving Family</h1>
-      <p style="color:rgba(255,255,255,.8);font-size:.94rem;line-height:1.7;margin:0;">
-        Every gift funds a hand-assembled comfort package delivered free of charge to a family navigating pregnancy or infant loss.
-      </p>
+</div>
+
+<!-- DONATION WIDGET -->
+<!--
+  All donations go through GiveButter — the same real widget (id "Lv36Zg")
+  used on lotvministry.org/donate/ and on the Duda prayer-care intake form's
+  confirmation screen. GiveButter's own checkout collects donor name/email/
+  card and handles recurring frequency; LOTV's database picks up completed
+  donations automatically via the GiveButter webhook
+  (POST /api/v1/payments/givebutter/webhook -> Donor/Donation records),
+  so this page doesn't need its own donor-info form or payment collection.
+-->
+<div style="max-width:640px;margin:48px auto 80px;padding:0 24px;">
+  <div class="donate-card" style="background:white;border-radius:14px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(0,0,0,.06);padding:36px 40px;">
+    <div id="lotv-givebutter-widget">
+      <script async data-wp-strategy="async" id="givebutter-widget-library-js"
+              src="https://widgets.givebutter.com/latest.umd.cjs?acct=esQKeyJhOUHIb71A&p=wordpress"></script>
+      <givebutter-widget id="Lv36Zg"></givebutter-widget>
     </div>
+    <p style="font-size:.76rem;color:var(--text-light);text-align:center;margin:20px 0 0;line-height:1.6;">
+      LOTV Ministry is a 501(c)(3) non-profit organization.
+    </p>
   </div>
+</div>
 
-  <!-- FORM -->
-  <div style="max-width:640px;margin:48px auto 80px;padding:0 24px;">
-    <div style="background:white;border-radius:14px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(0,0,0,.06);padding:36px 40px;">
-
-      <!-- AMOUNT SELECTOR -->
-      <div style="margin-bottom:28px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Gift Amount</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;" role="group" aria-label="Preset gift amounts">
-          @foreach (var preset in new[]{25m, 50m, 100m, 250m})
-          {
-            <button style="padding:12px 8px;border:2px solid @(_amount == preset ? "var(--green)" : "var(--border)");background:@(_amount == preset ? "var(--green-pale)" : "white");border-radius:9px;font-weight:700;font-size:.94rem;color:@(_amount == preset ? "var(--green)" : "var(--text-mid)");cursor:pointer;"
-                    aria-label="Give @preset.ToString("C0")" aria-pressed="@(_amount == preset)"
-                    @onclick='() => SelectAmount(preset)'>
-              @preset.ToString("C0")
-            </button>
-          }
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="give-custom">Custom amount</label>
-          <div style="position:relative;">
-            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-mid);font-weight:600;" aria-hidden="true">$</span>
-            <input id="give-custom" class="form-input" type="number" min="1" style="padding-left:26px;"
-                   value="@(_customAmount?.ToString() ?? "")"
-                   placeholder="Other amount"
-                   aria-label="Custom gift amount in dollars"
-                   @onchange='e => SetCustomAmount(e.Value?.ToString())' />
-          </div>
-        </div>
-        <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
-          <input type="checkbox" id="chk-recurring" @bind="_recurring" />
-          <label for="chk-recurring" style="font-size:.86rem;color:var(--text-mid);cursor:pointer;">
-            Make this a <strong>monthly recurring gift</strong>
-          </label>
-        </div>
-      </div>
-
-      <!-- DONOR INFO -->
-      <div style="margin-bottom:28px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Information</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;">
-          <div class="form-group">
-            <label class="form-label" for="give-first-name">First Name *</label>
-            <input id="give-first-name" class="form-input" @bind="_firstName" placeholder="First" aria-required="true" autocomplete="given-name" />
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="give-last-name">Last Name *</label>
-            <input id="give-last-name" class="form-input" @bind="_lastName" placeholder="Last" aria-required="true" autocomplete="family-name" />
-          </div>
-        </div>
-        <div class="form-group" style="margin-top:12px;">
-          <label class="form-label" for="give-email">Email *</label>
-          <input id="give-email" class="form-input" type="email" @bind="_email" placeholder="you@example.com" aria-required="true" autocomplete="email" />
-        </div>
-        <div class="form-group" style="margin-top:12px;">
-          <label class="form-label" for="give-parish">Parish / Diocese (optional)</label>
-          <input id="give-parish" class="form-input" @bind="_parish" placeholder="e.g. St. Joseph's, Chicago" />
-        </div>
-      </div>
-
-      <!-- DEDICATION -->
-      <div style="margin-bottom:28px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Dedication (optional)</div>
-        <div class="form-group">
-          <label class="form-label" for="give-dedication">In memory / honor of</label>
-          <input id="give-dedication" class="form-input" @bind="_dedicationMsg" placeholder="e.g. In memory of our little one, Baby Grace" />
-        </div>
-      </div>
-
-      @if (!string.IsNullOrEmpty(_error))
-      {
-        <div role="alert" aria-live="assertive" style="background:#fff3cd;border-radius:8px;padding:12px 16px;font-size:.86rem;color:#856404;margin-bottom:16px;">⚠ @_error</div>
-      }
-
-      <div style="background:var(--bg);border-radius:10px;padding:16px 18px;margin-bottom:20px;font-size:.86rem;color:var(--text-mid);">
-        <strong style="color:var(--navy);">Gift summary:</strong>
-        @if (_amount > 0)
-        {
-          <span> @_amount.ToString("C0") @(_recurring ? "/ month" : "one-time")</span>
-        }
-        else
-        {
-          <span style="color:var(--text-light);"> — select an amount above</span>
-        }
-      </div>
-
-      @if (_stripeReady)
-      {
-        <div style="margin:18px 0;">
-          <div id="stripe-card-element" style="padding:12px;border:1px solid var(--border);border-radius:8px;background:white;"></div>
-          @if (!string.IsNullOrEmpty(_stripeError))
-          {
-            <div role="alert" style="color:var(--red);font-size:.82rem;margin-top:8px;">@_stripeError</div>
-          }
-        </div>
-      }
-
-      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync" disabled="@_busy">
-        @(_busy ? "Processing…" : ((_recurring ? "Set Up Monthly Gift" : "Give Now") + " →"))
-      </button>
-
-      <p style="font-size:.76rem;color:var(--text-light);text-align:center;margin:14px 0 0;line-height:1.6;">
-        @if (_stripeMock)
-        {
-          <span>Payment processor not configured — demo mode (no charge).<br /></span>
-        }
-        else
-        {
-          <span>Secure payment via Stripe.<br /></span>
-        }
-        LOTV Ministry is a 501(c)(3) non-profit organization.
-      </p>
-    </div>
-  </div>
-}
-
-@code {
-  private decimal _amount;
-  private decimal? _customAmount;
-  private bool _recurring;
-  private string _firstName = "";
-  private string _lastName  = "";
-  private string _email     = "";
-  private string _parish    = "";
-  private string _dedicationMsg = "";
-  private string _error = "";
-
-  private bool _submitted;
-  private decimal _confirmedAmount;
-  private bool _confirmedRecurring;
-  private string _confirmedName = "";
-
-  private bool _stripeReady;
-  private bool _stripeMock = true;
-  private string _stripeError = "";
-  private string? _clientSecret;
-  private bool _busy;
-
-  private void SelectAmount(decimal preset)
-  {
-    _amount       = preset;
-    _customAmount = null;
+<script>
+// GiveButter's widget hardcodes its inner panel to max-width:440px via an
+// attribute on a nested custom element buried in its shadow DOM — not
+// reachable through normal CSS. Poll for it once the widget's own script has
+// mounted, then override the attribute so the panel fills this page's
+// donation card instead of leaving empty space. Fragile by design (reaches
+// into GiveButter's undocumented internal markup) — if their widget library
+// restructures this, the override silently stops applying rather than
+// breaking anything; the widget still renders correctly at its default width.
+(function widenGiveButterOnGivePage(attemptsLeft) {
+  var host = document.querySelector("#lotv-givebutter-widget givebutter-widget");
+  var inner = host && host.shadowRoot ? host.shadowRoot.querySelector("givebutter-giving-form") : null;
+  if (inner) {
+    // Both levels matter: the outer <givebutter-widget> host is otherwise
+    // shrink-wrapped to its content's natural size, so widening only the
+    // inner element (whose max-width:100% is relative to ITS container,
+    // i.e. the still-narrow host) has no visible effect on its own.
+    host.style.display = "block";
+    host.style.width = "100%";
+    inner.setAttribute("max-width", "100%");
+    inner.style.maxWidth = "100%";
+    inner.style.width = "100%";
+    return;
   }
-
-  private void SetCustomAmount(string? val)
-  {
-    if (decimal.TryParse(val, out var d) && d > 0)
-    {
-      _amount       = d;
-      _customAmount = d;
-    }
-  }
-
-  private async Task EnsureStripeAsync()
-  {
-    if (_stripeReady || _amount <= 0) return;
-    var intent = await Api.CreatePaymentIntentAsync(_amount);
-    if (intent is null) return;
-    _stripeMock = intent.Mock || string.IsNullOrEmpty(intent.ClientSecret);
-    _clientSecret = intent.ClientSecret;
-    if (!_stripeMock && !string.IsNullOrEmpty(intent.PublishableKey))
-    {
-      try
-      {
-        await JS.InvokeVoidAsync("lotvStripe.init", intent.PublishableKey);
-        await JS.InvokeVoidAsync("lotvStripe.mountCard", "#stripe-card-element", _clientSecret);
-        _stripeReady = true;
-      }
-      catch (Exception ex) { _stripeError = ex.Message; }
-    }
-  }
-
-  private async Task SubmitAsync()
-  {
-    if (_amount <= 0)             { _error = "Please select or enter a gift amount."; return; }
-    if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
-    { _error = "Please enter your first and last name."; return; }
-    if (string.IsNullOrWhiteSpace(_email))   { _error = "Please enter your email address."; return; }
-
-    _busy = true;
-    try
-    {
-      // Initialize Stripe lazily on first submit so the user has filled the form.
-      await EnsureStripeAsync();
-
-      if (_stripeReady && !_stripeMock)
-      {
-        var result = await JS.InvokeAsync<StripeConfirmResult>("lotvStripe.confirm", "/donate/confirm");
-        if (!result.Ok) { _stripeError = result.Error ?? "Payment failed."; return; }
-      }
-    }
-    finally { _busy = false; }
-    var __noop = false;
-    if (__noop) return;
-
-    var newDonor = new Donor
-    {
-      FirstName       = _firstName,
-      LastName        = _lastName,
-      Email           = _email,
-      ParishName      = string.IsNullOrEmpty(_parish) ? null : _parish,
-      IsRecurring     = _recurring,
-      RecurringAmount = _recurring ? _amount : null,
-      FirstGiftDate   = DateTime.UtcNow,
-      LastGiftDate    = DateTime.UtcNow,
-      TotalGiven      = _amount,
-      GiftCount       = 1,
-      Tier            = CalcTier(_amount)
-    };
-
-    var donation = new Donation
-    {
-      Amount      = _amount,
-      Date        = DateTime.UtcNow,
-      Channel     = DonationChannel.Online,
-      IsRecurring = _recurring,
-      Campaign    = string.IsNullOrEmpty(_dedicationMsg) ? null : _dedicationMsg
-    };
-
-    var ok = await Api.PublicGiveAsync(newDonor, donation);
-    if (!ok) { _error = "Unable to process your gift. Please try again."; return; }
-
-    _confirmedAmount    = _amount;
-    _confirmedRecurring = _recurring;
-    _confirmedName      = $"{_firstName} {_lastName}";
-    _submitted = true;
-  }
-
-  private static DonorTier CalcTier(decimal total) => total switch
-  {
-    >= 5000 => DonorTier.Benefactor,
-    >= 1000 => DonorTier.Champion,
-    >= 250  => DonorTier.Supporter,
-    _       => DonorTier.Friend
-  };
-
-  private record StripeConfirmResult(bool Ok, string? Error, string? PaymentIntentId);
-}
+  if (attemptsLeft > 0) setTimeout(function () { widenGiveButterOnGivePage(attemptsLeft - 1); }, 300);
+})(20);
+</script>

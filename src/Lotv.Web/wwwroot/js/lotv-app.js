@@ -142,33 +142,3 @@ function urlBase64ToUint8Array(base64) {
   return out;
 }
 
-// Stripe Elements thin wrapper. Caller passes publishable key + client secret.
-window.lotvStripe = {
-  _stripe: null,
-  _elements: null,
-  _card: null,
-  init: async function (publishableKey) {
-    if (!window.Stripe) {
-      await new Promise(function (resolve) {
-        var s = document.createElement('script');
-        s.src = 'https://js.stripe.com/v3/';
-        s.onload = resolve; document.head.appendChild(s);
-      });
-    }
-    this._stripe = Stripe(publishableKey);
-  },
-  mountCard: function (mountSelector, clientSecret) {
-    this._elements = this._stripe.elements({ clientSecret: clientSecret });
-    this._card = this._elements.create('payment');
-    this._card.mount(mountSelector);
-  },
-  confirm: async function (returnUrl) {
-    var result = await this._stripe.confirmPayment({
-      elements: this._elements,
-      confirmParams: { return_url: returnUrl },
-      redirect: 'if_required'
-    });
-    if (result.error) return { ok: false, error: result.error.message };
-    return { ok: true, paymentIntentId: result.paymentIntent ? result.paymentIntent.id : null };
-  }
-};

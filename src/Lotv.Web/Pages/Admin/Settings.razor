@@ -34,7 +34,7 @@
     }
     <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
       <p style="font-size:.84rem;color:var(--text-mid);margin:0 0 8px;">
-        Download an <code>appsettings.snippet.json</code> with placeholders for all integrations (Stripe, GiveButter, SendGrid, Twilio, VAPID, JWT).
+        Download an <code>appsettings.snippet.json</code> with placeholders for all integrations (GiveButter, SendGrid, Twilio, VAPID, JWT).
       </p>
       <button class="btn btn-sm" type="button" @onclick="DownloadAppsettings">&darr; Download appsettings.snippet.json</button>
     </div>
@@ -161,8 +161,7 @@
     var json = "{\n" +
       "  \"ConnectionStrings\": { \"Default\": \"Server=...;Database=lotv;User Id=...;Password=...\" },\n" +
       "  \"Jwt\": { \"Issuer\": \"https://api.lotv.org\", \"Audience\": \"lotv-web\", \"Key\": \"REPLACE_WITH_64_CHAR_RANDOM_SECRET\" },\n" +
-      "  \"Stripe\": { \"PublishableKey\": \"pk_live_...\", \"SecretKey\": \"sk_live_...\", \"WebhookSecret\": \"whsec_...\" },\n" +
-      "  \"GiveButter\": { \"WebhookSecret\": \"...\" },\n" +
+      "  \"GiveButter\": { \"ApiKey\": \"...\", \"WebhookSecret\": \"...\" },\n" +
       "  \"Push\": { \"VapidSubject\": \"mailto:admin@lotv.org\", \"VapidPublicKey\": \"<paste from generator>\", \"VapidPrivateKey\": \"<paste from generator>\" },\n" +
       "  \"SendGrid\": { \"ApiKey\": \"SG....\", \"FromEmail\": \"no-reply@lotv.org\", \"FromName\": \"LOTV Ministry\" },\n" +
       "  \"Twilio\": { \"AccountSid\": \"AC...\", \"AuthToken\": \"...\", \"FromNumber\": \"+1...\" },\n" +
