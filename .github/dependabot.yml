@@ -1,7 +1,11 @@
+# Disabled 2026-09-14 — NuGet vulnerability overrides are managed manually
+# in project csproj files; Dependabot PRs were creating noise without benefit.
+# Re-enable by restoring the `updates:` block below.
 version: 2
-updates:
-  # .NET NuGet packages
-  - package-ecosystem: nuget
+updates: []
+# updates:
+#   # .NET NuGet packages
+#   - package-ecosystem: nuget
     directory: /
     schedule:
       interval: weekly

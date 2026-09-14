@@ -1,10 +1,14 @@
+# DISABLED 2026-09-14 — Azure staging environment does not exist; superseded
+# by deploy-to-iis.yml which deploys to IIS on wte_apps3.
+# To re-enable: restore the `on:` trigger and update secrets/environment refs.
 name: Deploy — Staging
 
-# Disabled from auto-run on push: this repo has no staging environment yet
-# (DB_CONNECTION_STRING / Azure secrets aren't set). Trigger manually once
-# those exist, or restore the `push: branches: [main]` trigger below.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type ENABLE to run (workflow is disabled)"
+        required: true
 
 jobs:
   deploy-staging:
