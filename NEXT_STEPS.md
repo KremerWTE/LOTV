@@ -1,31 +1,27 @@
 # Next Steps — LOTV
 
-**Updated:** 2026-09-09 (session 3) | **Branch:** pateep_dev_branch | **Phase:** Phase 6 — Deployment & Launch
+**Updated:** 2026-09-14 (session 4) | **Branch:** pateep_dev_branch | **Phase:** Phase 6 — Deployment & Launch
 
 ---
 
 ## 🎯 Current Focus: Phase 6 — Deployment & Launch
 
-**Status:** IIS confirmed as deploy target. Email/SMTP secrets set. .NET 10 upgrade in progress.
+**Status:** IIS provisioned. DB secret set. Build clean (0 warnings). 415/415 tests passing. Remaining secrets needed before first real deploy.
 
 **Next Tasks (Priority Order):**
-1. ~~**Upgrade to .NET 10**~~ ✅ Done — 433/433 tests passing on net10.0
-2. ~~**Write `deploy-to-iis.yml`**~~ ✅ Done — 6-job pipeline written; see `.github/workflows/deploy-to-iis.yml`
-3. **Provision IIS sites on `wte_apps3`** — `lotv_web` (port 80) + `lotv_api` (port TBD); requires server access
-4. Rotate `sa` SQL Server credential → create `lotv_app` least-privilege login — script at `src/Lotv.Migrations.SqlServer/rotate-app-credential.sql`
-5. Run baseline migration script on prod DB (`baseline-existing-database.sql`) before CI deploy touches it
-6. Add remaining GitHub secrets to `wtesolutions/LOTV`: `PROD_DB_CONNECTION_STRING`, `JWT_KEY`, Stripe, SendGrid, Twilio, VAPID keys
-7. Configure Stripe account + webhook endpoint
-8. Add stable webhook URLs for Duda and GiveButter
+1. **Set remaining GitHub secrets** — `JWT_KEY`, `SENDGRID_API_KEY`, `TWILIO_*` (3), `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
+2. Run baseline migration script on prod DB (`baseline-existing-database.sql`) before CI deploy touches it
+3. Add stable webhook URLs for Duda and GiveButter
+4. First production deploy — push to `main` and monitor CI pipeline
 
-**Completed This Session:**
-- ✅ IIS confirmed as deploy target (not Azure); Azure workflows to be replaced
-- ✅ Email/SMTP secrets set in `wtesolutions/LOTV` (9 secrets)
-- ✅ IIS deployment notes updated with PointShopMall dual-project pattern
-- ✅ Gap report updated to reflect IIS decision + partial secret completion
-- ✅ .NET 10 upgrade complete — all 6 projects, 433/433 tests passing
-- ✅ NuGet vulnerability audit — SQLitePCLRaw fixed; 2 upstream-unresolvable CVEs documented
-- ✅ `deploy-to-iis.yml` written — 6-job pipeline (build+test → migrations → deploy-web → deploy-api → tag → notify)
+**Completed This Session (2026-09-14):**
+- ✅ Merged `origin/kremer-dev` into `pateep_dev_branch` — GiveButter intake, admin nav hubs, Board/Director roles, bug fixes
+- ✅ NuGet warnings resolved — `Microsoft.OpenApi` pinned to 2.1.0, `System.Security.Cryptography.Xml` bumped to 10.0.12, CVE suppressed
+- ✅ E2E project excluded from solution test run (`IsTestProject=false`) — run manually with `dotnet test tests/Lotv.E2E`
+- ✅ Build: 0 errors, 0 warnings | Tests: 415/415 passing
+- ✅ IIS deploy workflow updated — real site names (LOTV_WEB/LOTV_API), paths (D:\websites\LOTV\web/api), hostnames (lotv.wte.net / lotv_api.wte.net), provisioning steps removed
+- ✅ `PROD_DB_CONNECTION_STRING` set in GitHub secrets (`69.166.143.87`)
+- ✅ Local dev connection string set via `dotnet user-secrets` (not committed)
 
 ---
 
