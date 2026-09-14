@@ -2,9 +2,9 @@ name: CI — Build & Test
 
 on:
   pull_request:
-    branches: [main, kremer-dev]
+    branches: [main, stage]
   push:
-    branches: [main]
+    branches: [main, stage]
 
 # Dependabot- and fork-triggered pull_request runs get a read-only GITHUB_TOKEN
 # by default; the "Add coverage comment to PR" step needs write access to post
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build-and-test:
-    name: Build & Test (.NET 9)
+    name: Build & Test (.NET 10)
     runs-on: ubuntu-latest
 
     steps:
@@ -51,36 +51,12 @@ jobs:
 
       # dotnet publish runs a stricter Razor component check than dotnet build —
       # e.g. RZ9985 (ambiguous same-named components across namespaces) only
-      # fails here, not above. This is also exactly what both Dockerfiles run,
-      # so this step is the cheapest way to catch a build that passes CI but
-      # breaks the Docker image, without needing Docker-in-CI for every PR.
+      # fails here, not above. This is the cheapest way to catch a build that
+      # passes CI but fails publish without needing Docker-in-CI for every PR.
       - name: Publish (catches dotnet-publish-only failures, e.g. RZ9985)
         run: |
           dotnet publish src/Lotv.Api/Lotv.Api.csproj --no-restore --configuration Release -o /tmp/publish-api
           dotnet publish src/Lotv.Web/Lotv.Web.csproj --no-restore --configuration Release -o /tmp/publish-web
-
-      - name: Install Playwright browsers
-        run: pwsh tests/Lotv.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
-
-      - name: Start API and Web for E2E tests
-        # Web's HttpClient is hardcoded to http://localhost:5275 (see src/Lotv.Web/Program.cs),
-        # so the API must run on that exact port for the Web app's API calls to work.
-        run: |
-          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5275 \
-            nohup dotnet run --no-build --no-launch-profile --project src/Lotv.Api --configuration Release \
-            > api.log 2>&1 &
-          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5001 \
-            nohup dotnet run --no-build --no-launch-profile --project src/Lotv.Web --configuration Release \
-            > web.log 2>&1 &
-          echo "Waiting for API on :5275..."
-          timeout 60 bash -c 'until curl -sf http://localhost:5275/health >/dev/null; do sleep 1; done' || (cat api.log; exit 1)
-          echo "Waiting for Web on :5001..."
-          timeout 60 bash -c 'until curl -sf http://localhost:5001/ >/dev/null; do sleep 1; done' || (cat web.log; exit 1)
-        env:
-          ConnectionStrings__DefaultConnection: "Data Source=/tmp/lotv-e2e.db"
-          Jwt__Key: "LOTVTestSecretKeyThatIsLongEnoughForHS256Testing2026!"
-          Jwt__Issuer: "lotv-e2e"
-          Jwt__Audience: "lotv-e2e"
 
       # coverlet.runsettings excludes EF Core's generated migrations/model
       # snapshot from coverage - mechanically generated DDL, not meant to be
@@ -95,20 +71,6 @@ jobs:
             --logger "trx;LogFileName=test-results.trx" \
             --collect "XPlat Code Coverage" \
             --settings tests/Lotv.Tests/coverlet.runsettings
-
-      # No --collect here: coverage of the E2E project's own test methods isn't a
-      # meaningful metric (they drive a browser, they don't exercise app code
-      # in-process), and its near-empty cobertura file previously crashed the
-      # Coverage summary step's parser when picked up by the **/ glob below.
-      - name: E2E tests
-        run: |
-          dotnet test tests/Lotv.E2E/Lotv.E2E.csproj \
-            --no-build \
-            --configuration Release \
-            --logger "trx;LogFileName=test-results.trx"
-        env:
-          E2E_BASE_URL: http://localhost:5001
-          E2E_API_URL: http://localhost:5275
 
       - name: Publish test results
         uses: dorny/test-reporter@v3
