@@ -31,17 +31,22 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, services, cfg) =>
 {
-    var template = ctx.HostingEnvironment.IsDevelopment()
-        ? "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
-        : "{Timestamp:o} [{Level:u3}] {SourceContext}: {Message:j}{NewLine}{Exception}";
-
     cfg.ReadFrom.Configuration(ctx.Configuration)
-       .ReadFrom.Services(services)
-       .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-       .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
-       .Enrich.FromLogContext()
-       .WriteTo.Console(outputTemplate: template,
-           restrictedToMinimumLevel: LogEventLevel.Information);
+       .ReadFrom.Services(services);
+
+    // MSSqlServer sink — wired in code so a missing/empty connection string
+    // never crashes the app. Config-driven resolution can't guard against null.
+    if (!ctx.HostingEnvironment.IsDevelopment())
+    {
+        var connStr = ctx.Configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrWhiteSpace(connStr))
+            cfg.WriteTo.MSSqlServer(
+                connectionString: connStr,
+                tableName: "ApiLogs",
+                schemaName: "dbo",
+                autoCreateSqlTable: true,
+                restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Warning);
+    }
 });
 
 // ── Database ──────────────────────────────────────────────────────────────────
@@ -177,14 +182,25 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 builder.Services.AddOpenApi();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
-    ?? ["https://localhost:7000", "http://localhost:5000", "https://localhost:7001", "http://localhost:5001"];
+// "open" policy — all REST endpoints; AllowAnyOrigin is incompatible with
+// AllowCredentials so SignalR hubs use the "signalr" named policy below.
+builder.Services.AddCors(o =>
+{
+    o.AddDefaultPolicy(p =>
+        p.AllowAnyOrigin()
+         .AllowAnyHeader()
+         .AllowAnyMethod());
 
-builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins(allowedOrigins)
-     .AllowAnyHeader()
-     .AllowAnyMethod()
-     .AllowCredentials()));   // required for SignalR
+    // SignalR requires credentials (cookies/auth header) — must pin origins
+    var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+        ?? ["http://localhost:5000", "http://localhost:5001", "https://localhost:7000",
+            "http://lotv.wte.net", "https://lotv.wte.net"];
+    o.AddPolicy("signalr", p =>
+        p.WithOrigins(allowedOrigins)
+         .AllowAnyHeader()
+         .AllowAnyMethod()
+         .AllowCredentials());
+});
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 // Limits are permissive in Development (avoids test-run throttling).
@@ -226,10 +242,20 @@ var app = builder.Build();
 // ── Dev seed data (MOCK DATA — Development only, skipped when Testing:SkipSeed=true) ──
 if (app.Environment.IsDevelopment() && !app.Configuration.GetValue<bool>("Testing:SkipSeed"))
 {
-    using var scope = app.Services.CreateScope();
-    var seedDb = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
-    var seedUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
-    await DevSeedData.SeedAsync(seedDb, seedUserMgr);
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var seedDb = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var seedUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
+        await DevSeedData.SeedAsync(seedDb, seedUserMgr);
+    }
+    catch (Exception ex)
+    {
+        // DB unavailable or migration error — log and continue. The app is still usable
+        // for testing endpoints that don't require a seeded database.
+        var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+        startupLogger.LogWarning(ex, "Dev seed skipped — database unavailable or migration failed. App will continue without seed data.");
+    }
 }
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
@@ -282,8 +308,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
 }
 
 // ── SignalR Hubs ──────────────────────────────────────────────────────────────
-app.MapHub<RequestsHub>("/hubs/requests");
-app.MapHub<AuctionHub>("/hubs/auction");
+app.MapHub<RequestsHub>("/hubs/requests").RequireCors("signalr");
+app.MapHub<AuctionHub>("/hubs/auction").RequireCors("signalr");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API v1 Endpoints

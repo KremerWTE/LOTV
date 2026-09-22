@@ -2,9 +2,35 @@
 
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-09-10 (Stripe/JotForm removal, GiveButter donations, Duda intake form, admin nav hub consolidation, Board/Director roles, volunteer levels, notification-email real send, live smoke test + 2 bug fixes — see sessions/2026-09-10-stripe-jotform-removal-givebutter-duda-intake-roles.md) — direct client instruction to remove Stripe and JotForm entirely ("everything for donation is through GiveButter"); built a standalone Duda-embeddable prayer care intake form (`docs/duda-embed/prayer-care-intake.html`) posting straight to `Lotv.Api`, replacing the JotForm pipeline that (per the 2026-09-01 HIPAA-BAA root-cause finding) had never actually received a real submission; GiveButter's real JS widget embedded on the intake confirmation screen and the rewritten `Give.razor`; admin sidebar (120 links, 57 always-visible) consolidated into Cases/Reports/System-Admin tabbed hub pages per direct client feedback ("there are so many tabs"), with a legacy-link toggle preserving full reachability; added `Director` (near-admin) and `Board` (reports-only, PII-free) roles plus volunteer tenure `Level` (New/Standard/Senior/Lead), Board verified live end-to-end via Playwright; `NotificationService` was found to be a stub that only logged — replaced with real SMTP sending, and the new-request team notification widened from one hardcoded address to a configurable team list; a live smoke test of the running app (not just code review) found and fixed two real bugs: every case-activity/note entry showed the staff member's raw GUID instead of their name (11 call sites), and the notes endpoint 500'd on missing content instead of returning a clean 400. Full detail, including everything still blocking a real production deploy (no Azure App Service exists yet), in the session notes and `docs/LOTV-PM-Plan.md` risk register R-26 through R-31
+**Last Updated**: 2026-09-14 (session 6 — dev environment stable, Serilog Web, DB crash fix, port fix)
+**Previous Update**: 2026-09-10 (Stripe/JotForm removal, GiveButter donations, Duda intake form, admin nav hub consolidation, Board/Director roles, volunteer levels, notification-email real send, live smoke test + 2 bug fixes — see sessions/2026-09-10-stripe-jotform-removal-givebutter-duda-intake-roles.md) — direct client instruction to remove Stripe and JotForm entirely ("everything for donation is through GiveButter"); built a standalone Duda-embeddable prayer care intake form (`docs/duda-embed/prayer-care-intake.html`) posting straight to `Lotv.Api`, replacing the JotForm pipeline that (per the 2026-09-01 HIPAA-BAA root-cause finding) had never actually received a real submission; GiveButter's real JS widget embedded on the intake confirmation screen and the rewritten `Give.razor`; admin sidebar (120 links, 57 always-visible) consolidated into Cases/Reports/System-Admin tabbed hub pages per direct client feedback ("there are so many tabs"), with a legacy-link toggle preserving full reachability; added `Director` (near-admin) and `Board` (reports-only, PII-free) roles plus volunteer tenure `Level` (New/Standard/Senior/Lead), Board verified live end-to-end via Playwright; `NotificationService` was found to be a stub that only logged — replaced with real SMTP sending, and the new-request team notification widened from one hardcoded address to a configurable team list; a live smoke test of the running app (not just code review) found and fixed two real bugs: every case-activity/note entry showed the staff member's raw GUID instead of their name (11 call sites), and the notes endpoint 500'd on missing content instead of returning a clean 400. Full detail, including everything still blocking a real production deploy (no Azure App Service exists yet), in the session notes and `docs/LOTV-PM-Plan.md` risk register R-26 through R-31
 **Previous Update**: 2026-08-05 through 2026-09-01 (four sessions not previously rolled into this header — see `sessions/2026-08-13-jotform-webhook-fix-and-docker-deployment-verification.md`, `sessions/2026-08-31-hosting-blazor-server-conversion-and-ci-fixes.md`, `sessions/2026-08-31-spreadsheet-audit-and-followup-tracker-autocreation.md`, `sessions/2026-09-01-jotform-design-review-and-hipaa-baa-rootcause.md`) — JotForm webhook data-loss bug fixed and `docker compose up` verified end-to-end for the first time (2026-08-13); hosting decided as Azure App Service and `Lotv.Web` converted from Blazor WebAssembly to Blazor Server (2026-08-31); ministry's live spreadsheet audited field-by-field against the app and the bereavement follow-up tracker wired into real intake, not just historical import (2026-08-31); JotForm HIPAA-BAA root cause confirmed — the account discards all programmatic writes, explaining every prior "corruption" incident (2026-09-01)
 **Org Model**: Centralized nonprofit — National HQ → Local Chapters (2-tier)
+
+---
+
+## Remote Commits Merged — 2026-09-14
+
+Pulled from `origin/kremer-dev` into `pateep_dev_branch`:
+
+| SHA | Commit |
+|---|---|
+| `931808f` | `feat: remove Stripe/JotForm, add GiveButter-based intake, admin nav hubs, Board/Director roles` |
+| `c3c1e7e` | `fix(api): send new-request notification to a full team list, not one address` |
+| `07e99c4` | `fix(api): case notes/activity log showed raw user GUIDs, notes accepted empty content` |
+| `7647f05` | `docs: update MASTER_TODO, PM plan risk register, and session notes for 2026-09-10` |
+| `3c50563` | `fix(e2e): add missing admin reconciliation page, fix give page donation selector` |
+| `7f277a3` | `Merge remote-tracking branch 'wtesolutions/main' into kremer-dev` |
+
+**Summary of changes landed:**
+- Stripe and JotForm fully removed; GiveButter JS widget added to intake confirmation + `Give.razor`
+- Duda-embeddable prayer care intake form (`docs/duda-embed/prayer-care-intake.html`) posts directly to `Lotv.Api`
+- Admin sidebar consolidated into Cases/Reports/System-Admin tabbed hub pages
+- New roles: `Director` (near-admin), `Board` (reports-only, PII-free); volunteer `Level` field added
+- `NotificationService` now sends real SMTP; team notification list is configurable
+- Bug fix: case notes showed raw GUIDs instead of staff names (11 call sites)
+- Bug fix: notes endpoint 500'd on empty content — now returns clean 400
+- E2E: admin reconciliation page added; give page donation selector fixed
 
 ---
 
@@ -17,7 +43,7 @@
 | 2 | Core Domain (Lotv.Core) | ✅ COMPLETE |
 | 3 | API (Lotv.Api) | ✅ COMPLETE |
 | 4 | Frontend (Lotv.Web) | ✅ COMPLETE |
-| 5 | Testing | 🔄 IN PROGRESS |
+| 5 | Testing | ✅ COMPLETE — 433/433 tests, 86.4% line / 94.3% branch coverage |
 | 6 | Deployment & Launch | 🔄 IN PROGRESS |
 
 ### Key Platform Characteristics
@@ -563,10 +589,20 @@
 ### Infrastructure Setup
 - [x] Choose hosting — **decided 2026-08-31**: Azure App Service, code-based (no Docker in the deploy path per instruction). `deploy-staging.yml`/`deploy-production.yml` now `dotnet publish` the API and Web projects and zip-deploy via `azure/webapps-deploy`'s `package` input. *(Note, corrected 2026-09-10: the "Web needs a Windows App Service plan" caveat originally written here is now stale — later the same day, `Lotv.Web` was converted from Blazor WebAssembly to Blazor Server, per R-22 in `docs/LOTV-PM-Plan.md`; it's now a normal Kestrel app exactly like `Lotv.Api`, no `web.config` SPA-routing workaround, no Windows plan needed — both apps deploy to the same Linux App Service plan.)* **Verified against the real `wtesolutions/LOTV` staging environment**: triggered the actual `Deploy — Staging` workflow four times while fixing it live — found and fixed a genuine assembly-loading bug in the new SQL Server migrations project (`Lotv.Migrations.SqlServer.dll` wasn't reaching `Lotv.Api`'s output; fixed with an explicit build step ordered before the migrations step, since nothing else in CI ever built that project) plus a wrong `ConnectionStrings__Default` vs `GetConnectionString("DefaultConnection")` key mismatch (see EF/SQL Server entry). The pipeline now runs cleanly through tests → migrations-assembly build → publish, and stops exactly where it should: `DB_CONNECTION_STRING` isn't set. **Still needed**: provision the App Service resources and add the GitHub secrets (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_WEBAPP_API_NAME`, `AZURE_WEBAPP_WEB_NAME`, `AZURE_WEBAPP_API_NAME_PROD`, `AZURE_WEBAPP_WEB_NAME_PROD`, `DB_CONNECTION_STRING`, and (added 2026-09-10) `JWT_SIGNING_KEY`) on `wtesolutions/LOTV` — needs Azure account access I don't have. Also worth knowing: `origin` in this working copy is a personal fork (`KremerWTE/LOTV`); the real repo with the GitHub environments/history is `wtesolutions/LOTV` — both remotes now have this session's work pushed. **2026-09-10**: both deploy workflows now also run `az webapp config appsettings set` after deploy to configure the App Service's own runtime settings (DB connection, JWT key, SMTP, CORS) — previously zip-deploy shipped code but never configured the running app at all. Fastest path to something publicly testable before the full pipeline is wired up: `az webapp up` (single command, creates the App Service and deploys, free `F1` tier).
 - [x] Choose database hosting — **decided**: SQL Server 2019, self-hosted at `10.100.1.87` (not Azure SQL/RDS/Supabase/Railway as originally scoped); `Database:Provider=SqlServer` config flag added to `Program.cs`, independent of environment; real ministry case/mailing/follow-up data imported and live there (see sessions/2026-07-27-username-auth-and-real-data-import.md) — **follow-up needed**: rotate the `sa` credential used to set this up and create a dedicated least-privilege app login; EF migration history needs reconciling for this provider (see note below)
-- [ ] Set up blob storage account (Azure Blob / S3) for receipts and documents
-- [ ] Set up Redis (if chosen for caching/sessions)
-- [ ] Configure secrets management (Azure Key Vault / AWS Secrets Manager)
-- [ ] Set up CDN for Blazor WASM static assets (Azure CDN / Cloudflare)
+- [x] **Hosting platform decided 2026-09-09: IIS on self-hosted runner `wte_apps3` (NOT Azure App Service).** Two separate IIS sites: `LOTV_WEB` (lotv.wte.net, port 80, `D:\websites\LOTV\web`) and `LOTV_API` (lotv_api.wte.net, port 80, `D:\websites\LOTV\api`). Deploy pattern follows PointShopMall dual-project pipeline. See `docs/iis-deployment-notes.md`.
+- [x] **IIS sites provisioned on `wte_apps3` — 2026-09-14.** App pools + sites created: LOTV_WEB → lotv.wte.net, LOTV_API → lotv_api.wte.net. Deploy workflow updated to match real paths/names; provisioning steps removed from CI.
+- [x] Write `deploy-to-iis.yml` — completed 2026-09-09; updated 2026-09-14: real site names (LOTV_WEB/LOTV_API), deployment paths, hostnames, Stripe injection removed, API health check fixed, `shell: pwsh` throughout (fixes PowerShell 5.1 encoding bug), migration steps removed
+- [x] **CI/CD pipeline hardened 2026-09-14** — PR chain: `pateep_dev_branch → stage` (CI: build+test+notify) → `main` (IIS deploy on merged PR); no actions on branch push; Dependabot deleted; legacy Azure deploy workflows disabled; deploy pipeline: first full successful run (PR #28/run 34873002152)
+- [x] **`PROD_DB_CONNECTION_STRING` set in GitHub secrets** — 2026-09-14: `Server=69.166.143.87;Database=LOTV;User Id=LotvUser;TrustServerCertificate=True`; local dev via `dotnet user-secrets` (not committed)
+- [x] **`JWT_KEY` set in GitHub secrets** — 2026-09-14
+- [x] **SMTP secrets set in GitHub secrets** — 2026-09-14: `NOTIFICATION_EMAIL_FROM`, `NOTIFICATION_EMAIL_RECIPIENTS`, `NOTIFICATION_EMAIL_USERNAME`, `NOTIFICATION_EMAIL_PASSWORD`, `SMTP_SERVER`, `SMTP_PORT`
+- [ ] **Set remaining GitHub secrets** — `SENDGRID_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
+- [ ] Write `rollback.yml` — adapt from Boneforte, cover both IIS sites
+- [x] **Write dev start/stop scripts** — `scripts/dev/StartApp.ps1` + `StopApp.ps1`; launches API (`:5100`) and Web (`:5101`) in separate windows; `-NoBuild`/`-NoOpen` flags; `StopApp` kills by process name + WMI commandline match
+- [ ] ~~Set up blob storage account (Azure Blob / S3)~~ — not needed; PDFs streamed on-demand
+- [ ] Set up Redis (if chosen for caching/sessions) — deferred, no current bottleneck
+- [ ] ~~Configure secrets management (Azure Key Vault / AWS Secrets Manager)~~ — using IIS + GitHub secrets
+- [ ] ~~Set up CDN for Blazor WASM static assets~~ — not applicable; converted to Blazor Server
 
 ### Containerization
 - [x] Write `Dockerfile` for Lotv.Api (multi-stage, non-root user)
@@ -575,17 +611,18 @@
 - [x] Write `.dockerignore` (excludes bin/obj/tests/data/sessions)
 
 ### CI/CD
-- [x] GitHub Actions workflow: build + test on every PR — `.github/workflows/ci.yml` (restore → build → test with coverage → TRX results → coverage comment on PR)
-- [x] GitHub Actions workflow: deploy to staging on merge to `main` — `.github/workflows/deploy-staging.yml` (test gate → build + push Docker images → deploy stub)
-- [x] GitHub Actions workflow: deploy to production on release tag — `.github/workflows/deploy-production.yml` (triggered on `v*.*.*` tag → test gate → tagged images → GitHub Release notes)
-- [x] Environment configuration: `dev / staging / prod` via environment variables — `appsettings.Staging.json` added; full secrets reference in `docs/environment-config.md`
-- [x] Database migration step in deployment pipeline — `dotnet ef database update` in both `deploy-staging.yml` and `deploy-production.yml`
+- [x] GitHub Actions workflow: build + test on PR → stage — `.github/workflows/ci.yml` (restore → build → test → TRX results → email notify on pass/fail)
+- [x] GitHub Actions workflow: deploy to IIS on merged PR → main — `.github/workflows/deploy-to-iis.yml`; deploys both LOTV_API and LOTV_WEB to `wte_apps3`
+- [x] Legacy Azure deploy workflows disabled — `deploy-staging.yml` and `deploy-production.yml` require manual "ENABLE" input; will not trigger accidentally
+- [x] Environment configuration: `dev / staging / prod` via appsettings per environment; secrets injected by deploy workflow from GitHub secrets
+- [x] Database migration step removed from deploy pipeline — migrations run manually against prod DB; `baseline-existing-database.sql` prepared
 
 ### Payment Processor Setup
 - [x] ~~Register Stripe account~~ **Obsolete 2026-09-10**: Stripe removed from the app entirely per direct client instruction ("everything for donation is through GiveButter"). All Stripe code, config, and the `Stripe.net` package reference deleted. Donations go through GiveButter's embedded JS widget instead — see R-26 in `docs/LOTV-PM-Plan.md`. GiveButter donor account/widget ID (`esQKeyJhOUHIb71A`) already confirmed live on lotvministry.org's own donate page; a webhook (`/api/v1/givebutter/webhooks`) already exists and auto-syncs transactions into Donor/Donation records — just needs a public URL to register with GiveButter once hosting exists (same blocker as everything else in this section)
 
 ### Monitoring & Reliability
-- [x] Structured logging (Serilog) — dev: colored console; prod: ISO timestamp format; configurable via appsettings
+- [x] Structured logging (Serilog) — fully config-driven via appsettings; API + Web both wired; Dev: console/Debug; Staging: console+file; Production: console(Warning+)+file(Info+)+MSSqlServer(Warning+, auto-creates dbo.AppLogs); MSSqlServer sink options path fixed (was crashing API on startup)
+- [x] **Dev environment stable** — API:5100 / Web:5101 (no port conflicts); `Database:Provider=SqlServer` in dev config; seed uses `MigrateAsync` not `EnsureCreatedAsync` for SQL Server; startup wrapped in try/catch (DB errors log WRN, app continues); Web `UseHttpsRedirection` skipped in dev
 - [ ] Alerts: error rate spike, payment failure spike, high latency (requires cloud setup)
 - [ ] Uptime monitoring (external probe — requires cloud setup)
 - [ ] Database backup strategy (automated daily backups — requires cloud setup)
@@ -612,6 +649,12 @@
 ## Discovered / Backlog
 
 *Tasks that don't fit a phase yet, or are post-launch improvements.*
+
+### Platform Upgrade
+
+- [x] **Upgrade to .NET 10** — completed 2026-09-09: all 6 projects targeting `net10.0`; Microsoft packages bumped to `10.0.0`; CI workflows updated to `DOTNET_VERSION: '10.0.x'`; 433/433 tests passing.
+- [x] **Audit and fix NuGet vulnerability warnings** — completed 2026-09-09: `SQLitePCLRaw.lib.e_sqlite3` fixed (pinned 2.1.12). Two known-upstream unresolvable CVEs remain: `Microsoft.OpenApi` 2.x (no patched 2.x exists — mitigate by restricting `/openapi/*` in prod IIS) and `System.Security.Cryptography.Xml` 9.0.0 (NuGet graph artifact; at .NET 10 runtime the framework ships the patched version). Both documented and tracked.
+- [x] **Email/SMTP secrets set in `wtesolutions/LOTV`** (2026-09-09): `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `NOTIFICATION_EMAIL_FROM`, `NOTIFICATION_EMAIL_TO`, `NOTIFICATION_EMAIL_USERNAME`, `NOTIFICATION_EMAIL_PASSWORD`, `NOTIFICATION_EMAIL_RECIPIENTS`
 
 ### Financial & Compliance
 - [x] Tax receipt / charitable receipt PDF generation — HTML receipt via `IReceiptService` / `ReceiptService`; `GET /api/v1/donations/{id}/receipt` + `GET /api/v1/donations/year-end/{donorId}/{year}`; IRS § 170 compliant language, EIN placeholder

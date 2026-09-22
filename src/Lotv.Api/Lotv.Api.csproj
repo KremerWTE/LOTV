@@ -1,24 +1,38 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>1ebc9e45-23a7-4666-9021-36723aef9e7c</UserSecretsId>
   </PropertyGroup>
 
+  <!--
+    Transitive vulnerability overrides.
+    Microsoft.OpenApi: Microsoft.AspNetCore.OpenApi 10.x requires the 2.x API — cannot upgrade to
+    3.x without a breaking change. Pin to 2.1.0 (highest 2.x available). CVE GHSA-v5pm-xwqc-g5wc
+    has no 2.x patch; suppressed below pending an upstream fix in Microsoft.AspNetCore.OpenApi.
+  -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.10" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.10" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
+    <PackageReference Include="Microsoft.OpenApi" Version="2.1.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Serilog.Sinks.MSSqlServer" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v5pm-xwqc-g5wc" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="9.0.10" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="QuestPDF" Version="2024.12.3" />
     <PackageReference Include="Lib.Net.Http.WebPush" Version="3.2.0" />
@@ -44,8 +58,7 @@
   -->
   <Target Name="CopySqlServerMigrationsAssembly" AfterTargets="Build;Publish">
     <ItemGroup>
-      <SqlServerMigrationsFiles Include="..\Lotv.Migrations.SqlServer\bin\$(Configuration)\$(TargetFramework)\Lotv.Migrations.SqlServer.*"
-                                 Condition="Exists('..\Lotv.Migrations.SqlServer\bin\$(Configuration)\$(TargetFramework)\Lotv.Migrations.SqlServer.dll')" />
+      <SqlServerMigrationsFiles Include="..\Lotv.Migrations.SqlServer\bin\$(Configuration)\$(TargetFramework)\Lotv.Migrations.SqlServer.*" Condition="Exists('..\Lotv.Migrations.SqlServer\bin\$(Configuration)\$(TargetFramework)\Lotv.Migrations.SqlServer.dll')" />
     </ItemGroup>
     <Copy SourceFiles="@(SqlServerMigrationsFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(SqlServerMigrationsFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />

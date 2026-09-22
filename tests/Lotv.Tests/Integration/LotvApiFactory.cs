@@ -21,13 +21,18 @@ public class LotvApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseEnvironment("Development");
 
-        // Override DB connection to isolated temp file
+        // Override DB connection to isolated temp file — remove ALL EF registrations
+        // for LotvDbContext before re-adding with SQLite, so EF doesn't see two providers.
         builder.ConfigureServices(services =>
         {
-            // Remove the existing DbContext registration
-            var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<LotvDbContext>));
-            if (descriptor is not null) services.Remove(descriptor);
+            var toRemove = services
+                .Where(d => d.ServiceType == typeof(DbContextOptions<LotvDbContext>)
+                         || d.ServiceType == typeof(DbContext)
+                         || (d.ServiceType.IsGenericType &&
+                             d.ServiceType.GetGenericArguments().Contains(typeof(LotvDbContext)) &&
+                             d.ServiceType.Name.StartsWith("IDbContextOptionsConfiguration")))
+                .ToList();
+            foreach (var d in toRemove) services.Remove(d);
 
             services.AddDbContext<LotvDbContext>(o =>
                 o.UseSqlite($"Data Source={_dbPath}"));
@@ -38,10 +43,13 @@ public class LotvApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             cfg.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 // Deterministic 512-bit test secret — never use in production
-                ["Jwt:Key"]          = "LOTVTestSecretKeyThatIsLongEnoughForHS256Testing2026!",
-                ["Jwt:Issuer"]       = "lotv-test",
-                ["Jwt:Audience"]     = "lotv-test",
-                ["Testing:SkipSeed"] = "true"   // prevent mock seed data from running in tests
+                ["Jwt:Key"]           = "LOTVTestSecretKeyThatIsLongEnoughForHS256Testing2026!",
+                ["Jwt:Issuer"]        = "lotv-test",
+                ["Jwt:Audience"]      = "lotv-test",
+                ["Testing:SkipSeed"]  = "true",
+                // Force SQLite branch in Program.cs so the DbContext override below works
+                ["Database:Provider"] = "Sqlite",
+                ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}"
             });
         });
     }

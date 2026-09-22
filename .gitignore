@@ -65,6 +65,11 @@ desktop.ini
 # Uncomment the next line ONLY if you want to exclude EF snapshot files:
 # **/Migrations/*Snapshot.cs
 
+# ── Claude Code local settings — never commit ────────────────────────────────
+.claude/settings.local.json
+.claude/*.local.json
+.claude/*.backup.*
+
 # ── Data directory — raw exports, dumps, and local databases ─────────────────
 # (data/.gitignore handles per-file rules; this ensures generated artifacts don't leak)
 data/*.db
