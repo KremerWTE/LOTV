@@ -175,30 +175,31 @@
       <input id="lotv-date-of-loss" name="dateOfLoss" type="date" />
     </div>
 
-    <!-- ── GRIEF SUPPORT + FAITH TRADITION — revealed once a reason is picked ─ -->
+    <!-- ── GRIEF SUPPORT — revealed only for losses >20 weeks or infant loss
+         (Stillbirth / InfantLoss), per Whitney's direction 2026-09-22. Shown
+         on both the "For Me" and "For Someone Else" branches - it's not
+         marked data-someone-only, so it already appears on both. ─────────── -->
+    <div class="lotv-section" data-reveal-for="Stillbirth,InfantLoss" hidden>
+      <label for="lotv-grief-support">Would you like to receive quarterly Grief Support?</label>
+      <select id="lotv-grief-support" name="griefSupport">
+        <option value="">- Please select -</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+
+    <!-- ── FAITH TRADITION — revealed once any reason is picked ────────── -->
     <div class="lotv-section" data-reveal-for="Infertility,PrenatalDiagnosis,Miscarriage,Stillbirth,InfantLoss,PostnatalMedical" hidden>
-      <div class="lotv-row">
-        <div>
-          <label for="lotv-grief-support">Would you like to receive quarterly Grief Support?</label>
-          <select id="lotv-grief-support" name="griefSupport">
-            <option value="">- Please select -</option>
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-          </select>
-        </div>
-        <div>
-          <label for="lotv-faith">Faith Tradition</label>
-          <select id="lotv-faith" name="faithTradition">
-            <option value="">- Please select -</option>
-            <option value="Catholic">Catholic</option>
-            <option value="Christian">Christian</option>
-            <option value="Jewish">Jewish</option>
-            <option value="Muslim">Muslim</option>
-            <option value="Others">Others</option>
-            <option value="Prefer Not to Say">Prefer Not to Say</option>
-          </select>
-        </div>
-      </div>
+      <label for="lotv-faith">Faith Tradition</label>
+      <select id="lotv-faith" name="faithTradition">
+        <option value="">- Please select -</option>
+        <option value="Catholic">Catholic</option>
+        <option value="Christian">Christian</option>
+        <option value="Jewish">Jewish</option>
+        <option value="Muslim">Muslim</option>
+        <option value="Others">Others</option>
+        <option value="Prefer Not to Say">Prefer Not to Say</option>
+      </select>
     </div>
 
     <!-- ── DIOCESE / PARISH — revealed only when faith = Catholic ──────── -->
@@ -457,11 +458,13 @@
   // ── Reason -> reveal date-of-loss / grief-support / faith tradition ──
   var reasonSelect = document.getElementById("lotv-reason");
   var dateBlock = root.querySelector('[data-reveal-for="Miscarriage,Stillbirth,InfantLoss"]');
-  var griefFaithBlock = root.querySelector('[data-reveal-for="Infertility,PrenatalDiagnosis,Miscarriage,Stillbirth,InfantLoss,PostnatalMedical"]');
+  var griefBlock = root.querySelector('[data-reveal-for="Stillbirth,InfantLoss"]');
+  var faithBlock = root.querySelector('[data-reveal-for="Infertility,PrenatalDiagnosis,Miscarriage,Stillbirth,InfantLoss,PostnatalMedical"]');
   reasonSelect.addEventListener("change", function () {
     var v = reasonSelect.value;
     dateBlock.hidden = !["Miscarriage", "Stillbirth", "InfantLoss"].includes(v);
-    griefFaithBlock.hidden = !v;
+    griefBlock.hidden = !["Stillbirth", "InfantLoss"].includes(v);
+    faithBlock.hidden = !v;
     if (!v) document.getElementById("lotv-diocese-parish").hidden = true;
   });
 
