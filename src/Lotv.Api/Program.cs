@@ -299,6 +299,12 @@ app.MapHealthChecks("/health").AllowAnonymous();
         db.Database.EnsureCreated();
     else
         db.Database.Migrate();          // runs pending EF Core migrations in production
+
+    // Self-heals the known HQ staff accounts' Role if it's ever drifted from
+    // HQAdmin (see CoreAdminAccountRepair for why) — runs in every
+    // environment, unlike DevSeedData which is Development-only.
+    var repairUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
+    await CoreAdminAccountRepair.RepairAsync(repairUserMgr, app.Logger);
 }
 
 // ── SignalR Hubs ──────────────────────────────────────────────────────────────
