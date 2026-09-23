@@ -21,7 +21,7 @@
     <p>Edit the questions, choices, wording and show/hide rules of the public request form. Changes go live as soon as you save.</p>
   </div>
   <div class="page-hd-actions">
-    <a href="/prayer-care-intake.html" target="_blank" rel="noopener" class="btn btn-sm">View public form ↗</a>
+    <a href="/request-prayer-care-package" target="_blank" rel="noopener" class="btn btn-sm">View public form ↗</a>
     <button class="btn btn-sm" @onclick="ResetAsync" disabled="@(_saving || _env is null || _env.IsDefault)">Reset to default</button>
     <button class="btn btn-primary btn-sm" @onclick="SaveAsync" disabled="@(_saving || !IsDirty)">@(_saving ? "Saving…" : "Save changes")</button>
   </div>
@@ -76,7 +76,7 @@ else
         <button class="btn btn-sm" @onclick="() => _showPreview = !_showPreview">@(_showPreview ? "Hide preview" : "Show live preview")</button>
         @if (_showPreview)
         {
-          <iframe src="/prayer-care-intake.html?v=@_previewNonce" title="Form preview"
+          <iframe src="/request-prayer-care-package?v=@_previewNonce" title="Form preview"
                   style="display:block;width:100%;height:760px;border:1px solid var(--border);border-radius:10px;margin-top:10px;background:white;"></iframe>
           <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">Shows the last <em>saved</em> version. Submitting from the preview creates a real request.</div>
         }
@@ -316,7 +316,7 @@ else
   private int _previewNonce = 1;
 
   private bool IsDirty => _def is not null && JsonSerializer.Serialize(_def) != _savedJson;
-  private string PublicUrl => Nav.ToAbsoluteUri("/prayer-care-intake.html").ToString();
+  private string PublicUrl => Nav.ToAbsoluteUri("/request-prayer-care-package").ToString();
   private string IframeCode =>
     $"<iframe id=\"lotv-intake-frame\" src=\"{PublicUrl}\" title=\"{_def?.Title}\" width=\"100%\" height=\"1800\" style=\"border:0;display:block;max-width:680px;margin:0 auto;\"></iframe>\n" +
     "<script>window.addEventListener(\"message\",function(e){if(e.data&&e.data.lotvIntakeHeight){document.getElementById(\"lotv-intake-frame\").style.height=e.data.lotvIntakeHeight+\"px\";}});</script>";

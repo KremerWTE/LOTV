@@ -56,9 +56,28 @@ public class FormEditorTests : E2ETestBase
     private async Task<IPage> OpenPublicFormAsync()
     {
         var pub = await Context.NewPageAsync();
-        await pub.GotoAsync(E2ESettings.BaseUrl.TrimEnd('/') + "/prayer-care-intake.html");
+        await pub.GotoAsync(E2ESettings.BaseUrl.TrimEnd('/') + "/request-prayer-care-package");
         await pub.Locator("#lotv-intake-form").WaitForAsync();
         return pub;
+    }
+
+    [Fact]
+    public async Task PublicForm_IsServedAsAPage_NotAnHtmlFile()
+    {
+        var pub = await Context.NewPageAsync();
+        var resp = await pub.GotoAsync(E2ESettings.BaseUrl.TrimEnd('/') + "/request-prayer-care-package");
+
+        Assert.Equal(200, resp!.Status);
+        Assert.False(pub.Url.EndsWith(".html"), "public form URL should not be an .html file: " + pub.Url);
+        Assert.StartsWith("text/html", resp.Headers["content-type"]);
+        Assert.Contains("Prayer Care Package", await pub.TitleAsync());
+        await pub.Locator("#lotv-intake-form").WaitForAsync();
+
+        // The earlier .html address still works, but lands on the clean URL.
+        var old = await Context.NewPageAsync();
+        await old.GotoAsync(E2ESettings.BaseUrl.TrimEnd('/') + "/prayer-care-intake.html");
+        Assert.EndsWith("/request-prayer-care-package", old.Url);
+        await old.Locator("#lotv-intake-form").WaitForAsync();
     }
 
     [Fact]
@@ -68,7 +87,7 @@ public class FormEditorTests : E2ETestBase
         await WaitForBlazorAsync();
 
         await AssertVisibleAsync("a.sidebar-link[href='/admin/forms/prayer-care-intake']");
-        await AssertVisibleAsync("a.sidebar-link[href='/prayer-care-intake.html']");
+        await AssertVisibleAsync("a.sidebar-link[href='/request-prayer-care-package']");
     }
 
     [Fact]

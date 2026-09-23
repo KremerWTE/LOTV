@@ -83,6 +83,41 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseAntiforgery();
 
+// ── Public prayer care request form at a clean URL (no .html) ────────────────
+// The form is a self-contained script that renders itself from the definition
+// staff edit in the dashboard (see docs/duda-embed/prayer-care-intake.html). The
+// source file lives under Forms/ (not wwwroot) so it is never a static .html
+// file; here it is wrapped in a full HTML document and served as a page.
+const string PrayerCareFormRoute = "/request-prayer-care-package";
+
+app.MapGet(PrayerCareFormRoute, async (IWebHostEnvironment env) =>
+{
+    var file = env.ContentRootFileProvider.GetFileInfo("Forms/prayer-care-intake.html");
+    if (!file.Exists) return Results.NotFound();
+
+    await using var stream = file.CreateReadStream();
+    using var reader = new StreamReader(stream);
+    var form = await reader.ReadToEndAsync();
+
+    var page = $$"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Request a Prayer Care Package | Lily of the Valley Ministry</title>
+        </head>
+        <body style="margin:0;padding:24px 16px;background:#fff;">
+        {{form}}
+        </body>
+        </html>
+        """;
+    return Results.Content(page, "text/html; charset=utf-8");
+}).AllowAnonymous();
+
+// The form briefly lived at /prayer-care-intake.html; keep that address working.
+app.MapGet("/prayer-care-intake.html", () => Results.Redirect(PrayerCareFormRoute, permanent: true)).AllowAnonymous();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
