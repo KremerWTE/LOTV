@@ -26,39 +26,37 @@
     <div class="sidebar-section">
       <div class="sidebar-section-label">Overview</div>
       <NavLink class="sidebar-link" href="/admin/dashboard" Match="NavLinkMatch.All">
-        <span class="icon">☰</span> Dashboard
+        <span class="icon">☰</span> Chapter Dashboard
       </NavLink>
       @if (Auth.IsHqAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/hq">
           <span class="icon">🏠</span> HQ Dashboard
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/hq-board">
-          <span class="icon">☷</span> HQ Operations Board
-        </NavLink>
       }
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Prayer Request Package</div>
       @if (_canSeeCases)
       {
-        <NavLink class="sidebar-link" href="/admin/families">
-          <span class="icon">👥</span> Families
+        <NavLink class="sidebar-link" href="/admin/kanban">
+          <span class="icon">☷</span> Kanban Board
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/families/duplicate-review">
           <span class="icon">🔍</span> Possible Duplicates
           @if (_pendingDupReview > 0)
           { <span class="sidebar-badge sidebar-badge-amber">@_pendingDupReview</span> }
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/families/by-state">
-          <span class="icon">🌎</span> By State
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/families/by-status">
-          <span class="icon">📋</span> By Status
-        </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases-hub">
           <span class="icon">💕</span> Cases
           <span class="sidebar-badge">@_openCount</span>
         </NavLink>
-        <NavLink class="sidebar-link" href="/admin/cases/new">
-          <span class="icon">+</span> New Case
+        <NavLink class="sidebar-link" href="/admin/queue">
+          <span class="icon">🔚</span> Unassigned Queue
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/my-queue">
+          <span class="icon">📋</span> My Work Queue
         </NavLink>
         <a class="sidebar-link" href="/request-prayer-care-package" target="_blank" rel="noopener">
           <span class="icon">📝</span> Request Form <span style="opacity:.6;font-size:.7rem;">↗</span>
@@ -74,9 +72,6 @@
           <NavLink class="sidebar-link" href="/admin/cases">
             <span class="icon">💕</span> Cases (old) <span style="opacity:.5;font-size:.68rem;">(in Cases)</span>
           </NavLink>
-          <NavLink class="sidebar-link" href="/admin/kanban">
-            <span class="icon">☷</span> Kanban Board <span style="opacity:.5;font-size:.68rem;">(in Cases)</span>
-          </NavLink>
           <NavLink class="sidebar-link" href="/admin/historical">
             <span class="icon">📚</span> Historical Cases <span style="opacity:.5;font-size:.68rem;">(in Cases)</span>
           </NavLink>
@@ -85,12 +80,6 @@
           </NavLink>
           <NavLink class="sidebar-link" href="/admin/follow-up-trackers">
             <span class="icon">🕊</span> Bereavement Follow-Up <span style="opacity:.5;font-size:.68rem;">(in Cases)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/queue">
-            <span class="icon">🔚</span> Unassigned Queue <span style="opacity:.5;font-size:.68rem;">(in Cases)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/my-queue">
-            <span class="icon">📋</span> My Work Queue <span style="opacity:.5;font-size:.68rem;">(in Cases)</span>
           </NavLink>
           <NavLink class="sidebar-link" href="/admin/cases/overdue">
             <span class="icon">🚨</span> Overdue Cases <span style="opacity:.5;font-size:.68rem;">(in Cases)</span>
@@ -104,12 +93,6 @@
           <NavLink class="sidebar-link" href="/admin/cases/escalations">
             <span class="icon">🔴</span> Cases at Risk <span style="opacity:.5;font-size:.68rem;">(in Cases)</span>
           </NavLink>
-        }
-        <NavLink class="sidebar-link" href="/admin/workload-hub">
-          <span class="icon">👥</span> Workload View
-        </NavLink>
-        @if (_showLegacyLinks)
-        {
           <NavLink class="sidebar-link" href="/admin/workload">
             <span class="icon">👥</span> Workload View (old) <span style="opacity:.5;font-size:.68rem;">(in Workload View)</span>
           </NavLink>
@@ -135,10 +118,78 @@
       }
     </div>
 
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">System Admin</div>
+      @if (_isAdmin)
+      {
+        <NavLink class="sidebar-link" href="/admin/system-admin-hub">
+          <span class="icon">⚙</span> System Admin
+          @if (_webhook24h > 0) { <span class="sidebar-badge">@_webhook24h</span> }
+        </NavLink>
+        @if (_showLegacyLinks)
+        {
+          <NavLink class="sidebar-link" href="/admin/diocese-data">
+            <span class="icon">🌐</span> Diocese &amp; Parish Data <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/health">
+            <span class="icon">🔌</span> Platform Health <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/settings">
+            <span class="icon">⚙</span> Settings <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/users">
+            <span class="icon">🔒</span> User Management <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/push-subscriptions">
+            <span class="icon">🔔</span> Push Subscriptions <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/notification-prefs">
+            <span class="icon">🔔</span> Notification Prefs <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/migrations">
+            <span class="icon">📋</span> DB Migrations <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/webhooks">
+            <span class="icon">📧</span> Webhook Events <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/chapters">
+            <span class="icon">🏠</span> Chapters <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+          <NavLink class="sidebar-link" href="/admin/api-keys">
+            <span class="icon">🔐</span> API Keys <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
+          </NavLink>
+        }
+      }
+      @if (_canSeeCases)
+      {
+        <div class="sidebar-sublabel">Families &amp; Cases</div>
+        <NavLink class="sidebar-link" href="/admin/families">
+          <span class="icon">👥</span> Families
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/families/by-state">
+          <span class="icon">🌎</span> By State
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/families/by-status">
+          <span class="icon">📋</span> By Status
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/cases/new">
+          <span class="icon">+</span> New Case
+        </NavLink>
+        <NavLink class="sidebar-link" href="/admin/workload-hub">
+          <span class="icon">👥</span> Workload View
+        </NavLink>
+        @if (Auth.IsHqAdmin)
+        {
+          <NavLink class="sidebar-link" href="/admin/hq-board">
+            <span class="icon">☷</span> HQ Operations Board
+          </NavLink>
+        }
+      }
+
     @if (_canSeeDonations)
     {
-      <div class="sidebar-section">
-        <div class="sidebar-section-label">Donations</div>
+      <div class="sidebar-subsection">
+        <div class="sidebar-sublabel">Donations</div>
         <NavLink class="sidebar-link" href="/admin/donations">
           <span class="icon">💸</span> All Donations
         </NavLink>
@@ -224,8 +275,8 @@
       </div>
     }
 
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Programs</div>
+    <div class="sidebar-subsection">
+      <div class="sidebar-sublabel">Programs</div>
       @if (_canSeeVolunteers)
       {
         <NavLink class="sidebar-link" href="/admin/volunteers-hub">
@@ -306,15 +357,15 @@
       }
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Retreats</div>
+    <div class="sidebar-subsection">
+      <div class="sidebar-sublabel">Retreats</div>
       <NavLink class="sidebar-link" href="/admin/retreats" Match="NavLinkMatch.All">
         <span class="icon">◆</span> Retreat Manager
       </NavLink>
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Reports</div>
+    <div class="sidebar-subsection">
+      <div class="sidebar-sublabel">Reports</div>
       <NavLink class="sidebar-link" href="/admin/reports-hub">
         <span class="icon">📈</span> Reports
       </NavLink>
@@ -398,8 +449,8 @@
       }
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Operations &amp; Content</div>
+    <div class="sidebar-subsection">
+      <div class="sidebar-sublabel">Operations &amp; Content</div>
       <NavLink class="sidebar-link" href="/admin/communications">
         <span class="icon">💌</span> Communications
       </NavLink>
@@ -458,49 +509,6 @@
         }
       }
     </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">System Admin</div>
-      @if (_isAdmin)
-      {
-        <NavLink class="sidebar-link" href="/admin/system-admin-hub">
-          <span class="icon">⚙</span> System Admin
-          @if (_webhook24h > 0) { <span class="sidebar-badge">@_webhook24h</span> }
-        </NavLink>
-        @if (_showLegacyLinks)
-        {
-          <NavLink class="sidebar-link" href="/admin/diocese-data">
-            <span class="icon">🌐</span> Diocese &amp; Parish Data <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/health">
-            <span class="icon">🔌</span> Platform Health <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/settings">
-            <span class="icon">⚙</span> Settings <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/users">
-            <span class="icon">🔒</span> User Management <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/push-subscriptions">
-            <span class="icon">🔔</span> Push Subscriptions <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/notification-prefs">
-            <span class="icon">🔔</span> Notification Prefs <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/migrations">
-            <span class="icon">📋</span> DB Migrations <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/webhooks">
-            <span class="icon">📧</span> Webhook Events <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/chapters">
-            <span class="icon">🏠</span> Chapters <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-          <NavLink class="sidebar-link" href="/admin/api-keys">
-            <span class="icon">🔐</span> API Keys <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
-          </NavLink>
-        }
-      }
     </div>
 
     <div class="sidebar-footer">
@@ -713,7 +721,7 @@
   private int _openCount;
   private int _pendingAlloc;
   private int _pendingDupReview;
-  private string _pageTitle = "Dashboard Overview";
+  private string _pageTitle = "Chapter Dashboard";
   private bool _dark;
   private bool _sidebarCollapsed;
   private int _pendingMigrations;
@@ -874,7 +882,7 @@
   {
     _pageTitle = Nav.Uri switch
     {
-      var u when u.EndsWith("/admin/dashboard")  => "Dashboard Overview",
+      var u when u.EndsWith("/admin/dashboard")  => "Chapter Dashboard",
       var u when u.EndsWith("/admin/hq")              => "HQ Dashboard",
       var u when u.EndsWith("/admin/hq-board")        => "HQ Operations Board",
       var u when u.EndsWith("/admin/families")    => "Family Directory",

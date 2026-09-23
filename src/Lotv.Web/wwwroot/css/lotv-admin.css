@@ -60,6 +60,8 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 .sidebar-logo-text span   { font-size: .65rem; opacity: .5; }
 .sidebar-section { padding: 16px 10px 4px; }
 .sidebar-section-label { font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .4; padding: 0 8px; margin-bottom: 4px; }
+.sidebar-subsection { margin-top: 2px; }
+.sidebar-sublabel { font-size: .58rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .5; padding: 10px 8px 3px 14px; }
 .sidebar-link {
   display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 8px;
   font-size: .84rem; font-weight: 500; cursor: pointer; transition: background .12s; color: rgba(255,255,255,.75);
@@ -455,6 +457,7 @@ body.theme-dark a { color: #a8c8f0; }
 /* ── SIDEBAR COLLAPSE (icon-only) ────────────────────────────── */
 .lotv-app.sidebar-collapsed .sidebar { width: 56px; }
 .lotv-app.sidebar-collapsed .sidebar-link span:not(.icon),
+.lotv-app.sidebar-collapsed .sidebar-sublabel,
 .lotv-app.sidebar-collapsed .sidebar-section-label,
 .lotv-app.sidebar-collapsed .sidebar-logo-text,
 .lotv-app.sidebar-collapsed .sidebar-badge,
