@@ -455,6 +455,10 @@ else
               @QuickActionIcon(s) @QuickActionLabel(s)
             </button>
           }
+          @if (_request.AssignedToId is not null && _request.Status is not (CaseStatus.Shipped or CaseStatus.Fulfilled or CaseStatus.Cancelled))
+          {
+            <button class="btn btn-sm" data-action="unassign" @onclick="UnassignAsync" disabled="@_quickBusy">↩ Unassign (@_request.AssignedTo)</button>
+          }
           <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;" />
           <a href="/admin/cases?familyId=@_request.FamilyId" class="btn btn-sm">+ New Case for This Family</a>
         </div>
@@ -750,6 +754,16 @@ else
     _addingNote = false;
   }
 
+  private async Task UnassignAsync()
+  {
+    if (_request is null || _quickBusy) return;
+    _quickBusy = true;
+    _saveMsg = _errorMsg = "";
+    if (await Api.UnassignRequestAsync(_request.Id)) { _saveMsg = "Request unassigned."; await LoadAsync(); }
+    else _errorMsg = "Couldn't unassign this request.";
+    _quickBusy = false;
+  }
+
   private async Task AssignAsync(int volunteerId)
   {
     if (_request is null) return;
@@ -800,6 +814,7 @@ else
     ActivityType.StatusChanged  => "🔄",
     ActivityType.Assigned       => "👤",
     ActivityType.Reassigned     => "🔁",
+    ActivityType.Unassigned     => "↩",
     ActivityType.NoteAdded      => "💬",
     ActivityType.PriorityChanged => "▲",
     ActivityType.DueDateSet     => "🕐",
@@ -815,6 +830,7 @@ else
     ActivityType.StatusChanged  => $"changed status from {ev.OldValue} → {ev.NewValue}",
     ActivityType.Assigned       => $"assigned to {ev.NewValue}",
     ActivityType.Reassigned     => $"reassigned to {ev.NewValue}",
+    ActivityType.Unassigned     => $"unassigned {ev.OldValue}",
     ActivityType.NoteAdded      => "added a note",
     ActivityType.PriorityChanged => $"set priority to {ev.NewValue}",
     ActivityType.DueDateSet     => $"set due date to {ev.NewValue}",

@@ -362,6 +362,47 @@ public class RequestRoutingTests
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    // ── Unassigning ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Unassign_ReturnsTheRequestToNew_AndBackIntoTheUnassignedQueue()
+    {
+        var chapter = await NewChapterAsync();
+        var (_, requestId) = await ApplyAsync(chapter, "Miscarriage");
+        var volunteerId = await AddVolunteerAsync(chapter, "Una", "Ssign");
+        var admin = await AdminClientAsync();
+
+        var assign = await admin.PutAsJsonAsync($"/api/v1/requests/{requestId}/assign", new { VolunteerId = volunteerId });
+        Assert.Equal(HttpStatusCode.OK, assign.StatusCode);
+
+        var resp = await admin.PutAsJsonAsync($"/api/v1/requests/{requestId}/unassign", new { });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var req = await db.Requests.AsNoTracking().SingleAsync(r => r.Id == requestId);
+        Assert.Null(req.AssignedToId);
+        Assert.Null(req.AssignedTo);
+        Assert.Equal(CaseStatus.New, req.Status);
+        Assert.Equal(ProcessStage.Unassigned, req.ProcessStage);
+        Assert.Contains(await db.RequestActivities.Where(a => a.RequestId == requestId).ToListAsync(),
+            a => a.ActivityType == ActivityType.Unassigned && a.OldValue == "Una Ssign");
+
+        var queue = await GetAsync(admin, "/api/v1/requests/queue");
+        Assert.Contains(queue.EnumerateArray(), r => r.GetProperty("id").GetInt32() == requestId);
+    }
+
+    [Fact]
+    public async Task Unassign_IsRejected_WhenNobodyIsAssigned()
+    {
+        var chapter = await NewChapterAsync();
+        var (_, requestId) = await ApplyAsync(chapter, "Infertility");
+        var admin = await AdminClientAsync();
+
+        var resp = await admin.PutAsJsonAsync($"/api/v1/requests/{requestId}/unassign", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
     private async Task<int> NewChapterAsync()
     {
         var id = Interlocked.Increment(ref _nextChapterId);

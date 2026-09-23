@@ -29,5 +29,7 @@ public enum ActivityType
     Fulfilled,
     Cancelled,
     Escalated,
-    Created
+    Created,
+    // Appended last so stored integer values above don't shift.
+    Unassigned
 }

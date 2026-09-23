@@ -729,6 +729,12 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    public async Task<bool> UnassignRequestAsync(int id)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{id}/unassign", new { });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     public async Task<bool> UpdateRequestPriorityAsync(int id, RequestPriority priority)
     {
         var resp = await AuthedPutAsync($"/api/v1/requests/{id}/priority", new { Priority = priority });

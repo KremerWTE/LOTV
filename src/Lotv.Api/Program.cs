@@ -732,6 +732,37 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     return Results.Ok(r);
 });
 
+cases.MapPut("/{id:int}/unassign", async (int id, LotvDbContext db,
+    IChapterContextService ctx, IHubContext<RequestsHub> hub) =>
+{
+    var r = await db.Requests.FindAsync(id);
+    if (r is null) return Results.NotFound();
+    if (r.AssignedToId is null && r.AssignedTo is null)
+        return Results.BadRequest(new { error = "This request isn't assigned to anyone." });
+    if (r.Status is CaseStatus.Shipped or CaseStatus.Fulfilled or CaseStatus.Cancelled)
+        return Results.BadRequest(new { error = "A shipped, fulfilled or cancelled request can't be unassigned." });
+
+    var previous = r.AssignedTo;
+    foreach (var a in await db.RequestAssignments
+                 .Where(a => a.RequestId == id && (a.Status == AssignmentStatus.Pending || a.Status == AssignmentStatus.Accepted))
+                 .ToListAsync())
+        a.Status = AssignmentStatus.Reassigned;
+
+    r.AssignedToId = null;
+    r.AssignedTo = null;
+    r.Status = CaseStatus.New;
+    r.ProcessStage = ProcessStage.Unassigned;
+    r.UpdatedAt = DateTime.UtcNow;
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
+        ActivityType = ActivityType.Unassigned, OldValue = previous, Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+    await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, 0, "");
+    return Results.Ok(r);
+});
+
 cases.MapPut("/{id:int}/priority", async (int id, PriorityRequest body, LotvDbContext db, IChapterContextService ctx) =>
 {
     var r = await db.Requests.FindAsync(id);

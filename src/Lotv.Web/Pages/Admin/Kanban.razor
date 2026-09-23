@@ -48,7 +48,7 @@
       </div>
       @foreach (var r in cases)
       {
-        <KanbanCard Request="r" OnSelect="SelectCase" OnAssign="OpenQuickAssign" OnDragStart="OnDragStart"
+        <KanbanCard Request="r" OnSelect="SelectCase" OnAssign="OpenQuickAssign" OnUnassign="UnassignAsync" OnDragStart="OnDragStart"
                     OnDragEnd="() => { _draggingCase = null; _dragOverKey = null; }"
                     GetPriorityBadge="GetPriorityBadge" GetAge="GetAge" />
       }
@@ -405,6 +405,17 @@
     try { _quickAssignCandidates = await Api.GetVolunteerCandidatesAsync(r.Id); }
     catch { _quickAssignCandidates = []; }
     _quickAssignCandidatesLoaded = true;
+  }
+
+  private async Task UnassignAsync(PackageRequest r)
+  {
+    if (!await Api.UnassignRequestAsync(r.Id)) return;
+    r.AssignedToId = null;
+    r.AssignedTo = null;
+    r.Status = CaseStatus.New;
+    r.ProcessStage = ProcessStage.Unassigned;
+    r.UpdatedAt = DateTime.UtcNow;
+    RegroupByStatus();
   }
 
   private void CloseQuickAssign()
