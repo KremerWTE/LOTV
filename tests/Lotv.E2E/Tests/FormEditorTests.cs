@@ -4,7 +4,7 @@ namespace Lotv.E2E.Tests;
 
 /// <summary>
 /// End-to-end: staff change the public prayer care form from the dashboard
-/// (Operations &amp; Content &gt; Intake Form Editor) and visitors see the change.
+/// (left nav > Edit Request Form) and visitors see the change.
 /// Needs the API and Web apps running (see tests/Lotv.E2E/README.md); each test
 /// resets the form to its default afterwards so it leaves nothing behind.
 /// </summary>
