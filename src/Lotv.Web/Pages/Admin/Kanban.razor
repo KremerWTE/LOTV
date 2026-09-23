@@ -84,6 +84,9 @@
         </select>
       </div>
 
+      @if (!_volunteers.Any())
+      { <div style="background:#fff3cd;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#856404;">⚠ No active volunteers are available to assign. Add or activate a volunteer first.</div> }
+
       @if (_quickAssignCandidatesLoaded && _quickAssignCandidates.Any())
       {
         <div>
@@ -410,7 +413,8 @@
     _quickAssignCandidates = [];
     _quickAssignCandidatesLoaded = false;
 
-    _quickAssignCandidates = await Api.GetVolunteerCandidatesAsync(r.Id);
+    try { _quickAssignCandidates = await Api.GetVolunteerCandidatesAsync(r.Id); }
+    catch { _quickAssignCandidates = []; }
     _quickAssignCandidatesLoaded = true;
   }
 
@@ -428,7 +432,9 @@
     _quickAssignWorking = true;
     _quickAssignError = null;
 
-    var ok = await Api.AssignRequestAsync(_quickAssignCase.Id, _quickAssignVolId);
+    bool ok;
+    try { ok = await Api.AssignRequestAsync(_quickAssignCase.Id, _quickAssignVolId); }
+    catch { ok = false; }
     if (!ok)
     {
       _quickAssignError = "Assignment failed. Please try again.";
