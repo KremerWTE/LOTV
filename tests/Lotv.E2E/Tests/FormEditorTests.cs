@@ -53,11 +53,13 @@ public class FormEditorTests : E2ETestBase
         }
     }
 
-    private async Task<IPage> OpenPublicFormAsync()
+    /// <summary>Opens the public form; by default also picks "This is for me", since the rest stays hidden until then.</summary>
+    private async Task<IPage> OpenPublicFormAsync(bool choose = true)
     {
         var pub = await Context.NewPageAsync();
         await pub.GotoAsync(E2ESettings.BaseUrl.TrimEnd('/') + "/request-prayer-care-package");
         await pub.Locator("#lotv-intake-form").WaitForAsync();
+        if (choose) await pub.ClickAsync(".lotv-toggle[data-forwho='me']");
         return pub;
     }
 

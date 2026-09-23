@@ -121,7 +121,7 @@
   var confirmEl = document.getElementById("lotv-confirm");
 
   var def = null;          // the form definition from the API
-  var forWho = "me";       // "me" | "someone"
+  var forWho = "";         // "" until the visitor chooses, then "me" | "someone"
   var byKey = {};          // field key -> definition
   var controls = {};       // field key -> input/select/textarea element
   var items = [];          // { f, wrap, labelEl }
@@ -167,16 +167,20 @@
     errorBox = el("div", "lotv-error"); errorBox.id = "lotv-error"; errorBox.hidden = true;
     form.appendChild(errorBox);
 
+    // Everything below "Who is this for?" stays hidden until the visitor picks one.
+    var rest = el("div"); rest.id = "lotv-rest"; rest.hidden = true;
+
     // For me / for someone else
     var who = el("div", "lotv-section");
     who.appendChild(labelWithStar("lotv-section-label", def.whoIsThisForLabel, true));
     var tg = el("div", "lotv-toggle-group");
     [["me", def.toggleLabelMe], ["someone", def.toggleLabelSomeone]].forEach(function (p) {
-      var t = el("div", "lotv-toggle" + (p[0] === "me" ? " active" : ""), p[1]);
+      var t = el("div", "lotv-toggle", p[1]);
       t.setAttribute("data-forwho", p[0]); t.setAttribute("role", "button"); t.tabIndex = 0;
       var activate = function () {
         forWho = p[0];
         tg.querySelectorAll(".lotv-toggle").forEach(function (o) { o.classList.toggle("active", o === t); });
+        rest.hidden = false;
         refresh();
       };
       t.addEventListener("click", activate);
@@ -185,6 +189,7 @@
     });
     who.appendChild(tg);
     form.appendChild(who);
+    form.appendChild(rest);
 
     // Fields
     var grid = el("div", "lotv-grid");
@@ -227,14 +232,14 @@
       grid.appendChild(wrap);
       items.push({ f: f, wrap: wrap, labelEl: labelEl });
     });
-    form.appendChild(grid);
+    rest.appendChild(grid);
 
     submitBtn = el("button", null, def.submitLabel); submitBtn.type = "submit"; submitBtn.id = "lotv-submit-btn";
-    form.appendChild(submitBtn);
+    rest.appendChild(submitBtn);
     if (def.footerNote) {
       var fn = el("p", null, def.footerNote);
       fn.style.cssText = "font-size:.76rem;color:#8291a8;text-align:center;margin:14px 0 0;line-height:1.6;";
-      form.appendChild(fn);
+      rest.appendChild(fn);
     }
 
     form.addEventListener("input", refresh);
@@ -361,6 +366,7 @@
 
   // Collects every problem at once so visitors can fix them in one pass.
   function validate() {
+    if (!forWho) return "Please choose whether this request is for you or for someone else.";
     var missing = [], bad = [];
     for (var i = 0; i < def.fields.length; i++) {
       var f = def.fields[i];
