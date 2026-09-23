@@ -2,6 +2,7 @@
 @layout EmptyLayout
 @inject AuthService Auth
 @inject NavigationManager Nav
+@inject IWebHostEnvironment HostEnvironment
 
 <PageTitle>Staff Login — LOTV Ministry</PageTitle>
 
@@ -49,10 +50,13 @@
         @(_loading ? "Signing in…" : "Sign In")
       </button>
 
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:.76rem;color:var(--text-light);text-align:center;line-height:1.6;">
-        Demo credentials:<br />
-        <strong style="color:var(--text-mid);">mary.roberts</strong> / <strong style="color:var(--text-mid);">DevPassword1!</strong>
-      </div>
+      @if (HostEnvironment.IsDevelopment())
+      {
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:.76rem;color:var(--text-light);text-align:center;line-height:1.6;">
+          Demo credentials:<br />
+          <strong style="color:var(--text-mid);">mary.roberts</strong> / <strong style="color:var(--text-mid);">DevPassword1!</strong>
+        </div>
+      }
     </div>
 
     <div style="text-align:center;margin-top:20px;">
