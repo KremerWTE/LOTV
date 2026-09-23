@@ -229,6 +229,15 @@ jobs:
         TWILIO_FROM_NUMBER:        ${{ secrets.TWILIO_FROM_NUMBER }}
         VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
         VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
+        # Mail the APP sends to families and the team (request received / shipped / delivered emails).
+        # Separate from the NOTIFICATION_EMAIL_* / SMTP_* secrets above, which are only the pipeline's
+        # own build-status mail. All optional: without APP_SMTP_HOST the API only logs emails.
+        APP_SMTP_HOST:             ${{ secrets.APP_SMTP_HOST }}
+        APP_SMTP_PORT:             ${{ secrets.APP_SMTP_PORT }}
+        APP_SMTP_USERNAME:         ${{ secrets.APP_SMTP_USERNAME }}
+        APP_SMTP_PASSWORD:         ${{ secrets.APP_SMTP_PASSWORD }}
+        APP_SMTP_FROM_EMAIL:       ${{ secrets.APP_SMTP_FROM_EMAIL }}
+        APP_TEAM_EMAILS:           ${{ secrets.APP_TEAM_EMAILS }}
       run: |
         $ErrorActionPreference = "Stop"
 
@@ -271,6 +280,12 @@ jobs:
         Set-IfSet -root $cfg -path @("Twilio","FromNumber")                   -envVal $env:TWILIO_FROM_NUMBER
         Set-IfSet -root $cfg -path @("Push","VapidPublicKey")                 -envVal $env:VAPID_PUBLIC_KEY
         Set-IfSet -root $cfg -path @("Push","VapidPrivateKey")                -envVal $env:VAPID_PRIVATE_KEY
+        Set-IfSet -root $cfg -path @("Smtp","Host")                           -envVal $env:APP_SMTP_HOST
+        Set-IfSet -root $cfg -path @("Smtp","Port")                           -envVal $env:APP_SMTP_PORT
+        Set-IfSet -root $cfg -path @("Smtp","Username")                       -envVal $env:APP_SMTP_USERNAME
+        Set-IfSet -root $cfg -path @("Smtp","Password")                       -envVal $env:APP_SMTP_PASSWORD
+        Set-IfSet -root $cfg -path @("Smtp","FromEmail")                      -envVal $env:APP_SMTP_FROM_EMAIL
+        Set-IfSet -root $cfg -path @("Notifications","IntakeTeamEmails")      -envVal $env:APP_TEAM_EMAILS
 
         # Write back — no BOM, 2-space indent
         $indented = $cfg | ConvertTo-Json -Depth 20

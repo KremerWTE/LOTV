@@ -410,38 +410,9 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
             : $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package. {dupMatch.Reason} — needs review.",
         dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
 
-    // Confirmation goes to whoever actually submitted the form, not always the
-    // family — if someone referred this on the family's behalf, an automated
-    // "your request has been received" email to the family they referred (who
-    // may not yet know a package is coming) is a pastoral-sensitivity risk;
-    // the referrer gets confirmed instead, and staff make the family contact.
-    var submitterEmail = body.ForSelf ? body.Family.Email : (body.ReferrerEmail ?? body.Family.Email);
-    var submitterName  = body.ForSelf ? body.Family.Parent1FirstName : (body.ReferrerFirstName ?? body.Family.Parent1FirstName);
-    if (!string.IsNullOrWhiteSpace(submitterEmail))
-    {
-        _ = notify.SendEmailAsync(submitterEmail, submitterName ?? "Friend", "Your Prayer Care Package Request Has Been Received",
-            $"<p>Dear {submitterName},</p>" +
-            "<p>Thank you for reaching out to Lily of the Valley Ministry. Your request has been received, and a member of our team will review it within 1–2 business days. " +
-            "A volunteer will be assigned to assemble the comfort package, which ships directly at no cost. " +
-            "Please know that you and your family are being held in our prayers.</p>");
-    }
-
-    // Team notification email — Notifications:IntakeTeamEmails is a comma/
-    // semicolon-separated list (set via Application Settings in staging/prod),
-    // falling back to Notifications:IntakeStaffEmail (single address) and then
-    // a placeholder so this never silently no-ops without a visible address
-    // in the log.
-    var teamEmailsRaw = cfg["Notifications:IntakeTeamEmails"] ?? cfg["Notifications:IntakeStaffEmail"] ?? "info@lotvministry.org";
-    var teamEmails = teamEmailsRaw.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    var teamSubject = dupMatch is null ? "New Prayer Care Package Request" : "New Prayer Care Package Request — Possible Duplicate";
-    var teamBody =
-        $"<p>{body.Family.Parent1FirstName} {body.Family.Parent1LastName} " +
-        $"({(body.ForSelf ? "for themselves" : "referred by " + body.ReferrerFirstName + " " + body.ReferrerLastName)}) " +
-        $"requested a comfort package.</p>" +
-        (dupMatch is not null ? $"<p><strong>Possible duplicate:</strong> {dupMatch.Reason}</p>" : "") +
-        $"<p><a href=\"/admin/cases/{req.Id}\">View this request</a></p>";
-    foreach (var teamEmail in teamEmails)
-        _ = notify.SendEmailAsync(teamEmail, "LOTV Team", teamSubject, teamBody);
+    // Emails (see RequestEmails / RequestNotifier): a confirmation to whoever submitted the form, and a
+    // team notification to Notifications:IntakeTeamEmails (Whitney and the team) with an absolute link.
+    RequestNotifier.NewRequest(notify, cfg, req, body.Family, body.ReferrerFirstName, body.ReferrerEmail, dupMatch?.Reason);
 
     return Results.Created($"/api/v1/requests/{req.Id}", new { familyId = body.Family.Id, requestId = req.Id, needsDuplicateReview = dupMatch is not null });
 });
@@ -682,7 +653,7 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
 
 cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDbContext db,
     IChapterContextService ctx, IHubContext<RequestsHub> hub, INotificationService notify, IPushSender pushSvc,
-    UserManager<LotvIdentityUser> userMgr) =>
+    UserManager<LotvIdentityUser> userMgr, IConfiguration cfg) =>
 {
     var r = await db.Requests.Include(r => r.Family).FirstOrDefaultAsync(r => r.Id == id);
     if (r is null) return Results.NotFound();
@@ -711,12 +682,10 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
     // of these were ever surfaced anywhere outside an internal SignalR refresh.
     if (body.Status is CaseStatus.Shipped or CaseStatus.Fulfilled)
     {
-        if (body.Status == CaseStatus.Shipped && r.Family is not null && !string.IsNullOrWhiteSpace(r.Family.Email))
-        {
-            var trackingLine = string.IsNullOrWhiteSpace(r.TrackingNumber) ? "" : $"<p>Tracking number: <strong>{r.TrackingNumber}</strong></p>";
-            _ = notify.SendEmailAsync(r.Family.Email, r.Family.FullName, "Your Prayer Care Package Is On Its Way",
-                $"<p>Dear {r.Family.FullName},</p><p>Your Prayer Care Package has shipped and is on its way to you. We are keeping you close in prayer.</p>{trackingLine}");
-        }
+        // Emails: shipped -> the family and the team; completed -> the family, the referrer (if any) and the team.
+        // (Only when the status actually changed - re-saving the same status must not resend them.)
+        if (old != body.Status && body.Status == CaseStatus.Shipped) RequestNotifier.Shipped(notify, cfg, r);
+        if (old != body.Status && body.Status == CaseStatus.Fulfilled) RequestNotifier.Completed(notify, cfg, r);
         if (r.AssignedToId.HasValue)
         {
             var vol = await db.Volunteers.FindAsync(r.AssignedToId.Value);
@@ -935,10 +904,12 @@ cases.MapPost("/{id:int}/escalate", async (int id, EscalateRequest body, LotvDbC
     return Results.Ok(r);
 });
 
-cases.MapPost("/{id:int}/fulfill", async (int id, FulfillRequest body, LotvDbContext db, IChapterContextService ctx) =>
+cases.MapPost("/{id:int}/fulfill", async (int id, FulfillRequest body, LotvDbContext db, IChapterContextService ctx,
+    INotificationService notify, IConfiguration cfg) =>
 {
-    var r = await db.Requests.FindAsync(id);
+    var r = await db.Requests.Include(x => x.Family).FirstOrDefaultAsync(x => x.Id == id);
     if (r is null) return Results.NotFound();
+    var alreadyFulfilled = r.Status == CaseStatus.Fulfilled;
     r.Status = CaseStatus.Fulfilled; r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity
     {
@@ -951,6 +922,9 @@ cases.MapPost("/{id:int}/fulfill", async (int id, FulfillRequest body, LotvDbCon
         if (vol is not null) { vol.TotalCasesFulfilled++; vol.ActiveCases = Math.Max(0, vol.ActiveCases - 1); }
     }
     await db.SaveChangesAsync();
+
+    // Completed emails (family, referrer, team) - once only, even if the button is pressed twice.
+    if (!alreadyFulfilled) RequestNotifier.Completed(notify, cfg, r);
     return Results.Ok(r);
 }).RequireAuthorization("Volunteer");
 
@@ -4406,6 +4380,16 @@ app.MapPut("/api/v1/users/me/notification-prefs", async (List<NotificationPref> 
     await db.SaveChangesAsync();
     return Results.Ok();
 }).RequireAuthorization();
+
+// ─── Email previews (staff) ───────────────────────────────────────────────────
+// Every email a request can trigger, rendered with made-up sample data, plus who the team emails go to
+// (Notifications:IntakeTeamEmails) - so staff can see exactly what families and the team receive.
+app.MapGet("/api/v1/email-previews", (IConfiguration cfg) =>
+    Results.Ok(new
+    {
+        teamRecipients = RequestNotifier.TeamEmails(cfg),
+        emails = RequestEmails.Previews(),
+    })).WithTags("Email").RequireAuthorization("Staff");
 
 // ─── CRM / GiveButter contact export (HQAdmin) ───────────────────────────────
 // One row per family - current AND historical, every status - with only the

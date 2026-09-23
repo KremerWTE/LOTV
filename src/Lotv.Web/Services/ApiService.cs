@@ -964,6 +964,9 @@ public class ApiService
         catch { return (false, "Failed to update email."); }
     }
 
+    // ─── Email previews ──────────────────────────────────────────────────────
+    public Task<EmailPreviewsDto?> GetEmailPreviewsAsync() => GetAsync<EmailPreviewsDto>("/api/v1/email-previews");
+
     // ─── CRM / GiveButter export ─────────────────────────────────────────────
     /// <summary>CSV text of every family (current + historical) with the CRM contact columns.</summary>
     public async Task<string?> GetFamiliesCrmCsvAsync(string mom)
