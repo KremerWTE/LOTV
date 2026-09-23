@@ -28,21 +28,8 @@ jobs:
       - name: Run tests (gate)
         run: dotnet test Lotv.slnx --configuration Release --no-restore
 
-      - name: Install EF Core tools
-        run: dotnet tool install --global dotnet-ef --version 9.*
-
-      # See the matching comment in deploy-staging.yml - this must build
-      # before the migrations step so Lotv.Api's post-build copy target has
-      # something to copy when `dotnet ef` rebuilds it below.
-      - name: Build SQL Server migrations assembly
-        run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release
-
-      - name: Run database migrations (production)
-        run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
-        env:
-          ASPNETCORE_ENVIRONMENT: Production
-          Database__Provider: SqlServer
-          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
+      # Database migrations are intentionally NOT run by this workflow (removed 2026-09-23);
+      # schema changes are applied out-of-band. See deploy-to-iis.yml for the live pipeline.
 
       - name: Extract release version
         id: version
