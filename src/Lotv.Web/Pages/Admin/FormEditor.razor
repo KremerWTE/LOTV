@@ -1,0 +1,501 @@
+@page "/admin/forms/prayer-care-intake"
+@layout AdminLayout
+@using System.Text.Json
+@inject ApiService Api
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Intake Form Editor — LOTV Staff Portal</PageTitle>
+
+<style>
+  .fe .form-label { display:block; margin-bottom:4px; }
+  .fe .form-input { display:block; width:100%; box-sizing:border-box; }
+  .fe .fe-row { display:flex; gap:8px; align-items:flex-start; }
+  .fe .fe-row > .form-input { flex:1; min-width:0; }
+</style>
+
+<div class="page-hd">
+  <div>
+    <h2>Prayer Care Intake Form</h2>
+    <p>Edit the questions, choices, wording and show/hide rules of the public request form. Changes go live as soon as you save.</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/prayer-care-intake.html" target="_blank" rel="noopener" class="btn btn-sm">View public form ↗</a>
+    <button class="btn btn-sm" @onclick="ResetAsync" disabled="@(_saving || _env is null || _env.IsDefault)">Reset to default</button>
+    <button class="btn btn-primary btn-sm" @onclick="SaveAsync" disabled="@(_saving || !IsDirty)">@(_saving ? "Saving…" : "Save changes")</button>
+  </div>
+</div>
+
+<div class="fe">
+@if (!Auth.IsHqAdmin)
+{
+  <div class="alert alert-danger">Only HQ Admins can edit the public intake form.</div>
+}
+else if (_loading)
+{
+  <div class="panel"><div class="panel-body">Loading…</div></div>
+}
+else if (_def is null)
+{
+  <div class="alert alert-danger">Couldn't load the form definition. Check that the API is running, then reload.</div>
+}
+else
+{
+  @if (!string.IsNullOrEmpty(_err))
+  {
+    <div class="alert alert-danger" role="alert">⚠ @_err</div>
+  }
+
+  <div style="font-size:.8rem;color:var(--text-mid);margin-bottom:14px;">
+    @if (_env!.IsDefault) { <span>Showing the built-in default — nothing has been customised yet.</span> }
+    else { <span>Last saved @_env.UpdatedAt?.ToLocalTime().ToString("MMM d, yyyy h:mm tt")@(string.IsNullOrEmpty(_env.UpdatedBy) ? "" : $" by {_env.UpdatedBy}").</span> }
+    @if (IsDirty) { <strong style="color:var(--amber);margin-left:8px;">● Unsaved changes</strong> }
+  </div>
+
+  <!-- SHARE -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head"><h3>Where to use this form</h3></div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label class="form-label">Public link (works on its own, or paste into Duda)</label>
+        <div class="fe-row">
+          <input class="form-input" readonly value="@PublicUrl" />
+          <button class="btn btn-sm" @onclick="() => CopyAsync(PublicUrl)">Copy</button>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Iframe code for any website</label>
+        <div class="fe-row">
+          <textarea class="form-input" readonly rows="5" style="font-family:monospace;font-size:.76rem;">@IframeCode</textarea>
+          <button class="btn btn-sm" @onclick="() => CopyAsync(IframeCode)">Copy</button>
+        </div>
+        <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">The form reports its height to the page around it; the small script makes the frame grow and shrink automatically.</div>
+      </div>
+      <div>
+        <button class="btn btn-sm" @onclick="() => _showPreview = !_showPreview">@(_showPreview ? "Hide preview" : "Show live preview")</button>
+        @if (_showPreview)
+        {
+          <iframe src="/prayer-care-intake.html?v=@_previewNonce" title="Form preview"
+                  style="display:block;width:100%;height:760px;border:1px solid var(--border);border-radius:10px;margin-top:10px;background:white;"></iframe>
+          <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">Shows the last <em>saved</em> version. Submitting from the preview creates a real request.</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- WORDING -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head"><h3>Wording</h3></div>
+    <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div style="grid-column:1/-1;"><label class="form-label">Form title</label><input class="form-input" @bind="_def.Title" /></div>
+      <div style="grid-column:1/-1;"><label class="form-label">Introduction</label><textarea class="form-input" rows="2" @bind="_def.Intro"></textarea></div>
+      <div style="grid-column:1/-1;"><label class="form-label">“Who is this for?” heading</label><input class="form-input" @bind="_def.WhoIsThisForLabel" /></div>
+      <div><label class="form-label">Button: for me</label><input class="form-input" @bind="_def.ToggleLabelMe" /></div>
+      <div><label class="form-label">Button: for someone else</label><input class="form-input" @bind="_def.ToggleLabelSomeone" /></div>
+      <div><label class="form-label">Submit button</label><input class="form-input" @bind="_def.SubmitLabel" /></div>
+      <div style="grid-column:1/-1;"><label class="form-label">Note under the submit button</label><textarea class="form-input" rows="2" @bind="_def.FooterNote"></textarea></div>
+      <div style="grid-column:1/-1;"><label class="form-label">After submitting — heading</label><input class="form-input" @bind="_def.Confirmation.Title" /></div>
+      <div style="grid-column:1/-1;"><label class="form-label">After submitting — message</label><textarea class="form-input" rows="3" @bind="_def.Confirmation.Body"></textarea></div>
+
+      <div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:12px;">
+        <label style="display:flex;gap:8px;align-items:center;font-size:.86rem;font-weight:600;">
+          <input type="checkbox" @bind="_def.Donation.Enabled" /> Show a donation box after someone submits a request <em style="font-weight:400;color:var(--text-light);">(for someone else)</em>
+        </label>
+      </div>
+      @if (_def.Donation.Enabled)
+      {
+        <div style="grid-column:1/-1;"><label class="form-label">Donation heading</label><input class="form-input" @bind="_def.Donation.Title" /></div>
+        <div style="grid-column:1/-1;"><label class="form-label">Donation message</label><textarea class="form-input" rows="3" @bind="_def.Donation.Body"></textarea></div>
+        <div><label class="form-label">GiveButter widget id</label><input class="form-input" @bind="_def.Donation.WidgetId" /></div>
+        <div><label class="form-label">GiveButter account id</label><input class="form-input" @bind="_def.Donation.Account" /></div>
+        <div><label class="form-label">Suggested amount ($)</label><input class="form-input" @bind="_def.Donation.Amount" /></div>
+      }
+    </div>
+  </div>
+
+  <!-- QUESTIONS -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3>Questions <span style="font-weight:400;font-size:.8rem;color:var(--text-light);">(top to bottom, as visitors see them)</span></h3>
+    </div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
+      @for (var i = 0; i < _def.Fields.Count; i++)
+      {
+        var idx = i;
+        var f = _def.Fields[i];
+        var locked = IntakeFormDefinition.AlwaysRequiredKeys.Contains(f.Key);
+        var isOpen = _openId == f.Id;
+        var listOnly = f.Type is "heading" or "hint";
+        <div style="border:1px solid @(isOpen ? "var(--green)" : "var(--border)");border-radius:10px;background:@(f.Visible ? "white" : "var(--bg)");" data-field-id="@f.Id">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <button class="btn btn-sm" style="padding:0 6px;line-height:1.2;" title="Move up" aria-label="Move up" disabled="@(idx == 0)" @onclick="() => Move(idx, -1)">▲</button>
+              <button class="btn btn-sm" style="padding:0 6px;line-height:1.2;" title="Move down" aria-label="Move down" disabled="@(idx == _def.Fields.Count - 1)" @onclick="() => Move(idx, 1)">▼</button>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.86rem;font-weight:@(listOnly ? 700 : 600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@Trunc(f.Label, 90)</div>
+              <div style="font-size:.7rem;color:var(--text-light);display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:2px;">
+                <span class="badge badge-new" style="font-size:.6rem;">@TypeLabel(f.Type)</span>
+                @if (!f.Standard) { <span class="badge badge-inprogress" style="font-size:.6rem;">Custom</span> }
+                @if (!f.Visible) { <span class="badge badge-onhold" style="font-size:.6rem;">Hidden</span> }
+                @if (f.ShowWhen.Count > 0) { <span>@CondSummary(f)</span> }
+              </div>
+            </div>
+            @if (!listOnly)
+            {
+              <label style="display:flex;gap:4px;align-items:center;font-size:.76rem;" title="@(locked ? "The intake needs this to create the family record" : "")">
+                <input type="checkbox" checked="@f.Required" disabled="@(locked || !f.Visible)" @onchange="e => f.Required = (bool)(e.Value ?? false)" /> Required
+              </label>
+            }
+            <label style="display:flex;gap:4px;align-items:center;font-size:.76rem;">
+              <input type="checkbox" checked="@f.Visible" disabled="@locked" @onchange="e => f.Visible = (bool)(e.Value ?? false)" /> Show
+            </label>
+            <button class="btn btn-sm" @onclick="() => Toggle(f.Id)">@(isOpen ? "Close" : "Edit")</button>
+            @if (!f.Standard)
+            {
+              <button class="btn btn-sm" title="Delete this question" aria-label="Delete this question" style="color:var(--red,#c0392b);" @onclick="() => Delete(idx)">✕</button>
+            }
+          </div>
+
+          @if (isOpen)
+          {
+            <div style="border-top:1px solid var(--border);padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;background:var(--bg);">
+              <div style="grid-column:1/-1;">
+                <label class="form-label">@(f.Type == "bracelet" ? "Intro text shown above the children list" : f.Type is "heading" or "hint" ? "Text" : "Question")</label>
+                @if (f.Type == "bracelet") { <textarea class="form-input" rows="4" @bind="f.Label"></textarea> }
+                else { <input class="form-input" @bind="f.Label" /> }
+              </div>
+              <div>
+                <label class="form-label">Different wording when it's for me <span style="font-weight:400;color:var(--text-light);">(optional)</span></label>
+                <input class="form-input" @bind="f.LabelMe" />
+              </div>
+              <div>
+                <label class="form-label">Different wording when it's for someone else <span style="font-weight:400;color:var(--text-light);">(optional)</span></label>
+                <input class="form-input" @bind="f.LabelSomeone" />
+              </div>
+
+              @if (f.Type is "text" or "email" or "tel" or "textarea")
+              {
+                <div><label class="form-label">Placeholder</label><input class="form-input" @bind="f.Placeholder" /></div>
+              }
+              @if (f.Type is not ("heading" or "hint" or "bracelet" or "checkbox"))
+              {
+                <div><label class="form-label">Help text under the question</label><input class="form-input" @bind="f.Help" /></div>
+                <div>
+                  <label class="form-label">Width</label>
+                  <select class="form-input" @bind="f.Width">
+                    <option value="half">Half (two per row)</option>
+                    <option value="full">Full width</option>
+                  </select>
+                </div>
+              }
+              @if (f.Type == "bracelet")
+              {
+                <div><label class="form-label">“Add another” button</label><input class="form-input" @bind="f.ButtonLabel" /></div>
+                <div><label class="form-label">Button when for someone else</label><input class="form-input" @bind="f.ButtonLabelSomeone" /></div>
+              }
+
+              @if (f.Type == "select")
+              {
+                <div style="grid-column:1/-1;">
+                  <label class="form-label">Choices</label>
+                  @if (f.LockValues)
+                  {
+                    <div style="font-size:.74rem;color:var(--text-light);margin-bottom:6px;">The system understands these exact choices, so you can change the wording, reorder or hide them, but not add new ones.</div>
+                  }
+                  else if (f.Standard)
+                  {
+                    <div style="font-size:.74rem;color:var(--text-light);margin-bottom:6px;">Existing choices keep their saved value so show/hide rules keep working — you can change the wording, reorder, remove, or add new ones.</div>
+                  }
+                  @for (var oi = 0; oi < f.Options.Count; oi++)
+                  {
+                    var o = f.Options[oi];
+                    var oidx = oi;
+                    var fixedValue = _origOptions.Contains(f.Id + "|" + o.Value);
+                    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                      <button class="btn btn-sm" style="padding:0 6px;" aria-label="Move choice up" disabled="@(oidx == 0)" @onclick="() => MoveOption(f, oidx, -1)">▲</button>
+                      <button class="btn btn-sm" style="padding:0 6px;" aria-label="Move choice down" disabled="@(oidx == f.Options.Count - 1)" @onclick="() => MoveOption(f, oidx, 1)">▼</button>
+                      <input class="form-input" style="flex:2;" placeholder="Wording" @bind="o.Label" />
+                      <input class="form-input" style="flex:1;font-size:.76rem;" title="Saved value" disabled="@fixedValue" @bind="o.Value" />
+                      <button class="btn btn-sm" aria-label="Remove choice" disabled="@(f.Options.Count <= 1)" @onclick="() => f.Options.RemoveAt(oidx)">✕</button>
+                    </div>
+                  }
+                  @if (!f.LockValues)
+                  {
+                    <button class="btn btn-sm" @onclick="() => AddOption(f)">+ Add choice</button>
+                  }
+                </div>
+              }
+
+              @if (!locked)
+              {
+                <div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:10px;">
+                  <label class="form-label">Show this only when… <span style="font-weight:400;color:var(--text-light);">(no rules = always shown)</span></label>
+                  @foreach (var c in f.ShowWhen.ToList())
+                  {
+                    <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-bottom:8px;padding:8px;background:white;border:1px solid var(--border);border-radius:8px;">
+                      <select class="form-input" style="width:auto;" value="@CondKind(c)" @onchange='e => SetCondKind(f, c, e.Value?.ToString() ?? "branch")'>
+                        <option value="branch">Who it's for</option>
+                        <option value="field">Another question's answer</option>
+                      </select>
+                      @if (CondKind(c) == "branch")
+                      {
+                        <select class="form-input" style="width:auto;" @bind="c.Branch">
+                          <option value="me">is for me</option>
+                          <option value="someone">is for someone else</option>
+                        </select>
+                      }
+                      else
+                      {
+                        <select class="form-input" style="width:auto;" value="@c.Field" @onchange="e => { c.Field = e.Value?.ToString(); c.In = []; }">
+                          @foreach (var src in SourceFields(f)) { <option value="@src.Key">@Trunc(src.Label, 50)</option> }
+                        </select>
+                        <select class="form-input" style="width:auto;" value="@(c.NotEmpty ? "any" : "in")" @onchange='e => SetCondMode(c, e.Value?.ToString() ?? "in")'>
+                          <option value="in">is one of</option>
+                          <option value="any">has any answer</option>
+                        </select>
+                        @if (!c.NotEmpty)
+                        {
+                          <div style="display:flex;gap:10px;flex-wrap:wrap;flex:1;min-width:200px;">
+                            @foreach (var opt in OptionsOf(c.Field))
+                            {
+                              <label style="display:flex;gap:4px;align-items:center;font-size:.78rem;font-weight:400;">
+                                <input type="checkbox" checked="@(c.In?.Contains(opt.Value) == true)" @onchange="e => ToggleIn(c, opt.Value, (bool)(e.Value ?? false))" /> @opt.Label
+                              </label>
+                            }
+                          </div>
+                        }
+                      }
+                      <button class="btn btn-sm" aria-label="Remove rule" @onclick="() => f.ShowWhen.Remove(c)">✕</button>
+                    </div>
+                  }
+                  <button class="btn btn-sm" @onclick="() => AddCondition(f)">+ Add a rule</button>
+                  @if (f.ShowWhen.Count > 1) { <span style="font-size:.74rem;color:var(--text-light);margin-left:8px;">All rules must be true.</span> }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+        <select class="form-input" style="width:auto;" @bind="_newType">
+          @foreach (var t in CustomTypes) { <option value="@t">@TypeLabel(t)</option> }
+        </select>
+        <button class="btn btn-sm" @onclick="AddCustom">+ Add a new question</button>
+        <span style="font-size:.74rem;color:var(--text-light);">Answers to new questions are added to the family's contact notes.</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:40px;">
+    <button class="btn" @onclick="ReloadAsync" disabled="@(_saving || !IsDirty)">Discard changes</button>
+    <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(_saving || !IsDirty)">@(_saving ? "Saving…" : "Save changes")</button>
+  </div>
+}
+
+</div>
+
+@if (_toast != null)
+{
+  <div style="position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">✓ @_toast</div>
+}
+
+@code {
+  private const string Key = "prayer-care-intake";
+  private static readonly string[] CustomTypes = ["text", "textarea", "select", "checkbox", "date", "email", "tel", "heading", "hint"];
+
+  private IntakeFormEnvelope? _env;
+  private IntakeFormDefinition? _def;
+  private string _savedJson = "";
+  private HashSet<string> _origOptions = [];
+  private bool _loading = true, _saving, _showPreview;
+  private string? _err, _toast, _openId;
+  private string _newType = "text";
+  private int _previewNonce = 1;
+
+  private bool IsDirty => _def is not null && JsonSerializer.Serialize(_def) != _savedJson;
+  private string PublicUrl => Nav.ToAbsoluteUri("/prayer-care-intake.html").ToString();
+  private string IframeCode =>
+    $"<iframe id=\"lotv-intake-frame\" src=\"{PublicUrl}\" title=\"{_def?.Title}\" width=\"100%\" height=\"1800\" style=\"border:0;display:block;max-width:680px;margin:0 auto;\"></iframe>\n" +
+    "<script>window.addEventListener(\"message\",function(e){if(e.data&&e.data.lotvIntakeHeight){document.getElementById(\"lotv-intake-frame\").style.height=e.data.lotvIntakeHeight+\"px\";}});</script>";
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (Auth.IsHqAdmin) await LoadAsync();
+    _loading = false;
+  }
+
+  private async Task LoadAsync()
+  {
+    var env = await Api.GetFormAsync(Key);
+    if (env is not null) Adopt(env);
+  }
+
+  private async Task ReloadAsync()
+  {
+    _err = null; _openId = null;
+    await LoadAsync();
+  }
+
+  private void Adopt(IntakeFormEnvelope env)
+  {
+    _env = env;
+    _def = env.Definition;
+    _savedJson = JsonSerializer.Serialize(_def);
+    _origOptions = _def.Fields.SelectMany(f => f.Options.Select(o => f.Id + "|" + o.Value)).ToHashSet();
+  }
+
+  private async Task SaveAsync()
+  {
+    if (_def is null) return;
+    _saving = true; _err = null;
+    var (saved, error) = await Api.SaveFormAsync(Key, _def);
+    _saving = false;
+    if (saved is null) { _err = error; return; }
+    Adopt(saved);
+    _previewNonce++;
+    await ShowToast("Saved — the public form is updated");
+  }
+
+  private async Task ResetAsync()
+  {
+    if (!await JS.InvokeAsync<bool>("confirm", "Throw away all customisations and go back to the built-in default form? This goes live immediately.")) return;
+    _err = null; _saving = true;
+    var env = await Api.ResetFormAsync(Key);
+    _saving = false;
+    if (env is null) { _err = "Couldn't reset the form."; return; }
+    Adopt(env); _openId = null; _previewNonce++;
+    await ShowToast("Reset to the built-in default");
+  }
+
+  private async Task CopyAsync(string text)
+  {
+    try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", text); await ShowToast("Copied"); }
+    catch { _err = "Couldn't copy automatically — select the text and copy it."; }
+  }
+
+  // ── list editing ──────────────────────────────────────────────────────────
+  private void Toggle(string id) => _openId = _openId == id ? null : id;
+
+  private void Move(int i, int delta)
+  {
+    var list = _def!.Fields; var j = i + delta;
+    if (j < 0 || j >= list.Count) return;
+    (list[i], list[j]) = (list[j], list[i]);
+  }
+
+  private void MoveOption(IntakeFormField f, int i, int delta)
+  {
+    var j = i + delta;
+    if (j < 0 || j >= f.Options.Count) return;
+    (f.Options[i], f.Options[j]) = (f.Options[j], f.Options[i]);
+  }
+
+  private void AddOption(IntakeFormField f)
+  {
+    var n = f.Options.Count + 1;
+    while (f.Options.Any(o => o.Value == $"Choice {n}")) n++;
+    f.Options.Add(new FormOption { Value = $"Choice {n}", Label = $"Choice {n}" });
+  }
+
+  private void AddCustom()
+  {
+    var n = 1;
+    while (_def!.Fields.Any(x => x.Id == $"custom-{n}" || x.Key == $"custom{n}")) n++;
+    var f = new IntakeFormField
+    {
+      Id = $"custom-{n}",
+      Key = _newType is "heading" or "hint" ? "" : $"custom{n}",
+      Type = _newType,
+      Label = _newType switch { "heading" => "New section", "hint" => "Note text", "checkbox" => "New checkbox", _ => "New question" },
+      Width = "full",
+      Visible = true,
+      Standard = false,
+    };
+    if (_newType == "select") f.Options.Add(new FormOption { Value = "Choice 1", Label = "Choice 1" });
+
+    // Land above the opt-in section when it exists, otherwise at the end.
+    var at = _def.Fields.FindIndex(x => x.Id == "optin-heading");
+    if (at < 0) at = _def.Fields.Count;
+    _def.Fields.Insert(at, f);
+    _openId = f.Id;
+  }
+
+  private void Delete(int i)
+  {
+    var gone = _def!.Fields[i];
+    _def.Fields.RemoveAt(i);
+    if (!string.IsNullOrEmpty(gone.Key))
+      foreach (var f in _def.Fields) f.ShowWhen.RemoveAll(c => c.Field == gone.Key);
+    if (_openId == gone.Id) _openId = null;
+  }
+
+  // ── show/hide rules ───────────────────────────────────────────────────────
+  private IEnumerable<IntakeFormField> SourceFields(IntakeFormField f) =>
+    _def!.Fields.Where(x => x.Type == "select" && !string.IsNullOrEmpty(x.Key) && x.Key != f.Key);
+
+  private IEnumerable<FormOption> OptionsOf(string? key) =>
+    _def!.Fields.FirstOrDefault(x => x.Key == key)?.Options ?? [];
+
+  private static string CondKind(FormCondition c) => c.Branch is not null ? "branch" : "field";
+
+  private void AddCondition(IntakeFormField f) => f.ShowWhen.Add(new FormCondition { Branch = "someone" });
+
+  private void SetCondKind(IntakeFormField f, FormCondition c, string kind)
+  {
+    if (kind == "branch") { c.Branch = "someone"; c.Field = null; c.In = null; c.NotEmpty = false; }
+    else
+    {
+      c.Branch = null; c.NotEmpty = false; c.In = [];
+      c.Field = SourceFields(f).FirstOrDefault()?.Key;
+    }
+  }
+
+  private static void SetCondMode(FormCondition c, string mode)
+  {
+    if (mode == "any") { c.NotEmpty = true; c.In = null; }
+    else { c.NotEmpty = false; c.In = []; }
+  }
+
+  private static void ToggleIn(FormCondition c, string value, bool on)
+  {
+    c.In ??= [];
+    if (on && !c.In.Contains(value)) c.In.Add(value);
+    if (!on) c.In.Remove(value);
+  }
+
+  private string CondSummary(IntakeFormField f)
+  {
+    var parts = f.ShowWhen.Select(c =>
+    {
+      if (c.Branch is not null) return c.Branch == "me" ? "it's for me" : "it's for someone else";
+      var src = _def!.Fields.FirstOrDefault(x => x.Key == c.Field);
+      var name = src is null ? c.Field : Trunc(src.Label, 30);
+      if (c.NotEmpty) return $"“{name}” is answered";
+      var labels = (c.In ?? []).Select(v => src?.Options.FirstOrDefault(o => o.Value == v)?.Label ?? v);
+      return $"“{name}” is {string.Join(" / ", labels)}";
+    });
+    return "Only when " + string.Join(" and ", parts);
+  }
+
+  // ── display helpers ───────────────────────────────────────────────────────
+  private static string Trunc(string? s, int n) =>
+    string.IsNullOrEmpty(s) ? "(empty)" : s.Length <= n ? s : s[..(n - 1)] + "…";
+
+  private static string TypeLabel(string t) => t switch
+  {
+    "text" => "Short answer", "email" => "Email", "tel" => "Phone", "date" => "Date",
+    "select" => "Dropdown", "textarea" => "Long answer", "checkbox" => "Checkbox",
+    "heading" => "Section heading", "hint" => "Note text", "bracelet" => "Bracelet children",
+    _ => t
+  };
+
+  private async Task ShowToast(string msg)
+  {
+    _toast = msg; StateHasChanged();
+    await Task.Delay(2500);
+    _toast = null;
+  }
+}

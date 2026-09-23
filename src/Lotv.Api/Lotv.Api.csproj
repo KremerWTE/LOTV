@@ -64,4 +64,8 @@
     <Copy SourceFiles="@(SqlServerMigrationsFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
   </Target>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Data\FormDefaults\*.json" />
+  </ItemGroup>
+
 </Project>

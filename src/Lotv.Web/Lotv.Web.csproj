@@ -19,4 +19,14 @@
     <ProjectReference Include="..\Lotv.Core\Lotv.Core.csproj" />
   </ItemGroup>
 
+  <!-- The public intake form page has one source of truth: docs/duda-embed/prayer-care-intake.html
+       (what gets pasted into Duda). Keep the copy served at /prayer-care-intake.html identical.
+       Guarded so builds from a context without the docs folder (e.g. some Docker contexts) still work. -->
+  <Target Name="SyncIntakeFormPage" BeforeTargets="BeforeBuild">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\docs\duda-embed\prayer-care-intake.html"
+          DestinationFiles="$(MSBuildThisFileDirectory)wwwroot\prayer-care-intake.html"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(MSBuildThisFileDirectory)..\..\docs\duda-embed\prayer-care-intake.html')" />
+  </Target>
+
 </Project>

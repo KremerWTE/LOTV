@@ -1,40 +1,32 @@
 <!--
-  LOTV Prayer Care Package Intake - Duda embed
-  =============================================
-  Paste this whole file into a Duda "Embed Code" / HTML widget.
+  LOTV Prayer Care Package Intake - embeddable, dashboard-editable form
+  =====================================================================
+  Paste this whole file into a Duda "Embed Code" / HTML widget, or iframe
+  https://lotv.wte.net/prayer-care-intake.html (a copy of this file is served
+  from src/Lotv.Web/wwwroot and kept in sync by the Lotv.Web build).
 
-  API_BASE_URL below is set to the production API (https://lotv_api.wte.net),
-  or http://localhost:5100 when previewed locally. Lotv.Api's default CORS
-  policy allows any origin, so no AllowedOrigins change is needed for Duda.
+  THE QUESTIONS ARE NOT IN THIS FILE. On load it fetches its definition
+  (questions, choices, show/hide rules, wording, donation box) from
+    GET {API}/api/v1/public/forms/prayer-care-intake
+  Staff edit that in the dashboard: Operations & Content > Intake Form Editor
+  (HQAdmin). The built-in default definition lives in
+  src/Lotv.Api/Data/FormDefaults/prayer-care-intake.json.
 
-  NOTE: this file is also served live at https://lotv.wte.net/prayer-care-intake.html
-  (copy in src/Lotv.Web/wwwroot) and can be iframed from any site.
+  This file only knows HOW to render a definition and how to map the standard
+  answers onto the Family/PackageRequest the API creates
+  (POST {API}/api/v1/public/apply). Custom questions staff add are appended to
+  the family's contact notes.
 
-  GiveButter notes:
-    - GiveButter is already wired in (#lotv-givebutter-widget), using the
-       real widget id "Lv36Zg" pulled from lotvministry.org/donate/'s own
-       page source (same JS custom-element widget mechanism the ministry's
-       donate page already uses — confirmed 2026-09-08, not an iframe).
-       If Duda's own site template already loads GiveButter's widget
-       script elsewhere on the page, the duplicate <script> tag here is
-       harmless but can be deleted.
+  API_BASE_URL below is the production API (https://lotv_api.wte.net), or
+  http://localhost:5100 when previewed locally. The API's default CORS policy
+  allows any origin, so no AllowedOrigins change is needed for Duda.
 
-  Mirrors the branching logic of the original JotForm intake (form
-  261395566857171, field 38 "Prayer Care Package Options"):
-    - "For Me"          -> requester IS the family. Donation ask hidden.
-    - "For Someone Else"-> requester refers a family. Donation ask (GiveButter)
-                           shown, per the form's own original design intent.
-  Posts directly to Lotv.Api's public intake endpoint - no JotForm, no
-  webhook, no third-party HIPAA-BAA account involved. Data lands straight
-  in the Family/PackageRequest tables and shows up on the Kanban board.
-
-  Required-field enforcement (husband's + wife's name and email both
-  required; phone optional; street/city/state/zip, how did you hear) and
-  the Apt/Suite # field match the ministry's actual live intake form at
-  lotvministry.org/how-we-serve/request-prayer-care-package/ (a separate
-  WordPress/Gravity Forms form, unrelated to the JotForm above) - checked
-  2026-09-08. The bracelet field and reason-dropdown structure intentionally
-  stay JotForm-shaped (richer than that live form) per explicit direction.
+  IFRAME AUTO-HEIGHT: when framed, this page posts {lotvIntakeHeight: <px>} to
+  its parent whenever its height changes. Optional parent-side listener:
+    window.addEventListener("message", function (e) {
+      if (e.data && e.data.lotvIntakeHeight)
+        document.getElementById("lotv-intake-frame").style.height = e.data.lotvIntakeHeight + "px";
+    });
 -->
 <meta charset="utf-8" />
 <style>
@@ -43,8 +35,9 @@
   #lotv-intake h2 { font-size: 1.5rem; margin: 0 0 6px; color: #1f2a3d; }
   #lotv-intake .lotv-sub { color: #5a6b85; font-size: .92rem; margin: 0 0 24px; line-height: 1.5; }
   #lotv-intake .lotv-section { margin-bottom: 24px; }
-  #lotv-intake .lotv-section-label { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7a8aa3; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e3e8f0; }
-  #lotv-intake .lotv-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 14px; }
+  #lotv-intake .lotv-section-label { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7a8aa3; margin: 10px 0 0; padding-bottom: 6px; border-bottom: 1px solid #e3e8f0; }
+  #lotv-intake .lotv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
+  #lotv-intake .lotv-full { grid-column: 1 / -1; }
   #lotv-intake label { display: block; font-size: .84rem; font-weight: 600; margin-bottom: 5px; color: #33415c; }
   #lotv-intake input, #lotv-intake select, #lotv-intake textarea {
     width: 100%; padding: 10px 12px; border: 1px solid #d3dae6; border-radius: 8px;
@@ -66,7 +59,7 @@
   #lotv-intake .lotv-donation h3 { margin: 0 0 6px; font-size: 1rem; color: #7a5a00; }
   #lotv-intake .lotv-donation p { margin: 0 0 14px; font-size: .86rem; color: #9a7a20; line-height: 1.5; }
   #lotv-intake #lotv-givebutter-widget { min-height: 40px; }
-  #lotv-intake .lotv-checkbox-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; font-size: .86rem; }
+  #lotv-intake .lotv-checkbox-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 0; font-size: .86rem; font-weight: 400; }
   #lotv-intake .lotv-checkbox-row input { width: auto; margin-top: 3px; }
   #lotv-intake button[type="submit"] {
     width: 100%; padding: 14px; border: 0; border-radius: 9px; background: #1f2a3d;
@@ -98,349 +91,245 @@
   }
   #lotv-intake .lotv-add-row-btn:hover { background: #f3f8f4; }
   @media (max-width: 560px) {
+    #lotv-intake .lotv-grid { grid-template-columns: 1fr; }
     #lotv-intake .lotv-bracelet-row { grid-template-columns: 1fr 1fr; }
     #lotv-intake .lotv-bracelet-row > div:nth-child(2) { grid-column: 1 / -1; }
   }
 </style>
 
 <div id="lotv-intake">
-  <form id="lotv-intake-form" novalidate>
-    <h2>Request a Prayer Care Package</h2>
-    <p class="lotv-sub">Free, always - no eligibility requirements. Fill this out for yourself, or on behalf of a family you know who needs support.</p>
-
-    <div id="lotv-error" class="lotv-error" hidden></div>
-
-    <!-- ── FOR ME / FOR SOMEONE ELSE ─────────────────────────────────── -->
-    <div class="lotv-section">
-      <div class="lotv-section-label">Who is this for? <span class="lotv-required">*</span></div>
-      <div class="lotv-toggle-group">
-        <div class="lotv-toggle active" data-forwho="me" role="button" tabindex="0">This is for me</div>
-        <div class="lotv-toggle" data-forwho="someone" role="button" tabindex="0">This is for someone else</div>
-      </div>
-    </div>
-
-    <!-- ── HUSBAND/WIFE (RECIPIENT FAMILY) INFO — always shown ────────── -->
-    <div class="lotv-section">
-      <div class="lotv-section-label" id="lotv-family-label">About You</div>
-      <div class="lotv-row">
-        <div><label for="lotv-husband-first">Husband's Name <span class="lotv-required">*</span></label><input id="lotv-husband-first" name="husbandFirst" placeholder="First & last" required /></div>
-        <div><label for="lotv-wife-first">Wife's Name <span class="lotv-required">*</span></label><input id="lotv-wife-first" name="wifeFirst" placeholder="First & last" required /></div>
-      </div>
-      <div class="lotv-row">
-        <div><label for="lotv-husband-email">Husband's Email <span class="lotv-required">*</span></label><input id="lotv-husband-email" name="husbandEmail" type="email" required /></div>
-        <div><label for="lotv-wife-email">Wife's Email <span class="lotv-required">*</span></label><input id="lotv-wife-email" name="wifeEmail" type="email" required /></div>
-      </div>
-      <div class="lotv-row">
-        <div><label for="lotv-husband-phone">Husband's Phone</label><input id="lotv-husband-phone" name="husbandPhone" type="tel" /></div>
-        <div><label for="lotv-wife-phone">Wife's Phone</label><input id="lotv-wife-phone" name="wifePhone" type="tel" /></div>
-      </div>
-      <div class="lotv-hint">Phone numbers are optional.</div>
-      <div class="lotv-row" style="margin-top:14px;">
-        <div><label for="lotv-street">Street Address <span class="lotv-required">*</span></label><input id="lotv-street" name="street" required /></div>
-        <div><label for="lotv-apt">Apt or Suite #</label><input id="lotv-apt" name="apt" /></div>
-      </div>
-      <div class="lotv-row">
-        <div><label for="lotv-city">City <span class="lotv-required">*</span></label><input id="lotv-city" name="city" required /></div>
-        <div><label for="lotv-state">State <span class="lotv-required">*</span></label><input id="lotv-state" name="state" required /></div>
-      </div>
-      <div class="lotv-row">
-        <div><label for="lotv-zip">Zip Code <span class="lotv-required">*</span></label><input id="lotv-zip" name="zip" required /></div>
-      </div>
-    </div>
-
-    <!-- ── ANONYMOUS / MENTION — "For Someone Else" only ───────────────── -->
-    <div class="lotv-section" data-someone-only hidden>
-      <div class="lotv-section-label">Would you like us to mention this package is from you, or remain anonymous?</div>
-      <select id="lotv-mention" name="mentionPreference">
-        <option value="Mention">Mention Me</option>
-        <option value="Anonymous">Remain Anonymous</option>
-      </select>
-    </div>
-
-    <!-- ── REASON ───────────────────────────────────────────────────── -->
-    <div class="lotv-section">
-      <div class="lotv-section-label">Reason for Prayer Package Request <span class="lotv-required">*</span></div>
-      <select id="lotv-reason" name="reason" required>
-        <option value="">- Please select -</option>
-        <option value="Infertility">Infertility</option>
-        <option value="PrenatalDiagnosis">Prenatal Diagnosis</option>
-        <option value="Miscarriage">(&lt;20 weeks) Miscarriage</option>
-        <option value="Stillbirth">(&lt;20 weeks) Stillbirth</option>
-        <option value="InfantLoss">Infant Loss (after birth, age 0-1)</option>
-        <option value="PostnatalMedical">Postnatal Medical Concern</option>
-      </select>
-    </div>
-
-    <!-- ── DATE OF LOSS — revealed for miscarriage/stillbirth/infant loss ─ -->
-    <div class="lotv-section" data-reveal-for="Miscarriage,Stillbirth,InfantLoss" hidden>
-      <label for="lotv-date-of-loss">Date of Recent Loss</label>
-      <input id="lotv-date-of-loss" name="dateOfLoss" type="date" />
-    </div>
-
-    <!-- ── GRIEF SUPPORT — revealed only for losses >20 weeks or infant loss
-         (Stillbirth / InfantLoss), per Whitney's direction 2026-09-22. Shown
-         on both the "For Me" and "For Someone Else" branches - it's not
-         marked data-someone-only, so it already appears on both. ─────────── -->
-    <div class="lotv-section" data-reveal-for="Stillbirth,InfantLoss" hidden>
-      <label for="lotv-grief-support">Would you like to receive quarterly Grief Support?</label>
-      <select id="lotv-grief-support" name="griefSupport">
-        <option value="">- Please select -</option>
-        <option value="Yes">Yes</option>
-        <option value="No">No</option>
-      </select>
-    </div>
-
-    <!-- ── FAITH TRADITION — revealed once any reason is picked ────────── -->
-    <div class="lotv-section" data-reveal-for="Infertility,PrenatalDiagnosis,Miscarriage,Stillbirth,InfantLoss,PostnatalMedical" hidden>
-      <label for="lotv-faith">Faith Tradition</label>
-      <select id="lotv-faith" name="faithTradition">
-        <option value="">- Please select -</option>
-        <option value="Catholic">Catholic</option>
-        <option value="Christian">Christian</option>
-        <option value="Jewish">Jewish</option>
-        <option value="Muslim">Muslim</option>
-        <option value="Others">Others</option>
-        <option value="Prefer Not to Say">Prefer Not to Say</option>
-      </select>
-    </div>
-
-    <!-- ── DIOCESE / PARISH — revealed only when faith = Catholic ──────── -->
-    <div class="lotv-section" id="lotv-diocese-parish" hidden>
-      <div class="lotv-row">
-        <div><label for="lotv-diocese">Diocese</label><input id="lotv-diocese" name="diocese" /></div>
-        <div><label for="lotv-parish">Parish</label><input id="lotv-parish" name="parish" /></div>
-      </div>
-    </div>
-
-    <!-- ── HOW DID YOU HEAR ─────────────────────────────────────────── -->
-    <div class="lotv-section">
-      <label for="lotv-how-heard">How did you hear about us? <span class="lotv-required">*</span></label>
-      <select id="lotv-how-heard" name="howHeard" required>
-        <option value="">- Please select -</option>
-        <option>Friend</option>
-        <option>Family</option>
-        <option>Instagram</option>
-        <option>Facebook</option>
-        <option>Google Search</option>
-        <option>Medical Provider</option>
-        <option>Parish Website</option>
-        <option>Diocese's Website</option>
-        <option>Lily of the Valley Event</option>
-        <option value="Other">Other</option>
-      </select>
-      <input id="lotv-how-heard-other" name="howHeardOther" placeholder="Please tell us more..." style="margin-top:8px;" hidden />
-    </div>
-
-    <!-- ── CUSTOM MESSAGE TO RECIPIENT — "For Someone Else" only ───────── -->
-    <div class="lotv-section" data-someone-only hidden>
-      <label for="lotv-custom-message">Include a custom message to your recipient</label>
-      <textarea id="lotv-custom-message" name="customMessage" rows="3"></textarea>
-    </div>
-
-    <!-- ── STORY — wording changes based on branch ──────────────────── -->
-    <div class="lotv-section">
-      <label id="lotv-story-label" for="lotv-story">Please share with us, as much as you're comfortable, your story:</label>
-      <textarea id="lotv-story" name="story" rows="4"></textarea>
-    </div>
-
-    <!-- ── CHILDREN FOR BRACELET ────────────────────────────────────── -->
-    <!--
-      Mirrors JotForm's "Children for Bracelet" Configurable List widget
-      exactly (qid 77 for "For Me", qid 88 for "For Someone Else" - same
-      4 columns and options on both, only the intro text and "Add" button
-      label differ between the two branches):
-        Children's Order (number 1-10) | Child Initial (text) |
-        Bead Type (Initials|Heart) | Living or Deceased (Living|Deceased|In Heaven)
-      At least one row is required, matching the JotForm field's required:Yes.
-    -->
-    <div class="lotv-section">
-      <p id="lotv-bracelet-intro" class="lotv-bracelet-intro"></p>
-      <div id="lotv-bracelet-rows"></div>
-      <button type="button" id="lotv-bracelet-add" class="lotv-add-row-btn"></button>
-    </div>
-
-    <!-- ── REQUESTER INFO — "For Someone Else" only ────────────────────── -->
-    <div class="lotv-section" data-someone-only hidden>
-      <div class="lotv-section-label">About You (the person referring this family)</div>
-      <div class="lotv-row">
-        <div><label for="lotv-req-first">Your First Name <span class="lotv-required">*</span></label><input id="lotv-req-first" name="requesterFirst" /></div>
-        <div><label for="lotv-req-last">Your Last Name <span class="lotv-required">*</span></label><input id="lotv-req-last" name="requesterLast" /></div>
-      </div>
-      <div class="lotv-row">
-        <div><label for="lotv-req-email">Your Email <span class="lotv-required">*</span></label><input id="lotv-req-email" name="requesterEmail" type="email" /></div>
-        <div><label for="lotv-req-phone">Your Phone</label><input id="lotv-req-phone" name="requesterPhone" type="tel" /></div>
-      </div>
-    </div>
-
-    <!-- ── OPT-IN COMMUNICATIONS ────────────────────────────────────── -->
-    <div class="lotv-section">
-      <div class="lotv-section-label">Opt-in Communications</div>
-      <label class="lotv-checkbox-row"><input type="checkbox" name="optinNewsletter" /> Join Our Newsletter - monthly updates and event links</label>
-      <label class="lotv-checkbox-row"><input type="checkbox" name="optinPrayerNight" /> Send me Prayer Night Invites - our monthly Prayer Night Zoom</label>
-    </div>
-
-    <button type="submit" id="lotv-submit-btn">Submit Request</button>
-    <p style="font-size:.76rem;color:#8291a8;text-align:center;margin:14px 0 0;line-height:1.6;">
-      Your information is kept strictly confidential and used only to fulfill your request. There is never any cost or obligation.
-    </p>
-  </form>
-
-  <div id="lotv-confirm" class="lotv-confirm" hidden>
-    <div class="lotv-emoji">💕</div>
-    <h2>Your request has been received.</h2>
-    <p>Thank you for reaching out. A member of our team will review your request and be in touch soon. Please know that you and your family are being held in our prayers.</p>
-
-    <!-- ── DONATION — GiveButter, shown ONLY for "For Someone Else" ────── -->
-    <!--
-      Deliberately OUTSIDE <form id="lotv-intake-form"> and shown only after
-      a successful submission (not embedded mid-form): GiveButter's widget
-      renders its own interactive inputs (amount field, "Continue" button),
-      and nesting that inside the intake form risked the outer form
-      submitting prematurely (e.g. Enter key inside the widget's amount
-      field). This also matches the original JotForm design intent — the
-      donation nudge was meant for the Thank You page, scoped to "For
-      Someone Else", not embedded in the request form itself.
-
-      Real LOTV GiveButter widget, confirmed 2026-09-08 by inspecting the
-      live givebutter-widget element on lotvministry.org/donate/ (widget id
-      "Lv36Zg"). GiveButter doesn't publish a static iframe-embed URL
-      pattern — this is their actual JS custom-element widget, the same
-      mechanism the ministry's own donate page uses.
-
-      amount="50" preselects the $50 suggested-donation amount (matching
-      both the live donate page's note and Apply.razor's existing mention)
-      — but ONLY if "50" is already configured as a preset amount option on
-      the LOTV campaign in the GiveButter dashboard; per GiveButter's own
-      docs this attribute can't invent a new amount, it can only select an
-      existing one, and is silently ignored if "50" isn't one of the
-      campaign's configured presets. Verify in the GiveButter dashboard
-      before assuming this actually preselects anything.
-
-      GiveButter's widgets do NOT support prefilling donor name/email —
-      confirmed platform limitation, not something achievable here.
-    -->
-    <div class="lotv-donation" data-someone-only hidden style="text-align:left;margin-top:28px;">
-      <h3>Help Us Continue This Ministry</h3>
-      <p>There is no cost to receive a Prayer Care Package. If you'd like to help us provide packages to other families, you may make an optional donation below. A donation is never required.</p>
-      <div id="lotv-givebutter-widget">
-        <!-- GiveButter's widget script only needs to load once per page —
-             if Duda already loads it elsewhere on this page (e.g. a footer
-             donate widget), this duplicate <script> tag is harmless but can
-             be removed. "p=wordpress" is just GiveButter's own analytics
-             source tag from where this snippet was copied; harmless to leave. -->
-        <script async data-wp-strategy="async" id="givebutter-widget-library-js"
-                src="https://widgets.givebutter.com/latest.umd.cjs?acct=esQKeyJhOUHIb71A&p=wordpress"></script>
-        <givebutter-widget id="Lv36Zg" amount="50"></givebutter-widget>
-      </div>
-    </div>
-  </div>
+  <p id="lotv-loading" class="lotv-sub">Loading form&hellip;</p>
+  <div id="lotv-load-error" class="lotv-error" hidden></div>
+  <form id="lotv-intake-form" novalidate hidden></form>
+  <div id="lotv-confirm" class="lotv-confirm" hidden></div>
 </div>
 
 <script>
 (function () {
-  // ── CONFIG - set these before publishing ────────────────────────────
+  // ── CONFIG ──────────────────────────────────────────────────────────────
   // Production API; falls back to the local API when previewed on localhost.
   var API_BASE_URL = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
     ? "http://localhost:5100"
     : "https://lotv_api.wte.net";
-  var DEFAULT_CHAPTER_ID = 1; // matches the single-chapter default used by src/Lotv.Web/Pages/Apply.razor
-  // GiveButter's donation widget lives directly in the #lotv-givebutter-widget
-  // markup above (their own <script> snippet). It hardcodes its own inner
-  // panel to max-width:440px via an attribute on a nested custom element
-  // buried inside its shadow DOM — not reachable through normal CSS from
-  // this page. This polls for that element once the widget's script has
-  // loaded and mounted it, then overrides the attribute directly so the
-  // panel fills the yellow donation box instead of leaving empty space.
-  // Fragile by nature (reaches into GiveButter's own undocumented internal
-  // markup) — if a future GiveButter widget-library update restructures
-  // their shadow DOM, this silently stops working rather than breaking
-  // anything; the widget still renders correctly at its default 440px.
-  function widenGiveButterWidget() {
-    var host = document.querySelector("#lotv-givebutter-widget givebutter-widget");
-    if (!host || !host.shadowRoot) return false;
-    var inner = host.shadowRoot.querySelector("givebutter-giving-form");
-    if (!inner) return false;
-    // Both levels matter: the outer <givebutter-widget> host is otherwise
-    // shrink-wrapped to its content's natural size, so widening only the
-    // inner element (whose max-width:100% is relative to ITS container,
-    // i.e. the still-narrow host) has no visible effect on its own.
-    host.style.display = "block";
-    host.style.width = "100%";
-    inner.setAttribute("max-width", "100%");
-    inner.style.maxWidth = "100%";
-    inner.style.width = "100%";
-    return true;
-  }
-  (function pollWidenGiveButter(attemptsLeft) {
-    if (widenGiveButterWidget() || attemptsLeft <= 0) return;
-    setTimeout(function () { pollWidenGiveButter(attemptsLeft - 1); }, 300);
-  })(20); // ~6s max — covers slow script load without polling forever
+  var FORM_KEY = "prayer-care-intake";
 
   var root = document.getElementById("lotv-intake");
   var form = document.getElementById("lotv-intake-form");
-  var errorBox = document.getElementById("lotv-error");
-  var submitBtn = document.getElementById("lotv-submit-btn");
-  var forWho = "me"; // "me" | "someone"
+  var loadingEl = document.getElementById("lotv-loading");
+  var loadErrorEl = document.getElementById("lotv-load-error");
+  var confirmEl = document.getElementById("lotv-confirm");
 
-  // ── For Me / For Someone Else toggle ─────────────────────────────────
-  var toggles = root.querySelectorAll(".lotv-toggle");
-  toggles.forEach(function (t) {
-    var activate = function () {
-      forWho = t.getAttribute("data-forwho");
-      toggles.forEach(function (o) { o.classList.toggle("active", o === t); });
-      applyBranch();
-    };
-    t.addEventListener("click", activate);
-    t.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } });
-  });
+  var def = null;          // the form definition from the API
+  var forWho = "me";       // "me" | "someone"
+  var byKey = {};          // field key -> definition
+  var controls = {};       // field key -> input/select/textarea element
+  var items = [];          // { f, wrap, labelEl }
+  var errorBox, submitBtn;
+  var braceletRowsEl, braceletIntroEl, braceletAddBtn, braceletField = null, braceletRowCount = 0;
 
-  function applyBranch() {
-    var someoneElse = forWho === "someone";
-    root.querySelectorAll("[data-someone-only]").forEach(function (el) { el.hidden = !someoneElse; });
-
-    document.getElementById("lotv-family-label").textContent = someoneElse ? "About the Recipient" : "About You";
-    document.getElementById("lotv-story-label").textContent = someoneElse
-      ? "Please share with us, as much as you're comfortable, your recipient's story:"
-      : "Please share with us, as much as you're comfortable, your story:";
-    document.getElementById("lotv-bracelet-intro").textContent = someoneElse
-      ? "Children for Bracelet: We would like to include a personalized bracelet in your recipient's Prayer Care Package. Please share the initials of all your recipient's children in birth order, including those in heaven. If your recipient's child was not named or if they are experiencing infertility, we will place special Heart beads on their bracelet."
-      : "Children for Bracelet: We would like to include a personalized bracelet in your Prayer Care Package. Please share the initials of all your children in birth order, including those in heaven. If your child was not named or if you're experiencing infertility, we will place special Heart beads on your bracelet.";
-    document.getElementById("lotv-bracelet-add").textContent = someoneElse ? "+ Add New" : "+ Add Another Child";
+  // ── tiny DOM helper (all definition text goes through textContent — never innerHTML) ──
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
   }
 
-  // ── Children for Bracelet — repeatable rows, matching JotForm's
-  // Configurable List widget columns exactly ──────────────────────────
-  var braceletRowsEl = document.getElementById("lotv-bracelet-rows");
-  var braceletAddBtn = document.getElementById("lotv-bracelet-add");
-  var braceletRowCount = 0;
+  // ── iframe auto-height ──────────────────────────────────────────────────
+  function postHeight() {
+    if (window.parent === window) return;
+    try { window.parent.postMessage({ lotvIntakeHeight: document.documentElement.scrollHeight }, "*"); } catch (e) {}
+  }
+  if (window.parent !== window && "ResizeObserver" in window) new ResizeObserver(postHeight).observe(document.body);
+
+  // ── load the definition ─────────────────────────────────────────────────
+  fetch(API_BASE_URL + "/api/v1/public/forms/" + FORM_KEY)
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function (d) { def = d; build(); })
+    .catch(function () {
+      loadingEl.hidden = true;
+      loadErrorEl.textContent = "This form is temporarily unavailable. Please try again in a few minutes.";
+      loadErrorEl.hidden = false;
+    });
+
+  // Text that may differ for "me" / "someone else".
+  function byBranch(f, base) {
+    var v = forWho === "someone" ? f[base + "Someone"] : f[base + "Me"];
+    return v || f[base] || "";
+  }
+
+  // ── build the form from the definition ──────────────────────────────────
+  function build() {
+    form.appendChild(el("h2", null, def.title));
+    form.appendChild(el("p", "lotv-sub", def.intro));
+
+    errorBox = el("div", "lotv-error"); errorBox.id = "lotv-error"; errorBox.hidden = true;
+    form.appendChild(errorBox);
+
+    // For me / for someone else
+    var who = el("div", "lotv-section");
+    who.appendChild(labelWithStar("lotv-section-label", def.whoIsThisForLabel, true));
+    var tg = el("div", "lotv-toggle-group");
+    [["me", def.toggleLabelMe], ["someone", def.toggleLabelSomeone]].forEach(function (p) {
+      var t = el("div", "lotv-toggle" + (p[0] === "me" ? " active" : ""), p[1]);
+      t.setAttribute("data-forwho", p[0]); t.setAttribute("role", "button"); t.tabIndex = 0;
+      var activate = function () {
+        forWho = p[0];
+        tg.querySelectorAll(".lotv-toggle").forEach(function (o) { o.classList.toggle("active", o === t); });
+        refresh();
+      };
+      t.addEventListener("click", activate);
+      t.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } });
+      tg.appendChild(t);
+    });
+    who.appendChild(tg);
+    form.appendChild(who);
+
+    // Fields
+    var grid = el("div", "lotv-grid");
+    def.fields.forEach(function (f) { if (f.key) byKey[f.key] = f; });
+    def.fields.forEach(function (f) {
+      if (f.visible === false) return;
+      var wrap = el("div", "lotv-item " + (f.width === "full" || f.type === "heading" || f.type === "hint" || f.type === "bracelet" ? "lotv-full" : "lotv-half"));
+      wrap.id = "lotv-item-" + f.id;
+      if ((f.showWhen || []).some(function (c) { return c.branch === "someone"; })) wrap.setAttribute("data-someone-only", "");
+      var labelEl = null;
+
+      if (f.type === "heading") {
+        labelEl = el("div", "lotv-section-label"); labelEl.id = "lotv-" + f.id; wrap.appendChild(labelEl);
+      } else if (f.type === "hint") {
+        labelEl = el("div", "lotv-hint"); wrap.appendChild(labelEl);
+      } else if (f.type === "bracelet") {
+        braceletField = f; buildBracelet(wrap);
+      } else if (f.type === "checkbox") {
+        var row = el("label", "lotv-checkbox-row");
+        var cb = document.createElement("input"); cb.type = "checkbox"; cb.id = "lotv-" + f.id; cb.name = f.key;
+        controls[f.key] = cb; row.appendChild(cb);
+        labelEl = el("span"); row.appendChild(labelEl); wrap.appendChild(row);
+      } else {
+        labelEl = el("label"); labelEl.setAttribute("for", "lotv-" + f.id); wrap.appendChild(labelEl);
+        var c;
+        if (f.type === "select") {
+          c = document.createElement("select");
+          var blank = el("option", null, "- Please select -"); blank.value = ""; c.appendChild(blank);
+          (f.options || []).forEach(function (o) { var op = el("option", null, o.label); op.value = o.value; c.appendChild(op); });
+        } else if (f.type === "textarea") {
+          c = document.createElement("textarea"); c.rows = 4;
+        } else {
+          c = document.createElement("input"); c.type = f.type; // text | email | tel | date
+        }
+        c.id = "lotv-" + f.id; c.name = f.key;
+        if (f.placeholder) c.setAttribute("placeholder", f.placeholder);
+        controls[f.key] = c; wrap.appendChild(c);
+        if (f.help) wrap.appendChild(el("div", "lotv-hint", f.help));
+      }
+      grid.appendChild(wrap);
+      items.push({ f: f, wrap: wrap, labelEl: labelEl });
+    });
+    form.appendChild(grid);
+
+    submitBtn = el("button", null, def.submitLabel); submitBtn.type = "submit"; submitBtn.id = "lotv-submit-btn";
+    form.appendChild(submitBtn);
+    if (def.footerNote) {
+      var fn = el("p", null, def.footerNote);
+      fn.style.cssText = "font-size:.76rem;color:#8291a8;text-align:center;margin:14px 0 0;line-height:1.6;";
+      form.appendChild(fn);
+    }
+
+    form.addEventListener("input", refresh);
+    form.addEventListener("change", refresh);
+    form.addEventListener("submit", onSubmit);
+
+    loadingEl.hidden = true; form.hidden = false;
+    refresh();
+    postHeight();
+  }
+
+  function labelWithStar(cls, text, star) {
+    var d = el("div", cls, text + (star ? " " : ""));
+    if (star) d.appendChild(el("span", "lotv-required", "*"));
+    return d;
+  }
+
+  // ── visibility rules ────────────────────────────────────────────────────
+  function rawValue(key) {
+    var c = controls[key];
+    if (!c) return "";
+    return c.type === "checkbox" ? (c.checked ? "true" : "") : (c.value || "").trim();
+  }
+
+  function isActive(f, depth) {
+    depth = depth || 0;
+    if (depth > 12 || f.visible === false) return false;
+    return (f.showWhen || []).every(function (c) {
+      if (c.branch) return c.branch === forWho;
+      if (c.field) {
+        var src = byKey[c.field];
+        if (!src || !isActive(src, depth + 1)) return false;
+        var v = rawValue(c.field);
+        if (c.notEmpty && !v) return false;
+        if (c.in && c.in.length && c.in.indexOf(v) < 0) return false;
+        return true;
+      }
+      return true;
+    });
+  }
+
+  function value(key) { var f = byKey[key]; return f && isActive(f) ? rawValue(key) : ""; }
+
+  function refresh() {
+    items.forEach(function (it) {
+      it.wrap.hidden = !isActive(it.f);
+      if (it.labelEl) {
+        var t = byBranch(it.f, "label");
+        it.labelEl.textContent = t;
+        if (it.f.required && it.f.type !== "heading" && it.f.type !== "hint" && it.f.type !== "checkbox") {
+          it.labelEl.appendChild(document.createTextNode(" "));
+          it.labelEl.appendChild(el("span", "lotv-required", "*"));
+        }
+      }
+    });
+    if (braceletField) {
+      braceletIntroEl.textContent = byBranch(braceletField, "label");
+      braceletAddBtn.textContent = byBranch(braceletField, "buttonLabel") || "+ Add Another Child";
+    }
+    postHeight();
+  }
+
+  // ── children-for-bracelet builder ───────────────────────────────────────
+  function buildBracelet(wrap) {
+    braceletIntroEl = el("p", "lotv-bracelet-intro"); braceletIntroEl.id = "lotv-bracelet-intro";
+    braceletRowsEl = el("div"); braceletRowsEl.id = "lotv-bracelet-rows";
+    braceletAddBtn = el("button", "lotv-add-row-btn"); braceletAddBtn.type = "button"; braceletAddBtn.id = "lotv-bracelet-add";
+    braceletAddBtn.addEventListener("click", addBraceletRow);
+    wrap.appendChild(braceletIntroEl); wrap.appendChild(braceletRowsEl); wrap.appendChild(braceletAddBtn);
+    addBraceletRow();
+  }
 
   function addBraceletRow() {
     braceletRowCount++;
-    var row = document.createElement("div");
-    row.className = "lotv-bracelet-row";
-    row.innerHTML =
-      '<div><span class="lotv-col-label">Order</span>' +
-        '<input type="number" min="1" max="10" class="lotv-bracelet-order" value="' + braceletRowCount + '" /></div>' +
-      '<div><span class="lotv-col-label">Child Initial</span>' +
-        '<input type="text" class="lotv-bracelet-initial" placeholder="e.g. E.M." /></div>' +
-      '<div><span class="lotv-col-label">Bead Type</span>' +
-        '<select class="lotv-bracelet-bead"><option>Initials</option><option>Heart</option></select></div>' +
-      '<div><span class="lotv-col-label">Living or Deceased</span>' +
-        '<select class="lotv-bracelet-status"><option>Living</option><option>Deceased</option><option>In Heaven</option></select></div>' +
-      '<button type="button" class="lotv-bracelet-remove" aria-label="Remove this child">✕</button>';
-    row.querySelector(".lotv-bracelet-remove").addEventListener("click", function () {
-      row.remove();
-      updateBraceletRemoveState();
-    });
+    var row = el("div", "lotv-bracelet-row");
+    function col(label, control) {
+      var d = el("div"); d.appendChild(el("span", "lotv-col-label", label)); d.appendChild(control); return d;
+    }
+    var order = document.createElement("input"); order.type = "number"; order.min = 1; order.max = 10; order.className = "lotv-bracelet-order"; order.value = braceletRowCount;
+    var initial = document.createElement("input"); initial.type = "text"; initial.className = "lotv-bracelet-initial"; initial.setAttribute("placeholder", "e.g. E.M.");
+    var bead = document.createElement("select"); bead.className = "lotv-bracelet-bead";
+    ["Initials", "Heart"].forEach(function (t) { bead.appendChild(el("option", null, t)); });
+    var status = document.createElement("select"); status.className = "lotv-bracelet-status";
+    ["Living", "Deceased", "In Heaven"].forEach(function (t) { status.appendChild(el("option", null, t)); });
+    var rm = el("button", "lotv-bracelet-remove", "✕"); rm.type = "button"; rm.setAttribute("aria-label", "Remove this child");
+    rm.addEventListener("click", function () { row.remove(); updateBraceletRemoveState(); });
+    row.appendChild(col("Order", order)); row.appendChild(col("Child Initial", initial));
+    row.appendChild(col("Bead Type", bead)); row.appendChild(col("Living or Deceased", status)); row.appendChild(rm);
     braceletRowsEl.appendChild(row);
     updateBraceletRemoveState();
+    postHeight();
   }
 
   function updateBraceletRemoveState() {
     var rows = braceletRowsEl.querySelectorAll(".lotv-bracelet-row");
-    rows.forEach(function (r) {
-      r.querySelector(".lotv-bracelet-remove").disabled = rows.length <= 1;
-    });
+    rows.forEach(function (r) { r.querySelector(".lotv-bracelet-remove").disabled = rows.length <= 1; });
   }
 
   function getBraceletRows() {
@@ -456,174 +345,169 @@
     return rows;
   }
 
-  braceletAddBtn.addEventListener("click", addBraceletRow);
-  addBraceletRow(); // start with the one required row, matching JotForm's minRowsNumber:1
-  applyBranch(); // set initial intro text / add-button label for the default "me" branch
+  function braceletHasContent() {
+    return getBraceletRows().some(function (r) { return r.initial || r.bead === "Heart"; });
+  }
 
-  // ── Reason -> reveal date-of-loss / grief-support / faith tradition ──
-  var reasonSelect = document.getElementById("lotv-reason");
-  var dateBlock = root.querySelector('[data-reveal-for="Miscarriage,Stillbirth,InfantLoss"]');
-  var griefBlock = root.querySelector('[data-reveal-for="Stillbirth,InfantLoss"]');
-  var faithBlock = root.querySelector('[data-reveal-for="Infertility,PrenatalDiagnosis,Miscarriage,Stillbirth,InfantLoss,PostnatalMedical"]');
-  reasonSelect.addEventListener("change", function () {
-    var v = reasonSelect.value;
-    dateBlock.hidden = !["Miscarriage", "Stillbirth", "InfantLoss"].includes(v);
-    griefBlock.hidden = !["Stillbirth", "InfantLoss"].includes(v);
-    faithBlock.hidden = !v;
-    if (!v) document.getElementById("lotv-diocese-parish").hidden = true;
-  });
-
-  // ── Faith tradition -> reveal Diocese/Parish for Catholic ────────────
-  document.getElementById("lotv-faith").addEventListener("change", function (e) {
-    document.getElementById("lotv-diocese-parish").hidden = e.target.value !== "Catholic";
-  });
-
-  // ── How did you hear -> "Other" free text ────────────────────────────
-  document.getElementById("lotv-how-heard").addEventListener("change", function (e) {
-    document.getElementById("lotv-how-heard-other").hidden = e.target.value !== "Other";
-  });
-
-  // ── Submit ────────────────────────────────────────────────────────────
-  function showError(msg) { errorBox.textContent = "⚠ " + msg; errorBox.hidden = false; }
+  // ── submit ──────────────────────────────────────────────────────────────
+  function showError(msg) { errorBox.textContent = "⚠ " + msg; errorBox.hidden = false; postHeight(); }
   function clearError() { errorBox.hidden = true; }
+  function plainLabel(f) { return byBranch(f, "label").replace(/[:\s]+$/, ""); }
+  function nameParts(full) {
+    var parts = (full || "").trim().split(/\s+/);
+    return { first: parts.shift() || "", last: parts.join(" ") };
+  }
 
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    clearError();
-
-    var fd = new FormData(form);
-    var val = function (name) { return (fd.get(name) || "").toString().trim(); };
-
-    var husbandFirst = val("husbandFirst"), wifeFirst = val("wifeFirst");
-    var husbandEmail = val("husbandEmail"), wifeEmail = val("wifeEmail");
-    var email = husbandEmail || wifeEmail;
-    var phone = val("husbandPhone") || val("wifePhone"); // optional
-    var street = val("street");
-    var city = val("city"), state = val("state"), zip = val("zip");
-
-    if (forWho === "someone") {
-      if (!val("requesterFirst") || !val("requesterLast") || !val("requesterEmail")) {
-        showError("Please provide your name and email so we can follow up with you.");
-        return;
+  // Collects every problem at once so visitors can fix them in one pass.
+  function validate() {
+    var missing = [], bad = [];
+    for (var i = 0; i < def.fields.length; i++) {
+      var f = def.fields[i];
+      if (f.type === "heading" || f.type === "hint" || !isActive(f)) continue;
+      if (f.type === "bracelet") {
+        if (f.required && !braceletHasContent())
+          missing.push("at least one child for the bracelet (initials, or a Heart bead if unnamed)");
+        continue;
       }
+      var v = rawValue(f.key);
+      if (f.required && !v) { missing.push(plainLabel(f)); continue; }
+      if (f.type === "email" && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
+        bad.push("Please enter a valid email address for \"" + plainLabel(f) + "\".");
     }
-    if (!husbandFirst || !wifeFirst) {
-      showError("Please provide both the husband's and wife's names.");
-      return;
-    }
-    if (!husbandEmail || !wifeEmail) {
-      showError("Please provide both the husband's and wife's email addresses.");
-      return;
-    }
-    if (!street) {
-      showError("Please provide a street address.");
-      return;
-    }
-    if (!city || !state || !zip) {
-      showError("Please provide city, state, and zip code.");
-      return;
-    }
-    if (!reasonSelect.value) {
-      showError("Please select a reason for your request.");
-      return;
-    }
-    if (!val("howHeard")) {
-      showError("Please let us know how you heard about us.");
-      return;
-    }
-    var braceletHasContent = getBraceletRows().some(function (r) { return r.initial || r.bead === "Heart"; });
-    if (!braceletHasContent) {
-      showError("Please fill in at least one child's initials for the bracelet, or choose \"Heart\" bead type if unnamed.");
-      return;
-    }
+    // The API needs a first AND last name for the primary contact.
+    var husband = byKey.husbandFirst;
+    if (husband && value("husbandFirst") && !nameParts(value("husbandFirst")).last)
+      bad.push("Please enter both a first and last name for \"" + plainLabel(husband) + "\".");
+    var msgs = [];
+    if (missing.length) msgs.push("Please fill in: " + missing.join(", ") + ".");
+    return msgs.concat(bad).join(" ") || null;
+  }
 
-    var nameParts = function (full) {
-      var parts = (full || "").trim().split(/\s+/);
-      return { first: parts.shift() || "", last: parts.join(" ") };
-    };
-    var h = nameParts(husbandFirst), w = nameParts(wifeFirst);
-
-    var howHeard = val("howHeard") === "Other" ? ("Other: " + val("howHeardOther")) : val("howHeard");
+  function buildPayload() {
+    var h = nameParts(value("husbandFirst")), w = nameParts(value("wifeFirst"));
+    var howHeard = value("howHeard") === "Other" ? ("Other: " + value("howHeardOther")) : value("howHeard");
 
     var storyParts = [];
-    if (val("customMessage")) storyParts.push("Message to recipient: " + val("customMessage"));
-    if (val("story")) storyParts.push(val("story"));
+    if (value("customMessage")) storyParts.push("Message to recipient: " + value("customMessage"));
+    if (value("story")) storyParts.push(value("story"));
 
-    // Serialize the bracelet rows (Order, Initial, Bead Type, Living/Deceased)
-    // into Family.ChildrenInitials — that field is a single string, so this
-    // formats each child as "1. E.M. (Initials, Living)", sorted by the
-    // order the family gave, same information JotForm's widget captured.
-    var braceletRows = getBraceletRows()
-      .filter(function (r) { return r.initial || r.bead === "Heart"; })
-      .sort(function (a, b) { return (parseInt(a.order, 10) || 0) - (parseInt(b.order, 10) || 0); });
-    var childrenInitials = braceletRows.map(function (r) {
-      var label = r.initial || "(unnamed)";
-      return r.order + ". " + label + " (" + r.bead + ", " + r.status + ")";
-    }).join("; ");
+    var childrenInitials = "";
+    if (braceletField && isActive(braceletField)) {
+      childrenInitials = getBraceletRows()
+        .filter(function (r) { return r.initial || r.bead === "Heart"; })
+        .sort(function (a, b) { return (parseInt(a.order, 10) || 0) - (parseInt(b.order, 10) || 0); })
+        .map(function (r) { return r.order + ". " + (r.initial || "(unnamed)") + " (" + r.bead + ", " + r.status + ")"; })
+        .join("; ");
+    }
 
     var family = {
-      parent1FirstName: h.first,
-      parent1LastName:  h.last,
-      parent2FirstName: w.first,
-      parent2LastName:  w.last,
-      email: email,
-      phone: phone,
-      streetAddress: street,
-      apt: val("apt"),
-      city: city,
-      state: state,
-      zip: zip,
-      reason: reasonSelect.value,
-      faithTradition: val("faithTradition"),
+      parent1FirstName: h.first, parent1LastName: h.last,
+      parent2FirstName: w.first, parent2LastName: w.last,
+      email: value("husbandEmail") || value("wifeEmail"),
+      phone: value("husbandPhone") || value("wifePhone"),
+      streetAddress: value("street"), apt: value("apt"),
+      city: value("city"), state: value("state"), zip: value("zip"),
+      reason: value("reason"),
+      faithTradition: value("faithTradition"),
       childrenInitials: childrenInitials,
       story: storyParts.join("\n\n"),
-      parishName: val("parish"),
-      dioceseName: val("diocese"),
+      parishName: value("parish"), dioceseName: value("diocese"),
       howHeard: howHeard,
-      chapterId: DEFAULT_CHAPTER_ID,
-      privacyPreference: forWho === "someone"
-        ? (val("mentionPreference") === "Mention" ? "Public" : "Anonymous")
-        : "Anonymous",
-      dateOfLoss: val("dateOfLoss") || null
+      chapterId: def.chapterId || 1,
+      privacyPreference: forWho === "someone" ? (value("mentionPreference") === "Mention" ? "Public" : "Anonymous") : "Anonymous",
+      dateOfLoss: value("dateOfLoss") || null
     };
 
-    var notes = [];
-    if (val("griefSupport")) notes.push("Quarterly Grief Support requested: " + val("griefSupport"));
-    var optins = [];
-    if (fd.get("optinNewsletter")) optins.push("Newsletter");
-    if (fd.get("optinPrayerNight")) optins.push("Prayer Night Invites");
+    // Notes: grief support, any custom questions staff added, then opt-ins.
+    var notes = [], optins = [];
+    if (value("griefSupport")) notes.push("Quarterly Grief Support requested: " + value("griefSupport"));
+    def.fields.forEach(function (f) {
+      if (!isActive(f) || !f.key) return;
+      if (f.type === "checkbox" && f.optinLabel) { if (rawValue(f.key)) optins.push(f.optinLabel); return; }
+      if (f.standard) return;
+      var v = rawValue(f.key);
+      if (v) notes.push(plainLabel(f) + ": " + (f.type === "checkbox" ? "Yes" : v));
+    });
     if (optins.length) notes.push("Opted in to: " + optins.join(", "));
     if (notes.length) family.contactNotes = notes.join(" | ");
 
-    var payload = {
+    return {
       family: family,
       forSelf: forWho === "me",
-      packageType: "Comfort",
-      referrerFirstName: val("requesterFirst"),
-      referrerLastName: val("requesterLast"),
-      referrerEmail: val("requesterEmail")
+      packageType: def.packageType || "Comfort",
+      referrerFirstName: value("requesterFirst"),
+      referrerLastName: value("requesterLast"),
+      referrerEmail: value("requesterEmail")
     };
+  }
+
+  function onSubmit(e) {
+    e.preventDefault();
+    clearError();
+    var problem = validate();
+    if (problem) { showError(problem); return; }
 
     submitBtn.disabled = true;
     submitBtn.textContent = "Submitting…";
-
     fetch(API_BASE_URL + "/api/v1/public/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(buildPayload())
     })
       .then(function (resp) {
         if (!resp.ok) throw new Error("Request failed (" + resp.status + ")");
-        form.hidden = true;
-        document.getElementById("lotv-confirm").hidden = false;
+        showConfirmation();
       })
-      .catch(function () {
-        showError("We couldn't submit your request. Please try again in a moment.");
-      })
-      .finally(function () {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Submit Request";
-      });
-  });
+      .catch(function () { showError("We couldn't submit your request. Please try again in a moment."); })
+      .finally(function () { submitBtn.disabled = false; submitBtn.textContent = def.submitLabel; });
+  }
+
+  // ── confirmation (+ GiveButter donation box for "someone else" only) ────
+  function showConfirmation() {
+    form.hidden = true;
+    confirmEl.appendChild(el("div", "lotv-emoji", "💕"));
+    confirmEl.appendChild(el("h2", null, def.confirmation.title));
+    confirmEl.appendChild(el("p", null, def.confirmation.body));
+
+    var d = def.donation;
+    if (forWho === "someone" && d && d.enabled && /^[A-Za-z0-9]+$/.test(d.widgetId || "") && /^[A-Za-z0-9]+$/.test(d.account || "")) {
+      var box = el("div", "lotv-donation");
+      box.style.cssText = "text-align:left;margin-top:28px;";
+      box.appendChild(el("h3", null, d.title));
+      box.appendChild(el("p", null, d.body));
+      var holder = el("div"); holder.id = "lotv-givebutter-widget";
+      if (!document.getElementById("givebutter-widget-library-js")) {
+        var s = document.createElement("script");
+        s.async = true; s.id = "givebutter-widget-library-js";
+        s.src = "https://widgets.givebutter.com/latest.umd.cjs?acct=" + d.account + "&p=wordpress";
+        holder.appendChild(s);
+      }
+      var gb = document.createElement("givebutter-widget");
+      gb.id = d.widgetId;
+      if (d.amount && /^\d+$/.test(d.amount)) gb.setAttribute("amount", d.amount);
+      holder.appendChild(gb);
+      box.appendChild(holder);
+      confirmEl.appendChild(box);
+      pollWidenGiveButter(20);
+    }
+    confirmEl.hidden = false;
+    postHeight();
+  }
+
+  // GiveButter hardcodes a 440px max-width on a nested element inside its
+  // shadow DOM; poll for it after the widget script mounts and widen it to fill
+  // the box. Fragile by nature - if GiveButter restructures, this silently
+  // no-ops and the widget still renders at its default width.
+  function pollWidenGiveButter(attemptsLeft) {
+    var host = document.querySelector("#lotv-givebutter-widget givebutter-widget");
+    var inner = host && host.shadowRoot && host.shadowRoot.querySelector("givebutter-giving-form");
+    if (inner) {
+      host.style.display = "block"; host.style.width = "100%";
+      inner.setAttribute("max-width", "100%"); inner.style.maxWidth = "100%"; inner.style.width = "100%";
+      postHeight();
+      return;
+    }
+    if (attemptsLeft > 0) setTimeout(function () { pollWidenGiveButter(attemptsLeft - 1); }, 300);
+  }
 })();
 </script>

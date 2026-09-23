@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "title": "Request a Prayer Care Package",
+  "intro": "Free, always - no eligibility requirements. Fill this out for yourself, or on behalf of a family you know who needs support.",
+  "submitLabel": "Submit Request",
+  "footerNote": "Your information is kept strictly confidential and used only to fulfill your request. There is never any cost or obligation.",
+  "packageType": "Comfort",
+  "chapterId": 1,
+  "whoIsThisForLabel": "Who is this for?",
+  "toggleLabelMe": "This is for me",
+  "toggleLabelSomeone": "This is for someone else",
+  "confirmation": {
+    "title": "Your request has been received.",
+    "body": "Thank you for reaching out. A member of our team will review your request and be in touch soon. Please know that you and your family are being held in our prayers."
+  },
+  "donation": {
+    "enabled": true,
+    "title": "Help Us Continue This Ministry",
+    "body": "There is no cost to receive a Prayer Care Package. If you'd like to help us provide packages to other families, you may make an optional donation below. A donation is never required.",
+    "widgetId": "Lv36Zg",
+    "account": "esQKeyJhOUHIb71A",
+    "amount": "50"
+  },
+  "fields": [
+    { "id": "family-label", "key": "", "type": "heading", "label": "About You", "labelMe": "About You", "labelSomeone": "About the Recipient", "width": "full", "visible": true },
+
+    { "id": "husband-first", "key": "husbandFirst", "type": "text", "label": "Husband's Name", "placeholder": "First & last", "required": true, "visible": true, "width": "half", "standard": true },
+    { "id": "wife-first", "key": "wifeFirst", "type": "text", "label": "Wife's Name", "placeholder": "First & last", "required": true, "visible": true, "width": "half", "standard": true },
+    { "id": "husband-email", "key": "husbandEmail", "type": "email", "label": "Husband's Email", "required": true, "visible": true, "width": "half", "standard": true },
+    { "id": "wife-email", "key": "wifeEmail", "type": "email", "label": "Wife's Email", "required": true, "visible": true, "width": "half", "standard": true },
+    { "id": "husband-phone", "key": "husbandPhone", "type": "tel", "label": "Husband's Phone", "visible": true, "width": "half", "standard": true },
+    { "id": "wife-phone", "key": "wifePhone", "type": "tel", "label": "Wife's Phone", "visible": true, "width": "half", "standard": true },
+    { "id": "phone-hint", "key": "", "type": "hint", "label": "Phone numbers are optional.", "visible": true, "width": "full" },
+    { "id": "street", "key": "street", "type": "text", "label": "Street Address", "required": true, "visible": true, "width": "half", "standard": true },
+    { "id": "apt", "key": "apt", "type": "text", "label": "Apt or Suite #", "visible": true, "width": "half", "standard": true },
+    { "id": "city", "key": "city", "type": "text", "label": "City", "required": true, "visible": true, "width": "half", "standard": true },
+    { "id": "state", "key": "state", "type": "text", "label": "State", "required": true, "visible": true, "width": "half", "standard": true },
+    { "id": "zip", "key": "zip", "type": "text", "label": "Zip Code", "required": true, "visible": true, "width": "half", "standard": true },
+
+    {
+      "id": "mention", "key": "mentionPreference", "type": "select",
+      "label": "Would you like us to mention this package is from you, or remain anonymous?",
+      "visible": true, "width": "full", "standard": true,
+      "options": [ { "value": "Mention", "label": "Mention Me" }, { "value": "Anonymous", "label": "Remain Anonymous" } ],
+      "showWhen": [ { "branch": "someone" } ]
+    },
+
+    {
+      "id": "reason", "key": "reason", "type": "select", "label": "Reason for Prayer Package Request",
+      "required": true, "visible": true, "width": "full", "standard": true, "lockValues": true,
+      "options": [
+        { "value": "Infertility", "label": "Infertility" },
+        { "value": "PrenatalDiagnosis", "label": "Prenatal Diagnosis" },
+        { "value": "Miscarriage", "label": "(<20 weeks) Miscarriage" },
+        { "value": "Stillbirth", "label": "(20+ weeks) Stillbirth" },
+        { "value": "InfantLoss", "label": "Infant Loss (after birth, age 0-1)" },
+        { "value": "PostnatalMedical", "label": "Postnatal Medical Concern" }
+      ]
+    },
+    {
+      "id": "date-of-loss", "key": "dateOfLoss", "type": "date", "label": "Date of Recent Loss",
+      "visible": true, "width": "full", "standard": true,
+      "showWhen": [ { "field": "reason", "in": [ "Miscarriage", "Stillbirth", "InfantLoss" ] } ]
+    },
+    {
+      "id": "grief-support", "key": "griefSupport", "type": "select", "label": "Would you like to receive quarterly Grief Support?",
+      "visible": true, "width": "full", "standard": true,
+      "options": [ { "value": "Yes", "label": "Yes" }, { "value": "No", "label": "No" } ],
+      "showWhen": [ { "field": "reason", "in": [ "Stillbirth", "InfantLoss" ] } ]
+    },
+    {
+      "id": "faith", "key": "faithTradition", "type": "select", "label": "Faith Tradition",
+      "visible": true, "width": "full", "standard": true,
+      "options": [
+        { "value": "Catholic", "label": "Catholic" }, { "value": "Christian", "label": "Christian" },
+        { "value": "Jewish", "label": "Jewish" }, { "value": "Muslim", "label": "Muslim" },
+        { "value": "Others", "label": "Others" }, { "value": "Prefer Not to Say", "label": "Prefer Not to Say" }
+      ],
+      "showWhen": [ { "field": "reason", "notEmpty": true } ]
+    },
+    {
+      "id": "diocese", "key": "diocese", "type": "text", "label": "Diocese",
+      "visible": true, "width": "half", "standard": true,
+      "showWhen": [ { "field": "faithTradition", "in": [ "Catholic" ] } ]
+    },
+    {
+      "id": "parish", "key": "parish", "type": "text", "label": "Parish",
+      "visible": true, "width": "half", "standard": true,
+      "showWhen": [ { "field": "faithTradition", "in": [ "Catholic" ] } ]
+    },
+
+    {
+      "id": "how-heard", "key": "howHeard", "type": "select", "label": "How did you hear about us?",
+      "required": true, "visible": true, "width": "full", "standard": true,
+      "options": [
+        { "value": "Friend", "label": "Friend" }, { "value": "Family", "label": "Family" },
+        { "value": "Instagram", "label": "Instagram" }, { "value": "Facebook", "label": "Facebook" },
+        { "value": "Google Search", "label": "Google Search" }, { "value": "Medical Provider", "label": "Medical Provider" },
+        { "value": "Parish Website", "label": "Parish Website" }, { "value": "Diocese's Website", "label": "Diocese's Website" },
+        { "value": "Lily of the Valley Event", "label": "Lily of the Valley Event" }, { "value": "Other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "how-heard-other", "key": "howHeardOther", "type": "text", "label": "Tell us more", "placeholder": "Please tell us more...",
+      "visible": true, "width": "full", "standard": true,
+      "showWhen": [ { "field": "howHeard", "in": [ "Other" ] } ]
+    },
+
+    {
+      "id": "custom-message", "key": "customMessage", "type": "textarea", "label": "Include a custom message to your recipient",
+      "visible": true, "width": "full", "standard": true,
+      "showWhen": [ { "branch": "someone" } ]
+    },
+    {
+      "id": "story", "key": "story", "type": "textarea",
+      "label": "Please share with us, as much as you're comfortable, your story:",
+      "labelMe": "Please share with us, as much as you're comfortable, your story:",
+      "labelSomeone": "Please share with us, as much as you're comfortable, your recipient's story:",
+      "visible": true, "width": "full", "standard": true
+    },
+
+    {
+      "id": "bracelet", "key": "childrenInitials", "type": "bracelet", "required": true, "visible": true, "width": "full", "standard": true,
+      "label": "Children for Bracelet: We would like to include a personalized bracelet in your Prayer Care Package. Please share the initials of all your children in birth order, including those in heaven. If your child was not named or if you're experiencing infertility, we will place special Heart beads on your bracelet.",
+      "labelMe": "Children for Bracelet: We would like to include a personalized bracelet in your Prayer Care Package. Please share the initials of all your children in birth order, including those in heaven. If your child was not named or if you're experiencing infertility, we will place special Heart beads on your bracelet.",
+      "labelSomeone": "Children for Bracelet: We would like to include a personalized bracelet in your recipient's Prayer Care Package. Please share the initials of all your recipient's children in birth order, including those in heaven. If your recipient's child was not named or if they are experiencing infertility, we will place special Heart beads on their bracelet.",
+      "buttonLabel": "+ Add Another Child",
+      "buttonLabelSomeone": "+ Add New"
+    },
+
+    {
+      "id": "requester-heading", "key": "", "type": "heading", "label": "About You (the person referring this family)",
+      "visible": true, "width": "full", "showWhen": [ { "branch": "someone" } ]
+    },
+    { "id": "req-first", "key": "requesterFirst", "type": "text", "label": "Your First Name", "required": true, "visible": true, "width": "half", "standard": true, "showWhen": [ { "branch": "someone" } ] },
+    { "id": "req-last", "key": "requesterLast", "type": "text", "label": "Your Last Name", "required": true, "visible": true, "width": "half", "standard": true, "showWhen": [ { "branch": "someone" } ] },
+    { "id": "req-email", "key": "requesterEmail", "type": "email", "label": "Your Email", "required": true, "visible": true, "width": "half", "standard": true, "showWhen": [ { "branch": "someone" } ] },
+    { "id": "req-phone", "key": "requesterPhone", "type": "tel", "label": "Your Phone", "visible": true, "width": "half", "standard": true, "showWhen": [ { "branch": "someone" } ] },
+
+    { "id": "optin-heading", "key": "", "type": "heading", "label": "Opt-in Communications", "visible": true, "width": "full" },
+    {
+      "id": "optin-newsletter", "key": "optinNewsletter", "type": "checkbox", "optinLabel": "Newsletter",
+      "label": "Join Our Newsletter - monthly updates and event links", "visible": true, "width": "full", "standard": true
+    },
+    {
+      "id": "optin-prayer-night", "key": "optinPrayerNight", "type": "checkbox", "optinLabel": "Prayer Night Invites",
+      "label": "Send me Prayer Night Invites - our monthly Prayer Night Zoom", "visible": true, "width": "full", "standard": true
+    }
+  ]
+}
