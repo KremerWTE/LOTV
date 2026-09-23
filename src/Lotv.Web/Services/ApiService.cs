@@ -964,6 +964,34 @@ public class ApiService
         catch { return (false, "Failed to update email."); }
     }
 
+    // ─── Staff-editable public forms ─────────────────────────────────────────
+    public async Task<IntakeFormEnvelope?> GetFormAsync(string key) =>
+        await GetAsync<IntakeFormEnvelope>($"/api/v1/forms/{key}");
+
+    /// <summary>Saves the definition. On failure returns the server's first validation message.</summary>
+    public async Task<(IntakeFormEnvelope? Saved, string? Error)> SaveFormAsync(string key, IntakeFormDefinition def)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/forms/{key}", def);
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode)
+            return (await resp.Content.ReadFromJsonAsync<IntakeFormEnvelope>(JsonOpts), null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>(JsonOpts);
+            if (body is not null && body.TryGetValue("error", out var msg)) return (null, msg.ToString());
+        }
+        catch { }
+        return (null, "Couldn't save the form (" + (int)resp.StatusCode + ").");
+    }
+
+    public async Task<IntakeFormEnvelope?> ResetFormAsync(string key)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/forms/{key}/reset", new { });
+        return resp?.IsSuccessStatusCode == true
+            ? await resp.Content.ReadFromJsonAsync<IntakeFormEnvelope>(JsonOpts)
+            : null;
+    }
+
     // ─── Private helpers ─────────────────────────────────────────────────────
 
     private void SetAuthHeader()

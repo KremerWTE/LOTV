@@ -68,6 +68,8 @@ tests/Lotv.E2E/
     ├── DonationFlowTests.cs     — Give page and recurring donation flow
     ├── VolunteerFlowTests.cs    — volunteer signup and onboarding wizard
     ├── AdminPagesTests.cs       — all admin pages (login required)
+    ├── PrayerCareIntakeTests.cs — public prayer care form (file:// page, API intercepted; no servers needed)
+    ├── FormEditorTests.cs      — dashboard Intake Form Editor edits go live on the public form (needs API + Web)
     ├── MobileResponsivenessTests.cs — 390×844 viewport, no horizontal scroll
     └── AccessibilityTests.cs   — WCAG 2.1 AA checks (alt text, labels, headings)
 ```
@@ -102,3 +104,12 @@ in `Development` mode with `Testing:SkipSeed` not set:
 |---|---|---|
 | HQ Admin | `mary.roberts` | `DevPassword1!` |
 | Chapter Staff | `claire.hoffman` | `DevPassword1!` |
+
+## Running the project directly
+
+`Lotv.E2E.csproj` sets `IsTestProject=false` so solution-wide `dotnet test` skips it. To run it,
+override that on the command line, e.g. against locally running apps (API on 5100, Web on 5101):
+
+```bash
+E2E_BASE_URL=http://localhost:5101 E2E_API_URL=http://localhost:5100   dotnet test tests/Lotv.E2E/Lotv.E2E.csproj -p:IsTestProject=true --filter "FullyQualifiedName~FormEditorTests"
+```

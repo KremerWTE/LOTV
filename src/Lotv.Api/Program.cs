@@ -300,6 +300,13 @@ app.MapHealthChecks("/health").AllowAnonymous();
     else
         db.Database.Migrate();          // runs pending EF Core migrations in production
 
+    // EnsureCreated never adds a table to an existing database, so make sure
+    // the staff-editable form definitions table exists (idempotent).
+    // Never let this take the API down: if it fails the public form still serves
+    // its built-in default, and only the dashboard editor is unavailable.
+    try { FormDefinitionTableBootstrap.EnsureTable(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not create the FormDefinitions table; the intake form editor will be unavailable."); }
+
     // Self-heals the known HQ staff accounts' Role if it's ever drifted from
     // HQAdmin (see CoreAdminAccountRepair for why) — runs in every
     // environment, unlike DevSeedData which is Development-only.
@@ -4372,6 +4379,58 @@ app.MapPut("/api/v1/users/me/notification-prefs", async (List<NotificationPref> 
     await db.SaveChangesAsync();
     return Results.Ok();
 }).RequireAuthorization();
+
+// ─── Staff-editable public forms ─────────────────────────────────────────────
+// Public read: the intake form page fetches its own definition from here. Falls
+// back to the built-in default if nothing has been saved (or the table is
+// unreachable) so the public form never goes down because of the editor.
+app.MapGet("/api/v1/public/forms/{key}", async (string key, LotvDbContext db, HttpContext http) =>
+{
+    if (!FormDefinitions.IsKnown(key)) return Results.NotFound();
+    string? stored = null;
+    try { stored = (await db.FormDefinitions.AsNoTracking().FirstOrDefaultAsync(f => f.Key == key))?.DefinitionJson; }
+    catch (Exception ex) { app.Logger.LogWarning(ex, "Form definition lookup failed for {Key}; serving default.", key); }
+    http.Response.Headers.CacheControl = "no-cache";
+    return Results.Content(stored ?? FormDefinitions.DefaultJson(key), "application/json");
+}).AllowAnonymous();
+
+// Staff editor (HQAdmin only — this text goes straight onto the public site).
+var forms = app.MapGroup("/api/v1/forms").WithTags("Forms").RequireAuthorization("HQAdmin");
+
+static object FormEnvelope(string key, FormDefinition? row, IntakeFormDefinition def) =>
+    new { key, isDefault = row is null, updatedAt = row?.UpdatedAt, updatedBy = row?.UpdatedBy, definition = def };
+
+forms.MapGet("/{key}", async (string key, LotvDbContext db) =>
+{
+    if (!FormDefinitions.IsKnown(key)) return Results.NotFound();
+    var row = await db.FormDefinitions.AsNoTracking().FirstOrDefaultAsync(f => f.Key == key);
+    var def = (row is null ? null : FormDefinitions.TryParse(row.DefinitionJson)) ?? FormDefinitions.Default(key);
+    return Results.Ok(FormEnvelope(key, row, def));
+});
+
+forms.MapPut("/{key}", async (string key, IntakeFormDefinition def, LotvDbContext db, HttpContext http) =>
+{
+    if (!FormDefinitions.IsKnown(key)) return Results.NotFound();
+    var errors = def.Validate(FormDefinitions.ReasonValues);
+    if (errors.Count > 0) return Results.BadRequest(new { error = errors[0], errors });
+
+    var who = $"{http.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value} {http.User.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value}".Trim();
+    var row = await db.FormDefinitions.FirstOrDefaultAsync(f => f.Key == key);
+    if (row is null) { row = new FormDefinition { Key = key }; db.FormDefinitions.Add(row); }
+    row.DefinitionJson = System.Text.Json.JsonSerializer.Serialize(def, FormDefinitions.Json);
+    row.UpdatedAt = DateTime.UtcNow;
+    row.UpdatedBy = string.IsNullOrWhiteSpace(who) ? null : who;
+    await db.SaveChangesAsync();
+    return Results.Ok(FormEnvelope(key, row, def));
+});
+
+forms.MapPost("/{key}/reset", async (string key, LotvDbContext db) =>
+{
+    if (!FormDefinitions.IsKnown(key)) return Results.NotFound();
+    var row = await db.FormDefinitions.FirstOrDefaultAsync(f => f.Key == key);
+    if (row is not null) { db.FormDefinitions.Remove(row); await db.SaveChangesAsync(); }
+    return Results.Ok(FormEnvelope(key, null, FormDefinitions.Default(key)));
+});
 
 // ─── Chapter analytics (HQAdmin) ──────────────────────────────────────────────
 app.MapGet("/api/v1/admin/chapter-analytics", async (LotvDbContext db) =>

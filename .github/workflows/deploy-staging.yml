@@ -28,25 +28,8 @@ jobs:
       - name: Run tests (gate)
         run: dotnet test Lotv.slnx --configuration Release --no-restore
 
-      - name: Install EF Core tools
-        run: dotnet tool install --global dotnet-ef --version 9.*
-
-      # Must build this explicitly, in this order, before the migrations step:
-      # Lotv.Api's UseSqlServer(...) loads this assembly by name at runtime
-      # (Assembly.Load), and a ProjectReference back from Lotv.Api would be
-      # circular (this project already references Lotv.Api for the
-      # DbContext). Lotv.Api's post-build target copies this DLL into its own
-      # output once it exists on disk - but only if it already exists when
-      # Lotv.Api itself gets (re)built by the `dotnet ef` command below.
-      - name: Build SQL Server migrations assembly
-        run: dotnet build src/Lotv.Migrations.SqlServer/Lotv.Migrations.SqlServer.csproj --configuration Release
-
-      - name: Run database migrations (staging)
-        run: dotnet ef database update --project src/Lotv.Api --startup-project src/Lotv.Api --configuration Release
-        env:
-          ASPNETCORE_ENVIRONMENT: Staging
-          Database__Provider: SqlServer
-          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
+      # Database migrations are intentionally NOT run by this workflow (removed 2026-09-23);
+      # schema changes are applied out-of-band. See deploy-to-iis.yml for the live pipeline.
 
       # No Docker: publish each project as plain framework-dependent output
       # and zip-deploy straight to App Service. Web is Blazor Server now (not

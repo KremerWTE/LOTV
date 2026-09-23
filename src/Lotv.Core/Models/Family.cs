@@ -48,7 +48,9 @@ public enum PackageReason
     Stillbirth,
     InfantLoss,
     PastLoss,
-    Other
+    Other,
+    // Appended last so stored integer values of the members above don't shift.
+    PostnatalMedical
 }
 
 public static class PackageReasonExtensions
@@ -59,6 +61,7 @@ public static class PackageReasonExtensions
         PackageReason.PrenatalLifeLimitingDiagnosis => "Prenatal Life-Limiting Diagnosis",
         PackageReason.InfantLoss                    => "Infant Loss",
         PackageReason.PastLoss                      => "Past Loss",
+        PackageReason.PostnatalMedical              => "Postnatal Medical Concern",
         _                                           => r.ToString()
     };
 }
