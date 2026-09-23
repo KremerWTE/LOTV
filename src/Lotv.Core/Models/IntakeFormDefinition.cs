@@ -88,16 +88,18 @@ public class IntakeFormDefinition
         var keys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var f in Fields)
         {
-            var name = string.IsNullOrWhiteSpace(f.Label) ? f.Id : f.Label;
-            if (!IdRx.IsMatch(f.Id ?? "")) errors.Add($"Item '{name}' has an invalid id.");
-            else if (!ids.Add(f.Id)) errors.Add($"Duplicate item id '{f.Id}'.");
+            var id  = f.Id  ?? "";
+            var key = f.Key ?? "";
+            var name = string.IsNullOrWhiteSpace(f.Label) ? id : f.Label;
+            if (!IdRx.IsMatch(id)) errors.Add($"Item '{name}' has an invalid id.");
+            else if (!ids.Add(id)) errors.Add($"Duplicate item id '{id}'.");
 
             if (!FieldTypes.Contains(f.Type)) { errors.Add($"'{name}' has an unknown type '{f.Type}'."); continue; }
             var needsKey = f.Type is not ("heading" or "hint");
             if (needsKey)
             {
-                if (!KeyRx.IsMatch(f.Key ?? "")) errors.Add($"'{name}' has an invalid key.");
-                else if (!keys.Add(f.Key)) errors.Add($"Duplicate item key '{f.Key}'.");
+                if (!KeyRx.IsMatch(key)) errors.Add($"'{name}' has an invalid key.");
+                else if (!keys.Add(key)) errors.Add($"Duplicate item key '{key}'.");
             }
             if (f.Width is not ("half" or "full")) errors.Add($"'{name}' has an invalid width.");
             if (string.IsNullOrWhiteSpace(f.Label) && f.Type != "bracelet") errors.Add($"Every item needs a label or text (id '{f.Id}').");
@@ -106,11 +108,11 @@ public class IntakeFormDefinition
             Max($"'{name}' placeholder", f.Placeholder, 200);   Max($"'{name}' help text", f.Help, 500);
             Max($"'{name}' button label", f.ButtonLabel, 80);
 
-            if (f.Standard != StandardKeys.ContainsKey(f.Key ?? ""))
+            if (f.Standard != StandardKeys.ContainsKey(key))
                 errors.Add(f.Standard
                     ? $"'{name}' is marked standard but '{f.Key}' is not a standard key."
                     : $"'{name}' uses the reserved key '{f.Key}'.");
-            if (f.Standard && StandardKeys.TryGetValue(f.Key, out var stdType) && stdType != f.Type)
+            if (f.Standard && StandardKeys.TryGetValue(key, out var stdType) && stdType != f.Type)
                 errors.Add($"'{name}' must stay a {stdType} question.");
 
             if (f.Type == "select")

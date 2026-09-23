@@ -4380,6 +4380,49 @@ app.MapPut("/api/v1/users/me/notification-prefs", async (List<NotificationPref> 
     return Results.Ok();
 }).RequireAuthorization();
 
+// ─── CRM / GiveButter contact export (HQAdmin) ───────────────────────────────
+// One row per family - current AND historical, every status - with only the
+// contact columns a CRM import needs (deliberately no loss type, story or case
+// notes: those are sensitive and don't belong in a mailing/CRM list).
+//   mom=auto    (default) the second parent when there is one, else the first. The
+//               intake form records Husband as parent 1 and Wife as parent 2.
+//   mom=parent1 / mom=parent2  force one side (for imported records recorded the other way).
+// The model has no Country column, so every row says United States.
+app.MapGet("/api/v1/export/families-crm", async (string? mom, LotvDbContext db) =>
+{
+    var momIs = (mom ?? "auto").ToLowerInvariant();
+    if (momIs is not ("auto" or "parent1" or "parent2"))
+        return Results.BadRequest(new { error = "mom must be auto, parent1 or parent2." });
+
+    var families = await db.Families.AsNoTracking()
+        .OrderBy(f => f.Parent1LastName).ThenBy(f => f.Parent1FirstName).ThenBy(f => f.Id)
+        .ToListAsync();
+
+    var sb = new System.Text.StringBuilder();
+    sb.Append("Family name,Moms first name,Moms last name,Email address,Phone number,Street address,City,State,Zip,Country\r\n");
+    foreach (var f in families)
+    {
+        var secondParent = !string.IsNullOrWhiteSpace(f.Parent2FirstName);
+        var useSecond = secondParent && (momIs == "parent2" || momIs == "auto");
+        var momFirst = useSecond ? f.Parent2FirstName : f.Parent1FirstName;
+        var momLast  = useSecond && !string.IsNullOrWhiteSpace(f.Parent2LastName) ? f.Parent2LastName : f.Parent1LastName;
+        var familyName = string.IsNullOrWhiteSpace(f.Parent1LastName) ? momLast : f.Parent1LastName;
+        var street = string.IsNullOrWhiteSpace(f.Apt) ? f.StreetAddress : $"{f.StreetAddress}, {f.Apt}";
+
+        sb.Append(string.Join(",", new[]
+        {
+            CsvExport.Cell(string.IsNullOrWhiteSpace(familyName) ? "" : familyName + " Family"),
+            CsvExport.Cell(momFirst), CsvExport.Cell(momLast), CsvExport.Cell(f.Email), CsvExport.Cell(f.Phone),
+            CsvExport.Cell(street), CsvExport.Cell(f.City), CsvExport.Cell(f.State), CsvExport.Cell(f.Zip),
+            CsvExport.Cell("United States"),
+        })).Append("\r\n");
+    }
+
+    app.Logger.LogInformation("Families CRM export: {Count} rows (mom={Mom}).", families.Count, momIs);
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv; charset=utf-8",
+        $"lotv-families-{DateTime.UtcNow:yyyyMMdd}.csv");
+}).WithTags("Export").RequireAuthorization("HQAdmin");
+
 // ─── Staff-editable public forms ─────────────────────────────────────────────
 // Public read: the intake form page fetches its own definition from here. Falls
 // back to the built-in default if nothing has been saved (or the table is

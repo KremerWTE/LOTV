@@ -66,7 +66,7 @@ public class PrayerCareIntakeTests : E2ETestBase
         def["fields"]!.AsArray().First(f => f!["id"]!.GetValue<string>() == id)!;
 
     /// <summary>Opens the form with the API's definition endpoint answered by <paramref name="definitionJson"/> (default when null).</summary>
-    private async Task GoToFormAsync(string? definitionJson = null, int status = 200)
+    private async Task GoToFormAsync(string? definitionJson = null, int status = 200, string? choose = "me")
     {
         await Page.RouteAsync($"{ApiOrigin}/api/v1/public/forms/prayer-care-intake", route =>
             route.FulfillAsync(new RouteFulfillOptions
@@ -77,6 +77,10 @@ public class PrayerCareIntakeTests : E2ETestBase
                 Body = definitionJson ?? DefaultDefinitionJson,
             }));
         await Page.GotoAsync(GetFormFileUrl());
+
+        // The form shows only "Who is this for?" until a choice is made; most tests start after choosing.
+        if (choose is not null && status == 200)
+            await Page.ClickAsync($".lotv-toggle[data-forwho='{choose}']");
     }
 
     /// <summary>Intercepts the form's POST to the API and fulfills it with 200 OK, capturing the JSON body sent.</summary>
@@ -121,18 +125,74 @@ public class PrayerCareIntakeTests : E2ETestBase
     // ── Basic rendering / default branch ────────────────────────────────────
 
     [Fact]
-    public async Task Form_Loads_WithForMeActiveByDefault()
+    public async Task Form_Loads_ShowingOnlyWhoIsThisFor_UntilAChoiceIsMade()
     {
-        await GoToFormAsync();
+        await GoToFormAsync(choose: null);
 
         await AssertVisibleAsync("#lotv-intake-form");
+        await AssertVisibleAsync(".lotv-toggle[data-forwho='me']");
+        await AssertVisibleAsync(".lotv-toggle[data-forwho='someone']");
+        Assert.Equal(0, await Page.Locator(".lotv-toggle.active").CountAsync());
+
+        // Nothing else is visible yet: no questions, no submit button, no footer note
+        Assert.False(await Page.Locator("#lotv-rest").IsVisibleAsync());
+        Assert.False(await Page.Locator("#lotv-husband-first").IsVisibleAsync());
+        Assert.False(await Page.Locator("#lotv-reason").IsVisibleAsync());
+        Assert.False(await Page.Locator("#lotv-submit-btn").IsVisibleAsync());
+
+        Assert.Empty(_jsErrors);
+    }
+
+    [Fact]
+    public async Task ChoosingForMe_RevealsTheRestOfTheForm_WithoutTheSomeoneElseQuestions()
+    {
+        await GoToFormAsync(choose: null);
+
+        await Page.ClickAsync(".lotv-toggle[data-forwho='me']");
+
+        await AssertVisibleAsync("#lotv-husband-first");
+        await AssertVisibleAsync("#lotv-submit-btn");
         Assert.True(await Page.Locator(".lotv-toggle[data-forwho='me']").GetAttributeAsync("class") is string cls && cls.Contains("active"));
         Assert.Equal("About You", await Page.Locator("#lotv-family-label").TextContentAsync());
 
-        // "Someone else" only sections should be hidden by default
+        // "Someone else" only sections should still be hidden
         foreach (var el in await Page.Locator("[data-someone-only]").AllAsync())
             Assert.False(await el.IsVisibleAsync());
 
+        Assert.Empty(_jsErrors);
+    }
+
+    [Fact]
+    public async Task ChoosingForSomeoneElse_RevealsTheRestOfTheForm_IncludingRequesterQuestions()
+    {
+        await GoToFormAsync(choose: null);
+
+        await Page.ClickAsync(".lotv-toggle[data-forwho='someone']");
+
+        await AssertVisibleAsync("#lotv-husband-first");
+        await AssertVisibleAsync("#lotv-req-first");
+        await AssertVisibleAsync("#lotv-submit-btn");
+        Assert.Equal("About the Recipient", await Page.Locator("#lotv-family-label").TextContentAsync());
+        Assert.Empty(_jsErrors);
+    }
+
+    // Whitney: the quarterly grief support question only goes to >20 weeks or infant loss,
+    // and appears on BOTH the "for me" and "for someone else" paths.
+    [Theory]
+    [InlineData("me", "Stillbirth", true)]
+    [InlineData("me", "InfantLoss", true)]
+    [InlineData("me", "Miscarriage", false)]
+    [InlineData("someone", "Stillbirth", true)]
+    [InlineData("someone", "InfantLoss", true)]
+    [InlineData("someone", "Miscarriage", false)]
+    [InlineData("someone", "Infertility", false)]
+    public async Task GriefSupport_OnlyForStillbirthOrInfantLoss_OnBothPaths(string branch, string reason, bool expected)
+    {
+        await GoToFormAsync(choose: branch);
+
+        await Page.SelectOptionAsync("#lotv-reason", reason);
+
+        Assert.Equal(expected, await Page.Locator("#lotv-grief-support").IsVisibleAsync());
         Assert.Empty(_jsErrors);
     }
 

@@ -964,6 +964,19 @@ public class ApiService
         catch { return (false, "Failed to update email."); }
     }
 
+    // ─── CRM / GiveButter export ─────────────────────────────────────────────
+    /// <summary>CSV text of every family (current + historical) with the CRM contact columns.</summary>
+    public async Task<string?> GetFamiliesCrmCsvAsync(string mom)
+    {
+        SetAuthHeader();
+        try
+        {
+            var resp = await _http.GetAsync($"/api/v1/export/families-crm?mom={Uri.EscapeDataString(mom)}");
+            return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync() : null;
+        }
+        catch { return null; }
+    }
+
     // ─── Staff-editable public forms ─────────────────────────────────────────
     public async Task<IntakeFormEnvelope?> GetFormAsync(string key) =>
         await GetAsync<IntakeFormEnvelope>($"/api/v1/forms/{key}");
