@@ -19,4 +19,19 @@
     <ProjectReference Include="..\Lotv.Core\Lotv.Core.csproj" />
   </ItemGroup>
 
+  <!-- The public intake form has one source of truth: docs/duda-embed/prayer-care-intake.html
+       (what gets pasted into Duda). It is copied to Forms/ - deliberately NOT wwwroot, so it is never
+       served as a static .html file - and Program.cs serves it at /request-prayer-care-package.
+       The copy is committed so publish picks it up even on a fresh checkout. -->
+  <ItemGroup>
+    <None Update="Forms\**\*.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="SyncIntakeFormPage" BeforeTargets="BeforeBuild">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\docs\duda-embed\prayer-care-intake.html"
+          DestinationFiles="$(MSBuildThisFileDirectory)Forms\prayer-care-intake.html"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(MSBuildThisFileDirectory)..\..\docs\duda-embed\prayer-care-intake.html')" />
+  </Target>
+
 </Project>

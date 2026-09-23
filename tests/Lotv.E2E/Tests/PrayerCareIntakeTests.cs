@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Lotv.E2E.Infrastructure;
 
 namespace Lotv.E2E.Tests;
@@ -10,13 +11,13 @@ namespace Lotv.E2E.Tests;
 /// posts to Lotv.Api's public /api/v1/public/apply endpoint from wherever
 /// it's hosted), so these tests load the file directly via a file:// URL
 /// instead of going through E2ETestBase.GoToAsync's Blazor BaseUrl, and
-/// intercept the outbound fetch() instead of hitting a real API — the
-/// embedded API_BASE_URL is still the "https://YOUR-LOTV-API-DOMAIN"
-/// placeholder (see file header) until this is actually deployed.
+/// intercept the outbound fetch() instead of hitting a real API — loaded
+/// from file://, the form's API_BASE_URL resolves to the production host
+/// (https://lotv_api.wte.net), so that's the host the tests intercept.
 /// </summary>
 public class PrayerCareIntakeTests : E2ETestBase
 {
-    private const string ApiOrigin = "https://YOUR-LOTV-API-DOMAIN";
+    private const string ApiOrigin = "https://lotv_api.wte.net";
     private readonly List<string> _jsErrors = new();
 
     public PrayerCareIntakeTests(BrowserFixture browser) : base(browser) { }
@@ -40,7 +41,43 @@ public class PrayerCareIntakeTests : E2ETestBase
         return new Uri(Path.Combine(dir.FullName, "docs", "duda-embed", "prayer-care-intake.html")).AbsoluteUri;
     }
 
-    private Task GoToFormAsync() => Page.GotoAsync(GetFormFileUrl());
+    private static string FindRepoFile(params string[] parts)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(new[] { dir.FullName }.Concat(parts).ToArray())))
+            dir = dir.Parent;
+        if (dir == null) throw new FileNotFoundException(string.Join("/", parts));
+        return Path.Combine(new[] { dir.FullName }.Concat(parts).ToArray());
+    }
+
+    /// <summary>The built-in default definition the API serves until staff customise the form.</summary>
+    private static readonly string DefaultDefinitionJson =
+        File.ReadAllText(FindRepoFile("src", "Lotv.Api", "Data", "FormDefaults", "prayer-care-intake.json"));
+
+    /// <summary>Default definition with an edit applied — stands in for "staff changed the form in the dashboard".</summary>
+    private static string Edited(Action<JsonNode> mutate)
+    {
+        var node = JsonNode.Parse(DefaultDefinitionJson)!;
+        mutate(node);
+        return node.ToJsonString();
+    }
+
+    private static JsonNode FieldById(JsonNode def, string id) =>
+        def["fields"]!.AsArray().First(f => f!["id"]!.GetValue<string>() == id)!;
+
+    /// <summary>Opens the form with the API's definition endpoint answered by <paramref name="definitionJson"/> (default when null).</summary>
+    private async Task GoToFormAsync(string? definitionJson = null, int status = 200)
+    {
+        await Page.RouteAsync($"{ApiOrigin}/api/v1/public/forms/prayer-care-intake", route =>
+            route.FulfillAsync(new RouteFulfillOptions
+            {
+                Status = status,
+                ContentType = "application/json",
+                Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = "*" },
+                Body = definitionJson ?? DefaultDefinitionJson,
+            }));
+        await Page.GotoAsync(GetFormFileUrl());
+    }
 
     /// <summary>Intercepts the form's POST to the API and fulfills it with 200 OK, capturing the JSON body sent.</summary>
     private async Task<JsonElement> InterceptSubmitAsync(Func<Task> triggerSubmit)
@@ -146,10 +183,12 @@ public class PrayerCareIntakeTests : E2ETestBase
         await Page.SelectOptionAsync("#lotv-reason", "Infertility");
         await Page.SelectOptionAsync("#lotv-faith", "Catholic");
 
-        await AssertVisibleAsync("#lotv-diocese-parish");
+        await AssertVisibleAsync("#lotv-diocese");
+        await AssertVisibleAsync("#lotv-parish");
 
         await Page.SelectOptionAsync("#lotv-faith", "Christian");
-        Assert.False(await Page.Locator("#lotv-diocese-parish").IsVisibleAsync());
+        Assert.False(await Page.Locator("#lotv-diocese").IsVisibleAsync());
+        Assert.False(await Page.Locator("#lotv-parish").IsVisibleAsync());
 
         Assert.Empty(_jsErrors);
     }
@@ -277,5 +316,104 @@ public class PrayerCareIntakeTests : E2ETestBase
         await AssertVisibleAsync(".lotv-donation");
 
         Assert.Empty(_jsErrors);
+    }
+
+    // ── The form is driven by its definition (what the dashboard editor saves) ─
+
+    [Fact]
+    public async Task DefinitionEdit_ChangesTitleAndChoiceWording()
+    {
+        await GoToFormAsync(Edited(d =>
+        {
+            d["title"] = "Ask for a Comfort Package";
+            FieldById(d, "how-heard")["options"]![0]!["label"] = "A friend told me";
+        }));
+
+        Assert.Equal("Ask for a Comfort Package", await Page.Locator("#lotv-intake-form h2").TextContentAsync());
+        Assert.Contains("A friend told me", await Page.Locator("#lotv-how-heard").InnerTextAsync());
+        Assert.Empty(_jsErrors);
+    }
+
+    [Fact]
+    public async Task DefinitionEdit_HiddenQuestion_IsNotRendered()
+    {
+        await GoToFormAsync(Edited(d => FieldById(d, "wife-phone")["visible"] = false));
+
+        await AssertVisibleAsync("#lotv-husband-phone");
+        Assert.Equal(0, await Page.Locator("#lotv-wife-phone").CountAsync());
+        Assert.Empty(_jsErrors);
+    }
+
+    [Fact]
+    public async Task DefinitionEdit_ShowWhenRule_IsFollowed()
+    {
+        // Staff move the grief-support question from Stillbirth/InfantLoss to Infertility only.
+        await GoToFormAsync(Edited(d =>
+        {
+            var rule = FieldById(d, "grief-support")["showWhen"]![0]!;
+            rule["in"] = new JsonArray("Infertility");
+        }));
+
+        await Page.SelectOptionAsync("#lotv-reason", "Infertility");
+        Assert.True(await Page.Locator("#lotv-grief-support").IsVisibleAsync());
+
+        await Page.SelectOptionAsync("#lotv-reason", "Stillbirth");
+        Assert.False(await Page.Locator("#lotv-grief-support").IsVisibleAsync());
+        Assert.Empty(_jsErrors);
+    }
+
+    [Fact]
+    public async Task DefinitionEdit_LabelChangesWithWhoItIsFor()
+    {
+        await GoToFormAsync();
+
+        Assert.DoesNotContain("recipient", await Page.Locator("#lotv-item-story label").TextContentAsync() ?? "");
+        await Page.ClickAsync(".lotv-toggle[data-forwho='someone']");
+        Assert.Contains("recipient's story", await Page.Locator("#lotv-item-story label").TextContentAsync() ?? "");
+        Assert.Contains("+ Add New", await Page.Locator("#lotv-bracelet-add").TextContentAsync() ?? "");
+        Assert.Empty(_jsErrors);
+    }
+
+    [Fact]
+    public async Task DefinitionEdit_CustomQuestion_IsRequiredAndAnswerGoesToContactNotes()
+    {
+        var json = Edited(d => d["fields"]!.AsArray().Insert(0, JsonNode.Parse(
+            """{ "id":"custom-1","key":"custom1","type":"text","label":"Best time to call?","required":true,"visible":true,"width":"full","standard":false }""")));
+        await GoToFormAsync(json);
+        await FillRequiredFamilyFieldsAsync();
+        await Page.SelectOptionAsync("#lotv-reason", "Infertility");
+
+        // Required custom question blocks submit until answered
+        await Page.ClickAsync("#lotv-submit-btn");
+        await AssertVisibleAsync("#lotv-error");
+        Assert.Contains("Best time to call?", await Page.Locator("#lotv-error").TextContentAsync() ?? "");
+
+        await Page.FillAsync("#lotv-custom-1", "Mornings");
+        var payload = await InterceptSubmitAsync(() => Page.ClickAsync("#lotv-submit-btn"));
+
+        var notes = payload.GetProperty("family").GetProperty("contactNotes").GetString();
+        Assert.Contains("Best time to call?: Mornings", notes);
+        Assert.Empty(_jsErrors);
+    }
+
+    [Fact]
+    public async Task PostnatalMedical_IsAcceptedReason()
+    {
+        await GoToFormAsync();
+        await FillRequiredFamilyFieldsAsync();
+        await Page.SelectOptionAsync("#lotv-reason", "PostnatalMedical");
+
+        var payload = await InterceptSubmitAsync(() => Page.ClickAsync("#lotv-submit-btn"));
+        Assert.Equal("PostnatalMedical", payload.GetProperty("family").GetProperty("reason").GetString());
+        await AssertVisibleAsync("#lotv-confirm");
+    }
+
+    [Fact]
+    public async Task DefinitionUnavailable_ShowsFriendlyMessage()
+    {
+        await GoToFormAsync("{}", status: 503);
+
+        await AssertVisibleAsync("#lotv-load-error");
+        Assert.False(await Page.Locator("#lotv-intake-form").IsVisibleAsync());
     }
 }

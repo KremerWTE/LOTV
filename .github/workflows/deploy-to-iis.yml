@@ -1,11 +1,13 @@
 # Deploy LOTV to IIS (Production)
 #
-# PURPOSE: Build, test, and deploy both Lotv.Api and Lotv.Web to IIS on wte_apps3.
+# PURPOSE: Build and deploy both Lotv.Api and Lotv.Web to IIS on wte_apps3.
+#          This pipeline runs NO unit tests and NO EF migration / pending-migration
+#          checks - tests run in ci.yml on pull requests; schema is managed out-of-band.
 #          Follows the PointShopMall dual-project pattern with Boneforte's secret
 #          injection and app_offline.htm graceful-drain approach.
 #
 # PIPELINE SHAPE:
-#   build-and-test  (wte_apps3)
+#   build-and-test  (wte_apps3; job id kept for `needs:` - it only builds + publishes)
 #       └── deploy-web  (wte_apps3, needs: build-and-test)
 #               └── deploy-api  (wte_apps3, needs: deploy-web)  ← sequential
 #                       └── tag-and-release  (wte_apps3, needs: deploy-web + deploy-api)
@@ -69,7 +71,7 @@ env:
 jobs:
 
   # ---------------------------------------------------------------------------
-  # 1. Build, test, and publish both projects.
+  # 1. Build and publish both projects (no tests, no migrations).
   #    Artifacts are written to a shared folder on disk (same runner = no upload).
   #    Secret injection into appsettings.Production.json happens here so the
   #    published output is ready to copy in the deploy jobs.

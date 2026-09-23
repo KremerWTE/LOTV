@@ -61,6 +61,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
 
     // ─── Settings ────────────────────────────────────────────────────────────
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<FormDefinition> FormDefinitions => Set<FormDefinition>();
 
     // ─── Retreats ─────────────────────────────────────────────────────────────
     public DbSet<Retreat> Retreats => Set<Retreat>();
@@ -364,6 +365,17 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
             e.HasIndex(a => a.Timestamp);
             e.HasIndex(a => a.Entity);                          // filter by entity type (FundAllocation export)
             e.HasIndex(a => new { a.Entity, a.Timestamp });     // entity-scoped time-ordered audit trail
+        });
+
+        // ── FormDefinition ───────────────────────────────────────────────────
+        // Table is created idempotently at startup by FormDefinitionTableBootstrap
+        // (EnsureCreated never adds tables to an existing database) — keep the
+        // column definitions there in sync with this mapping.
+        builder.Entity<FormDefinition>(e =>
+        {
+            e.HasIndex(f => f.Key).IsUnique();
+            e.Property(f => f.Key).HasMaxLength(100);
+            e.Property(f => f.UpdatedBy).HasMaxLength(200);
         });
 
         // ── AppSetting ───────────────────────────────────────────────────────
