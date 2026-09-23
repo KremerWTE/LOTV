@@ -344,18 +344,7 @@
   // blocking an intentional override.
   private bool IsAtCapacity(Volunteer v) => v.ActiveCases >= _capacityById.GetValueOrDefault(v.Id, 6);
 
-  private void SelectCase(PackageRequest r)
-  {
-    _selected           = r;
-    _editStatus         = r.Status;
-    _editAssignedTo     = r.AssignedToId ?? 0;
-    _editProcessStage   = r.ProcessStage;
-    _editTrackingNumber = r.TrackingNumber;
-    _editShippedDate    = r.ShippedDate;
-    _drawerSaved        = false;
-    _drawerError        = null;
-    _saving             = false;
-  }
+  private void SelectCase(PackageRequest r) => Nav.NavigateTo($"/admin/cases/{r.Id}");
 
   private void CloseDrawer() { _selected = null; _drawerSaved = false; _drawerError = null; }
 
