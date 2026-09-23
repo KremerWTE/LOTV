@@ -71,7 +71,7 @@ env:
 jobs:
 
   # ---------------------------------------------------------------------------
-  # 1. Build, test, and publish both projects.
+  # 1. Build and publish both projects (no tests, no migrations).
   #    Artifacts are written to a shared folder on disk (same runner = no upload).
   #    Secret injection into appsettings.Production.json happens here so the
   #    published output is ready to copy in the deploy jobs.
