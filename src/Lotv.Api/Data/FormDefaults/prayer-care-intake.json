@@ -51,9 +51,9 @@
       "options": [
         { "value": "Infertility", "label": "Infertility" },
         { "value": "PrenatalDiagnosis", "label": "Prenatal Diagnosis" },
-        { "value": "Miscarriage", "label": "(<20 weeks) Miscarriage" },
-        { "value": "Stillbirth", "label": "(20+ weeks) Stillbirth" },
-        { "value": "InfantLoss", "label": "Infant Loss (after birth, age 0-1)" },
+        { "value": "Miscarriage", "label": "Miscarriage (before 20 weeks)" },
+        { "value": "Stillbirth", "label": "Stillbirth (20 weeks or later)" },
+        { "value": "InfantLoss", "label": "Infant Loss (after birth, up to age 1)" },
         { "value": "PostnatalMedical", "label": "Postnatal Medical Concern" }
       ]
     },
