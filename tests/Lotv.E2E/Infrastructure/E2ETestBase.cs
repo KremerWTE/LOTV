@@ -16,9 +16,12 @@ public abstract class E2ETestBase : IAsyncLifetime
         _browser = browser;
     }
 
+    /// <summary>Override to true in tests that click a download button.</summary>
+    protected virtual bool AcceptDownloads => false;
+
     public virtual async Task InitializeAsync()
     {
-        Context = await _browser.NewContextAsync();
+        Context = await _browser.NewContextAsync(AcceptDownloads);
         Page    = await Context.NewPageAsync();
         Page.SetDefaultTimeout(E2ESettings.Timeout);
         Page.SetDefaultNavigationTimeout(E2ESettings.Timeout);
