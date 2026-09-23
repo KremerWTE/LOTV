@@ -3,13 +3,15 @@
   =============================================
   Paste this whole file into a Duda "Embed Code" / HTML widget.
 
-  BEFORE GOING LIVE:
-    1. Set API_BASE_URL below to the public HTTPS URL of Lotv.Api
-       (e.g. https://api.lotvministry.org).
-    2. Add this Duda page's origin (e.g. https://www.lotvministry.org) to
-       Lotv.Api's AllowedOrigins config, or the browser will block the
-       submit request with a CORS error.
-    3. GiveButter is already wired in (#lotv-givebutter-widget), using the
+  API_BASE_URL below is set to the production API (https://lotv_api.wte.net),
+  or http://localhost:5100 when previewed locally. Lotv.Api's default CORS
+  policy allows any origin, so no AllowedOrigins change is needed for Duda.
+
+  NOTE: this file is also served live at https://lotv.wte.net/prayer-care-intake.html
+  (copy in src/Lotv.Web/wwwroot) and can be iframed from any site.
+
+  GiveButter notes:
+    - GiveButter is already wired in (#lotv-givebutter-widget), using the
        real widget id "Lv36Zg" pulled from lotvministry.org/donate/'s own
        page source (same JS custom-element widget mechanism the ministry's
        donate page already uses — confirmed 2026-09-08, not an iframe).
@@ -337,7 +339,10 @@
 <script>
 (function () {
   // ── CONFIG - set these before publishing ────────────────────────────
-  var API_BASE_URL = "https://YOUR-LOTV-API-DOMAIN"; // e.g. https://api.lotvministry.org
+  // Production API; falls back to the local API when previewed on localhost.
+  var API_BASE_URL = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+    ? "http://localhost:5100"
+    : "https://lotv_api.wte.net";
   var DEFAULT_CHAPTER_ID = 1; // matches the single-chapter default used by src/Lotv.Web/Pages/Apply.razor
   // GiveButter's donation widget lives directly in the #lotv-givebutter-widget
   // markup above (their own <script> snippet). It hardcodes its own inner

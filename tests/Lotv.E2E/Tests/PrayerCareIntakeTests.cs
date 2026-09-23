@@ -10,13 +10,13 @@ namespace Lotv.E2E.Tests;
 /// posts to Lotv.Api's public /api/v1/public/apply endpoint from wherever
 /// it's hosted), so these tests load the file directly via a file:// URL
 /// instead of going through E2ETestBase.GoToAsync's Blazor BaseUrl, and
-/// intercept the outbound fetch() instead of hitting a real API — the
-/// embedded API_BASE_URL is still the "https://YOUR-LOTV-API-DOMAIN"
-/// placeholder (see file header) until this is actually deployed.
+/// intercept the outbound fetch() instead of hitting a real API — loaded
+/// from file://, the form's API_BASE_URL resolves to the production host
+/// (https://lotv_api.wte.net), so that's the host the tests intercept.
 /// </summary>
 public class PrayerCareIntakeTests : E2ETestBase
 {
-    private const string ApiOrigin = "https://YOUR-LOTV-API-DOMAIN";
+    private const string ApiOrigin = "https://lotv_api.wte.net";
     private readonly List<string> _jsErrors = new();
 
     public PrayerCareIntakeTests(BrowserFixture browser) : base(browser) { }
