@@ -399,6 +399,10 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
 
     await CreateFollowUpTrackerIfLossKnownAsync(db, body.Family);
 
+    // Every new request joins the current Mother's Day card mailing (flagged for review when it
+    // looks like a duplicate family or the address is incomplete).
+    await MothersDayMailing.EnsureEntryAsync(db, body.Family, possibleDuplicate: dupMatch is not null);
+
     _ = pushSvc.SendToAllAsync(
         dupMatch is null ? "New request submitted" : "New request submitted — possible duplicate",
         dupMatch is null
@@ -667,6 +671,11 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
         .SendAsync("CaseCreated", req.Id, req.Family?.FullName ?? "Unknown", req.Reason.ToString());
 
     await autoAssign.TryAutoAssignAsync(req.Id);
+
+    // Staff-created requests join the Mother's Day mailing too (no-op if the family is already on it).
+    var mailingFamily = await db.Families.FindAsync(req.FamilyId);
+    if (mailingFamily is not null)
+        await MothersDayMailing.EnsureEntryAsync(db, mailingFamily, possibleDuplicate: false);
 
     return Results.Created($"/api/v1/requests/{req.Id}", req);
 }).RequireAuthorization("Authenticated");
@@ -1092,6 +1101,9 @@ families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
             ActivityType = ActivityType.NoteAdded, Timestamp = DateTime.UtcNow,
             Details = $"Merged into existing family #{targetFamilyId} ({targetFamily.FullName})."
         });
+
+        // The existing family already has its own card entry; drop the one the duplicate added.
+        await MothersDayMailing.RemoveUnsentEntriesAsync(db, newFamily.Id);
     }
     else if (body.Action == "confirm-new")
     {
@@ -1101,6 +1113,9 @@ families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
             ActivityType = ActivityType.NoteAdded, Timestamp = DateTime.UtcNow,
             Details = "Confirmed as a distinct family, not a duplicate."
         });
+
+        // Staff cleared it, so the card entry no longer needs the duplicate warning.
+        await MothersDayMailing.ClearDuplicateFlagAsync(db, req.FamilyId);
     }
     else
     {
@@ -4129,6 +4144,18 @@ mailingList.MapGet("/", async (LotvDbContext db, int? year, bool? flagged, bool?
     return Results.Ok(await q.OrderBy(m => m.MotherName).ToListAsync());
 });
 
+// Bulk add from a CSV (dryRun=true reports what would happen without saving). Rows already on
+// the year's list are skipped, so re-uploading the same file is safe.
+mailingList.MapPost("/import", async (ImportMailingRequest body, LotvDbContext db) =>
+{
+    var year = body.Year ?? MothersDayCycle.YearFor(DateTime.UtcNow);
+    var (result, error) = await MothersDayMailing.ImportAsync(db, body.Csv, year, body.DryRun);
+    if (error is not null) return Results.BadRequest(new { error });
+    app.Logger.LogInformation("Mailing list import for {Year}: {Created} added, {Skipped} skipped, {Errors} errors (dryRun={DryRun}).",
+        result!.Year, result.Created, result.SkippedDuplicates, result.Errors.Count, result.DryRun);
+    return Results.Ok(result);
+}).RequireAuthorization("ChapterAdmin");
+
 mailingList.MapPut("/{id:int}/flag", async (int id, FlagMailingRequest body, LotvDbContext db) =>
 {
     var m = await db.MailingListEntries.FindAsync(id);
@@ -4404,8 +4431,10 @@ app.MapGet("/api/v1/export/families-crm", async (string? mom, LotvDbContext db) 
     {
         var secondParent = !string.IsNullOrWhiteSpace(f.Parent2FirstName);
         var useSecond = secondParent && (momIs == "parent2" || momIs == "auto");
-        var momFirst = useSecond ? f.Parent2FirstName : f.Parent1FirstName;
-        var momLast  = useSecond && !string.IsNullOrWhiteSpace(f.Parent2LastName) ? f.Parent2LastName : f.Parent1LastName;
+        // "auto" is the shared rule (FamilyParents); parent1/parent2 force one side.
+        var momFirst = momIs == "auto" ? FamilyParents.MomFirstName(f) : (useSecond ? f.Parent2FirstName : f.Parent1FirstName);
+        var momLast  = momIs == "auto" ? FamilyParents.MomLastName(f)
+                     : useSecond && !string.IsNullOrWhiteSpace(f.Parent2LastName) ? f.Parent2LastName : f.Parent1LastName;
         var familyName = string.IsNullOrWhiteSpace(f.Parent1LastName) ? momLast : f.Parent1LastName;
         var street = string.IsNullOrWhiteSpace(f.Apt) ? f.StreetAddress : $"{f.StreetAddress}, {f.Apt}";
 
@@ -4523,6 +4552,7 @@ record ForgotPasswordRequest(string Username);
 record ResetPasswordRequest(string Username, string Token, string NewPassword);
 record UpdateEmailRequest(string? Email);
 record FlagMailingRequest(bool Flagged, string? Note);
+record ImportMailingRequest(string Csv, int? Year = null, bool DryRun = false);
 record MarkSentRequest(bool Sent);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);

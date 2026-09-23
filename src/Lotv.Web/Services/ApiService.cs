@@ -1490,6 +1490,24 @@ public class ApiService
         return GetListAsync<MailingListEntry>($"/api/v1/mailing-list{qs}");
     }
 
+    /// <summary>Bulk-adds recipients from CSV text. <paramref name="dryRun"/> reports the outcome without saving.</summary>
+    public async Task<(MailingImportResultDto? Result, string? Error)> ImportMailingListAsync(string csv, int year, bool dryRun)
+    {
+        var resp = await AuthedPostAsync("/api/v1/mailing-list/import", new { Csv = csv, Year = year, DryRun = dryRun });
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode)
+            return (await resp.Content.ReadFromJsonAsync<MailingImportResultDto>(JsonOpts), null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (body is not null && body.TryGetValue("error", out var msg)) return (null, msg.ToString());
+        }
+        catch { }
+        return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only admins can import the mailing list."
+            : $"The import failed ({(int)resp.StatusCode}).");
+    }
+
     public async Task<bool> FlagMailingEntryAsync(int id, bool flagged, string? note)
     {
         var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/flag", new { Flagged = flagged, Note = note });
