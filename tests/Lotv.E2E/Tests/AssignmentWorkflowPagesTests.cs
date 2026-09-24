@@ -26,7 +26,7 @@ public class AssignmentWorkflowPagesTests : E2ETestBase
 
         await Page.Locator("input[data-reason='Stillbirth']").CheckAsync();
         await Page.Locator("input[data-reason='InfantLoss']").CheckAsync();
-        await Page.SelectOptionAsync("#rule-volunteer", new SelectOptionValue { Index = 1 });
+        await Page.Locator("input[data-volunteer]").First.CheckAsync();
         await Page.Locator("#rule-save").ClickAsync();
 
         var row = Page.Locator("tr[data-rule]", new() { HasText = name });

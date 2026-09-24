@@ -973,14 +973,38 @@ public class ApiService
     // ─── Email previews ──────────────────────────────────────────────────────
     public Task<EmailPreviewsDto?> GetEmailPreviewsAsync() => GetAsync<EmailPreviewsDto>("/api/v1/email-previews");
 
+    /// <summary>Sends one sample email to an address through the live provider. Returns a message for the screen.</summary>
+    public async Task<(bool Ok, string Message)> SendTestEmailAsync(string key, string to)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/email-previews/{Uri.EscapeDataString(key)}/test", new { To = to });
+        if (resp is null) return (false, "Network error — please try again.");
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (resp.IsSuccessStatusCode)
+            {
+                var provider = body is not null && body.TryGetValue("provider", out var p) ? p.GetString() : "";
+                var delivered = body is not null && body.TryGetValue("delivered", out var d) && d.ValueKind == JsonValueKind.True;
+                return delivered
+                    ? (true, $"Sent to {to} through {provider}.")
+                    : (true, "No email service is set up yet, so this was only written to the server log.");
+            }
+            if (body is not null && body.TryGetValue("error", out var msg)) return (false, msg.ToString());
+        }
+        catch { }
+        return (false, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only HQ admins can send test emails."
+            : $"Couldn't send the test ({(int)resp.StatusCode}).");
+    }
+
     // ─── CRM / GiveButter export ─────────────────────────────────────────────
     /// <summary>CSV text of every family (current + historical) with the CRM contact columns.</summary>
-    public async Task<string?> GetFamiliesCrmCsvAsync(string mom)
+    public async Task<string?> GetFamiliesCrmCsvAsync(string mom, bool includeGrief = false)
     {
         SetAuthHeader();
         try
         {
-            var resp = await _http.GetAsync($"/api/v1/export/families-crm?mom={Uri.EscapeDataString(mom)}");
+            var resp = await _http.GetAsync($"/api/v1/export/families-crm?mom={Uri.EscapeDataString(mom)}&includeGrief={includeGrief.ToString().ToLowerInvariant()}");
             return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync() : null;
         }
         catch { return null; }
@@ -1536,6 +1560,62 @@ public class ApiService
     {
         var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/flag", new { Flagged = flagged, Note = note });
         return resp?.IsSuccessStatusCode == true;
+    }
+
+    /// <summary>Emails the family asking them to confirm the details that look wrong. Returns an error message on failure, else null.</summary>
+    public async Task<string?> RequestFamilyDetailsAsync(int familyId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/families/{familyId}/request-details", new { });
+        if (resp is null) return "Network error — please try again.";
+        if (resp.IsSuccessStatusCode) return null;
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (body is not null && body.TryGetValue("error", out var msg)) return msg.ToString();
+        }
+        catch { }
+        return $"Couldn't send the email ({(int)resp.StatusCode}).";
+    }
+
+    /// <summary>Families who asked for quarterly grief support.</summary>
+    public Task<List<Family>> GetGriefSupportFamiliesAsync() =>
+        GetListAsync<Family>("/api/v1/families/grief-support");
+
+    /// <summary>The signed-in person's own volunteer record, or null if they don't have one yet.</summary>
+    public async Task<Volunteer?> GetMyVolunteerAsync() => await GetAsync<Volunteer>("/api/v1/volunteers/me");
+
+    public async Task<Volunteer?> CreateMyVolunteerAsync()
+    {
+        var resp = await AuthedPostAsync("/api/v1/volunteers/me", new { });
+        return resp is { IsSuccessStatusCode: true } ? await resp.Content.ReadFromJsonAsync<Volunteer>(JsonOpts) : null;
+    }
+
+    // ── QA sample data ────────────────────────────────────────────────────────
+    public async Task<QaSampleStatusDto> GetQaSampleStatusAsync() =>
+        await GetAsync<QaSampleStatusDto>("/api/v1/qa-sample-data") ?? new QaSampleStatusDto(false, 0, 0, 0);
+
+    /// <summary>Loads the sample data. Returns the new status (when known), a message for the screen, and whether it worked.</summary>
+    public async Task<(QaSampleStatusDto? Status, string Message, bool Ok)> LoadQaSampleAsync()
+    {
+        var resp = await AuthedPostAsync("/api/v1/qa-sample-data", new { });
+        if (resp is null) return (null, "Network error — please try again.", false);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<JsonElement>(JsonOpts);
+            var message = body.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
+            var status = body.TryGetProperty("status", out var st) ? st.Deserialize<QaSampleStatusDto>(JsonOpts) : null;
+            return (status, string.IsNullOrEmpty(message) ? (resp.IsSuccessStatusCode ? "Loaded." : "Couldn't load the sample data.") : message, resp.IsSuccessStatusCode);
+        }
+        catch
+        {
+            return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden ? "Only HQ admins can load sample data." : $"Couldn't load the sample data ({(int)resp.StatusCode}).", false);
+        }
+    }
+
+    public async Task<QaSampleStatusDto?> RemoveQaSampleAsync()
+    {
+        var resp = await AuthedDeleteAsync("/api/v1/qa-sample-data");
+        return resp is { IsSuccessStatusCode: true } ? await resp.Content.ReadFromJsonAsync<QaSampleStatusDto>(JsonOpts) : null;
     }
 
     // ── Assignment rules ──────────────────────────────────────────────────────

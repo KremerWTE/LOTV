@@ -5,8 +5,8 @@ namespace Lotv.Core.Models;
 /// <summary>
 /// A routing rule for new requests: "requests like this go to this volunteer". Rules are tried in
 /// order (lowest Priority first) before automatic scoring. Every condition that is set must match;
-/// a rule needs at least one condition. If the named volunteer is inactive or already at the
-/// chapter's case limit, the rule is skipped and the next rule (then automatic assignment) applies.
+/// a rule needs at least one condition. If none of its volunteers is available (active and under the
+/// chapter's case limit), the rule is skipped and the next rule (then automatic assignment) applies.
 /// </summary>
 public class AssignmentRule
 {
@@ -30,7 +30,8 @@ public class AssignmentRule
     public bool? ForSelf { get; set; }
 
     // ── Action ────────────────────────────────────────────────────────────────
-    public int AssignToVolunteerId { get; set; }
+    /// <summary>Comma-separated volunteer ids: one person, or a team. The least busy eligible one gets the request.</summary>
+    public string AssignToVolunteerIds { get; set; } = "";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -41,6 +42,11 @@ public class AssignmentRule
         (Reasons ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(r => Enum.TryParse<PackageReason>(r, true, out var v) ? (PackageReason?)v : null)
             .Where(v => v.HasValue).Select(v => v!.Value).ToList();
+
+    [NotMapped]
+    public IReadOnlyList<int> VolunteerIdList =>
+        (AssignToVolunteerIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => int.TryParse(x, out var id) ? id : 0).Where(id => id > 0).Distinct().ToList();
 
     [NotMapped]
     public bool HasCondition =>

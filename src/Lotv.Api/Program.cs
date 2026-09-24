@@ -160,6 +160,7 @@ builder.Services.AddHostedService<WebhookCleanupService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddSingleton<IMockDataService, MockDataService>();      // legacy mock service
 builder.Services.AddHostedService<ScheduledReportBackgroundService>();
+builder.Services.AddHostedService<BereavementReminderBackgroundService>();
 
 // ── GiveButter HTTP client ────────────────────────────────────────────────────
 builder.Services.AddHttpClient<GiveButterService>(c =>
@@ -308,10 +309,19 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the FormDefinitions table; the intake form editor will be unavailable."); }
 
     // Father's Day entries share the mailing list table via a Kind column that older databases lack (idempotent).
+    try { FollowUpReminderColumnBootstrap.EnsureColumn(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not add the ReminderSentAt column to FollowUpMilestones."); }
     try { AssignmentRulesTableBootstrap.EnsureTable(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the AssignmentRules table; routing rules will be unavailable."); }
 
     // Volunteer case counts drifted because assigning never incremented them; make them match reality.
+    try
+    {
+        var fixedStages = await WorkflowDataRepair.RunAsync(db);
+        if (fixedStages > 0) app.Logger.LogInformation("Moved {Count} assigned request(s) out of the Unassigned stage.", fixedStages);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not repair request stages."); }
+
     try { await VolunteerWorkload.RecomputeAllAsync(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not recompute volunteer case counts."); }
 
@@ -325,6 +335,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     // environment, unlike DevSeedData which is Development-only.
     var repairUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
     await CoreAdminAccountRepair.RepairAsync(repairUserMgr, app.Logger);
+    try { await StaffAccountProvisioning.EnsureAsync(repairUserMgr, app.Logger, scope.ServiceProvider.GetRequiredService<IConfiguration>()); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not provision staff accounts."); }
 
     try
     {
@@ -489,8 +501,14 @@ publicIntake.MapPost("/volunteer", async (Volunteer vol, LotvDbContext db) =>
 // ── Auth ──────────────────────────────────────────────────────────────────────
 var auth = app.MapGroup("/api/v1/auth").WithTags("Auth").AllowAnonymous().RequireRateLimiting("auth");
 
-auth.MapPost("/register", async (RegisterRequest req, UserManager<LotvIdentityUser> userMgr) =>
+auth.MapPost("/register", async (RegisterRequest req, UserManager<LotvIdentityUser> userMgr, IConfiguration cfg, HttpContext http) =>
 {
+    // Accounts, and the role each one gets, are created by an HQ admin only. Open registration exists for the
+    // automated test suite alone (Auth:AllowOpenRegistration) and is off everywhere else.
+    var callerIsAdmin = http.User.HasClaim("role", nameof(UserRole.HQAdmin));
+    if (!callerIsAdmin && !cfg.GetValue<bool>("Auth:AllowOpenRegistration"))
+        return http.User.Identity?.IsAuthenticated == true ? Results.Forbid() : Results.Unauthorized();
+
     var user = new LotvIdentityUser
     {
         UserName = req.Email,
@@ -513,6 +531,8 @@ auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> us
         return Results.Unauthorized();
 
     var user = await userMgr.FindByNameAsync(req.Username);
+    if (user is null && req.Username.Contains('@'))
+        user = await StaffAccountProvisioning.FindByEmailSafeAsync(userMgr, req.Username.Trim());
     if (user is null || !await userMgr.CheckPasswordAsync(user, req.Password))
         return Results.Unauthorized();
     if (!user.IsActive)
@@ -531,17 +551,20 @@ auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> us
 // real deliverable address) — so password recovery has to be a separate opt-in
 // step where a user records a recovery email against their account first (see
 // PUT /api/v1/users/{id}/email), rather than the email being assumed to exist.
-auth.MapPost("/forgot-password", async (ForgotPasswordRequest req, UserManager<LotvIdentityUser> userMgr, INotificationService notify) =>
+auth.MapPost("/forgot-password", async (ForgotPasswordRequest req, UserManager<LotvIdentityUser> userMgr, INotificationService notify, IConfiguration cfg) =>
 {
     var user = string.IsNullOrWhiteSpace(req.Username) ? null : await userMgr.FindByNameAsync(req.Username);
+    if (user is null && req.Username.Contains('@'))
+        user = await StaffAccountProvisioning.FindByEmailSafeAsync(userMgr, req.Username.Trim());
     if (user is not null && !string.IsNullOrWhiteSpace(user.Email))
     {
         var token = await userMgr.GeneratePasswordResetTokenAsync(user);
-        var link = $"/reset-password?u={Uri.EscapeDataString(user.UserName ?? req.Username)}&t={Uri.EscapeDataString(token)}";
+        // Absolute link: this is read in a mail client, where a relative link goes nowhere.
+        var link = RequestNotifier.WebUrl(cfg, $"/reset-password?u={Uri.EscapeDataString(user.UserName ?? req.Username)}&t={Uri.EscapeDataString(token)}");
         _ = notify.SendEmailAsync(user.Email, user.FullName, "Reset your LOTV Staff Portal password",
-            $"<p>A password reset was requested for the account <strong>{user.UserName}</strong>.</p>" +
+            $"<p>A password reset was requested for the account <strong>{System.Net.WebUtility.HtmlEncode(user.UserName)}</strong>.</p>" +
             $"<p>Click below to choose a new password. This link expires in 2 hours. If you didn't request this, you can ignore this email.</p>" +
-            $"<p><a href=\"{link}\">{link}</a></p>");
+            $"<p><a href=\"{System.Net.WebUtility.HtmlEncode(link)}\">{System.Net.WebUtility.HtmlEncode(link)}</a></p>");
     }
     // Always return the same response whether or not the account/email exists,
     // so this endpoint can't be used to enumerate valid usernames.
@@ -623,16 +646,22 @@ cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
     return await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
 });
 
-// The signed-in person's own cases: found through their volunteer record (same email, else same name).
-cases.MapGet("/mine", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+// The signed-in person's own volunteer record(s): same email, else same name.
+static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr)
 {
     var user = await userMgr.FindByIdAsync(ctx.UserId);
     var email = (user?.Email ?? "").Trim().ToLower();
     var fullName = $"{user?.FirstName} {user?.LastName}".Trim().ToLower();
-    var volunteerIds = await db.Volunteers
+    return await db.Volunteers
         .Where(v => (email != "" && v.Email.ToLower() == email)
                  || (fullName != "" && (v.FirstName + " " + v.LastName).ToLower() == fullName))
-        .Select(v => v.Id).ToListAsync();
+        .ToListAsync();
+}
+
+// The signed-in person's own cases, found through their volunteer record.
+cases.MapGet("/mine", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var volunteerIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToList();
     if (volunteerIds.Count == 0) return Results.Ok(new List<PackageRequest>());
     var mine = await db.Requests.Include(r => r.Family)
         .Where(r => r.AssignedToId != null && volunteerIds.Contains(r.AssignedToId.Value))
@@ -750,7 +779,7 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
 
 cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContext db,
     IChapterContextService ctx, IHubContext<RequestsHub> hub, IPushSender pushSvc,
-    UserManager<LotvIdentityUser> userMgr) =>
+    UserManager<LotvIdentityUser> userMgr, INotificationService notify, IConfiguration cfg) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
@@ -769,6 +798,12 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     });
     await db.SaveChangesAsync();
     await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId, vol.Id);
+
+    // Tell the volunteer (and the one it was taken from, if it moved).
+    var assignedFamily = await db.Families.FindAsync(r.FamilyId);
+    OperationsNotifier.VolunteerAssigned(notify, cfg, vol, r, assignedFamily, DateTime.UtcNow.AddHours(24));
+    if (previousVolunteerId is int prevId && prevId != vol.Id && await db.Volunteers.FindAsync(prevId) is { } prevVol)
+        OperationsNotifier.VolunteerUnassigned(notify, prevVol, assignedFamily);
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, vol.Id, vol.FullName);
     if (!string.IsNullOrEmpty(vol.Email))
     {
@@ -781,7 +816,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
 });
 
 cases.MapPut("/{id:int}/unassign", async (int id, LotvDbContext db,
-    IChapterContextService ctx, IHubContext<RequestsHub> hub) =>
+    IChapterContextService ctx, IHubContext<RequestsHub> hub, INotificationService notify) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
@@ -809,6 +844,8 @@ cases.MapPut("/{id:int}/unassign", async (int id, LotvDbContext db,
     });
     await db.SaveChangesAsync();
     await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId);
+    if (previousVolunteerId is int unassignedId && await db.Volunteers.FindAsync(unassignedId) is { } unassignedVol)
+        OperationsNotifier.VolunteerUnassigned(notify, unassignedVol, await db.Families.FindAsync(r.FamilyId));
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, 0, "");
     return Results.Ok(r);
 });
@@ -1131,6 +1168,33 @@ families.MapPut("/{id:int}", async (int id, Family family, LotvDbContext db) =>
 // Requests flagged at intake (see IDuplicateFamilyDetectionService) sit here until
 // staff either confirm the new family is genuinely distinct, or merge it into the
 // existing one it matched.
+// Families who asked for quarterly grief support (asked for stillbirth and infant loss).
+families.MapGet("/grief-support", async (LotvDbContext db, IChapterContextService ctx) =>
+{
+    var q = db.Families.AsNoTracking().Where(f => f.GriefSupportRequested == true && !f.IsHistorical && f.Status != FamilyStatus.Closed);
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(f => f.ChapterId == ctx.ChapterId.Value);
+    return Results.Ok(await q.OrderBy(f => f.Parent1LastName).ThenBy(f => f.Parent1FirstName).ToListAsync());
+});
+
+// Emails the family asking them to confirm the details the data check flagged, and notes it on their profile.
+families.MapPost("/{id:int}/request-details", async (int id, LotvDbContext db, INotificationService notify, IChapterContextService ctx) =>
+{
+    var family = await db.Families.FindAsync(id);
+    if (family is null) return Results.NotFound();
+    var report = FamilyDataQuality.Check(family);
+    if (!report.NeedsAttention) return Results.BadRequest(new { error = "Nothing looks wrong with this family's details." });
+    if (!report.CanEmail) return Results.BadRequest(new { error = "There's no valid email address for this family. Try calling them, or check the original request." });
+    if (!OperationsNotifier.DetailsRequest(notify, family)) return Results.BadRequest(new { error = "Couldn't send the email." });
+
+    db.FamilyNotes.Add(new FamilyNote
+    {
+        FamilyId = id, NoteType = "FollowUp", StaffName = ctx.UserName, CreatedAt = DateTime.UtcNow,
+        Content = "Emailed the family to confirm their details: " + string.Join("; ", OperationsEmails.FriendlyFields(report.Issues)).ToLowerInvariant() + ".",
+    });
+    await db.SaveChangesAsync();
+    return Results.Ok(new { sentTo = family.Email });
+}).RequireAuthorization("Staff");
+
 families.MapGet("/duplicate-review", async (LotvDbContext db, IChapterContextService ctx) =>
 {
     var q = db.Requests
@@ -1228,6 +1292,30 @@ volunteers.MapGet("/{id:int}", async (int id, LotvDbContext db) =>
 
 volunteers.MapGet("/available", async (int requestId, LotvDbContext db, IAutoAssignmentService svc) =>
     await svc.GetScoresAsync(requestId));
+
+volunteers.MapGet("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var mine = (await FindMyVolunteersAsync(db, ctx, userMgr)).FirstOrDefault();
+    return mine is null ? Results.NotFound() : Results.Ok(mine);
+});
+
+// Creates the signed-in person's own volunteer record (so cases can be assigned to them and show in My Work Queue).
+volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var existing = (await FindMyVolunteersAsync(db, ctx, userMgr)).FirstOrDefault();
+    if (existing is not null) return Results.Ok(existing);
+    var user = await userMgr.FindByIdAsync(ctx.UserId);
+    if (user is null) return Results.Unauthorized();
+    var v = new Volunteer
+    {
+        FirstName = user.FirstName, LastName = user.LastName, Email = user.Email ?? "",
+        Role = VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active,
+        ChapterId = ctx.ChapterId ?? user.ChapterId ?? 1, JoinedDate = DateTime.UtcNow,
+    };
+    db.Volunteers.Add(v);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/volunteers/{v.Id}", v);
+});
 
 volunteers.MapPost("/", async (Volunteer v, LotvDbContext db, IChapterContextService ctx) =>
 {
@@ -4260,13 +4348,18 @@ mailingList.MapPut("/{id:int}/flag", async (int id, FlagMailingRequest body, Lot
     return Results.Ok(m);
 });
 
-mailingList.MapPut("/{id:int}/sent", async (int id, MarkSentRequest body, LotvDbContext db) =>
+mailingList.MapPut("/{id:int}/sent", async (int id, MarkSentRequest body, LotvDbContext db, INotificationService notify) =>
 {
     var m = await db.MailingListEntries.FindAsync(id);
     if (m is null) return Results.NotFound();
+    var newlySent = body.Sent && !m.Sent;
     m.Sent = body.Sent;
     m.SentAt = body.Sent ? DateTime.UtcNow : null;
     await db.SaveChangesAsync();
+
+    // Let the family know the card is on its way (once, when it first goes from not sent to sent).
+    if (newlySent && m.FamilyId is int familyId)
+        OperationsNotifier.CardSent(notify, m, await db.Families.FindAsync(familyId));
     return Results.Ok(m);
 });
 
@@ -4290,7 +4383,8 @@ static string? ValidateRule(AssignmentRule r)
     if (string.IsNullOrWhiteSpace(r.Name)) return "Give the rule a name.";
     if (r.Name.Length > 200) return "The name is too long.";
     if (!r.HasCondition) return "Choose at least one condition (a reason, place, or who the request is for).";
-    if (r.AssignToVolunteerId <= 0) return "Choose who the request should go to.";
+    if (r.VolunteerIdList.Count == 0) return "Choose who the request should go to.";
+    if (r.AssignToVolunteerIds.Length > 500) return "Too many people chosen.";
     if (!string.IsNullOrWhiteSpace(r.State) && r.State.Trim().Length != 2) return "Use the two-letter state code.";
     if (!string.IsNullOrWhiteSpace(r.Reasons) && r.ReasonList.Count != r.Reasons.Split(',', StringSplitOptions.RemoveEmptyEntries).Length)
         return "One of the reasons isn't recognized.";
@@ -4301,8 +4395,9 @@ assignmentRules.MapPost("/", async (AssignmentRule body, LotvDbContext db, IChap
 {
     var error = ValidateRule(body);
     if (error is not null) return Results.BadRequest(new { error });
-    if (!await db.Volunteers.AnyAsync(v => v.Id == body.AssignToVolunteerId))
-        return Results.BadRequest(new { error = "That volunteer doesn't exist." });
+    var teamIds = body.VolunteerIdList.ToList();
+    if (await db.Volunteers.CountAsync(v => teamIds.Contains(v.Id)) != teamIds.Count)
+        return Results.BadRequest(new { error = "One of those volunteers doesn't exist." });
     body.Id = 0;
     body.CreatedAt = body.UpdatedAt = DateTime.UtcNow;
     body.UpdatedBy = ctx.UserName;
@@ -4317,11 +4412,12 @@ assignmentRules.MapPut("/{id:int}", async (int id, AssignmentRule body, LotvDbCo
     if (rule is null) return Results.NotFound();
     var error = ValidateRule(body);
     if (error is not null) return Results.BadRequest(new { error });
-    if (!await db.Volunteers.AnyAsync(v => v.Id == body.AssignToVolunteerId))
-        return Results.BadRequest(new { error = "That volunteer doesn't exist." });
+    var teamIds = body.VolunteerIdList.ToList();
+    if (await db.Volunteers.CountAsync(v => teamIds.Contains(v.Id)) != teamIds.Count)
+        return Results.BadRequest(new { error = "One of those volunteers doesn't exist." });
     rule.Name = body.Name.Trim(); rule.Priority = body.Priority; rule.IsActive = body.IsActive;
     rule.Reasons = body.Reasons; rule.State = body.State; rule.City = body.City; rule.ZipPrefix = body.ZipPrefix;
-    rule.ChapterId = body.ChapterId; rule.ForSelf = body.ForSelf; rule.AssignToVolunteerId = body.AssignToVolunteerId;
+    rule.ChapterId = body.ChapterId; rule.ForSelf = body.ForSelf; rule.AssignToVolunteerIds = string.Join(",", teamIds);
     rule.UpdatedAt = DateTime.UtcNow; rule.UpdatedBy = ctx.UserName;
     await db.SaveChangesAsync();
     return Results.Ok(rule);
@@ -4578,7 +4674,47 @@ app.MapGet("/api/v1/email-previews", (IConfiguration cfg) =>
     {
         teamRecipients = RequestNotifier.TeamEmails(cfg),
         emails = RequestEmails.Previews(),
+        provider = NotificationService.ActiveProvider(cfg),
     })).WithTags("Email").RequireAuthorization("Staff");
+
+// Sends one sample email to an address through whatever provider is active (SocketLabs, SMTP, or log only),
+// so an admin can confirm that email really goes out. HQ admins only; the subject is marked [TEST].
+app.MapPost("/api/v1/email-previews/{key}/test", async (string key, TestEmailRequest body, INotificationService notify, IConfiguration cfg) =>
+{
+    var to = (body.To ?? "").Trim();
+    if (!System.Net.Mail.MailAddress.TryCreate(to, out var address) || address.Address != to)
+        return Results.BadRequest(new { error = "Enter a valid email address." });
+    var preview = RequestEmails.Previews().FirstOrDefault(p => p.Key == key);
+    if (preview is null) return Results.NotFound();
+
+    var provider = NotificationService.ActiveProvider(cfg);
+    var result = await notify.SendEmailAsync(to, to, "[TEST] " + preview.Subject, preview.Html);
+    app.Logger.LogInformation("Test email {Key} to {To} via {Provider}: {Outcome}", key, to, provider, result.IsSuccess ? "ok" : "failed");
+    if (!result.IsSuccess)
+        return Results.BadRequest(new { error = result.Error ?? "The email couldn't be sent.", provider });
+    return Results.Ok(new { provider, sentTo = to, delivered = provider != "Log only" });
+}).WithTags("Email").RequireAuthorization("HQAdmin");
+
+// ─── QA sample data (HQAdmin) ─────────────────────────────────────────────────
+// Adds (or removes) a clearly marked set of sample families, requests and volunteers so the portal can be tested
+// on a live database. Sample records use the reserved .invalid email domain, so nothing can ever be sent to them.
+var qaSample = app.MapGroup("/api/v1/qa-sample-data").WithTags("QaSample").RequireAuthorization("HQAdmin");
+
+qaSample.MapGet("/", async (LotvDbContext db) => Results.Ok(await QaSampleData.GetStatusAsync(db)));
+
+qaSample.MapPost("/", async (LotvDbContext db) =>
+{
+    var result = await QaSampleData.LoadAsync(db);
+    app.Logger.LogInformation("QA sample data load: {Message}", result.Message);
+    return result.Loaded ? Results.Ok(result) : Results.Conflict(result);
+});
+
+qaSample.MapDelete("/", async (LotvDbContext db) =>
+{
+    var status = await QaSampleData.RemoveAsync(db);
+    app.Logger.LogInformation("QA sample data removed.");
+    return Results.Ok(status);
+});
 
 // ─── CRM / GiveButter contact export (HQAdmin) ───────────────────────────────
 // One row per family - current AND historical, every status - with only the
@@ -4588,18 +4724,23 @@ app.MapGet("/api/v1/email-previews", (IConfiguration cfg) =>
 //               intake form records Husband as parent 1 and Wife as parent 2.
 //   mom=parent1 / mom=parent2  force one side (for imported records recorded the other way).
 // The model has no Country column, so every row says United States.
-app.MapGet("/api/v1/export/families-crm", async (string? mom, LotvDbContext db) =>
+app.MapGet("/api/v1/export/families-crm", async (string? mom, bool? includeGrief, LotvDbContext db) =>
 {
     var momIs = (mom ?? "auto").ToLowerInvariant();
     if (momIs is not ("auto" or "parent1" or "parent2"))
         return Results.BadRequest(new { error = "mom must be auto, parent1 or parent2." });
 
+    // QA sample families never go into a real CRM / GiveButter import.
     var families = await db.Families.AsNoTracking()
+        .Where(f => !f.Email.EndsWith(".invalid"))
         .OrderBy(f => f.Parent1LastName).ThenBy(f => f.Parent1FirstName).ThenBy(f => f.Id)
         .ToListAsync();
 
     var sb = new System.Text.StringBuilder();
-    sb.Append("Family name,Moms first name,Moms last name,Email address,Phone number,Street address,City,State,Zip,Country\r\n");
+    var withGrief = includeGrief == true;
+    sb.Append("Family name,Moms first name,Moms last name,Email address,Phone number,Street address,City,State,Zip,Country");
+    if (withGrief) sb.Append(",Quarterly grief support");
+    sb.Append("\r\n");
     foreach (var f in families)
     {
         var secondParent = !string.IsNullOrWhiteSpace(f.Parent2FirstName);
@@ -4617,7 +4758,8 @@ app.MapGet("/api/v1/export/families-crm", async (string? mom, LotvDbContext db) 
             CsvExport.Cell(momFirst), CsvExport.Cell(momLast), CsvExport.Cell(f.Email), CsvExport.Cell(f.Phone),
             CsvExport.Cell(street), CsvExport.Cell(f.City), CsvExport.Cell(f.State), CsvExport.Cell(f.Zip),
             CsvExport.Cell("United States"),
-        })).Append("\r\n");
+        }.Concat(withGrief ? new[] { CsvExport.Cell(f.GriefSupportRequested is { } g ? (g ? "Yes" : "No") : "") } : Array.Empty<string>())))
+          .Append("\r\n");
     }
 
     app.Logger.LogInformation("Families CRM export: {Count} rows (mom={Mom}).", families.Count, momIs);
@@ -4728,6 +4870,7 @@ record FlagMailingRequest(bool Flagged, string? Note);
 record ImportMailingRequest(string Csv, int? Year = null, bool DryRun = false, MailingKind Kind = MailingKind.MothersDay);
 record BuildMailingRequest(MailingKind Kind = MailingKind.MothersDay, int? Year = null);
 record MarkSentRequest(bool Sent);
+record TestEmailRequest(string? To);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
 record PriorityRequest(RequestPriority Priority);

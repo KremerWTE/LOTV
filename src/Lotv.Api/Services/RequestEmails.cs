@@ -1,4 +1,5 @@
 using System.Net;
+using Lotv.Api.Data;
 using Lotv.Core.Models;
 using Lotv.Core.Services.Interfaces;
 
@@ -146,13 +147,25 @@ public static class RequestEmails
             P("team-new-duplicate", T, "New request - possible duplicate",         "Right after the form is submitted, when it matches an existing family", TeamNewRequest(team with { AssignedTo = null, DuplicateReason = "Same email address as existing family #12 (Mary & Daniel Example)" })),
             P("team-shipped",       T, "Package shipped",                          "When the request is marked Shipped", TeamShipped(team)),
             P("team-completed",     T, "Package completed",                        "When the request is marked Fulfilled", TeamCompleted(team)),
+            P("team-bereavement",   T, "Bereavement follow-ups due",               "Checked every few hours; sent once per touchpoint that is due within a week", OperationsEmails.BereavementDue(
+                [new("Mary & Daniel Example", "3 Months", new DateTime(2026, 9, 28), false), new("Anna & Peter Sample", "3 Weeks", new DateTime(2026, 9, 21), true)],
+                "https://example.org/admin/follow-up-trackers")),
+            P("volunteer-assigned", "Volunteer", "New assignment",                  "When a request is assigned to the volunteer (by a rule, automatically, or by staff)", OperationsEmails.VolunteerAssigned(
+                "Claire", new(1234, "Mary & Daniel Example", "Chicago, IL", "https://example.org/admin/cases/1234", new DateTime(2026, 9, 25, 18, 0, 0)))),
+            P("volunteer-unassigned", "Volunteer", "Assignment removed",            "When staff take a request back from the volunteer", OperationsEmails.VolunteerUnassigned("Claire", "Mary & Daniel Example")),
+            P("card-mothers",       F, "Mother's Day card is on its way",          "When a Mother's Day card is marked Sent (families on the list only)", OperationsEmails.CardSent("Mary", MailingKind.MothersDay)),
+            P("card-fathers",       F, "Father's Day card is on its way",          "When a Father's Day card is marked Sent (families on the list only)", OperationsEmails.CardSent("Daniel", MailingKind.FathersDay)),
+            P("family-details",     F, "Please confirm your details",              "When staff press \"Email the family\" on a request whose details look wrong", OperationsEmails.DetailsRequest(
+                "Mary and Daniel", ["Your mailing address", "Your email address"],
+                [("Name", "Mary & Daniel Example"), ("Email", "mary@example.org"), ("Address", "12 Main St, Chicago, IL 606")])),
         ];
     }
 
     // ── HTML building blocks ─────────────────────────────────────────────────
 
-    private const string P = "color:#444;line-height:1.7;margin:0 0 16px;font-size:16px";
-    private const string TeamFooter = "Internal notification for the LOTV team. Reasons for requests and family stories are not included in email.";
+    internal const string ParagraphStyle = "color:#444;line-height:1.7;margin:0 0 16px;font-size:16px";
+    private const string P = ParagraphStyle;
+    internal const string TeamFooter = "Internal notification for the LOTV team. Reasons for requests and family stories are not included in email.";
 
     public static string E(string? s) => WebUtility.HtmlEncode(s ?? "");
 
@@ -161,16 +174,16 @@ public static class RequestEmails
         "<p style=\"margin:0 0 6px;color:#1a4a6b;font-weight:bold\">What happens next</p>" +
         "<ol style=\"color:#555;margin:0;padding-left:20px;line-height:1.8\">" + string.Concat(steps.Select(s => $"<li>{s}</li>")) + "</ol></td></tr></table>";
 
-    private static string Facts(params (string Label, string? Value)[] rows) =>
+    internal static string Facts(params (string Label, string? Value)[] rows) =>
         "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:0 0 16px;border:1px solid #e3e8f0;border-radius:6px\">" +
         string.Concat(rows.Where(r => !string.IsNullOrWhiteSpace(r.Value)).Select(r =>
             $"<tr><td style=\"padding:8px 14px;color:#7a8aa3;font-size:13px;width:130px;border-bottom:1px solid #eef1f6\">{E(r.Label)}</td><td style=\"padding:8px 14px;color:#1f2a3d;font-size:15px;border-bottom:1px solid #eef1f6\">{E(r.Value)}</td></tr>")) +
         "</table>";
 
-    private static string Button(string label, string url) =>
+    internal static string Button(string label, string url) =>
         $"<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"background:#1a4a6b;border-radius:6px\"><a href=\"{E(url)}\" style=\"display:inline-block;padding:12px 26px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px\">{E(label)}</a></td></tr></table>";
 
-    private static string Wrap(string preheader, string heading, string bodyHtml, string footer) =>
+    internal static string Wrap(string preheader, string heading, string bodyHtml, string footer) =>
         "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
         $"<title>{E(heading)}</title></head>" +
         "<body style=\"margin:0;padding:0;background:#f4f7fb;font-family:Georgia,serif\">" +
@@ -224,6 +237,7 @@ public static class RequestNotifier
     public static void NewRequest(INotificationService notify, IConfiguration cfg, PackageRequest r, Family f,
         string? referrerFirstName, string? referrerEmail, string? duplicateReason)
     {
+        if (QaSampleData.IsSample(f)) return;   // QA sample data never emails anyone, including the team
         // Confirmation goes to whoever actually submitted the form. If someone referred the family, the
         // family (who may not know a package is coming) is not emailed - staff make that first contact.
         var submitterEmail = r.IsForSelf ? f.Email : (referrerEmail ?? f.Email);
@@ -238,6 +252,7 @@ public static class RequestNotifier
 
     public static void Shipped(INotificationService notify, IConfiguration cfg, PackageRequest r)
     {
+        if (QaSampleData.IsSample(r.Family)) return;
         if (r.Family is not { } f) return;
         if (!string.IsNullOrWhiteSpace(f.Email))
         {
@@ -249,6 +264,7 @@ public static class RequestNotifier
 
     public static void Completed(INotificationService notify, IConfiguration cfg, PackageRequest r)
     {
+        if (QaSampleData.IsSample(r.Family)) return;
         if (r.Family is not { } f) return;
         if (!string.IsNullOrWhiteSpace(f.Email))
         {

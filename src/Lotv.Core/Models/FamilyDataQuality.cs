@@ -13,7 +13,7 @@ public enum DataIssueSeverity
 public record DataIssue(string Field, string Message, DataIssueSeverity Severity);
 
 /// <summary>What staff should do about a family's record: the problems found and how to reach the family.</summary>
-public record FamilyDataReport(List<DataIssue> Issues, string Advice)
+public record FamilyDataReport(List<DataIssue> Issues, string Advice, bool CanEmail = false)
 {
     public bool NeedsAttention => Issues.Count > 0;
     public bool HasProblems => Issues.Any(i => i.Severity == DataIssueSeverity.Problem);
@@ -71,7 +71,7 @@ public static class FamilyDataQuality
         if (f.DateOfLoss is { } loss && loss.Date > DateTime.UtcNow.Date)
             issues.Add(new("Date of loss", "The date of loss is in the future.", DataIssueSeverity.Warning));
 
-        return new FamilyDataReport(issues, AdviceFor(issues.Count > 0, emailOk, phoneOk));
+        return new FamilyDataReport(issues, AdviceFor(issues.Count > 0, emailOk, phoneOk), emailOk);
     }
 
     private static string AdviceFor(bool hasIssues, bool emailOk, bool phoneOk)

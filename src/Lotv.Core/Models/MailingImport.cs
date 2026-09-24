@@ -3,6 +3,9 @@ namespace Lotv.Core.Models;
 /// <summary>Outcome of a Mother's Day mailing list CSV import (or dry run).</summary>
 public record MailingImportResultDto(int Year, bool DryRun, int TotalRows, int Created, int SkippedDuplicates, List<MailingImportErrorDto> Errors);
 
+/// <summary>How much QA sample data is currently loaded.</summary>
+public record QaSampleStatusDto(bool Loaded, int Families, int Requests, int Volunteers);
+
 /// <summary>Outcome of filling a mailing list from the last year's requests.</summary>
 public record MailingBuildResultDto(int Year, int Created, int AlreadyOnList, int NoFather);
 
@@ -10,7 +13,7 @@ public record MailingBuildResultDto(int Year, int Created, int AlreadyOnList, in
 public record MailingImportErrorDto(int Row, string Problem);
 
 /// <summary>Sample renders of every request email, and who the team emails go to.</summary>
-public record EmailPreviewsDto(List<string> TeamRecipients, List<EmailPreviewDto> Emails);
+public record EmailPreviewsDto(List<string> TeamRecipients, List<EmailPreviewDto> Emails, string Provider = "");
 
 /// <summary>One email: who it is for, when it is sent, its subject and its full HTML.</summary>
 public record EmailPreviewDto(string Key, string Audience, string Name, string When, string Subject, string Html);

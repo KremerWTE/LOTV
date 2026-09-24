@@ -15,6 +15,8 @@ public class AutoAssignmentService : IAutoAssignmentService
     private readonly LotvDbContext _db;
     private readonly IHubContext<RequestsHub> _hub;
     private readonly ILogger<AutoAssignmentService> _logger;
+    private readonly Lotv.Core.Services.Interfaces.INotificationService? _notify;
+    private readonly IConfiguration? _cfg;
 
     // Scoring weights (per ADR and auto-assignment-algorithm.md)
     private const double ProximityWeight = 0.45;
@@ -22,8 +24,11 @@ public class AutoAssignmentService : IAutoAssignmentService
     private const double LoyaltyWeight   = 0.20;
     private const double CompositeThreshold = 30.0;  // minimum score to auto-assign
 
-    public AutoAssignmentService(LotvDbContext db, IHubContext<RequestsHub> hub, ILogger<AutoAssignmentService> logger)
+    public AutoAssignmentService(LotvDbContext db, IHubContext<RequestsHub> hub, ILogger<AutoAssignmentService> logger,
+        Lotv.Core.Services.Interfaces.INotificationService? notify = null, IConfiguration? cfg = null)
     {
+        _notify = notify;
+        _cfg = cfg;
         _db = db;
         _hub = hub;
         _logger = logger;
@@ -216,6 +221,10 @@ public class AutoAssignmentService : IAutoAssignmentService
 
         await _db.SaveChangesAsync();
         await VolunteerWorkload.RecomputeAsync(_db, volunteer.Id);
+
+        if (_notify is not null && _cfg is not null)
+            OperationsNotifier.VolunteerAssigned(_notify, _cfg, volunteer, request,
+                request.Family ?? await _db.Families.FindAsync(request.FamilyId), DateTime.UtcNow.AddHours(windowHours));
 
         await _hub.Clients.Group($"chapter-{request.ChapterId}")
             .SendAsync("CaseAssigned", request.Id, volunteer.Id, volunteer.FullName);

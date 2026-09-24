@@ -23,9 +23,12 @@ public static class AssignmentRuleMatcher
         foreach (var rule in rules)
         {
             if (!rule.Matches(request, family)) continue;
-            var volunteer = await db.Volunteers.FirstOrDefaultAsync(v => v.Id == rule.AssignToVolunteerId);
-            if (volunteer is null || volunteer.Status != VolunteerStatus.Active || volunteer.ActiveCases >= maxCases) continue;
-            return (rule, volunteer);
+            var ids = rule.VolunteerIdList;
+            var team = await db.Volunteers.Where(v => ids.Contains(v.Id)).ToListAsync();
+            // The least busy person on the team who can take it (ties go to the lowest id).
+            var pick = team.Where(v => v.Status == VolunteerStatus.Active && v.ActiveCases < maxCases)
+                           .OrderBy(v => v.ActiveCases).ThenBy(v => v.Id).FirstOrDefault();
+            if (pick is not null) return (rule, pick);
         }
         return null;
     }
