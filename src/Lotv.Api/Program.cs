@@ -814,6 +814,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     PackageRequest? r;
     Volunteer? vol;
     int? previousVolunteerId;
+    var acceptBy = DateTime.UtcNow.AddHours(24);
     try
     {
         r = await db.Requests.FindAsync(id);
@@ -821,11 +822,15 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
         vol = await db.Volunteers.FindAsync(body.VolunteerId);
         if (vol is null) return Results.NotFound(new { message = "Volunteer not found" });
         previousVolunteerId = r.AssignedToId;
+        // The volunteer needs a pending assignment to accept (or decline), exactly as after an automatic assignment.
+        acceptBy = await ManualAssignment.RecordAsync(db, r, vol, ctx.UserId, ctx.UserName);
         r.AssignedToId = vol.Id;
         r.AssignedTo = vol.FullName;
         // Only a new request starts work when assigned; a case already packing, shipped or on hold keeps its status.
         if (r.Status == CaseStatus.New) r.Status = CaseStatus.InProgress;
         if (r.ProcessStage == ProcessStage.Unassigned) r.ProcessStage = ProcessStage.Assigned;
+        // A different volunteer hasn't accepted yet, so a case the previous one had accepted goes back to Assigned.
+        else if (r.ProcessStage == ProcessStage.Confirmed && previousVolunteerId != vol.Id) r.ProcessStage = ProcessStage.Assigned;
         r.UpdatedAt = DateTime.UtcNow;
         db.RequestActivities.Add(new RequestActivity
         {
@@ -844,7 +849,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
 
     // Tell the volunteer (and the one it was taken from, if it moved).
     var assignedFamily = await db.Families.FindAsync(r.FamilyId);
-    OperationsNotifier.VolunteerAssigned(notify, cfg, vol, r, assignedFamily, DateTime.UtcNow.AddHours(24));
+    OperationsNotifier.VolunteerAssigned(notify, cfg, vol, r, assignedFamily, acceptBy);
     if (previousVolunteerId is int prevId && prevId != vol.Id && await db.Volunteers.FindAsync(prevId) is { } prevVol)
         OperationsNotifier.VolunteerUnassigned(notify, prevVol, assignedFamily);
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, vol.Id, vol.FullName);

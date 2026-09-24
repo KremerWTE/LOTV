@@ -222,6 +222,78 @@ public class AssignmentWorkflowTests
             a => a.ActivityType == ActivityType.ProcessStageChanged && a.NewValue == "Confirmed");
     }
 
+    // ── Assigning by hand gives the volunteer something to accept ─────────────
+
+    private async Task<List<RequestAssignment>> AssignmentsAsync(int requestId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        return await db.RequestAssignments.AsNoTracking().Where(a => a.RequestId == requestId).OrderBy(a => a.Id).ToListAsync();
+    }
+
+    [Fact]
+    public async Task AssigningByHand_CreatesAPendingAssignment_SoTheVolunteerCanAccept()
+    {
+        var chapter = await NewChapterAsync();
+        await AddVolunteerAsync(chapter, "Auto", "Picked");
+        var chosen = await AddVolunteerAsync(chapter, "Chosen", "ByStaff", role: VolunteerRole.Driver);   // never auto-picked
+        var (_, request) = await ApplyAsync(chapter, "Infertility");
+        var admin = await AdminClientAsync();
+
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = chosen })).StatusCode);
+
+        var current = (await AssignmentsAsync(request)).Single(a => a.Status == AssignmentStatus.Pending);
+        Assert.Equal(chosen, current.AssignedToId);
+        Assert.True(current.AcceptanceDeadline > DateTime.UtcNow);
+        Assert.Equal(ProcessStage.Assigned, (await RequestAsync(request)).ProcessStage);
+
+        // ...so Accept now works for a hand-assigned case and lands it in the Volunteer Accepted stage.
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync($"/api/v1/requests/{request}/accept", new { })).StatusCode);
+        Assert.Equal(ProcessStage.Confirmed, (await RequestAsync(request)).ProcessStage);
+    }
+
+    [Fact]
+    public async Task ChoosingTheSameVolunteerAgain_ChangesNothing_AndKeepsTheirAcceptance()
+    {
+        var chapter = await NewChapterAsync();
+        var volunteer = await AddVolunteerAsync(chapter, "Same", "Person", role: VolunteerRole.Driver);
+        var (_, request) = await ApplyAsync(chapter, "Infertility");
+        var admin = await AdminClientAsync();
+        await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = volunteer });
+        await admin.PostAsJsonAsync($"/api/v1/requests/{request}/accept", new { });
+        var before = (await AssignmentsAsync(request)).Count;
+
+        await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = volunteer });
+
+        var after = await AssignmentsAsync(request);
+        Assert.Equal(before, after.Count);
+        Assert.Equal(AssignmentStatus.Accepted, after.Last(a => a.AssignedToId == volunteer).Status);
+        Assert.Equal(ProcessStage.Confirmed, (await RequestAsync(request)).ProcessStage);
+    }
+
+    [Fact]
+    public async Task HandingTheCaseToSomeoneElse_RetiresTheFirstAssignment_AndAsksTheNewVolunteerToAccept()
+    {
+        var chapter = await NewChapterAsync();
+        var first = await AddVolunteerAsync(chapter, "First", "Holder", role: VolunteerRole.Driver);
+        var second = await AddVolunteerAsync(chapter, "Second", "Holder", role: VolunteerRole.Driver);
+        var (_, request) = await ApplyAsync(chapter, "Infertility");
+        var admin = await AdminClientAsync();
+        await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = first });
+        await admin.PostAsJsonAsync($"/api/v1/requests/{request}/accept", new { });
+        Assert.Equal(ProcessStage.Confirmed, (await RequestAsync(request)).ProcessStage);
+
+        await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = second });
+
+        var all = await AssignmentsAsync(request);
+        Assert.Equal(AssignmentStatus.Reassigned, all.Last(a => a.AssignedToId == first).Status);
+        var pending = Assert.Single(all, a => a.Status == AssignmentStatus.Pending);
+        Assert.Equal(second, pending.AssignedToId);
+        Assert.Equal(all.Count, pending.AttemptNumber);
+        // The new volunteer hasn't accepted, so the case is back at Assigned rather than staying "Volunteer Accepted".
+        Assert.Equal(ProcessStage.Assigned, (await RequestAsync(request)).ProcessStage);
+    }
+
     // ── My Work Queue ─────────────────────────────────────────────────────────
 
     [Fact]

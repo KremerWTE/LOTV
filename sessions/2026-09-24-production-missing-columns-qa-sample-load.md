@@ -58,6 +58,14 @@ Get the QA sample data into production so the team can QA the site. The Load but
 
 - Requested: put the story in the notes thread. The family's story from the request form is now the first entry in the case page's Notes Thread ("Story from the request form", dated with the request; "No story was shared with this request." when empty) and was removed from the Family panel so it isn't shown twice. It is read from the family record, not copied into a stored note, so it appears for every existing request without a data change and follows any later correction. Not browser-checked (E2E suite needs running servers on :5000/:5001).
 
+## "Confirmed" lane: fix the gap, rename ✅
+
+- Confirmed = the volunteer accepted the assignment (`POST /requests/{id}/accept` moves Assigned -> Confirmed). The **Confirm Assignment** button in the Queue / Kanban dialogs only assigns (stage Assigned), which made the lane name misleading.
+- **Gap fixed:** `PUT /requests/{id}/assign` never created the pending `RequestAssignment` that Accept needs (only auto-assignment did), so Accept 404'd for hand-assigned cases and they could only reach Confirmed by dragging. New `Services/ManualAssignment.RecordAsync` creates it (acceptance window from the chapter, attempt number, who assigned), retires open assignments to someone else, does nothing when the same volunteer is chosen again, and the notification email now carries the real accept-by time. Choosing a different volunteer on a case at Confirmed sends it back to Assigned (the new volunteer hasn't accepted). No expiry / auto-reassign job exists for pending assignments, so this only enables Accept / Decline.
+- **Lane renamed** on the Kanban board and the case page's "Process stage" line to **Volunteer Accepted** (`ProcessStageExtensions.ToDisplayName`); the stored value and the `Confirmed` column key are unchanged. Activity-log text still says "Confirmed".
+- Tests: 3 new in `AssignmentWorkflowTests` (624 pass). Not browser-checked.
+- Decision left open: the **Confirm Assignment** button label is unchanged (only the lane was renamed as requested).
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.
