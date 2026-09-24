@@ -37,8 +37,10 @@ else
     <div class="panel-head"><h3>@(_status.Loaded ? "Sample data is loaded" : "Add sample data")</h3></div>
     <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;font-size:.88rem;">
       <div>
-        Adds 12 families with requests at every stage, 3 volunteers, follow-ups and card-mailing entries, including a possible duplicate,
-        a request with a wrong zip code, a single-parent family, and families who did and did not ask for grief support.
+        Adds about 40 families, 5 volunteers, follow-ups and card-mailing entries. Every kind of request (infertility, each diagnosis, each kind of loss,
+        past loss, postnatal medical, other) has three requests: one waiting in the queue, one being worked at some stage of the process, and one finished.
+        On top of those are edge cases: a possible duplicate, a request with a wrong zip code, a single-parent family, someone requesting for another family,
+        and families who did and did not ask for grief support.
       </div>
       <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;">
         <strong>Safe by design.</strong> Every sample record uses an email address ending in <code>.invalid</code>, which can never receive mail.

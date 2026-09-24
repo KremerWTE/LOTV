@@ -56,10 +56,12 @@ public static class QaSampleData
             NewVolunteer("Priya", "Nair", chapter, t.AddMonths(-14)),
             NewVolunteer("Marcus", "Webb", chapter, t.AddMonths(-9)),
             NewVolunteer("Helen", "Ostrowski", chapter, t.AddMonths(-4)),
+            NewVolunteer("Tomasz", "Kruk", chapter, t.AddMonths(-7)),
+            NewVolunteer("Grace", "Adeyemi", chapter, t.AddMonths(-2)),
         };
         db.Volunteers.AddRange(volunteers);
         await db.SaveChangesAsync();
-        var (priya, marcus, helen) = (volunteers[0], volunteers[1], volunteers[2]);
+        var (priya, marcus, helen, tomasz, grace) = (volunteers[0], volunteers[1], volunteers[2], volunteers[3], volunteers[4]);
         // Susan Harper (the QA tester) is a volunteer too, when her record exists: give her a few cases to work.
         var susan = await db.Volunteers.FirstOrDefaultAsync(v => v.Email == "susan@wte.net");
         Volunteer? ForSusan(Volunteer? original) => susan ?? original;
@@ -112,6 +114,66 @@ public static class QaSampleData
         dup.Item2.NeedsDuplicateReview = true;
         dup.Item2.DuplicateMatchReason = $"Same email address as existing family ({dupOf.FullName})";
         families.Add(dup);
+
+        // ── One of each situation, for every kind of request ─────────────────────────────────────────
+        // For each reason: a new request waiting in the queue, one being worked at some stage of the process, and one
+        // that is finished (shipped or delivered). That is enough of each to watch how the board, the queues, the
+        // volunteer workloads, the bereavement follow-ups, the grief support list and the card lists behave.
+        string[] surnames =
+        [
+            "Hartwell", "Ellison", "Marchetti", "Thorne", "Vandermeer", "Okonkwo", "Sinclair", "Reyes", "Halloran", "Baptiste",
+            "Nakagawa", "Whitlock", "Delgado", "Fitzsimmons", "Pruitt", "Lombardi", "Achterberg", "Kensington", "Bellweather",
+            "Ashcroft", "Quintero", "Rasmussen", "Tennyson", "Vasilenko", "Galloway", "Harcourt", "Montoya",
+        ];
+        string[] dads = ["Robert", "Luis", "Ethan", "Marcus", "Oliver", "Victor", "Simon", "Andre", "Gregory"];
+        string[] moms = ["Julia", "Amara", "Nicole", "Danielle", "Isabel", "Renee", "Tamara", "Lucia", "Vivian"];
+        (string City, string State, string Zip)[] places =
+        [
+            ("Chicago", "IL", "60657"), ("Naperville", "IL", "60564"), ("Evanston", "IL", "60202"), ("Milwaukee", "WI", "53202"),
+            ("Madison", "WI", "53703"), ("Indianapolis", "IN", "46204"), ("Gary", "IN", "46402"), ("Rockford", "IL", "61101"),
+            ("Peoria", "IL", "61602"),
+        ];
+        Volunteer[] crew = [priya, marcus, helen, tomasz, grace];
+        ProcessStage[] workStages = [ProcessStage.Assigned, ProcessStage.Confirmed, ProcessStage.Packing, ProcessStage.Notes, ProcessStage.Shipping];
+
+        var reasons = Enum.GetValues<PackageReason>();
+        var n = 0;
+        for (var r = 0; r < reasons.Length; r++)
+        {
+            var reason = reasons[r];
+            var isLoss = reason is PackageReason.Miscarriage or PackageReason.Stillbirth or PackageReason.InfantLoss or PackageReason.PastLoss;
+            var asksGrief = reason is PackageReason.Stillbirth or PackageReason.InfantLoss;
+            for (var variant = 0; variant < 3; variant++, n++)
+            {
+                var (city, state, zip) = places[(n + variant) % places.Length];
+                var last = surnames[n % surnames.Length];
+                var dad = dads[(r + variant) % dads.Length];
+                var mom = moms[(r * 2 + variant) % moms.Length];
+                var name = reason.ToDisplayName();
+                var lossAgo = isLoss ? (reason == PackageReason.PastLoss ? 540 : 20 + r * 6 + variant * 25) : (int?)null;
+                bool? grief = asksGrief ? variant != 1 : null;
+                var forSelf = variant == 0 || r % 2 == 0;
+                var referrer = forSelf ? null : "A friend of the family";
+
+                var scenario = variant switch
+                {
+                    0 => Scenario(dad, mom, last, reason, CaseStatus.New, ProcessStage.Unassigned, null, 1 + r % 4, city, state, zip,
+                            $"{name}: new request waiting in the Unassigned Queue", grief, lossAgo, forSelf, referrer),
+                    1 => Scenario(dad, mom, last, reason,
+                            workStages[r % workStages.Length] == ProcessStage.Shipping ? CaseStatus.AwaitingShipment : CaseStatus.InProgress,
+                            workStages[r % workStages.Length], crew[r % crew.Length], 6 + r * 2, city, state, zip,
+                            $"{name}: being worked, at the {workStages[r % workStages.Length]} stage", grief, lossAgo, forSelf, referrer),
+                    _ => Scenario(dad, mom, last, reason,
+                            r % 2 == 0 ? CaseStatus.Shipped : CaseStatus.Fulfilled,
+                            r % 2 == 0 ? ProcessStage.Shipping : ProcessStage.Delivered, crew[(r + 2) % crew.Length], 24 + r * 4, city, state, zip,
+                            $"{name}: {(r % 2 == 0 ? "shipped, on its way" : "delivered and finished")}", grief, lossAgo, forSelf, referrer),
+                };
+                // The most urgent kind of request is flagged urgent, and some others are high priority.
+                if (reason == PackageReason.PrenatalLifeLimitingDiagnosis) scenario.Item2.Priority = RequestPriority.Urgent;
+                else if (variant == 0 && r % 3 == 0) scenario.Item2.Priority = RequestPriority.High;
+                families.Add(scenario);
+            }
+        }
 
         await using var tx = await db.Database.BeginTransactionAsync();
         foreach (var (family, _, _, _, _, _, _) in families) db.Families.Add(family);
@@ -252,6 +314,9 @@ public static class QaSampleData
         return await GetStatusAsync(db);
     }
 
+    // The raw SQL below is built only from EF's own model metadata (table and column names) and integer ids read from
+    // the database, never from user input, and identifiers cannot be passed as parameters. EF1002 is suppressed for that reason.
+#pragma warning disable EF1002
     /// <summary>Deletes the rows and everything that points at them, following the model's relationships.</summary>
     private static async Task DeleteAsync(LotvDbContext db, IEntityType type, List<int> ids, HashSet<(string, int)> seen)
     {
@@ -293,6 +358,8 @@ public static class QaSampleData
         var pkName = pk.Properties[0].GetColumnName(StoreObjectIdentifier.Table(table, type.GetSchema()))!;
         await db.Database.ExecuteSqlRawAsync($"DELETE FROM {Q(db, table)} WHERE {Q(db, pkName)} IN ({list})");
     }
+
+#pragma warning restore EF1002
 
     /// <summary>Tables whose optional link to a family means "this row belongs to that family".</summary>
     private static readonly HashSet<string> OwnedWhenOptional = ["MailingListEntries", "FollowUpTrackers"];

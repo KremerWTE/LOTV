@@ -28,9 +28,12 @@ builder.Host.UseSerilog((ctx, services, cfg) =>
         if (!string.IsNullOrWhiteSpace(connStr))
             cfg.WriteTo.MSSqlServer(
                 connectionString: connStr,
-                tableName: "AppLogs",
-                schemaName: "dbo",
-                autoCreateSqlTable: true,
+                sinkOptions: new Serilog.Sinks.MSSqlServer.MSSqlServerSinkOptions
+                {
+                    TableName = "AppLogs",
+                    SchemaName = "dbo",
+                    AutoCreateSqlTable = true,
+                },
                 restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Warning);
     }
 });

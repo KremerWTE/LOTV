@@ -42,9 +42,12 @@ builder.Host.UseSerilog((ctx, services, cfg) =>
         if (!string.IsNullOrWhiteSpace(connStr))
             cfg.WriteTo.MSSqlServer(
                 connectionString: connStr,
-                tableName: "ApiLogs",
-                schemaName: "dbo",
-                autoCreateSqlTable: true,
+                sinkOptions: new Serilog.Sinks.MSSqlServer.MSSqlServerSinkOptions
+                {
+                    TableName = "ApiLogs",
+                    SchemaName = "dbo",
+                    AutoCreateSqlTable = true,
+                },
                 restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Warning);
     }
 });
@@ -4319,6 +4322,13 @@ var mailingList = app.MapGroup("/api/v1/mailing-list").WithTags("MailingList").R
 mailingList.MapGet("/", async (LotvDbContext db, int? year, bool? flagged, bool? sent, MailingKind? kind) =>
 {
     var k = kind ?? MailingKind.MothersDay;
+
+    // The list always includes everyone with a submission since the previous holiday, even if no entry was made when
+    // the request came in (older requests, imports, data fixed later): missing families are added first, once each.
+    var cycleYear = year ?? MailingCycle.YearFor(k, DateTime.UtcNow);
+    if (cycleYear is >= 2000 and <= 2100)
+        await MothersDayMailing.BuildFromRequestsAsync(db, k, cycleYear);
+
     var q = db.MailingListEntries.Where(m => m.Kind == k);
     if (year.HasValue) q = q.Where(m => m.Year == year.Value);
     if (flagged.HasValue) q = q.Where(m => m.FlaggedForReview == flagged.Value);
