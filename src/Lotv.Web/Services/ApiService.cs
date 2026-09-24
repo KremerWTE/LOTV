@@ -729,6 +729,12 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    public async Task<bool> UnassignRequestAsync(int id)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{id}/unassign", new { });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     public async Task<bool> UpdateRequestPriorityAsync(int id, RequestPriority priority)
     {
         var resp = await AuthedPutAsync($"/api/v1/requests/{id}/priority", new { Priority = priority });
@@ -963,6 +969,9 @@ public class ApiService
         }
         catch { return (false, "Failed to update email."); }
     }
+
+    // ─── Email previews ──────────────────────────────────────────────────────
+    public Task<EmailPreviewsDto?> GetEmailPreviewsAsync() => GetAsync<EmailPreviewsDto>("/api/v1/email-previews");
 
     // ─── CRM / GiveButter export ─────────────────────────────────────────────
     /// <summary>CSV text of every family (current + historical) with the CRM contact columns.</summary>
@@ -1484,10 +1493,43 @@ public class ApiService
     }
 
     // ── Mailing list (Mother's Day / Father's Day annual mailing) ──────────────
-    public Task<List<MailingListEntry>> GetMailingListAsync(int? year = null, bool? flagged = null, bool? sent = null)
+    public Task<List<MailingListEntry>> GetMailingListAsync(int? year = null, bool? flagged = null, bool? sent = null,
+        MailingKind kind = MailingKind.MothersDay)
     {
-        var qs = BuildQs(("year", year?.ToString()), ("flagged", flagged?.ToString().ToLower()), ("sent", sent?.ToString().ToLower()));
+        var qs = BuildQs(("year", year?.ToString()), ("flagged", flagged?.ToString().ToLower()), ("sent", sent?.ToString().ToLower()),
+            ("kind", kind.ToString()));
         return GetListAsync<MailingListEntry>($"/api/v1/mailing-list{qs}");
+    }
+
+    /// <summary>Fills the list from the last year's requests (one entry per family).</summary>
+    public async Task<(MailingBuildResultDto? Result, string? Error)> BuildMailingListAsync(MailingKind kind, int year)
+    {
+        var resp = await AuthedPostAsync("/api/v1/mailing-list/build", new { Kind = kind, Year = year });
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode)
+            return (await resp.Content.ReadFromJsonAsync<MailingBuildResultDto>(JsonOpts), null);
+        return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only admins can build the mailing list."
+            : $"Couldn't build the list ({(int)resp.StatusCode}).");
+    }
+
+    /// <summary>Bulk-adds recipients from CSV text. <paramref name="dryRun"/> reports the outcome without saving.</summary>
+    public async Task<(MailingImportResultDto? Result, string? Error)> ImportMailingListAsync(string csv, int year, bool dryRun,
+        MailingKind kind = MailingKind.MothersDay)
+    {
+        var resp = await AuthedPostAsync("/api/v1/mailing-list/import", new { Csv = csv, Year = year, DryRun = dryRun, Kind = kind });
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode)
+            return (await resp.Content.ReadFromJsonAsync<MailingImportResultDto>(JsonOpts), null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (body is not null && body.TryGetValue("error", out var msg)) return (null, msg.ToString());
+        }
+        catch { }
+        return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only admins can import the mailing list."
+            : $"The import failed ({(int)resp.StatusCode}).");
     }
 
     public async Task<bool> FlagMailingEntryAsync(int id, bool flagged, string? note)
@@ -1495,6 +1537,50 @@ public class ApiService
         var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/flag", new { Flagged = flagged, Note = note });
         return resp?.IsSuccessStatusCode == true;
     }
+
+    // ── Assignment rules ──────────────────────────────────────────────────────
+    public Task<List<AssignmentRule>> GetAssignmentRulesAsync() =>
+        GetListAsync<AssignmentRule>("/api/v1/assignment-rules");
+
+    public async Task<(AssignmentRule? Rule, string? Error)> CreateAssignmentRuleAsync(AssignmentRule rule)
+        => await SaveAssignmentRuleAsync(await AuthedPostAsync("/api/v1/assignment-rules", rule));
+
+    public async Task<(AssignmentRule? Rule, string? Error)> UpdateAssignmentRuleAsync(AssignmentRule rule)
+        => await SaveAssignmentRuleAsync(await AuthedPutAsync($"/api/v1/assignment-rules/{rule.Id}", rule));
+
+    private async Task<(AssignmentRule? Rule, string? Error)> SaveAssignmentRuleAsync(HttpResponseMessage? resp)
+    {
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (await resp.Content.ReadFromJsonAsync<AssignmentRule>(JsonOpts), null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (body is not null && body.TryGetValue("error", out var msg)) return (null, msg.ToString());
+        }
+        catch { }
+        return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only admins can change assignment rules."
+            : $"Couldn't save the rule ({(int)resp.StatusCode}).");
+    }
+
+    public async Task<bool> DeleteAssignmentRuleAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/assignment-rules/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    /// <summary>Runs the rules over the unassigned queue. Null when the call failed.</summary>
+    public async Task<(int Checked, int Assigned)?> ApplyAssignmentRulesAsync()
+    {
+        var resp = await AuthedPostAsync("/api/v1/assignment-rules/apply", new { });
+        if (resp is null || !resp.IsSuccessStatusCode) return null;
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>(JsonOpts);
+        return (body.GetProperty("checkedRequests").GetInt32(), body.GetProperty("assigned").GetInt32());
+    }
+
+    /// <summary>The signed-in person's own cases (matched through their volunteer record).</summary>
+    public Task<List<PackageRequest>> GetMyRequestsAsync() =>
+        GetListAsync<PackageRequest>("/api/v1/requests/mine");
 
     public async Task<bool> MarkMailingEntrySentAsync(int id, bool sent)
     {

@@ -50,6 +50,18 @@ else
     <div style="background:#fff3cd;border-radius:8px;padding:10px 16px;font-size:.84rem;color:#856404;margin-bottom:16px;">⚠ @_errorMsg</div>
   }
 
+  <DataQualityAlert Family="_request.Family" />
+
+  @if (_familyRequests.Where(o => o.Id != _request.Id && o.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled)).ToList() is { Count: > 0 } otherOpen)
+  {
+    <div data-alert="repeat-request" role="alert" style="background:#e8f0fb;color:#1f3d73;border-radius:8px;padding:12px 16px;font-size:.86rem;margin-bottom:16px;">
+      <strong>This family has another open request.</strong>
+      @foreach (var o in otherOpen)
+      { <a href="/admin/cases/@o.Id" style="margin-left:8px;">#@o.Id (@o.Status)</a> }
+      — check that this isn't a repeat before shipping a second package.
+    </div>
+  }
+
   <!-- MAIN GRID -->
   <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;">
 
@@ -129,6 +141,107 @@ else
             </button>
             <button class="btn" @onclick="ResetDetails">Discard</button>
           </div>
+        </div>
+      </div>
+
+      <!-- REQUEST INFORMATION -->
+      <div class="panel" data-panel="request-info">
+        <div class="panel-header">Request Information</div>
+        <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;font-size:.84rem;">
+          <div><strong>Requested for:</strong> @(_request.IsForSelf ? "Their own family" : "Someone else")</div>
+          <div><strong>Reason:</strong> @_request.Reason.ToDisplayName()</div>
+          <div><strong>Submitted:</strong> @_request.CreatedAt.ToString("MMM d, yyyy h:mm tt")</div>
+          <div><strong>Last updated:</strong> @_request.UpdatedAt.ToString("MMM d, yyyy h:mm tt")</div>
+          <div><strong>Process stage:</strong> @_request.ProcessStage</div>
+          <div><strong>Staff outreach requested:</strong> @(_request.StaffOutreachRequested ? "Yes" : "No")</div>
+          <div><strong>Bracelet / children's initials:</strong> @(_request.ChildrenInitials ?? _request.Family?.ChildrenInitials ?? "—")</div>
+          <div><strong>Assigned to:</strong> @(_request.AssignedTo ?? "Unassigned")</div>
+          @if (!_request.IsForSelf)
+          {
+            <div><strong>Referred by:</strong> @(_request.ReferrerName ?? "—")</div>
+            <div><strong>Referrer email:</strong> @(_request.ReferrerEmail ?? "—")</div>
+          }
+          @if (_request.NeedsDuplicateReview)
+          {
+            <div style="grid-column:1/-1;color:#856404;background:#fff3cd;border-radius:8px;padding:8px 12px;">
+              ⚠ Possible duplicate of another family (@(_request.DuplicateMatchReason ?? "needs review")).
+              <a href="/admin/families/duplicate-review">Review</a>
+            </div>
+          }
+          @if (!string.IsNullOrEmpty(_request.TrackingNumber))
+          { <div><strong>Tracking:</strong> @_request.TrackingNumber</div> }
+          @if (_request.ShippedDate.HasValue)
+          { <div><strong>Shipped:</strong> @_request.ShippedDate.Value.ToString("MMM d, yyyy")</div> }
+        </div>
+      </div>
+
+      <!-- MOTHER'S DAY CARD -->
+      <div class="panel" data-panel="mothers-day">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Mother's Day &amp; Father's Day Cards</span>
+          <a href="/admin/mothers-day" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">Mailing list →</a>
+        </div>
+        <div class="panel-body" style="font-size:.84rem;">
+          @if (!_mailing.Any())
+          { <div style="color:var(--text-light);">Not on a Mother's Day or Father's Day mailing list yet.</div> }
+          else
+          {
+            @foreach (var m in _mailing.OrderByDescending(x => x.Year).ThenBy(x => x.Kind))
+            {
+              <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);">
+                <span><strong>@(m.Kind == MailingKind.FathersDay ? "Father's Day" : "Mother's Day") @m.Year</strong> — @m.RecipientName, @m.StreetAddress, @m.City, @m.State @m.Zip</span>
+                <span>
+                  @if (m.FlaggedForReview) { <span class="badge badge-onhold">Needs review</span> }
+                  @if (m.Sent) { <span class="badge badge-fulfilled">Sent @(m.SentAt?.ToString("MMM d"))</span> }
+                  else { <span class="badge badge-new">Not sent</span> }
+                </span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      <!-- BEREAVEMENT FOLLOW-UP -->
+      <div class="panel" data-panel="follow-up">
+        <div class="panel-header">Bereavement Follow-Up</div>
+        <div class="panel-body" style="font-size:.84rem;">
+          @if (!_trackers.Any())
+          { <div style="color:var(--text-light);">No follow-up schedule for this family (no date of loss recorded).</div> }
+          else
+          {
+            @foreach (var t in _trackers)
+            {
+              <div style="margin-bottom:8px;">Date of loss: @(t.DateOfLoss?.ToString("MMM d, yyyy") ?? "—")</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                @foreach (var ms in t.Milestones.OrderBy(x => x.Type))
+                {
+                  <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;text-align:center;">
+                    <div style="font-weight:600;">@ms.Type.ToDisplayName()</div>
+                    <div style="font-size:.74rem;color:var(--text-light);">@(ms.DueDate?.ToString("MMM d, yyyy") ?? "—")</div>
+                    <div style="font-size:.74rem;">@(ms.BookSent ? "Sent" : "Not sent")</div>
+                  </div>
+                }
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      <!-- OTHER REQUESTS FROM THIS FAMILY -->
+      <div class="panel" data-panel="family-requests">
+        <div class="panel-header">All Requests from This Family</div>
+        <div class="panel-body" style="padding:0;font-size:.84rem;">
+          @foreach (var o in _familyRequests.OrderByDescending(x => x.CreatedAt))
+          {
+            <div style="display:flex;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);">
+              <span>
+                @if (o.Id == _request.Id) { <strong>#@o.Id (this request)</strong> }
+                else { <a href="/admin/cases/@o.Id">#@o.Id</a> }
+                — @o.Reason.ToDisplayName() — @o.CreatedAt.ToString("MMM d, yyyy")
+              </span>
+              <span class="badge @GetStatusBadge(o.Status)">@o.Status</span>
+            </div>
+          }
         </div>
       </div>
 
@@ -228,10 +341,13 @@ else
         <div class="panel">
           <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
             <span>Family</span>
-            <a href="/admin/families?family=@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile →</a>
+            <a href="/admin/families/@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile →</a>
           </div>
           <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
             <div><strong>Name:</strong> @_request.Family.FullName</div>
+            <div><strong>Parent 1:</strong> @_request.Family.Parent1FirstName @_request.Family.Parent1LastName</div>
+            @if (!string.IsNullOrEmpty(_request.Family.Parent2FirstName))
+            { <div><strong>Parent 2:</strong> @_request.Family.Parent2FirstName @_request.Family.Parent2LastName</div> }
             <div><strong>Email:</strong> @_request.Family.Email</div>
             <div><strong>Phone:</strong> @(_request.Family.Phone ?? "—")</div>
             <div>
@@ -249,6 +365,8 @@ else
             <div><strong>Parish:</strong> @(_request.Family.ParishName ?? "—")</div>
             <div><strong>Diocese:</strong> @(_request.Family.DioceseName ?? "—")</div>
             <div><strong>Faith:</strong> @(_request.Family.FaithTradition ?? "Not specified")</div>
+            @if (_request.Family.GriefSupportRequested is { } grief)
+            { <div data-field="grief-support"><strong>Quarterly grief support:</strong> @(grief ? "Yes" : "No")</div> }
             @if (!string.IsNullOrEmpty(_request.Family.ChildrenInitials))
             { <div><strong>Children's Initials:</strong> @_request.Family.ChildrenInitials</div> }
             <div><strong>Date of Loss:</strong> @(_request.Family.DateOfLoss?.ToString("MMM d, yyyy") ?? "—")</div>
@@ -351,6 +469,10 @@ else
               @QuickActionIcon(s) @QuickActionLabel(s)
             </button>
           }
+          @if (_request.AssignedToId is not null && _request.Status is not (CaseStatus.Shipped or CaseStatus.Fulfilled or CaseStatus.Cancelled))
+          {
+            <button class="btn btn-sm" data-action="unassign" @onclick="UnassignAsync" disabled="@_quickBusy">↩ Unassign (@_request.AssignedTo)</button>
+          }
           <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;" />
           <a href="/admin/cases?familyId=@_request.FamilyId" class="btn btn-sm">+ New Case for This Family</a>
         </div>
@@ -440,6 +562,9 @@ else
   // Packing list
   private List<PackageContentItem> _packageItems = [];
   private List<ResourceItem> _inventory = [];
+  private List<MailingListEntry> _mailing = [];
+  private List<FollowUpTracker> _trackers = [];
+  private List<PackageRequest> _familyRequests = [];
   private int _newItemResourceId;
   private int _newItemQty = 1;
   private string? _packingError;
@@ -476,6 +601,16 @@ else
 
     if (_request is not null)
     {
+      var famId = _request.FamilyId;
+      var m = Api.GetMailingListAsync();
+      var fd = Api.GetMailingListAsync(kind: MailingKind.FathersDay);
+      var f = Api.GetFollowUpTrackersAsync();
+      var r = Api.GetRequestsAsync(familyId: famId);
+      await Task.WhenAll(m, fd, f, r);
+      _mailing = m.Result.Concat(fd.Result).Where(x => x.FamilyId == famId).ToList();
+      _trackers = f.Result.Where(x => x.FamilyId == famId).ToList();
+      _familyRequests = r.Result;
+
       _editStatus        = _request.Status;
       _editPriority      = _request.Priority;
       _editAssignedVolId = _request.AssignedToId;
@@ -634,6 +769,16 @@ else
     _addingNote = false;
   }
 
+  private async Task UnassignAsync()
+  {
+    if (_request is null || _quickBusy) return;
+    _quickBusy = true;
+    _saveMsg = _errorMsg = "";
+    if (await Api.UnassignRequestAsync(_request.Id)) { _saveMsg = "Request unassigned."; await LoadAsync(); }
+    else _errorMsg = "Couldn't unassign this request.";
+    _quickBusy = false;
+  }
+
   private async Task AssignAsync(int volunteerId)
   {
     if (_request is null) return;
@@ -684,6 +829,7 @@ else
     ActivityType.StatusChanged  => "🔄",
     ActivityType.Assigned       => "👤",
     ActivityType.Reassigned     => "🔁",
+    ActivityType.Unassigned     => "↩",
     ActivityType.NoteAdded      => "💬",
     ActivityType.PriorityChanged => "▲",
     ActivityType.DueDateSet     => "🕐",
@@ -699,6 +845,7 @@ else
     ActivityType.StatusChanged  => $"changed status from {ev.OldValue} → {ev.NewValue}",
     ActivityType.Assigned       => $"assigned to {ev.NewValue}",
     ActivityType.Reassigned     => $"reassigned to {ev.NewValue}",
+    ActivityType.Unassigned     => $"unassigned {ev.OldValue}",
     ActivityType.NoteAdded      => "added a note",
     ActivityType.PriorityChanged => $"set priority to {ev.NewValue}",
     ActivityType.DueDateSet     => $"set due date to {ev.NewValue}",

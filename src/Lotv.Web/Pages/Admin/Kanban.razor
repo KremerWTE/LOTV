@@ -14,6 +14,7 @@
     <p>Visual pipeline view of all active cases</p>
   </div>
   <div class="page-hd-actions">
+    <button class="btn btn-sm @(_needsInfoOnly ? "btn-primary" : "")" id="needs-info-filter" aria-pressed="@_needsInfoOnly" @onclick="ToggleNeedsInfo">⚠ Needs info (@NeedsInfoCount)</button>
     <a href="/admin/cases" class="btn btn-sm">List View</a>
     <a href="/admin/queue" class="btn btn-sm">🔚 Unassigned Queue</a>
     <a href="/admin/my-queue" class="btn btn-sm">📋 My Work Queue</a>
@@ -48,7 +49,7 @@
       </div>
       @foreach (var r in cases)
       {
-        <KanbanCard Request="r" OnSelect="SelectCase" OnAssign="OpenQuickAssign" OnDragStart="OnDragStart"
+        <KanbanCard Request="r" OnSelect="SelectCase" OnAssign="OpenQuickAssign" OnUnassign="UnassignAsync" OnDragStart="OnDragStart"
                     OnDragEnd="() => { _draggingCase = null; _dragOverKey = null; }"
                     GetPriorityBadge="GetPriorityBadge" GetAge="GetAge" />
       }
@@ -83,6 +84,9 @@
           { <option value="@v.Id">@v.FullName@(IsAtCapacity(v) ? " (at capacity)" : "")</option> }
         </select>
       </div>
+
+      @if (!_volunteers.Any())
+      { <div style="background:#fff3cd;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#856404;">⚠ No active volunteers are available to assign. Add or activate a volunteer first.</div> }
 
       @if (_quickAssignCandidatesLoaded && _quickAssignCandidates.Any())
       {
@@ -314,6 +318,10 @@
 
   private void GroupByStatus(List<PackageRequest> requests)
   {
+    // Possible duplicates wait on the Possible Duplicates page until staff confirm or merge them.
+    requests = requests.Where(r => !r.NeedsDuplicateReview).ToList();
+    _allRequests = requests;
+    if (_needsInfoOnly) requests = requests.Where(HasInfoProblems).ToList();
     var cutoff = DateTime.UtcNow - FulfilledWindow;
     var allFulfilled = requests.Where(r => r.Status == CaseStatus.Fulfilled).ToList();
     _hiddenFulfilledCount = allFulfilled.Count(r => r.UpdatedAt < cutoff);
@@ -341,18 +349,7 @@
   // blocking an intentional override.
   private bool IsAtCapacity(Volunteer v) => v.ActiveCases >= _capacityById.GetValueOrDefault(v.Id, 6);
 
-  private void SelectCase(PackageRequest r)
-  {
-    _selected           = r;
-    _editStatus         = r.Status;
-    _editAssignedTo     = r.AssignedToId ?? 0;
-    _editProcessStage   = r.ProcessStage;
-    _editTrackingNumber = r.TrackingNumber;
-    _editShippedDate    = r.ShippedDate;
-    _drawerSaved        = false;
-    _drawerError        = null;
-    _saving             = false;
-  }
+  private void SelectCase(PackageRequest r) => Nav.NavigateTo($"/admin/cases/{r.Id}");
 
   private void CloseDrawer() { _selected = null; _drawerSaved = false; _drawerError = null; }
 
@@ -410,8 +407,20 @@
     _quickAssignCandidates = [];
     _quickAssignCandidatesLoaded = false;
 
-    _quickAssignCandidates = await Api.GetVolunteerCandidatesAsync(r.Id);
+    try { _quickAssignCandidates = await Api.GetVolunteerCandidatesAsync(r.Id); }
+    catch { _quickAssignCandidates = []; }
     _quickAssignCandidatesLoaded = true;
+  }
+
+  private async Task UnassignAsync(PackageRequest r)
+  {
+    if (!await Api.UnassignRequestAsync(r.Id)) return;
+    r.AssignedToId = null;
+    r.AssignedTo = null;
+    r.Status = CaseStatus.New;
+    r.ProcessStage = ProcessStage.Unassigned;
+    r.UpdatedAt = DateTime.UtcNow;
+    RegroupByStatus();
   }
 
   private void CloseQuickAssign()
@@ -428,7 +437,9 @@
     _quickAssignWorking = true;
     _quickAssignError = null;
 
-    var ok = await Api.AssignRequestAsync(_quickAssignCase.Id, _quickAssignVolId);
+    bool ok;
+    try { ok = await Api.AssignRequestAsync(_quickAssignCase.Id, _quickAssignVolId); }
+    catch { ok = false; }
     if (!ok)
     {
       _quickAssignError = "Assignment failed. Please try again.";
@@ -488,7 +499,13 @@
 
   // Re-buckets the already-loaded cases by their (possibly just-changed) status,
   // without a round-trip to the API.
-  private void RegroupByStatus() => GroupByStatus(_byColumn.SelectMany(kv => kv.Value).ToList());
+  private void RegroupByStatus() => GroupByStatus(_allRequests);
+
+  private List<PackageRequest> _allRequests = [];
+  private bool _needsInfoOnly;
+  private int NeedsInfoCount => _allRequests.Count(HasInfoProblems);
+  private static bool HasInfoProblems(PackageRequest r) => r.Family is not null && FamilyDataQuality.Check(r.Family).NeedsAttention;
+  private void ToggleNeedsInfo() { _needsInfoOnly = !_needsInfoOnly; RegroupByStatus(); }
 
   public void Dispose()
   {

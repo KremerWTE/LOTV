@@ -382,7 +382,8 @@
 
   private async Task LoadAsync()
   {
-    _all = await Api.GetRequestsAsync();
+    // Possible duplicates wait on the Possible Duplicates page until staff confirm or merge them.
+    _all = (await Api.GetRequestsAsync()).Where(r => !r.NeedsDuplicateReview).ToList();
     var openAges = _all
       .Where(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)
       .Select(r => (DateTime.UtcNow - r.CreatedAt).TotalDays)

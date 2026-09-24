@@ -1,0 +1,22 @@
+@if (_report is { NeedsAttention: true })
+{
+  <div data-alert="data-quality" role="alert"
+       style="background:@(_report.HasProblems ? "#fdecea" : "#fff3cd");color:@(_report.HasProblems ? "#7a1f16" : "#856404");border-radius:8px;padding:12px 16px;font-size:.86rem;margin-bottom:16px;">
+    <strong>⚠ This family's information needs a check.</strong> @_report.Advice
+    <ul style="margin:8px 0 0 18px;padding:0;">
+      @foreach (var issue in _report.Issues)
+      {
+        <li>@issue.Message</li>
+      }
+    </ul>
+  </div>
+}
+
+@code {
+  [Parameter] public Family? Family { get; set; }
+
+  private FamilyDataReport? _report;
+
+  protected override void OnParametersSet() =>
+    _report = Family is null ? null : FamilyDataQuality.Check(Family);
+}

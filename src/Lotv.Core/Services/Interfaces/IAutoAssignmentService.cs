@@ -12,6 +12,12 @@ public interface IAutoAssignmentService
     Task<Result> TryAutoAssignAsync(int requestId);
 
     /// <summary>
+    /// Assigns the request using only the routing rules (no scoring). Returns the volunteer's name when a rule
+    /// applied, or null when no rule matched or the request is already assigned.
+    /// </summary>
+    Task<string?> TryAssignByRuleAsync(int requestId);
+
+    /// <summary>
     /// Returns ranked scores for all eligible volunteers for a given request.
     /// Used by the API to expose scoring results to staff.
     /// </summary>

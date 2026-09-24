@@ -24,10 +24,18 @@
   {
     <div class="kanban-card-tracking">📦 @Request.TrackingNumber</div>
   }
+  @if (_report is { NeedsAttention: true })
+  {
+    <div class="badge badge-onhold" data-needs-info style="margin-top:6px;" title="@string.Join(" ", _report.Issues.Select(i => i.Message))">⚠ Check family info</div>
+  }
   <div class="kanban-card-footer">
     <span class="kanban-assignee @(Request.AssignedTo is null ? "kanban-assignee-unassigned" : "")">👤 @(Request.AssignedTo ?? "Unassigned")</span>
     <span class="kanban-age @(Request.IsOverdue ? "badge-overdue" : "")">@GetAge(Request.CreatedAt)</span>
   </div>
+  @if (Request.AssignedTo is not null)
+  {
+    <button class="btn btn-sm" data-action="unassign" style="width:100%;margin-top:8px;" @onclick="() => OnUnassign.InvokeAsync(Request)" @onclick:stopPropagation="true">Unassign</button>
+  }
   @if (Request.AssignedTo is null)
   {
     <button class="btn btn-sm btn-primary" style="width:100%;margin-top:8px;" @onclick="() => OnAssign.InvokeAsync(Request)" @onclick:stopPropagation="true">👤 Assign</button>
@@ -35,9 +43,15 @@
 </div>
 
 @code {
+  private FamilyDataReport? _report;
+
+  protected override void OnParametersSet() =>
+    _report = Request.Family is null ? null : FamilyDataQuality.Check(Request.Family);
+
   [Parameter] public PackageRequest Request { get; set; } = default!;
   [Parameter] public EventCallback<PackageRequest> OnSelect { get; set; }
   [Parameter] public EventCallback<PackageRequest> OnAssign { get; set; }
+  [Parameter] public EventCallback<PackageRequest> OnUnassign { get; set; }
   [Parameter] public EventCallback<PackageRequest> OnDragStart { get; set; }
   [Parameter] public EventCallback OnDragEnd { get; set; }
   [Parameter] public Func<RequestPriority, string> GetPriorityBadge { get; set; } = _ => "";

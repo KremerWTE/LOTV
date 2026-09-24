@@ -19,6 +19,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     public DbSet<RequestNote> RequestNotes => Set<RequestNote>();
     public DbSet<RequestActivity> RequestActivities => Set<RequestActivity>();
     public DbSet<RequestAssignment> RequestAssignments => Set<RequestAssignment>();
+    public DbSet<AssignmentRule> AssignmentRules => Set<AssignmentRule>();
 
     // ─── People ──────────────────────────────────────────────────────────────
     public DbSet<Volunteer> Volunteers => Set<Volunteer>();

@@ -204,12 +204,8 @@ else
   private async Task LoadAsync()
   {
     _loading = true;
-    var all = await Api.GetRequestsAsync();
-
-    // Filter to cases assigned to this user by matching the displayed username
-    var myName = Auth.UserName;
-    _mine = all.Where(r => r.AssignedTo != null &&
-      r.AssignedTo.Equals(myName, StringComparison.OrdinalIgnoreCase)).ToList();
+    // The API finds this person's cases through their volunteer record (same email, else same name).
+    _mine = await Api.GetMyRequestsAsync();
 
     _fulfilled = _mine.Count(r => r.Status == CaseStatus.Fulfilled);
 

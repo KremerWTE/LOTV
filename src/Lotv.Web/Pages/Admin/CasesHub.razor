@@ -35,6 +35,9 @@
   case "mothers-day":
     <MothersDay />
     break;
+  case "fathers-day":
+    <MothersDay Kind="MailingKind.FathersDay" />
+    break;
   case "bereavement":
     <FollowUpTrackers />
     break;
@@ -69,6 +72,7 @@
     new("kanban", "Kanban Board"),
     new("historical", "Historical"),
     new("mothers-day", "Mother's Day Mailing"),
+    new("fathers-day", "Father's Day Mailing"),
     new("bereavement", "Bereavement Follow-Up"),
     new("unassigned", "Unassigned Queue"),
     new("my-queue", "My Work Queue"),

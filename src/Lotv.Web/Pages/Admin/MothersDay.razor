@@ -1,18 +1,94 @@
 @page "/admin/mothers-day"
+@page "/admin/fathers-day"
 @layout AdminLayout
 @inject ApiService Api
+@inject AuthService Auth
+@inject IJSRuntime JS
+@inject NavigationManager Nav
 
-<PageTitle>Mother's Day Mailing — LOTV Staff Portal</PageTitle>
+<PageTitle>@HolidayName Mailing — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
   <div>
-    <h2>Mother's Day Mailing</h2>
-    <p>Annual card mailing list — @_year cycle (Mother's Day to Mother's Day)</p>
+    <h2>@HolidayName Mailing</h2>
+    <p>One @HolidayName card per @PersonWord.ToLower() — @_year cycle (@HolidayName to @HolidayName), covering the last year of requests. Every new request is added automatically@(IsFathers ? "; families with no father on record are left off" : "").</p>
   </div>
   <div class="page-hd-actions">
+    <label for="md-year" style="font-size:.78rem;font-weight:600;margin-right:6px;">Year</label>
+    <select id="md-year" class="form-input" style="width:auto;display:inline-block;" @bind="_year" @bind:after="LoadAsync">
+      @foreach (var y in YearChoices()) { <option value="@y">@y</option> }
+    </select>
+    @if (CanImport)
+    {
+      <button class="btn btn-sm" id="md-build" @onclick="BuildAsync" disabled="@_building">@(_building ? "Building…" : "↻ Build from last year's requests")</button>
+      <button class="btn btn-sm" @onclick="() => _showImport = !_showImport">⤒ Import from CSV</button>
+    }
     <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
   </div>
 </div>
+
+@if (!string.IsNullOrEmpty(_buildMessage))
+{
+  <div class="alert alert-success" id="md-build-result" role="status" style="margin-bottom:16px;">@_buildMessage</div>
+}
+@if (!string.IsNullOrEmpty(_buildError))
+{
+  <div class="alert alert-danger" role="alert" style="margin-bottom:16px;">⚠ @_buildError</div>
+}
+
+@if (_showImport && CanImport)
+{
+  <div class="panel" style="margin-bottom:20px;" id="md-import-panel">
+    <div class="panel-head"><h3>Import recipients from a CSV file</h3></div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+      <p style="font-size:.84rem;color:var(--text-mid);margin:0;">
+        Adds recipients to the <strong>@_year</strong> list. People already on it (same @PersonWord.ToLower(), street and zip) are skipped, so it's safe to upload a file twice.
+        @if (IsFathers)
+        {
+          <text>Needs a father's name (<em>Father Name</em>, or <em>Dads first name</em> + <em>Dads last name</em>) and <em>Street Address</em>, <em>City</em>, <em>Zip</em>.
+          Optional: Mother Name, Apt, State, Country.</text>
+        }
+        else
+        {
+          <text>Needs a mother's name (<em>Mother Name</em>, or <em>Moms first name</em> + <em>Moms last name</em>) and <em>Street Address</em>, <em>City</em>, <em>Zip</em>.
+          Optional: Apt, State, Country, Mothers Day Only.</text>
+        }
+      </p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <InputFile OnChange="OnFileChosen" accept=".csv,text/csv" id="md-import-file" />
+        <button class="btn btn-sm" @onclick="DownloadTemplateAsync">Download template</button>
+      </div>
+      @if (_importFileName is not null)
+      {
+        <div style="font-size:.8rem;color:var(--text-mid);">Chosen file: <strong>@_importFileName</strong></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-sm" @onclick="() => RunImportAsync(dryRun: true)" disabled="@_importBusy">Check file</button>
+          <button class="btn btn-primary btn-sm" @onclick="() => RunImportAsync(dryRun: false)" disabled="@_importBusy">@(_importBusy ? "Working…" : "Import")</button>
+        </div>
+      }
+      @if (!string.IsNullOrEmpty(_importError)) { <div class="alert alert-danger" role="alert">⚠ @_importError</div> }
+      @if (_importResult is not null)
+      {
+        <div id="md-import-result" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:.84rem;">
+          <strong>@(_importResult.DryRun ? "Check complete — nothing saved yet." : "Import complete.")</strong>
+          <div style="margin-top:6px;">
+            @_importResult.TotalRows rows read ·
+            <strong>@_importResult.Created @(_importResult.DryRun ? "would be added" : "added")</strong> ·
+            @_importResult.SkippedDuplicates already on the list ·
+            @_importResult.Errors.Count problem@(_importResult.Errors.Count == 1 ? "" : "s")
+          </div>
+          @if (_importResult.Errors.Count > 0)
+          {
+            <ul style="margin:8px 0 0 18px;padding:0;">
+              @foreach (var e in _importResult.Errors.Take(20)) { <li>Line @e.Row: @e.Problem</li> }
+              @if (_importResult.Errors.Count > 20) { <li>…and @(_importResult.Errors.Count - 20) more.</li> }
+            </ul>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
@@ -58,10 +134,8 @@ else
       <table class="data-table">
         <thead>
           <tr>
-            <th>Mother</th>
-            <th>Father</th>
+            <th>@PersonWord</th>
             <th>Address</th>
-            <th>MD Only</th>
             <th>Status</th>
             <th></th>
           </tr>
@@ -69,19 +143,17 @@ else
         <tbody>
           @if (!_filtered.Any())
           {
-            <tr><td colspan="6"><div class="empty-state"><div class="icon">💌</div><p>No recipients match this filter.</p></div></td></tr>
+            <tr><td colspan="4"><div class="empty-state"><div class="icon">💌</div><p>No recipients match this filter.</p></div></td></tr>
           }
           @foreach (var m in _filtered.Take(_visibleCount))
           {
             <tr>
               <td>
-                <strong>@m.MotherName</strong>
+                <strong>@m.RecipientName</strong>
                 @if (m.FlaggedForReview)
                 { <span class="badge badge-overdue" style="margin-left:6px;" title="@m.ReviewNote">Flagged</span> }
               </td>
-              <td style="font-size:.82rem;color:var(--text-mid);">@(m.FatherName ?? "—")</td>
               <td style="font-size:.78rem;color:var(--text-light);">@m.StreetAddress, @m.City, @m.State @m.Zip</td>
-              <td style="font-size:.8rem;">@(m.MothersDayOnly ? "MD only" : "MD + FD")</td>
               <td><span class="badge @(m.Sent ? "badge-fulfilled" : "badge-new")">@(m.Sent ? "Sent" : "Pending")</span></td>
               <td style="display:flex;gap:6px;">
                 <button class="btn btn-sm @(m.Sent ? "" : "btn-primary")" @onclick="() => ToggleSentAsync(m)">@(m.Sent ? "Mark Unsent" : "Mark Sent")</button>
@@ -105,19 +177,90 @@ else
   private List<MailingListEntry> _all = [];
   private List<MailingListEntry> _filtered = [];
   private bool _loading = true;
-  private int _year = 2026;
+  [Parameter] public MailingKind? Kind { get; set; }
+
+  private MailingKind _kind = MailingKind.MothersDay;
+  private bool IsFathers => _kind == MailingKind.FathersDay;
+  private string HolidayName => MailingCycle.HolidayName(_kind);
+  private string PersonWord => IsFathers ? "Father" : "Mother";
+  private int _year = MothersDayCycle.YearFor(DateTime.Today);
+  private bool _building;
+  private string? _buildMessage, _buildError;
+  private bool _showImport, _importBusy;
+  private string? _importCsv, _importFileName, _importError;
+  private MailingImportResultDto? _importResult;
   private string _activeFilter = "All";
+
+  private bool CanImport => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director";
+  private IEnumerable<int> YearChoices() =>
+    Enumerable.Range(MailingCycle.YearFor(_kind, DateTime.Today) - 3, 5).Union([_year]).OrderByDescending(y => y);
+
+  private async Task OnFileChosen(InputFileChangeEventArgs e)
+  {
+    _importResult = null; _importError = null; _importCsv = null;
+    var file = e.File;
+    _importFileName = file.Name;
+    if (file.Size > MailingImportLimits.MaxBytes) { _importError = "That file is too large (2 MB max)."; return; }
+    try
+    {
+      using var reader = new StreamReader(file.OpenReadStream(MailingImportLimits.MaxBytes));
+      _importCsv = await reader.ReadToEndAsync();
+    }
+    catch { _importError = "Couldn't read that file."; }
+  }
+
+  private async Task RunImportAsync(bool dryRun)
+  {
+    if (string.IsNullOrEmpty(_importCsv)) { _importError = "Choose a CSV file first."; return; }
+    _importBusy = true; _importError = null;
+    var (result, error) = await Api.ImportMailingListAsync(_importCsv, _year, dryRun, _kind);
+    _importBusy = false;
+    if (result is null) { _importError = error; return; }
+    _importResult = result;
+    if (!dryRun) await LoadAsync();
+  }
+
+  private Task DownloadTemplateAsync() => IsFathers
+    ? JS.InvokeVoidAsync("downloadCsv", "fathers-day-import-template.csv",
+        "Father Name,Mother Name,Street Address,Apt,City,State,Zip,Country\n" +
+        "Dan Example,Mary Example,123 Main St,Apt 4,Chicago,IL,60601,United States\n").AsTask()
+    : JS.InvokeVoidAsync("downloadCsv", "mothers-day-import-template.csv",
+        "Mother Name,Street Address,Apt,City,State,Zip,Country,Mothers Day Only\n" +
+        "Mary Example,123 Main St,Apt 4,Chicago,IL,60601,United States,\n").AsTask();
+
+  private async Task BuildAsync()
+  {
+    _building = true; _buildMessage = _buildError = null;
+    var (result, error) = await Api.BuildMailingListAsync(_kind, _year);
+    _building = false;
+    if (result is null) { _buildError = error; return; }
+    _buildMessage = $"{result.Created} added to the {result.Year} list · {result.AlreadyOnList} were already on it"
+      + (IsFathers ? $" · {result.NoFather} skipped (no father on record)." : ".");
+    await LoadAsync();
+  }
   private string _search = "";
   private int _visibleCount = 100;
 
   private readonly string[] _filters = ["All", "Flagged", "Pending", "Sent"];
 
-  protected override async Task OnInitializedAsync() => await LoadAsync();
+  protected override async Task OnParametersSetAsync()
+  {
+    var kind = Kind ?? (Nav.Uri.Contains("/admin/fathers-day", StringComparison.OrdinalIgnoreCase) ? MailingKind.FathersDay : MailingKind.MothersDay);
+    if (kind != _kind || _firstLoad)
+    {
+      _kind = kind;
+      _firstLoad = false;
+      _year = MailingCycle.YearFor(_kind, DateTime.Today);
+      _buildMessage = _buildError = null; _importResult = null; _showImport = false;
+      await LoadAsync();
+    }
+  }
+  private bool _firstLoad = true;
 
   private async Task LoadAsync()
   {
     _loading = true;
-    _all = await Api.GetMailingListAsync(year: _year);
+    _all = await Api.GetMailingListAsync(year: _year, kind: _kind);
     ApplyFilter();
     _loading = false;
   }
@@ -137,10 +280,9 @@ else
         _         => true
       };
       var matchSearch = string.IsNullOrEmpty(_search) ||
-        m.MotherName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-        (m.FatherName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+        m.RecipientName.Contains(_search, StringComparison.OrdinalIgnoreCase);
       return matchFilter && matchSearch;
-    }).OrderBy(m => m.MotherName).ToList();
+    }).OrderBy(m => m.RecipientName).ToList();
   }
 
   private async Task ToggleSentAsync(MailingListEntry m)
