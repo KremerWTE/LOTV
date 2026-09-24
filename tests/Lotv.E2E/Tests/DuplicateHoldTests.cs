@@ -10,8 +10,8 @@ public class DuplicateHoldTests : E2ETestBase
     [Fact]
     public async Task PossibleDuplicate_IsOnlyOnThePossibleDuplicatesPage()
     {
-        var tag = Guid.NewGuid().ToString("N")[..8];
-        var name = $"Dupe{tag}";
+        var couple = TestPeople.NewCouple();
+        var name = couple.Last;
         await using var api = await _browser.Playwright.APIRequest.NewContextAsync(new() { BaseURL = E2ESettings.ApiUrl });
         var resp = await api.PostAsync("/api/v1/public/apply", new()
         {
@@ -19,7 +19,7 @@ public class DuplicateHoldTests : E2ETestBase
             {
                 Family = new
                 {
-                    Parent1FirstName = "Tom", Parent1LastName = name, Parent2FirstName = "Ann", Parent2LastName = name,
+                    Parent1FirstName = couple.Husband, Parent1LastName = name, Parent2FirstName = couple.Wife, Parent2LastName = name,
                     Email = "d.park@example.com", Phone = "", StreetAddress = "1 Test St", City = "Chicago", State = "IL",
                     Zip = "60601", Reason = "Infertility", ChapterId = 1,
                 },

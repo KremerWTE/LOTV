@@ -307,6 +307,10 @@ app.MapHealthChecks("/health").AllowAnonymous();
     try { FormDefinitionTableBootstrap.EnsureTable(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the FormDefinitions table; the intake form editor will be unavailable."); }
 
+    // Father's Day entries share the mailing list table via a Kind column that older databases lack (idempotent).
+    try { MailingListKindColumnBootstrap.EnsureColumn(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not add the Kind column to MailingListEntries; the Father's Day list will be unavailable."); }
+
     // Self-heals the known HQ staff accounts' Role if it's ever drifted from
     // HQAdmin (see CoreAdminAccountRepair for why) — runs in every
     // environment, unlike DevSeedData which is Development-only.
@@ -4159,24 +4163,37 @@ announcements.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
 // ─── Mailing lists (Mother's Day / Father's Day annual mailing) ────────────────
 var mailingList = app.MapGroup("/api/v1/mailing-list").WithTags("MailingList").RequireAuthorization("Staff");
 
-mailingList.MapGet("/", async (LotvDbContext db, int? year, bool? flagged, bool? sent) =>
+mailingList.MapGet("/", async (LotvDbContext db, int? year, bool? flagged, bool? sent, MailingKind? kind) =>
 {
-    var q = db.MailingListEntries.AsQueryable();
+    var k = kind ?? MailingKind.MothersDay;
+    var q = db.MailingListEntries.Where(m => m.Kind == k);
     if (year.HasValue) q = q.Where(m => m.Year == year.Value);
     if (flagged.HasValue) q = q.Where(m => m.FlaggedForReview == flagged.Value);
     if (sent.HasValue) q = q.Where(m => m.Sent == sent.Value);
-    return Results.Ok(await q.OrderBy(m => m.MotherName).ToListAsync());
+    var list = await q.ToListAsync();
+    return Results.Ok(list.OrderBy(m => m.RecipientName, StringComparer.OrdinalIgnoreCase).ToList());
 });
 
 // Bulk add from a CSV (dryRun=true reports what would happen without saving). Rows already on
 // the year's list are skipped, so re-uploading the same file is safe.
 mailingList.MapPost("/import", async (ImportMailingRequest body, LotvDbContext db) =>
 {
-    var year = body.Year ?? MothersDayCycle.YearFor(DateTime.UtcNow);
-    var (result, error) = await MothersDayMailing.ImportAsync(db, body.Csv, year, body.DryRun);
+    var year = body.Year ?? MailingCycle.YearFor(body.Kind, DateTime.UtcNow);
+    var (result, error) = await MothersDayMailing.ImportAsync(db, body.Csv, year, body.DryRun, body.Kind);
     if (error is not null) return Results.BadRequest(new { error });
     app.Logger.LogInformation("Mailing list import for {Year}: {Created} added, {Skipped} skipped, {Errors} errors (dryRun={DryRun}).",
         result!.Year, result.Created, result.SkippedDuplicates, result.Errors.Count, result.DryRun);
+    return Results.Ok(result);
+}).RequireAuthorization("ChapterAdmin");
+
+// Fills the list from the last year's requests (the families added since the previous holiday).
+mailingList.MapPost("/build", async (BuildMailingRequest body, LotvDbContext db) =>
+{
+    var year = body.Year ?? MailingCycle.YearFor(body.Kind, DateTime.UtcNow);
+    if (year is < 2000 or > 2100) return Results.BadRequest(new { error = "Choose a valid mailing year." });
+    var result = await MothersDayMailing.BuildFromRequestsAsync(db, body.Kind, year);
+    app.Logger.LogInformation("Built {Kind} list for {Year}: {Created} added, {Already} already on it, {NoFather} without a father.",
+        body.Kind, year, result.Created, result.AlreadyOnList, result.NoFather);
     return Results.Ok(result);
 }).RequireAuthorization("ChapterAdmin");
 
@@ -4586,7 +4603,8 @@ record ForgotPasswordRequest(string Username);
 record ResetPasswordRequest(string Username, string Token, string NewPassword);
 record UpdateEmailRequest(string? Email);
 record FlagMailingRequest(bool Flagged, string? Note);
-record ImportMailingRequest(string Csv, int? Year = null, bool DryRun = false);
+record ImportMailingRequest(string Csv, int? Year = null, bool DryRun = false, MailingKind Kind = MailingKind.MothersDay);
+record BuildMailingRequest(MailingKind Kind = MailingKind.MothersDay, int? Year = null);
 record MarkSentRequest(bool Sent);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);

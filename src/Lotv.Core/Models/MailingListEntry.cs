@@ -1,4 +1,13 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Lotv.Core.Models;
+
+/// <summary>Which annual card mailing an entry belongs to.</summary>
+public enum MailingKind
+{
+    MothersDay = 0,
+    FathersDay = 1
+}
 
 /// <summary>
 /// One recipient on an annual Mother's Day / Father's Day mailing cycle
@@ -11,6 +20,7 @@ public class MailingListEntry
     public Family? Family { get; set; }
 
     public int Year { get; set; }
+    public MailingKind Kind { get; set; } = MailingKind.MothersDay;
     public string MotherName { get; set; } = "";
     public string? FatherName { get; set; }
     public string StreetAddress { get; set; } = "";
@@ -19,6 +29,10 @@ public class MailingListEntry
     public string State { get; set; } = "";
     public string Zip { get; set; } = "";
     public string? Country { get; set; }
+
+    /// <summary>Who the card is addressed to: the mother on a Mother's Day entry, the father on a Father's Day entry.</summary>
+    [NotMapped]
+    public string RecipientName => Kind == MailingKind.FathersDay ? (FatherName ?? "") : MotherName;
 
     public bool MothersDayOnly { get; set; }
     public bool FlaggedForReview { get; set; }

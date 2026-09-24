@@ -12,19 +12,19 @@ public class RequestJourneyTests : E2ETestBase
 {
     public RequestJourneyTests(BrowserFixture browser) : base(browser) { }
 
-    private async Task SubmitPublicRequestAsync(string tag)
+    private async Task SubmitPublicRequestAsync(TestPeople.Couple couple, string tag)
     {
         await Page.GotoAsync(E2ESettings.BaseUrl.TrimEnd('/') + "/request-prayer-care-package");
         await Page.Locator("#lotv-intake-form").WaitForAsync();
         await Page.ClickAsync(".lotv-toggle[data-forwho='me']");
-        await Page.FillAsync("#lotv-husband-first", $"Tom Jrny{tag}");
-        await Page.FillAsync("#lotv-wife-first", $"Ann Jrny{tag}");
+        await Page.FillAsync("#lotv-husband-first", couple.HusbandFull);
+        await Page.FillAsync("#lotv-wife-first", couple.WifeFull);
         await Page.FillAsync("#lotv-husband-email", $"jrny-{tag}@example.com");
         await Page.FillAsync("#lotv-wife-email", $"jrny-wife-{tag}@example.com");
-        await Page.FillAsync("#lotv-street", "77 Journey Way");
+        await Page.FillAsync("#lotv-street", $"{Random.Shared.Next(100, 999)} Maple Ridge Ln");
         await Page.FillAsync("#lotv-city", "Chicago");
         await Page.FillAsync("#lotv-state", "IL");
-        await Page.FillAsync("#lotv-zip", "60601");
+        await Page.FillAsync("#lotv-zip", $"6{Random.Shared.Next(1000, 9999)}");
         await Page.SelectOptionAsync("#lotv-reason", "Stillbirth");
         await Page.FillAsync("#lotv-date-of-loss", DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd"));
         await Page.SelectOptionAsync("#lotv-how-heard", "Friend");
@@ -38,13 +38,14 @@ public class RequestJourneyTests : E2ETestBase
     public async Task ARequest_ShowsUpOnTheBoard_InTheRightQueue_OnTheMothersDayList_AndInFollowUp()
     {
         var tag = Guid.NewGuid().ToString("N")[..8];
-        await SubmitPublicRequestAsync(tag);
+        var couple = TestPeople.NewCouple();
+        await SubmitPublicRequestAsync(couple, tag);
         await LoginAsAdminAsync();
 
         // 1. The Kanban board has the card. It is in "New" only while nobody has been assigned.
         await GoToAsync("/admin/kanban");
         await WaitForBlazorAsync();
-        var card = Page.Locator(".kanban-col", new() { Has = Page.Locator($"text=Jrny{tag}") });
+        var card = Page.Locator(".kanban-col", new() { Has = Page.Locator($"text={couple.Last}") });
         await card.First.WaitForAsync();
         var column = (await card.First.Locator(".kanban-col-hd span").First.TextContentAsync())!.Trim();
 
@@ -52,40 +53,52 @@ public class RequestJourneyTests : E2ETestBase
         await GoToAsync("/admin/queue");
         await WaitForBlazorAsync();
         await Page.Locator("table, .empty-state").First.WaitForAsync();
-        var inUnassignedQueue = await Page.Locator($"text=Jrny{tag}").CountAsync() > 0;
+        var inUnassignedQueue = await Page.Locator($"table >> text={couple.Last}").CountAsync() > 0;
         Assert.Equal(column.Equals("New", StringComparison.OrdinalIgnoreCase), inUnassignedQueue);
 
-        // 3. Mother's Day list (current cycle): the mother, the father and the address.
+        // 3. Mother's Day list (current cycle): one card, addressed to the mother, at the family's address.
         await GoToAsync("/admin/mothers-day");
         await WaitForBlazorAsync();
-        var row = Page.Locator("tr", new() { HasText = $"Ann Jrny{tag}" });
+        var row = Page.Locator("tr", new() { HasText = couple.WifeFull });
         await row.First.WaitForAsync();
-        var rowText = await row.First.InnerTextAsync();
-        Assert.Contains($"Tom Jrny{tag}", rowText);
-        Assert.Contains("77 Journey Way", rowText);
+        Assert.Contains("Maple Ridge Ln", await row.First.InnerTextAsync());
+        Assert.Equal(0, await Page.Locator("tr", new() { HasText = couple.HusbandFull }).CountAsync());
+
+        // ...and Father's Day list: a separate card, addressed to the father.
+        await GoToAsync("/admin/fathers-day");
+        await WaitForBlazorAsync();
+        var dadRow = Page.Locator("tr", new() { HasText = couple.HusbandFull });
+        await dadRow.First.WaitForAsync();
+        Assert.Contains("Maple Ridge Ln", await dadRow.First.InnerTextAsync());
 
         // 4. Bereavement Follow-Up (a stillbirth with a date of loss gets the four touchpoints).
         await GoToAsync("/admin/follow-up-trackers");
         await WaitForBlazorAsync();
-        await Page.FillAsync("input[aria-label='Search families']", $"Jrny{tag}");
-        await Page.Locator("tr", new() { HasText = $"Jrny{tag}" }).First.WaitForAsync();
+        await Page.FillAsync("input[aria-label='Search families']", couple.Last);
+        await Page.Locator("tr", new() { HasText = couple.Last }).First.WaitForAsync();
     }
 
     [Fact]
     public async Task MothersDayPage_ImportsARecipientCsv_WithACheckBeforeSaving()
     {
         var tag = Guid.NewGuid().ToString("N")[..8];
+        var mother1 = TestPeople.NewMother();
+        var mother2 = TestPeople.NewMother();
+        while (mother2 == mother1) mother2 = TestPeople.NewMother();
         var csvPath = Path.Combine(Path.GetTempPath(), $"mothers-day-{tag}.csv");
         await File.WriteAllTextAsync(csvPath,
-            "Mother Name,Father Name,Street Address,Apt,City,State,Zip,Country,Mothers Day Only\n" +
-            $"Imp One{tag},Dad One,1 Import St,,Chicago,IL,60601,United States,\n" +
-            $"Imp Two{tag},,2 Import St,Apt 3,Chicago,IL,60601,United States,yes\n" +
-            $",,3 Import St,,Chicago,IL,60601,,\n");                       // no mother's name -> reported, not imported
+            "Mother Name,Street Address,Apt,City,State,Zip,Country,Mothers Day Only\n" +
+            $"{mother1},1 Import St,,Chicago,IL,60601,United States,\n" +
+            $"{mother2},2 Import St,Apt 3,Chicago,IL,60601,United States,yes\n" +
+            ",3 Import St,,Chicago,IL,60601,,\n");                       // no mother's name -> reported, not imported
         try
         {
             await LoginAsAdminAsync();
             await GoToAsync("/admin/mothers-day");
             await WaitForBlazorAsync();
+            // Import into an older cycle so the current list stays clean.
+            var years = await Page.Locator("#md-year option").AllInnerTextsAsync();
+            await Page.SelectOptionAsync("#md-year", years.Last());
             await Page.ClickAsync("button:has-text('Import from CSV')");
             await Page.SetInputFilesAsync("#md-import-file", csvPath);
             await Page.Locator("text=Chosen file").WaitForAsync();
@@ -98,13 +111,13 @@ public class RequestJourneyTests : E2ETestBase
             Assert.Contains("nothing saved yet", checkText);
             Assert.Contains("2 would be added", checkText);
             Assert.Contains("Line 4", checkText);
-            Assert.Equal(0, await Page.Locator($"td:has-text('Imp One{tag}')").CountAsync());
+            Assert.Equal(0, await Page.Locator($"td:has-text('{mother1}')").CountAsync());
 
             // Then import for real: both good rows land on the list
             await Page.ClickAsync("button:has-text('Import'):not(:has-text('from CSV'))");
             await Page.Locator("#md-import-result:has-text('Import complete')").WaitForAsync();
-            await Page.Locator($"tr:has-text('Imp One{tag}')").First.WaitForAsync();
-            await Page.Locator($"tr:has-text('Imp Two{tag}')").First.WaitForAsync();
+            await Page.Locator($"tr:has-text('{mother1}')").First.WaitForAsync();
+            await Page.Locator($"tr:has-text('{mother2}')").First.WaitForAsync();
 
             // Importing the same file again adds nothing
             await Page.ClickAsync("button:has-text('Import'):not(:has-text('from CSV'))");

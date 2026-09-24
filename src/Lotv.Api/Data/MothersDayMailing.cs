@@ -12,6 +12,7 @@ public static class MothersDayMailing
 {
     public const string DuplicateNotePrefix = "Possible duplicate family";
     public const string MissingAddressNote = "Address is incomplete";
+    public const string NameCheckNote = "A parent's name looks wrong";
 
     // ── Automatic entries from new requests ──────────────────────────────────
 
@@ -22,9 +23,20 @@ public static class MothersDayMailing
     public static async Task<MailingListEntry> EnsureEntryAsync(
         LotvDbContext db, Family family, bool possibleDuplicate, DateTime? now = null)
     {
-        var year = MothersDayCycle.YearFor(now ?? DateTime.UtcNow);
+        var when = now ?? DateTime.UtcNow;
+        var mothers = await EnsureKindEntryAsync(db, family, MailingKind.MothersDay, possibleDuplicate, when);
+        // Only families with a father on record go on the Father's Day list.
+        if (FamilyParents.DadFullName(family) is not null)
+            await EnsureKindEntryAsync(db, family, MailingKind.FathersDay, possibleDuplicate, when);
+        return mothers;
+    }
 
-        var existing = await db.MailingListEntries.FirstOrDefaultAsync(m => m.FamilyId == family.Id && m.Year == year);
+    private static async Task<MailingListEntry> EnsureKindEntryAsync(
+        LotvDbContext db, Family family, MailingKind kind, bool possibleDuplicate, DateTime when)
+    {
+        var year = MailingCycle.YearFor(kind, when);
+
+        var existing = await db.MailingListEntries.FirstOrDefaultAsync(m => m.FamilyId == family.Id && m.Year == year && m.Kind == kind);
         if (existing is not null) return existing;
 
         var notes = new List<string>();
@@ -32,10 +44,15 @@ public static class MothersDayMailing
         if (string.IsNullOrWhiteSpace(family.StreetAddress) || string.IsNullOrWhiteSpace(family.City) || string.IsNullOrWhiteSpace(family.Zip))
             notes.Add(MissingAddressNote + ".");
 
+        if (FamilyDataQuality.Check(family).Issues.Any(i => i.Severity == DataIssueSeverity.Problem
+                && (i.Field.Contains("name", StringComparison.OrdinalIgnoreCase))))
+            notes.Add(NameCheckNote + " — confirm the spelling before mailing.");
+
         var entry = new MailingListEntry
         {
             FamilyId = family.Id,
             Year = year,
+            Kind = kind,
             MotherName = FamilyParents.MomFullName(family),
             FatherName = FamilyParents.DadFullName(family),
             StreetAddress = family.StreetAddress,
@@ -51,6 +68,35 @@ public static class MothersDayMailing
         return entry;
     }
 
+    /// <summary>
+    /// Adds every family with a request in the <paramref name="year"/> cycle (since the previous holiday) that
+    /// isn't already on that list. One entry per family; Father's Day skips families with no father on record.
+    /// </summary>
+    public static async Task<MailingBuildResultDto> BuildFromRequestsAsync(LotvDbContext db, MailingKind kind, int year)
+    {
+        var (after, before) = MailingCycle.Window(kind, year);
+        var requests = await db.Requests.Include(r => r.Family)
+            .Where(r => r.CreatedAt >= after && r.CreatedAt < before && r.Family != null
+                        && !r.Family.IsHistorical && r.Family.Status != FamilyStatus.Closed)
+            .ToListAsync();
+
+        var onList = (await db.MailingListEntries.Where(m => m.Kind == kind && m.Year == year && m.FamilyId != null)
+            .Select(m => m.FamilyId!.Value).ToListAsync()).ToHashSet();
+
+        int created = 0, already = 0, noFather = 0;
+        foreach (var g in requests.GroupBy(r => r.FamilyId))
+        {
+            var family = g.First().Family!;
+            if (onList.Contains(family.Id)) { already++; continue; }
+            if (kind == MailingKind.FathersDay && FamilyParents.DadFullName(family) is null) { noFather++; continue; }
+            var possibleDuplicate = g.Any(r => r.NeedsDuplicateReview);
+            // Build the entry in the chosen cycle year (not "now") by anchoring the date inside the window.
+            await EnsureKindEntryAsync(db, family, kind, possibleDuplicate, after);
+            created++;
+        }
+        return new MailingBuildResultDto(year, created, already, noFather);
+    }
+
     /// <summary>Staff confirmed the family is not a duplicate: clear the flag we set for that reason.</summary>
     public static async Task ClearDuplicateFlagAsync(LotvDbContext db, int familyId)
     {
@@ -59,9 +105,10 @@ public static class MothersDayMailing
             .ToListAsync();
         foreach (var m in entries)
         {
-            var rest = m.ReviewNote!.Contains(MissingAddressNote) ? MissingAddressNote + "." : null;
-            m.FlaggedForReview = rest is not null;
-            m.ReviewNote = rest;
+            var dupNote = $"{DuplicateNotePrefix} — check the duplicate review before mailing.";
+            var rest = m.ReviewNote!.Replace(dupNote, "").Trim();
+            m.FlaggedForReview = rest.Length > 0;
+            m.ReviewNote = rest.Length > 0 ? rest : null;
         }
         if (entries.Count > 0) await db.SaveChangesAsync();
     }
@@ -80,8 +127,9 @@ public static class MothersDayMailing
     public const int MaxCsvChars = 2_000_000;
     public const int MaxRows = 5_000;
 
-    public static readonly string[] TemplateHeaders =
-        ["Mother Name", "Father Name", "Street Address", "Apt", "City", "State", "Zip", "Country", "Mothers Day Only"];
+    public static string[] TemplateHeaders(MailingKind kind) => kind == MailingKind.FathersDay
+        ? ["Father Name", "Mother Name", "Street Address", "Apt", "City", "State", "Zip", "Country"]
+        : ["Mother Name", "Street Address", "Apt", "City", "State", "Zip", "Country", "Mothers Day Only"];
 
     private static readonly Dictionary<string, string[]> HeaderAliases = new()
     {
@@ -89,6 +137,8 @@ public static class MothersDayMailing
         ["momFirst"] = ["momsfirstname", "momfirstname", "mothersfirstname", "motherfirstname"],
         ["momLast"]  = ["momslastname", "momlastname", "motherslastname", "motherlastname"],
         ["father"]   = ["fathername", "fathersname", "dadname", "dadsname", "father", "dad"],
+        ["dadFirst"] = ["dadsfirstname", "dadfirstname", "fathersfirstname", "fatherfirstname"],
+        ["dadLast"]  = ["dadslastname", "dadlastname", "fatherslastname", "fatherlastname"],
         ["street"]   = ["streetaddress", "street", "address", "address1", "addressline1"],
         ["apt"]      = ["apt", "apartment", "unit", "suite", "aptsuite", "address2", "addressline2"],
         ["city"]     = ["city", "town"],
@@ -113,7 +163,7 @@ public static class MothersDayMailing
 
     /// <summary>Parses the CSV, reports what would happen, and (unless <paramref name="dryRun"/>) adds the new rows.</summary>
     public static async Task<(ImportResult? Result, string? Error)> ImportAsync(
-        LotvDbContext db, string csv, int year, bool dryRun)
+        LotvDbContext db, string csv, int year, bool dryRun, MailingKind kind = MailingKind.MothersDay)
     {
         if (string.IsNullOrWhiteSpace(csv)) return (null, "The file is empty.");
         if (csv.Length > MaxCsvChars) return (null, "The file is too large (2 MB max).");
@@ -131,16 +181,22 @@ public static class MothersDayMailing
         var cCity = Col("city"); var cState = Col("state"); var cZip = Col("zip");
         var cCountry = Col("country"); var cMdOnly = Col("mdOnly");
 
-        if (cMother < 0 && (cFirst < 0 || cLast < 0))
+        var cDadFirst = Col("dadFirst"); var cDadLast = Col("dadLast");
+        if (kind == MailingKind.FathersDay)
+        {
+            if (cFather < 0 && (cDadFirst < 0 || cDadLast < 0))
+                return (null, "Couldn't find a father's name column. Use \"Father Name\" (or \"Dads first name\" and \"Dads last name\").");
+        }
+        else if (cMother < 0 && (cFirst < 0 || cLast < 0))
             return (null, "Couldn't find a mother's name column. Use \"Mother Name\" (or \"Moms first name\" and \"Moms last name\").");
         if (cStreet < 0 || cCity < 0 || cZip < 0)
             return (null, "Couldn't find the address columns. The file needs \"Street Address\", \"City\" and \"Zip\".");
 
         string Cell(List<string> r, int c) => c >= 0 && c < r.Count ? r[c].Trim() : "";
 
-        var seen = (await db.MailingListEntries.AsNoTracking().Where(m => m.Year == year)
-                .Select(m => new { m.MotherName, m.StreetAddress, m.Zip }).ToListAsync())
-            .Select(m => DedupeKey(m.MotherName, m.StreetAddress, m.Zip)).ToHashSet();
+        var seen = (await db.MailingListEntries.AsNoTracking().Where(m => m.Year == year && m.Kind == kind)
+                .Select(m => new { m.MotherName, m.FatherName, m.StreetAddress, m.Zip }).ToListAsync())
+            .Select(m => DedupeKey(kind == MailingKind.FathersDay ? m.FatherName ?? "" : m.MotherName, m.StreetAddress, m.Zip)).ToHashSet();
 
         var errors = new List<ImportError>();
         var toAdd = new List<MailingListEntry>();
@@ -155,23 +211,26 @@ public static class MothersDayMailing
             var line = i + 1;                                         // 1-based, header is line 1
 
             var mother = cMother >= 0 ? Cell(r, cMother) : $"{Cell(r, cFirst)} {Cell(r, cLast)}".Trim();
+            var father = cFather >= 0 ? Cell(r, cFather) : $"{Cell(r, cDadFirst)} {Cell(r, cDadLast)}".Trim();
+            var recipient = kind == MailingKind.FathersDay ? father : mother;
             var street = Cell(r, cStreet); var city = Cell(r, cCity); var zip = Cell(r, cZip);
 
             var missing = new List<string>();
-            if (string.IsNullOrWhiteSpace(mother)) missing.Add("mother's name");
+            if (string.IsNullOrWhiteSpace(recipient)) missing.Add(kind == MailingKind.FathersDay ? "father's name" : "mother's name");
             if (string.IsNullOrWhiteSpace(street)) missing.Add("street address");
             if (string.IsNullOrWhiteSpace(city))   missing.Add("city");
             if (string.IsNullOrWhiteSpace(zip))    missing.Add("zip");
             if (missing.Count > 0) { errors.Add(new ImportError(line, "Missing " + string.Join(", ", missing))); continue; }
-            if (mother.Length > 200 || street.Length > 300) { errors.Add(new ImportError(line, "A value is too long")); continue; }
+            if (recipient.Length > 200 || street.Length > 300) { errors.Add(new ImportError(line, "A value is too long")); continue; }
 
-            if (!seen.Add(DedupeKey(mother, street, zip))) { skipped++; continue; }   // already on this year's list (or repeated in the file)
+            if (!seen.Add(DedupeKey(recipient, street, zip))) { skipped++; continue; }   // already on this year's list (or repeated in the file)
 
             toAdd.Add(new MailingListEntry
             {
                 Year = year,
+                Kind = kind,
                 MotherName = mother,
-                FatherName = NullIfBlank(Cell(r, cFather)),
+                FatherName = NullIfBlank(father),
                 StreetAddress = street,
                 Apt = NullIfBlank(Cell(r, cApt)),
                 City = city,

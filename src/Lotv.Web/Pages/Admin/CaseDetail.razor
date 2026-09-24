@@ -50,6 +50,8 @@ else
     <div style="background:#fff3cd;border-radius:8px;padding:10px 16px;font-size:.84rem;color:#856404;margin-bottom:16px;">⚠ @_errorMsg</div>
   }
 
+  <DataQualityAlert Family="_request.Family" />
+
   <!-- MAIN GRID -->
   <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;">
 
@@ -166,18 +168,18 @@ else
       <!-- MOTHER'S DAY CARD -->
       <div class="panel" data-panel="mothers-day">
         <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span>Mother's Day Card</span>
+          <span>Mother's Day &amp; Father's Day Cards</span>
           <a href="/admin/mothers-day" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">Mailing list →</a>
         </div>
         <div class="panel-body" style="font-size:.84rem;">
           @if (!_mailing.Any())
-          { <div style="color:var(--text-light);">Not on a Mother's Day mailing list yet.</div> }
+          { <div style="color:var(--text-light);">Not on a Mother's Day or Father's Day mailing list yet.</div> }
           else
           {
-            @foreach (var m in _mailing.OrderByDescending(x => x.Year))
+            @foreach (var m in _mailing.OrderByDescending(x => x.Year).ThenBy(x => x.Kind))
             {
               <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);">
-                <span><strong>@m.Year</strong> — @m.MotherName, @m.StreetAddress, @m.City, @m.State @m.Zip</span>
+                <span><strong>@(m.Kind == MailingKind.FathersDay ? "Father's Day" : "Mother's Day") @m.Year</strong> — @m.RecipientName, @m.StreetAddress, @m.City, @m.State @m.Zip</span>
                 <span>
                   @if (m.FlaggedForReview) { <span class="badge badge-onhold">Needs review</span> }
                   @if (m.Sent) { <span class="badge badge-fulfilled">Sent @(m.SentAt?.ToString("MMM d"))</span> }
@@ -589,10 +591,11 @@ else
     {
       var famId = _request.FamilyId;
       var m = Api.GetMailingListAsync();
+      var fd = Api.GetMailingListAsync(kind: MailingKind.FathersDay);
       var f = Api.GetFollowUpTrackersAsync();
       var r = Api.GetRequestsAsync(familyId: famId);
-      await Task.WhenAll(m, f, r);
-      _mailing = m.Result.Where(x => x.FamilyId == famId).ToList();
+      await Task.WhenAll(m, fd, f, r);
+      _mailing = m.Result.Concat(fd.Result).Where(x => x.FamilyId == famId).ToList();
       _trackers = f.Result.Where(x => x.FamilyId == famId).ToList();
       _familyRequests = r.Result;
 

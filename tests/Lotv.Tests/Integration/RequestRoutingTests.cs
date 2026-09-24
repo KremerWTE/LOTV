@@ -508,7 +508,7 @@ public class RequestRoutingTests
     private async Task<(int FamilyId, int RequestId)> ApplyAsync(int chapterId, string reason,
         string? email = null, DateTime? dateOfLoss = null, bool withSecondParent = true, string? street = null)
     {
-        var tag = Guid.NewGuid().ToString("N")[..8];
+        var tag = new string(Guid.NewGuid().ToString("N")[..8].Select(c => (char)('g' + (c <= '9' ? c - '0' : c - 'a' + 10) % 20)).ToArray());   // letters only, so the name check has nothing to flag
         var resp = await _factory.CreateClient().PostAsJsonAsync("/api/v1/public/apply", new
         {
             Family = new

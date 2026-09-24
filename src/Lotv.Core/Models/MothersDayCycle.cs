@@ -20,6 +20,35 @@ public static class MothersDayCycle
         date.Date > MothersDay(date.Year) ? date.Year + 1 : date.Year;
 }
 
+/// <summary>Father's Day to Father's Day (third Sunday of June), the same rule as <see cref="MothersDayCycle"/>.</summary>
+public static class FathersDayCycle
+{
+    public static DateTime FathersDay(int year)
+    {
+        var d = new DateTime(year, 6, 1);
+        while (d.DayOfWeek != DayOfWeek.Sunday) d = d.AddDays(1);
+        return d.AddDays(14);
+    }
+
+    public static int YearFor(DateTime date) =>
+        date.Date > FathersDay(date.Year) ? date.Year + 1 : date.Year;
+}
+
+public static class MailingCycle
+{
+    public static DateTime Holiday(MailingKind kind, int year) =>
+        kind == MailingKind.FathersDay ? FathersDayCycle.FathersDay(year) : MothersDayCycle.MothersDay(year);
+
+    public static int YearFor(MailingKind kind, DateTime date) =>
+        kind == MailingKind.FathersDay ? FathersDayCycle.YearFor(date) : MothersDayCycle.YearFor(date);
+
+    /// <summary>Requests made after last year's holiday, up to and including this year's, belong to the <paramref name="year"/> mailing.</summary>
+    public static (DateTime AfterExclusive, DateTime BeforeExclusive) Window(MailingKind kind, int year) =>
+        (Holiday(kind, year - 1).AddDays(1), Holiday(kind, year).AddDays(1));
+
+    public static string HolidayName(MailingKind kind) => kind == MailingKind.FathersDay ? "Father's Day" : "Mother's Day";
+}
+
 /// <summary>
 /// Which parent on a family record is the mother. The system doesn't record it; the public
 /// intake form stores the husband as parent 1 and the wife as parent 2, so when there is a
