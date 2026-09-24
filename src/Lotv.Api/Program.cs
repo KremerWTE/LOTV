@@ -304,6 +304,15 @@ app.MapHealthChecks("/health").AllowAnonymous();
     else
         db.Database.Migrate();          // runs pending EF Core migrations in production
 
+    // EnsureCreated never adds a column to an existing table either, so a database created before a column existed
+    // (Volunteers.Level, Requests.ProcessStage, ...) fails with "Invalid column name". Add whatever the model expects (additive only).
+    try
+    {
+        foreach (var column in MissingColumnBootstrap.EnsureColumns(db))
+            app.Logger.LogWarning("Added missing column {Column} to the existing database.", column);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not add missing columns to the existing database."); }
+
     // EnsureCreated never adds a table to an existing database, so make sure
     // the staff-editable form definitions table exists (idempotent).
     // Never let this take the API down: if it fails the public form still serves
