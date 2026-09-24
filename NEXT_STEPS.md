@@ -6,11 +6,11 @@
 
 ## 🎯 Current Focus: Prayer Request process QA on production
 
-**Status:** Workflow, email, security and QA-data code is built and pushed. 615 unit/integration + 132 browser tests pass, 0 build warnings. Production has everything up to `bb4d3f9`; `e4d9124` + `545f46d` + docs still need a PR (kremer-dev → stage → main).
+**Status:** Workflow, email, security and QA-data code is built and pushed. 615 unit/integration + 132 browser tests pass, 0 build warnings. Production has everything up to `bb4d3f9`; `e4d9124` + `545f46d` + the missing-column fix + docs still need a PR (kremer-dev → stage → main).
 
 **Next Tasks (Priority Order):**
-1. **PR kremer-dev → stage → main** to deploy the load diagnostics (`545f46d`) and the 39-family sample data
-2. **Production QA sample Load fails** — after deploy click Load (System Admin → QA Sample Data), read the on-page reason, fix
+1. **PR kremer-dev → stage → main** to deploy the load diagnostics (`545f46d`), the 39-family sample data and `MissingColumnBootstrap`
+2. **Production QA sample Load** — cause found: `Invalid column name 'Level'` (production DB predates `Volunteers.Level` / `Requests.ProcessStage`). `MissingColumnBootstrap` adds missing model columns at startup; after deploy check the API log for "Added missing column …" warnings, then click Load (System Admin → QA Sample Data)
 3. **Set GitHub secrets:** `APP_SOCKETLABS_SERVER_ID`/`_API_KEY`, `APP_EMAIL_FROM`, `APP_TEAM_EMAILS`, `APP_SUSAN_INITIAL_PASSWORD`; then "Send test" on Request Emails
 4. **Review production Users list** — registration was public until the security fix deployed
 5. **Group training** — still undefined; get the requirement, then scope
