@@ -54,6 +54,10 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Verify after deploy:** re-run the probe (`PUT https://lotv_api.wte.net/api/v1/requests/0/assign`) - expect 401, not 405. If it is still 405, the block is elsewhere (site-level Request Filtering verbs or the WebDAV feature on the server) and IIS needs to be changed by whoever administers it.
 - Also: the web app (`lotv.wte.net`) may need the same if it ever receives PUT/DELETE; it doesn't today.
 
+## Story moved into the Notes Thread ✅
+
+- Requested: put the story in the notes thread. The family's story from the request form is now the first entry in the case page's Notes Thread ("Story from the request form", dated with the request; "No story was shared with this request." when empty) and was removed from the Family panel so it isn't shown twice. It is read from the family record, not copied into a stored note, so it appears for every existing request without a data change and follows any later correction. Not browser-checked (E2E suite needs running servers on :5000/:5001).
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

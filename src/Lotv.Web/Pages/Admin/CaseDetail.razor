@@ -253,6 +253,26 @@ else
         </div>
         <div class="panel-body">
 
+          @* The family's story from the request form leads the thread. It is read from the family record (not copied
+             into a stored note), so it is there for every request and follows any correction to the story. *@
+          @if (_request.Family is { } storyFamily)
+          {
+            <div data-field="story" style="border-radius:10px;padding:12px 16px;background:var(--green-pale);border-left:4px solid var(--green);margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:.8rem;font-weight:600;">Story from the request form</span>
+                <span style="font-size:.72rem;color:var(--text-light);">@_request.CreatedAt.ToString("MMM d, h:mm tt")</span>
+              </div>
+              @if (!string.IsNullOrWhiteSpace(storyFamily.Story))
+              {
+                <div style="font-size:.85rem;line-height:1.6;white-space:pre-wrap;">@storyFamily.Story</div>
+              }
+              else
+              {
+                <div style="font-size:.85rem;color:var(--text-light);">No story was shared with this request.</div>
+              }
+            </div>
+          }
+
           @if (!_notes.Any())
           {
             <div class="empty-state" style="padding:24px;">
@@ -377,17 +397,6 @@ else
                 PrivacyPreference.Private => "Prayers only — not listed",
                 _ => "Listed anonymously"
               })</div>
-            @if (!string.IsNullOrEmpty(_request.Family.Story))
-            {
-              <div data-field="story">
-                <strong>Story:</strong>
-                <div style="margin-top:4px;font-style:italic;color:var(--text-mid);border-left:3px solid var(--green);padding-left:10px;white-space:pre-line;">@_request.Family.Story</div>
-              </div>
-            }
-            else
-            {
-              <div data-field="story"><strong>Story:</strong> Not provided</div>
-            }
             @* The request form saves its extra answers here, joined by " | ": the grief-support answer, any custom
                questions staff added ("Question: answer"), and newsletter / prayer-night opt-ins. *@
             @if (FormAnswerNotes(_request.Family.ContactNotes) is { Count: > 0 } formNotes)
