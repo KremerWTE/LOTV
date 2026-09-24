@@ -101,6 +101,39 @@ public class QaSampleDataTests
     }
 
     [Fact]
+    public async Task WhenSusanIsAVolunteer_ThreeSampleCasesLandInHerQueue_AndRemovingThemClearsIt()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        await QaSampleData.RemoveAsync(db);
+        await EnsureAChapterAsync(db);
+        db.Volunteers.RemoveRange(db.Volunteers.Where(v => v.Email == "susan@wte.net"));
+        await db.SaveChangesAsync();
+        Assert.Equal(1, await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance));
+        var susan = await db.Volunteers.AsNoTracking().SingleAsync(v => v.Email == "susan@wte.net");
+        try
+        {
+            Assert.True((await QaSampleData.LoadAsync(db)).Loaded);
+            db.ChangeTracker.Clear();
+
+            var hers = await db.Requests.AsNoTracking().Where(r => r.AssignedToId == susan.Id).ToListAsync();
+            Assert.Equal(3, hers.Count);
+            Assert.Contains(hers, r => r.ProcessStage == ProcessStage.Assigned);
+            Assert.Contains(hers, r => r.ProcessStage == ProcessStage.Confirmed);
+            Assert.Contains(hers, r => r.ProcessStage == ProcessStage.Packing);
+            Assert.Equal(3, (await db.Volunteers.AsNoTracking().SingleAsync(v => v.Id == susan.Id)).ActiveCases);
+        }
+        finally
+        {
+            db.ChangeTracker.Clear();
+            await QaSampleData.RemoveAsync(db);
+        }
+        db.ChangeTracker.Clear();
+        Assert.Equal(0, (await db.Volunteers.AsNoTracking().SingleAsync(v => v.Id == susan.Id)).ActiveCases);
+        Assert.Equal(0, await db.Requests.CountAsync(r => r.AssignedToId == susan.Id));
+    }
+
+    [Fact]
     public async Task LoadingTwice_DoesNothing()
     {
         await WithSampleAsync(async db =>

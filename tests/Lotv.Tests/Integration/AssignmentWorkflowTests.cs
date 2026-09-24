@@ -160,6 +160,30 @@ public class AssignmentWorkflowTests
     }
 
     [Fact]
+    public async Task AssigningACaseThatIsAlreadyFurtherAlong_DoesNotSendItBackToInProgress()
+    {
+        var chapter = await NewChapterAsync();
+        var volunteer = await AddVolunteerAsync(chapter, "Late", "Assign", role: VolunteerRole.Driver);
+        var (_, request) = await ApplyAsync(chapter, "Infertility");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+            var r = await db.Requests.SingleAsync(x => x.Id == request);
+            r.Status = CaseStatus.Shipped; r.ProcessStage = ProcessStage.Shipping; r.TrackingNumber = "9400 1111";
+            await db.SaveChangesAsync();
+        }
+        var admin = await AdminClientAsync();
+
+        var resp = await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = volunteer });
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var after = await RequestAsync(request);
+        Assert.Equal(volunteer, after.AssignedToId);
+        Assert.Equal(CaseStatus.Shipped, after.Status);
+        Assert.Equal(ProcessStage.Shipping, after.ProcessStage);
+    }
+
+    [Fact]
     public async Task ReassigningACase_MovesItFromOneVolunteersCountToTheOthers()
     {
         var chapter = await NewChapterAsync();
