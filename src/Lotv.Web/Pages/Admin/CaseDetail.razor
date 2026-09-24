@@ -790,7 +790,7 @@ else
       _saveMsg = "Volunteer assigned successfully.";
       await LoadAsync();
     }
-    else _errorMsg = "Assignment failed.";
+    else _errorMsg = $"Assignment failed: {Api.LastAssignError ?? "please try again."}";
     _assigningId = null;
   }
 

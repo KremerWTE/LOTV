@@ -804,24 +804,36 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     IChapterContextService ctx, IHubContext<RequestsHub> hub, IPushSender pushSvc,
     UserManager<LotvIdentityUser> userMgr, INotificationService notify, IConfiguration cfg) =>
 {
-    var r = await db.Requests.FindAsync(id);
-    if (r is null) return Results.NotFound();
-    var vol = await db.Volunteers.FindAsync(body.VolunteerId);
-    if (vol is null) return Results.NotFound(new { message = "Volunteer not found" });
-    var previousVolunteerId = r.AssignedToId;
-    r.AssignedToId = vol.Id;
-    r.AssignedTo = vol.FullName;
-    // Only a new request starts work when assigned; a case already packing, shipped or on hold keeps its status.
-    if (r.Status == CaseStatus.New) r.Status = CaseStatus.InProgress;
-    if (r.ProcessStage == ProcessStage.Unassigned) r.ProcessStage = ProcessStage.Assigned;
-    r.UpdatedAt = DateTime.UtcNow;
-    db.RequestActivities.Add(new RequestActivity
+    PackageRequest? r;
+    Volunteer? vol;
+    int? previousVolunteerId;
+    try
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
-        ActivityType = ActivityType.Assigned, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
-    });
-    await db.SaveChangesAsync();
-    await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId, vol.Id);
+        r = await db.Requests.FindAsync(id);
+        if (r is null) return Results.NotFound();
+        vol = await db.Volunteers.FindAsync(body.VolunteerId);
+        if (vol is null) return Results.NotFound(new { message = "Volunteer not found" });
+        previousVolunteerId = r.AssignedToId;
+        r.AssignedToId = vol.Id;
+        r.AssignedTo = vol.FullName;
+        // Only a new request starts work when assigned; a case already packing, shipped or on hold keeps its status.
+        if (r.Status == CaseStatus.New) r.Status = CaseStatus.InProgress;
+        if (r.ProcessStage == ProcessStage.Unassigned) r.ProcessStage = ProcessStage.Assigned;
+        r.UpdatedAt = DateTime.UtcNow;
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
+            ActivityType = ActivityType.Assigned, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId, vol.Id);
+    }
+    catch (Exception ex)
+    {
+        // Staff-only screen: say what failed (e.g. a database column that hasn't been added yet) instead of a bare 500.
+        app.Logger.LogError(ex, "Could not assign request {RequestId} to volunteer {VolunteerId}.", id, body.VolunteerId);
+        return Results.Json(new { error = $"The assignment could not be saved ({ex.GetType().Name}): {(ex.InnerException ?? ex).Message}" }, statusCode: 500);
+    }
 
     // Tell the volunteer (and the one it was taken from, if it moved).
     var assignedFamily = await db.Families.FindAsync(r.FamilyId);

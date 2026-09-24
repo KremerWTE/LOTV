@@ -246,7 +246,7 @@ else
     var ok = await Api.AssignRequestAsync(_assigning.Id, _assignVolId);
     if (!ok)
     {
-      _assignError = "Assignment failed. Please try again.";
+      _assignError = $"Assignment failed: {Api.LastAssignError ?? "please try again."}";
       _assignWorking = false;
       return;
     }

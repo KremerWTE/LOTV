@@ -31,6 +31,13 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - `dotnet build Lotv.slnx`: 0 warnings, 0 errors. 615/615 unit + integration tests pass.
 - Not covered by a permanent test: the repo has no SQL Server test infrastructure (CI has no LocalDB).
 
+## Confirm Assignment failing (same root cause) ✅
+
+- Reported: "Confirm Assignment" fails. `PUT /requests/{id}/assign` loads `PackageRequest` and `Volunteer`, which select `ProcessStage` and `Level`, so on a database missing them it returned a bare 500 and the UI said only "Assignment failed. Please try again." The column bootstrap above fixes the cause.
+- Made the reason visible: the assign endpoint now catches a save failure and returns `{ error }` with the real message (staff-only screen); `ApiService.LastAssignError` carries it; Queue, Kanban, CaseAssign and CaseDetail show it.
+- Verified on the real API + LocalDB: healthy schema 200; columns stripped while running -> 500 "The assignment could not be saved (SqlException): Invalid column name 'ProcessStage'."; after restart the bootstrap added both columns and assign returned 200 (stage Assigned, status InProgress).
+- Found, not changed: `GET /dashboard/stats` open-case count (`Program.cs` ~line 1762) has an operator-precedence bug (`A && New || InProgress`), so the chapter filter applies only to New; it also counts only New + InProgress. The sidebar "Cases" badge reads it once at layout load.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

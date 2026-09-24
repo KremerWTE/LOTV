@@ -302,7 +302,7 @@
     catch { ok = false; }
     if (!ok)
     {
-      _quickAssignError = "Assignment failed. Please try again.";
+      _quickAssignError = $"Assignment failed: {Api.LastAssignError ?? "please try again."}";
       _quickAssignWorking = false;
       return;
     }
