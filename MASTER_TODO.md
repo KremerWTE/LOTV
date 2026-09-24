@@ -2,7 +2,8 @@
 
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-09-14 (session 6 — dev environment stable, Serilog Web, DB crash fix, port fix)
+**Last Updated**: 2026-09-24 (Prayer Request workflow, SocketLabs email, registration security fix, QA sample data — see sessions/2026-09-24-prayer-request-workflow-email-security-and-qa-data.md and the "Session 2026-09-24" section below)
+**Previous Update**: 2026-09-14 (session 6 — dev environment stable, Serilog Web, DB crash fix, port fix)
 **Previous Update**: 2026-09-10 (Stripe/JotForm removal, GiveButter donations, Duda intake form, admin nav hub consolidation, Board/Director roles, volunteer levels, notification-email real send, live smoke test + 2 bug fixes — see sessions/2026-09-10-stripe-jotform-removal-givebutter-duda-intake-roles.md) — direct client instruction to remove Stripe and JotForm entirely ("everything for donation is through GiveButter"); built a standalone Duda-embeddable prayer care intake form (`docs/duda-embed/prayer-care-intake.html`) posting straight to `Lotv.Api`, replacing the JotForm pipeline that (per the 2026-09-01 HIPAA-BAA root-cause finding) had never actually received a real submission; GiveButter's real JS widget embedded on the intake confirmation screen and the rewritten `Give.razor`; admin sidebar (120 links, 57 always-visible) consolidated into Cases/Reports/System-Admin tabbed hub pages per direct client feedback ("there are so many tabs"), with a legacy-link toggle preserving full reachability; added `Director` (near-admin) and `Board` (reports-only, PII-free) roles plus volunteer tenure `Level` (New/Standard/Senior/Lead), Board verified live end-to-end via Playwright; `NotificationService` was found to be a stub that only logged — replaced with real SMTP sending, and the new-request team notification widened from one hardcoded address to a configurable team list; a live smoke test of the running app (not just code review) found and fixed two real bugs: every case-activity/note entry showed the staff member's raw GUID instead of their name (11 call sites), and the notes endpoint 500'd on missing content instead of returning a clean 400. Full detail, including everything still blocking a real production deploy (no Azure App Service exists yet), in the session notes and `docs/LOTV-PM-Plan.md` risk register R-26 through R-31
 **Previous Update**: 2026-08-05 through 2026-09-01 (four sessions not previously rolled into this header — see `sessions/2026-08-13-jotform-webhook-fix-and-docker-deployment-verification.md`, `sessions/2026-08-31-hosting-blazor-server-conversion-and-ci-fixes.md`, `sessions/2026-08-31-spreadsheet-audit-and-followup-tracker-autocreation.md`, `sessions/2026-09-01-jotform-design-review-and-hipaa-baa-rootcause.md`) — JotForm webhook data-loss bug fixed and `docker compose up` verified end-to-end for the first time (2026-08-13); hosting decided as Azure App Service and `Lotv.Web` converted from Blazor WebAssembly to Blazor Server (2026-08-31); ministry's live spreadsheet audited field-by-field against the app and the bereavement follow-up tracker wired into real intake, not just historical import (2026-08-31); JotForm HIPAA-BAA root cause confirmed — the account discards all programmatic writes, explaining every prior "corruption" incident (2026-09-01)
 **Org Model**: Centralized nonprofit — National HQ → Local Chapters (2-tier)
@@ -31,6 +32,38 @@ Pulled from `origin/kremer-dev` into `pateep_dev_branch`:
 - Bug fix: case notes showed raw GUIDs instead of staff names (11 call sites)
 - Bug fix: notes endpoint 500'd on empty content — now returns clean 400
 - E2E: admin reconciliation page added; give page donation selector fixed
+
+---
+
+## Session 2026-09-24 — Prayer Request workflow, email, security, QA data
+
+**State:** code complete and pushed to `kremer-dev` (23 commits since `ba35ae9`); production has everything through `bb4d3f9` (PR #65). 615 unit/integration + 132 browser tests pass; `dotnet build Lotv.slnx` 0 warnings.
+
+### Done
+- [x] Kanban card → full case page; assign / unassign; Unassigned Queue shows the family; possible duplicates kept off board, queue and Cases list
+- [x] Accept → Confirmed; auto-assign sets Assigned stage; assigning no longer regresses a Shipped/Packing/OnHold case; volunteer active-case counts recomputed everywhere; fulfil no longer double-counts
+- [x] My Work Queue matches by account (email, else name); "Create my volunteer record"; `GET /requests?familyId=` filter fixed
+- [x] Assignment routing rules (one person or a team, least busy eligible) + admin page + "apply to queue"
+- [x] Family data-quality check (bad names, email, address, dates): alert, badges, "Needs info" filter, mailing flags, "Email the family" button
+- [x] One bereavement tracker per family (+ startup cleanup); bereavement reminder digest to the team (once per touchpoint)
+- [x] Grief-support answer stored on the family; Grief Support List page + CSV; optional CRM column
+- [x] Mother's Day: one card per mother; Father's Day list; both include everyone with a submission since the last holiday (synced on read); card-sent email
+- [x] Email via SocketLabs (SMTP fallback), Reply-To, plain-text bodies, `.invalid` never emailed; 15 previews; provider banner + "Send test"
+- [x] **Security:** `/auth/register` was public and honored any role (anyone could create an HQAdmin) — now HQ admin only; email-address sign-in; absolute reset links
+- [x] Susan Harper provisioned (HQAdmin, also a volunteer with a queue); optional starting password via secret, applied only until first sign-in
+- [x] QA sample data (39 families / 5 volunteers, every request type × waiting/working/finished + edge cases), marked and undeliverable, one-click Load/Remove page, optional auto-load; verified on SQL Server LocalDB incl. the production upgrade path
+- [x] Browser tests clean up their own data; all build warnings fixed (xUnit2031, obsolete Serilog sink, EF1002, NU1903); old Kanban drawer removed
+
+### Open
+- [ ] **PR kremer-dev → stage → main** for `e4d9124`, `545f46d` and docs (not yet deployed)
+- [ ] **Production QA sample Load fails** — cause unknown; API confirmed deployed. Deploy `545f46d`, click Load, read the on-page reason (check chapter exists, DB login can ALTER/CREATE for the startup bootstraps)
+- [ ] Set GitHub secrets: `APP_SOCKETLABS_SERVER_ID`, `APP_SOCKETLABS_API_KEY`, `APP_EMAIL_FROM` (+ `APP_EMAIL_FROM_NAME`, `APP_EMAIL_REPLY_TO`), `APP_TEAM_EMAILS`, `APP_SUSAN_INITIAL_PASSWORD`, optional `APP_QA_SAMPLE_AUTOLOAD`; verify SocketLabs sender domain; send a test from Request Emails
+- [ ] Review production Users list for unrecognised accounts (registration was public until the fix deployed)
+- [ ] `chris.kremer` production password unknown, no email on the account — provision like Susan's or have an admin reset
+- [ ] **Group training** — requirement undefined (sessions? co-assigned volunteers? certifications?)
+- [ ] Routing rules: shared named queues not built (people/teams only)
+- [ ] Untrack `src/Lotv.Api/lotv-dev.db` (tracked, shows modified with local data)
+- [ ] Walk each request type through the pipeline with Susan on the sample data; log enhancements
 
 ---
 
@@ -597,6 +630,8 @@ Pulled from `origin/kremer-dev` into `pateep_dev_branch`:
 - [x] **`JWT_KEY` set in GitHub secrets** — 2026-09-14
 - [x] **SMTP secrets set in GitHub secrets** — 2026-09-14: `NOTIFICATION_EMAIL_FROM`, `NOTIFICATION_EMAIL_RECIPIENTS`, `NOTIFICATION_EMAIL_USERNAME`, `NOTIFICATION_EMAIL_PASSWORD`, `SMTP_SERVER`, `SMTP_PORT`
 - [ ] **Set remaining GitHub secrets** — `SENDGRID_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
+- [ ] **Set app-email + account secrets (2026-09-24)** — `APP_SOCKETLABS_SERVER_ID`, `APP_SOCKETLABS_API_KEY`, `APP_EMAIL_FROM`, `APP_EMAIL_FROM_NAME`, `APP_EMAIL_REPLY_TO`, `APP_TEAM_EMAILS`, `APP_SUSAN_INITIAL_PASSWORD`, optional `APP_QA_SAMPLE_AUTOLOAD` (all optional in the workflow; without them email is log-only)
+- [x] **Deploys through `stage` → `main` working (2026-09-24)** — PRs #58–#65; a criss-cross of merge commits made stage→main show "conflicting" until `main` was merged into `kremer-dev` (history-only merge)
 - [ ] Write `rollback.yml` — adapt from Boneforte, cover both IIS sites
 - [x] **Write dev start/stop scripts** — `scripts/dev/StartApp.ps1` + `StopApp.ps1`; launches API (`:5100`) and Web (`:5101`) in separate windows; `-NoBuild`/`-NoOpen` flags; `StopApp` kills by process name + WMI commandline match
 - [ ] ~~Set up blob storage account (Azure Blob / S3)~~ — not needed; PDFs streamed on-demand
