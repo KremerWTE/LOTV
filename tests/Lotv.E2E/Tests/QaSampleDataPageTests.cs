@@ -28,8 +28,8 @@ public class QaSampleDataPageTests : E2ETestBase
         await Page.Locator("#qa-confirm").CheckAsync();
         await Page.Locator("#qa-load").ClickAsync();
         await Page.Locator("#qa-status[data-loaded='true']").WaitForAsync();
-        Assert.Equal("12", (await Page.Locator("#qa-families").InnerTextAsync()).Trim());
-        Assert.Equal("3", (await Page.Locator("#qa-volunteers").InnerTextAsync()).Trim());
+        Assert.Equal("39", (await Page.Locator("#qa-families").InnerTextAsync()).Trim());
+        Assert.Equal("5", (await Page.Locator("#qa-volunteers").InnerTextAsync()).Trim());
 
         // The sample families are in the portal: on the board, and flagged in the Father's Day list
         await GoToAsync("/admin/kanban");

@@ -181,12 +181,12 @@ public class RequestEmailTests
 
         await MoveAsync(admin, requestId, "InProgress", "AwaitingShipment", "Shipped");
 
-        var toFamily = Assert.Single(To(familyEmail).Where(m => m.Subject == "Your Prayer Care Package Is On Its Way"));
+        var toFamily = Assert.Single(To(familyEmail), m => m.Subject == "Your Prayer Care Package Is On Its Way");
         Assert.Contains("TRK-9000-42", toFamily.Html);
-        var toTeam = Assert.Single(Team(requestId).Where(m => m.Subject.StartsWith("Package shipped")));
+        var toTeam = Assert.Single(Team(requestId), m => m.Subject.StartsWith("Package shipped"));
         Assert.Contains("TRK-9000-42", toTeam.Html);
         Assert.Contains($"https://portal.test/admin/cases/{requestId}", toTeam.Html);
-        Assert.Single(Team(requestId, TeamB).Where(m => m.Subject.StartsWith("Package shipped")));
+        Assert.Single(Team(requestId, TeamB), m => m.Subject.StartsWith("Package shipped"));
     }
 
     // ── Completed ─────────────────────────────────────────────────────────────
@@ -202,11 +202,11 @@ public class RequestEmailTests
 
         await MoveAsync(admin, requestId, "InProgress", "AwaitingShipment", "Shipped", "Fulfilled");
 
-        var delivered = Assert.Single(To(familyEmail).Where(m => m.Subject == "Your Prayer Care Package Has Been Delivered"));
+        var delivered = Assert.Single(To(familyEmail), m => m.Subject == "Your Prayer Care Package Has Been Delivered");
         Assert.Contains("not forgotten", delivered.Html);
-        var toTeam = Assert.Single(Team(requestId).Where(m => m.Subject.StartsWith("Package completed")));
+        var toTeam = Assert.Single(Team(requestId), m => m.Subject.StartsWith("Package completed"));
         Assert.Contains("days from request to delivery", toTeam.Html);
-        Assert.Single(Team(requestId, TeamB).Where(m => m.Subject.StartsWith("Package completed")));
+        Assert.Single(Team(requestId, TeamB), m => m.Subject.StartsWith("Package completed"));
     }
 
     [Fact]
@@ -220,9 +220,9 @@ public class RequestEmailTests
 
         await MoveAsync(admin, requestId, "InProgress", "AwaitingShipment", "Fulfilled");   // hand-delivered, never "Shipped"
 
-        var thanks = Assert.Single(To(referrerEmail).Where(m => m.Subject == "The Prayer Care Package You Requested Has Been Delivered"));
+        var thanks = Assert.Single(To(referrerEmail), m => m.Subject == "The Prayer Care Package You Requested Has Been Delivered");
         Assert.Contains("Dear Rita,", thanks.Html);
-        Assert.Contains("referred them has been thanked", Assert.Single(Team(requestId).Where(m => m.Subject.StartsWith("Package completed"))).Html);
+        Assert.Contains("referred them has been thanked", Assert.Single(Team(requestId), m => m.Subject.StartsWith("Package completed")).Html);
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public class RequestEmailTests
         await MoveAsync(admin, requestId, "Fulfilled");                                          // same status again
 
         Assert.Equal(before, Team(requestId).Count);
-        Assert.Single(Team(requestId).Where(m => m.Subject.StartsWith("Package completed")));
+        Assert.Single(Team(requestId), m => m.Subject.StartsWith("Package completed"));
     }
 
     [Fact]
@@ -251,8 +251,8 @@ public class RequestEmailTests
         for (var i = 0; i < 2; i++)                                                               // pressed twice
             Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync($"/api/v1/requests/{requestId}/fulfill", new { Notes = "Delivered by hand" })).StatusCode);
 
-        Assert.Single(To(familyEmail).Where(m => m.Subject == "Your Prayer Care Package Has Been Delivered"));
-        Assert.Single(Team(requestId).Where(m => m.Subject.StartsWith("Package completed")));
+        Assert.Single(To(familyEmail), m => m.Subject == "Your Prayer Care Package Has Been Delivered");
+        Assert.Single(Team(requestId), m => m.Subject.StartsWith("Package completed"));
     }
 
     // ── Rendering and the preview page ───────────────────────────────────────

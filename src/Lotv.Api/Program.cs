@@ -42,9 +42,12 @@ builder.Host.UseSerilog((ctx, services, cfg) =>
         if (!string.IsNullOrWhiteSpace(connStr))
             cfg.WriteTo.MSSqlServer(
                 connectionString: connStr,
-                tableName: "ApiLogs",
-                schemaName: "dbo",
-                autoCreateSqlTable: true,
+                sinkOptions: new Serilog.Sinks.MSSqlServer.MSSqlServerSinkOptions
+                {
+                    TableName = "ApiLogs",
+                    SchemaName = "dbo",
+                    AutoCreateSqlTable = true,
+                },
                 restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Warning);
     }
 });
@@ -4319,6 +4322,13 @@ var mailingList = app.MapGroup("/api/v1/mailing-list").WithTags("MailingList").R
 mailingList.MapGet("/", async (LotvDbContext db, int? year, bool? flagged, bool? sent, MailingKind? kind) =>
 {
     var k = kind ?? MailingKind.MothersDay;
+
+    // The list always includes everyone with a submission since the previous holiday, even if no entry was made when
+    // the request came in (older requests, imports, data fixed later): missing families are added first, once each.
+    var cycleYear = year ?? MailingCycle.YearFor(k, DateTime.UtcNow);
+    if (cycleYear is >= 2000 and <= 2100)
+        await MothersDayMailing.BuildFromRequestsAsync(db, k, cycleYear);
+
     var q = db.MailingListEntries.Where(m => m.Kind == k);
     if (year.HasValue) q = q.Where(m => m.Year == year.Value);
     if (flagged.HasValue) q = q.Where(m => m.FlaggedForReview == flagged.Value);
@@ -4716,16 +4726,38 @@ qaSample.MapGet("/", async (LotvDbContext db) => Results.Ok(await QaSampleData.G
 
 qaSample.MapPost("/", async (LotvDbContext db) =>
 {
-    var result = await QaSampleData.LoadAsync(db);
-    app.Logger.LogInformation("QA sample data load: {Message}", result.Message);
-    return result.Loaded ? Results.Ok(result) : Results.Conflict(result);
+    try
+    {
+        var result = await QaSampleData.LoadAsync(db);
+        app.Logger.LogInformation("QA sample data load: {Message}", result.Message);
+        return result.Loaded ? Results.Ok(result) : Results.Conflict(result);
+    }
+    catch (Exception ex)
+    {
+        // Say what went wrong (this endpoint is HQ admins only) instead of a bare 500, so a failure on a live
+        // database can be diagnosed from the page. Nothing is left half-loaded: the load runs in one transaction.
+        app.Logger.LogError(ex, "QA sample data load failed.");
+        var reason = (ex.InnerException ?? ex).Message;
+        if (reason.Length > 400) reason = reason[..400] + "…";
+        return Results.Json(new { loaded = false, message = $"The load failed ({(ex.InnerException ?? ex).GetType().Name}): {reason}" }, statusCode: 500);
+    }
 });
 
 qaSample.MapDelete("/", async (LotvDbContext db) =>
 {
-    var status = await QaSampleData.RemoveAsync(db);
-    app.Logger.LogInformation("QA sample data removed.");
-    return Results.Ok(status);
+    try
+    {
+        var status = await QaSampleData.RemoveAsync(db);
+        app.Logger.LogInformation("QA sample data removed.");
+        return Results.Ok(status);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "QA sample data removal failed.");
+        var reason = (ex.InnerException ?? ex).Message;
+        if (reason.Length > 400) reason = reason[..400] + "…";
+        return Results.Json(new { message = $"The removal failed ({(ex.InnerException ?? ex).GetType().Name}): {reason}" }, statusCode: 500);
+    }
 });
 
 // ─── CRM / GiveButter contact export (HQAdmin) ───────────────────────────────
