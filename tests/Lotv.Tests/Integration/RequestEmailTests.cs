@@ -283,8 +283,8 @@ public class RequestEmailTests
 
         Assert.Equal(new[] { TeamA, TeamB }, body.GetProperty("teamRecipients").EnumerateArray().Select(x => x.GetString()).ToArray());
         var emails = body.GetProperty("emails").EnumerateArray().ToList();
-        Assert.Equal(13, emails.Count);
-        Assert.Equal(6, emails.Count(e => e.GetProperty("audience").GetString() == "Family"));
+        Assert.Equal(15, emails.Count);
+        Assert.Equal(8, emails.Count(e => e.GetProperty("audience").GetString() == "Family"));
         Assert.Equal(5, emails.Count(e => e.GetProperty("audience").GetString() == "Whitney & the team"));
         Assert.Equal(2, emails.Count(e => e.GetProperty("audience").GetString() == "Volunteer"));
         Assert.All(emails, e =>

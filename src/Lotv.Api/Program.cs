@@ -4335,13 +4335,18 @@ mailingList.MapPut("/{id:int}/flag", async (int id, FlagMailingRequest body, Lot
     return Results.Ok(m);
 });
 
-mailingList.MapPut("/{id:int}/sent", async (int id, MarkSentRequest body, LotvDbContext db) =>
+mailingList.MapPut("/{id:int}/sent", async (int id, MarkSentRequest body, LotvDbContext db, INotificationService notify) =>
 {
     var m = await db.MailingListEntries.FindAsync(id);
     if (m is null) return Results.NotFound();
+    var newlySent = body.Sent && !m.Sent;
     m.Sent = body.Sent;
     m.SentAt = body.Sent ? DateTime.UtcNow : null;
     await db.SaveChangesAsync();
+
+    // Let the family know the card is on its way (once, when it first goes from not sent to sent).
+    if (newlySent && m.FamilyId is int familyId)
+        OperationsNotifier.CardSent(notify, m, await db.Families.FindAsync(familyId));
     return Results.Ok(m);
 });
 

@@ -60,6 +60,54 @@ public class OperationsTests
         Assert.Equal(fields.Count, fields.Distinct().Count());
     }
 
+    // ── Card-sent email ───────────────────────────────────────────────────────
+
+    [Fact]
+    public void TheCardSentEmail_NamesTheHoliday()
+    {
+        var mothers = OperationsEmails.CardSent("Mary", MailingKind.MothersDay);
+        var fathers = OperationsEmails.CardSent("Daniel", MailingKind.FathersDay);
+        Assert.Equal("A Mother's Day Card Is on Its Way", mothers.Subject);
+        Assert.Contains("Dear Mary", mothers.Html);
+        Assert.Equal("A Father's Day Card Is on Its Way", fathers.Subject);
+        Assert.Contains("Dear Daniel", fathers.Html);
+    }
+
+    [Fact]
+    public void CardSent_EmailsTheFamily_OnlyWhenThereIsAFamilyWithAValidEmail()
+    {
+        var sent = new List<(string To, string Subject)>();
+        var notify = new Mock<INotificationService>();
+        notify.Setup(n => n.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+              .Callback<string, string, string, string>((to, _, subject, _) => sent.Add((to, subject)))
+              .ReturnsAsync(Result.Ok());
+        var family = new Family { Parent1FirstName = "Daniel", Parent1LastName = "Iverson", Parent2FirstName = "Hannah", Parent2LastName = "Iverson", Email = "iverson@example.org" };
+        var entry = new MailingListEntry { Kind = MailingKind.FathersDay, FatherName = "Daniel Iverson", MotherName = "Hannah Iverson" };
+
+        Assert.True(OperationsNotifier.CardSent(notify.Object, entry, family));
+        Assert.Equal(("iverson@example.org", "A Father's Day Card Is on Its Way"), sent.Single());
+
+        Assert.False(OperationsNotifier.CardSent(notify.Object, entry, null));                                   // imported recipient: no family
+        Assert.False(OperationsNotifier.CardSent(notify.Object, entry, new Family { Email = "not-an-email" })); // no valid email
+        Assert.Single(sent);
+    }
+
+    [Fact]
+    public async Task MarkingACardSent_UpdatesTheEntry_AndUnmarkingWorks()
+    {
+        var familyId = await ApplyAsync();
+        var admin = await ClientForAsync("HQAdmin");
+        var entries = await admin.GetFromJsonAsync<JsonElement>("/api/v1/mailing-list");
+        var entryId = entries.EnumerateArray().First(e => e.GetProperty("familyId").ValueKind == JsonValueKind.Number && e.GetProperty("familyId").GetInt32() == familyId).GetProperty("id").GetInt32();
+
+        var sent = await admin.PutAsJsonAsync($"/api/v1/mailing-list/{entryId}/sent", new { Sent = true });
+        Assert.Equal(HttpStatusCode.OK, sent.StatusCode);
+        Assert.True((await sent.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sent").GetBoolean());
+
+        var unsent = await admin.PutAsJsonAsync($"/api/v1/mailing-list/{entryId}/sent", new { Sent = false });
+        Assert.False((await unsent.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sent").GetBoolean());
+    }
+
     // ── Bereavement reminders ─────────────────────────────────────────────────
 
     [Fact]

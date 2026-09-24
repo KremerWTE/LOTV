@@ -117,89 +117,6 @@
   </div>
 }
 
-<!-- QUICK VIEW DRAWER -->
-@if (_selected is not null)
-{
-  <div class="drawer-overlay" @onclick="CloseDrawer"></div>
-  <div class="drawer" style="width:400px;">
-    <div class="drawer-head">
-      <h3>Case #@_selected.Id &mdash; @_selected.Family?.Parent1LastName</h3>
-      <button class="drawer-close" aria-label="Close" @onclick="CloseDrawer">✕</button>
-    </div>
-    <div class="drawer-body" style="gap:14px;">
-      <div style="background:var(--bg);border-radius:8px;padding:12px 14px;font-size:.84rem;display:flex;flex-direction:column;gap:6px;">
-        <div><strong>Family:</strong> @_selected.Family?.FullName</div>
-        <div><strong>Reason:</strong> @_selected.Reason.ToDisplayName()</div>
-        <div><strong>Created:</strong> @_selected.CreatedAt.ToString("MMM d, yyyy") &bull; @GetAge(_selected.CreatedAt)</div>
-        @if (_selected.IsOverdue)
-        { <div style="color:var(--amber);font-weight:600;">⚠ Overdue</div> }
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Status</label>
-        <select class="form-input" @bind="_editStatus">
-          <option value="@_selected.Status">@_selected.Status (current)</option>
-          @foreach (var s in CaseStatusTransitions.ValidNextStates(_selected.Status))
-          { <option value="@s">@s</option> }
-        </select>
-      </div>
-      @if (!string.IsNullOrEmpty(_drawerError))
-      { <div style="background:#fff3cd;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#856404;">⚠ @_drawerError</div> }
-
-      <div class="form-group">
-        <label class="form-label">Assigned To</label>
-        <select class="form-input" @bind="_editAssignedTo">
-          <option value="">— Unassigned —</option>
-          @foreach (var v in _volunteers)
-          { <option value="@v.Id">@v.FullName@(IsAtCapacity(v) ? " (at capacity)" : "")</option> }
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Process Stage</label>
-        <select class="form-input" @bind="_editProcessStage">
-          @foreach (var s in Enum.GetValues<ProcessStage>())
-          { <option value="@s">@s</option> }
-        </select>
-      </div>
-
-      @if (_editStatus is CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.Fulfilled)
-      {
-        <div class="form-group">
-          <label class="form-label">Tracking Number</label>
-          <input class="form-input" @bind="_editTrackingNumber" placeholder="e.g. 1Z999AA10123456784" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Shipped Date</label>
-          <input class="form-input" type="date"
-                 value="@(_editShippedDate?.ToString("yyyy-MM-dd") ?? "")"
-                 @onchange='e => _editShippedDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
-        </div>
-      }
-
-      @if (!string.IsNullOrEmpty(_selected.InternalNotes))
-      {
-        <div class="form-group">
-          <label class="form-label">Notes</label>
-          <div style="background:var(--bg);border-radius:8px;padding:10px 12px;font-size:.82rem;color:var(--text-mid);">@_selected.InternalNotes</div>
-        </div>
-      }
-
-      @if (_drawerSaved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">✓ Status updated</div> }
-    </div>
-    <div class="drawer-footer">
-      <button class="btn btn-primary" @onclick="SaveFromDrawer" disabled="@_saving">
-        @(_saving ? "Saving…" : "Save Changes")
-      </button>
-      @if (_selected.Family is not null)
-      { <a href="/admin/families?family=@_selected.Family.Id" class="btn btn-sm">Family Profile &rarr;</a> }
-      else
-      { <a href="/admin/cases" class="btn btn-sm">All Cases &rarr;</a> }
-    </div>
-  </div>
-}
-
 @code {
   private record Column(string Key, string Label, string Color);
 
@@ -266,15 +183,6 @@
   private Dictionary<string, List<PackageRequest>> _byColumn = new();
   private int _hiddenFulfilledCount;
   private List<Volunteer> _volunteers = [];
-  private PackageRequest? _selected;
-  private CaseStatus _editStatus;
-  private int _editAssignedTo;   // volunteer Id; 0 = unassigned
-  private ProcessStage _editProcessStage;
-  private string? _editTrackingNumber;
-  private DateTime? _editShippedDate;
-  private bool _drawerSaved;
-  private string? _drawerError;
-  private bool _saving;
   private PackageRequest? _draggingCase;
   private string? _dragOverKey;
   private string? _dropError;
@@ -350,54 +258,6 @@
   private bool IsAtCapacity(Volunteer v) => v.ActiveCases >= _capacityById.GetValueOrDefault(v.Id, 6);
 
   private void SelectCase(PackageRequest r) => Nav.NavigateTo($"/admin/cases/{r.Id}");
-
-  private void CloseDrawer() { _selected = null; _drawerSaved = false; _drawerError = null; }
-
-  private async Task SaveFromDrawer()
-  {
-    if (_selected is null || _saving) return;
-    _saving = true;
-    _drawerError = null;
-
-    // Assign BEFORE setting status — the assign endpoint forces status to InProgress
-    // as a side effect, so if it ran after an explicit status change (e.g. to
-    // Shipped), it would silently overwrite it back to InProgress.
-    if (_editAssignedTo > 0 && _editAssignedTo != (_selected.AssignedToId ?? 0))
-      await Api.AssignRequestAsync(_selected.Id, _editAssignedTo);
-
-    if (_editProcessStage != _selected.ProcessStage)
-      await Api.UpdateRequestProcessStageAsync(_selected.Id, _editProcessStage);
-
-    // Patch tracking BEFORE status — the backend requires a tracking number to
-    // already be saved before it will allow a transition into Shipped.
-    if (_editTrackingNumber != _selected.TrackingNumber || _editShippedDate != _selected.ShippedDate)
-      await Api.PatchRequestAsync(_selected.Id, _editTrackingNumber, _editShippedDate, _selected.InternalNotes);
-
-    if (_editStatus != _selected.Status)
-    {
-      var (ok, error) = await Api.UpdateRequestStatusWithErrorAsync(_selected.Id, _editStatus);
-      if (!ok)
-      {
-        _drawerError = error;
-        _saving = false;
-        return;
-      }
-    }
-
-    // Optimistic local update
-    var vol = _volunteers.FirstOrDefault(v => v.Id == _editAssignedTo);
-    _selected.Status         = _editStatus;
-    _selected.AssignedToId   = _editAssignedTo > 0 ? _editAssignedTo : null;
-    _selected.AssignedTo     = vol?.FullName;
-    _selected.ProcessStage   = _editAssignedTo > 0 && _selected.ProcessStage == ProcessStage.Unassigned
-                                  ? ProcessStage.Assigned : _editProcessStage;
-    _selected.TrackingNumber = _editTrackingNumber;
-    _selected.ShippedDate    = _editShippedDate;
-    _selected.UpdatedAt      = DateTime.UtcNow;
-    RegroupByStatus();
-    _drawerSaved = true;
-    _saving = false;
-  }
 
   private async Task OpenQuickAssign(PackageRequest r)
   {

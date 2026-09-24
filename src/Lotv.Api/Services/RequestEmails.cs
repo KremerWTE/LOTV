@@ -152,6 +152,8 @@ public static class RequestEmails
             P("volunteer-assigned", "Volunteer", "New assignment",                  "When a request is assigned to the volunteer (by a rule, automatically, or by staff)", OperationsEmails.VolunteerAssigned(
                 "Claire", new(1234, "Mary & Daniel Example", "Chicago, IL", "https://example.org/admin/cases/1234", new DateTime(2026, 9, 25, 18, 0, 0)))),
             P("volunteer-unassigned", "Volunteer", "Assignment removed",            "When staff take a request back from the volunteer", OperationsEmails.VolunteerUnassigned("Claire", "Mary & Daniel Example")),
+            P("card-mothers",       F, "Mother's Day card is on its way",          "When a Mother's Day card is marked Sent (families on the list only)", OperationsEmails.CardSent("Mary", MailingKind.MothersDay)),
+            P("card-fathers",       F, "Father's Day card is on its way",          "When a Father's Day card is marked Sent (families on the list only)", OperationsEmails.CardSent("Daniel", MailingKind.FathersDay)),
             P("family-details",     F, "Please confirm your details",              "When staff press \"Email the family\" on a request whose details look wrong", OperationsEmails.DetailsRequest(
                 "Mary and Daniel", ["Your mailing address", "Your email address"],
                 [("Name", "Mary & Daniel Example"), ("Email", "mary@example.org"), ("Address", "12 Main St, Chicago, IL 606")])),

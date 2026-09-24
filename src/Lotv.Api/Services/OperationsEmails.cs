@@ -76,6 +76,21 @@ public static class OperationsEmails
                 "You are receiving this because a Prayer Care Package was requested for your family."));
     }
 
+    /// <summary>To a family: a Mother's Day or Father's Day card has been mailed to them.</summary>
+    public static RequestEmails.Email CardSent(string recipientFirstName, MailingKind kind)
+    {
+        var holiday = MailingCycle.HolidayName(kind);
+        var who = kind == MailingKind.FathersDay ? "a father" : "a mother";
+        var body =
+            $"<p style=\"{P}\">Dear {E(recipientFirstName)},</p>" +
+            $"<p style=\"{P}\">We have mailed you a {E(holiday)} card. We know this day can carry mixed feelings for {who} who has lost a little one, and we wanted you to know you are remembered and loved.</p>" +
+            $"<p style=\"{P}\">It should arrive in your mailbox within the next week or two. If it doesn't, or your address has changed, just reply to this email and we will make it right.</p>" +
+            $"<p style=\"{P}\">With love and prayers,<br>The Lily of the Valley Ministry team</p>";
+        return new($"A {holiday} Card Is on Its Way",
+            RequestEmails.Wrap($"A {holiday} card is on its way", $"A {holiday} card is on its way", body,
+                "You are receiving this because your family is on the Lily of the Valley Ministry card mailing list."));
+    }
+
     /// <summary>The family-friendly names of the things a data check found wrong.</summary>
     public static List<string> FriendlyFields(IEnumerable<DataIssue> issues)
     {
@@ -113,6 +128,17 @@ public static class OperationsNotifier
         if (string.IsNullOrWhiteSpace(v.Email)) return;
         var e = OperationsEmails.VolunteerUnassigned(v.FirstName, f?.FullName ?? "a family");
         _ = notify.SendEmailAsync(v.Email, v.FullName, e.Subject, e.Html);
+    }
+
+    /// <summary>Tells the family a card was mailed. False (and nothing sent) when the entry has no family or the family has no valid email.</summary>
+    public static bool CardSent(INotificationService notify, MailingListEntry entry, Family? family)
+    {
+        if (family is null || !FamilyDataQuality.Check(family).CanEmail) return false;
+        var name = (entry.RecipientName ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
+                   ?? (entry.Kind == MailingKind.FathersDay ? family.Parent1FirstName : FamilyParents.MomFirstName(family));
+        var e = OperationsEmails.CardSent(name, entry.Kind);
+        _ = notify.SendEmailAsync(family.Email, family.FullName, e.Subject, e.Html);
+        return true;
     }
 
     /// <summary>Asks the family to check the details the data check flagged. False when there is nothing to ask or no valid email.</summary>
