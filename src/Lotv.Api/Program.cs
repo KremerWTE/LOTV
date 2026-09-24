@@ -4726,16 +4726,38 @@ qaSample.MapGet("/", async (LotvDbContext db) => Results.Ok(await QaSampleData.G
 
 qaSample.MapPost("/", async (LotvDbContext db) =>
 {
-    var result = await QaSampleData.LoadAsync(db);
-    app.Logger.LogInformation("QA sample data load: {Message}", result.Message);
-    return result.Loaded ? Results.Ok(result) : Results.Conflict(result);
+    try
+    {
+        var result = await QaSampleData.LoadAsync(db);
+        app.Logger.LogInformation("QA sample data load: {Message}", result.Message);
+        return result.Loaded ? Results.Ok(result) : Results.Conflict(result);
+    }
+    catch (Exception ex)
+    {
+        // Say what went wrong (this endpoint is HQ admins only) instead of a bare 500, so a failure on a live
+        // database can be diagnosed from the page. Nothing is left half-loaded: the load runs in one transaction.
+        app.Logger.LogError(ex, "QA sample data load failed.");
+        var reason = (ex.InnerException ?? ex).Message;
+        if (reason.Length > 400) reason = reason[..400] + "…";
+        return Results.Json(new { loaded = false, message = $"The load failed ({(ex.InnerException ?? ex).GetType().Name}): {reason}" }, statusCode: 500);
+    }
 });
 
 qaSample.MapDelete("/", async (LotvDbContext db) =>
 {
-    var status = await QaSampleData.RemoveAsync(db);
-    app.Logger.LogInformation("QA sample data removed.");
-    return Results.Ok(status);
+    try
+    {
+        var status = await QaSampleData.RemoveAsync(db);
+        app.Logger.LogInformation("QA sample data removed.");
+        return Results.Ok(status);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "QA sample data removal failed.");
+        var reason = (ex.InnerException ?? ex).Message;
+        if (reason.Length > 400) reason = reason[..400] + "…";
+        return Results.Json(new { message = $"The removal failed ({(ex.InnerException ?? ex).GetType().Name}): {reason}" }, statusCode: 500);
+    }
 });
 
 // ─── CRM / GiveButter contact export (HQAdmin) ───────────────────────────────

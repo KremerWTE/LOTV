@@ -101,9 +101,9 @@ else
   private async Task RemoveAsync()
   {
     _busy = true; _message = null;
-    var status = await Api.RemoveQaSampleAsync();
+    var (status, error) = await Api.RemoveQaSampleAsync();
     _busy = false;
-    if (status is null) { _message = "Couldn't remove the sample data."; _isError = true; return; }
+    if (status is null) { _message = error ?? "Couldn't remove the sample data."; _isError = true; return; }
     _status = status;
     _message = "All QA sample data was removed.";
     _isError = false;
