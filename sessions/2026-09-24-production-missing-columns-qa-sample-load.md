@@ -31,6 +31,21 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - `dotnet build Lotv.slnx`: 0 warnings, 0 errors. 615/615 unit + integration tests pass.
 - Not covered by a permanent test: the repo has no SQL Server test infrastructure (CI has no LocalDB).
 
+## Confirm Assignment failing (same root cause) ✅
+
+- Reported: "Confirm Assignment" fails. `PUT /requests/{id}/assign` loads `PackageRequest` and `Volunteer`, which select `ProcessStage` and `Level`, so on a database missing them it returned a bare 500 and the UI said only "Assignment failed. Please try again." The column bootstrap above fixes the cause.
+- Made the reason visible: the assign endpoint now catches a save failure and returns `{ error }` with the real message (staff-only screen); `ApiService.LastAssignError` carries it; Queue, Kanban, CaseAssign and CaseDetail show it.
+- Verified on the real API + LocalDB: healthy schema 200; columns stripped while running -> 500 "The assignment could not be saved (SqlException): Invalid column name 'ProcessStage'."; after restart the bootstrap added both columns and assign returned 200 (stage Assigned, status InProgress).
+- Found, not changed: `GET /dashboard/stats` open-case count (`Program.cs` ~line 1762) has an operator-precedence bug (`A && New || InProgress`), so the chapter filter applies only to New; it also counts only New + InProgress. The sidebar "Cases" badge reads it once at layout load.
+
+## Case page fixes (same day) ✅
+
+- **Sidebar Cases badge** now counts what the Cases page calls Open (New, In Progress, Awaiting Shipment), excludes requests held for duplicate review, and applies the chapter filter to all of them (was `chapter && New || InProgress`). It refreshes on every navigation instead of once at load. Test: `SidebarOpenCasesCount_MatchesTheCasesPage_...` (616 tests pass).
+- **Case details Save Changes** ignored the result of assign / priority / due date / tracking saves and could report success (or fail silently) when the volunteer change failed. Each step is now checked; the first failure stops the save, names the step (with the server's reason for assign) and keeps the edits on screen.
+- **Request-form answers on the case page:** the Family panel now shows the prayer-wall (privacy) preference and "Other answers from the request form" (`Family.ContactNotes`: grief-support answer, custom questions staff add in the form editor, newsletter / prayer-night opt-ins), which were saved but never displayed.
+- Intake fixes (follow-up): `PackageType` is matched ignoring case (the form's default "Comfort" used to fall through to Other) and the raw choice is kept in the request's staff notes ("Package requested: …"); the embedded form now keeps a second parent's different email / phone in the contact notes (both copies of `prayer-care-intake.html`, still identical). Tests: `IntakePackageTypeTests` (621 pass). If Duda holds a pasted copy of the form rather than an iframe, it needs re-pasting.
+- Earlier-noted intake gaps (now fixed, see above): `PackageType` from the form is collapsed to a category and `"Comfort"` (capitalised default) doesn't match the lowercase `"comfort"` mapping so it becomes Other; when both parents give an email or phone only the first is kept.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

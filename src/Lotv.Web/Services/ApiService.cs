@@ -723,10 +723,29 @@ public class ApiService
         catch { return (false, "Failed to update status."); }
     }
 
+    /// <summary>Why the last <see cref="AssignRequestAsync"/> call failed (the server's message), for screens that show it.</summary>
+    public string? LastAssignError { get; private set; }
+
     public async Task<bool> AssignRequestAsync(int id, int volunteerId)
     {
+        LastAssignError = null;
         var resp = await AuthedPutAsync($"/api/v1/requests/{id}/assign", new { VolunteerId = volunteerId });
-        return resp?.IsSuccessStatusCode == true;
+        if (resp?.IsSuccessStatusCode == true) return true;
+        LastAssignError = resp is null ? "Network error — please try again." : await ReadErrorTextAsync(resp);
+        return false;
+    }
+
+    // The server's "error" / "message" text if it sent one, else the HTTP status.
+    private static async Task<string> ReadErrorTextAsync(HttpResponseMessage resp)
+    {
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<JsonElement>(JsonOpts);
+            foreach (var key in new[] { "error", "message" })
+                if (body.TryGetProperty(key, out var v) && v.GetString() is { Length: > 0 } text) return text;
+        }
+        catch { /* not JSON — fall through to the status code */ }
+        return $"The server returned {(int)resp.StatusCode} {resp.ReasonPhrase}.";
     }
 
     public async Task<bool> UnassignRequestAsync(int id)
