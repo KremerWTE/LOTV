@@ -802,7 +802,11 @@
     try { _sidebarCollapsed = (await JS.InvokeAsync<string?>("localStorage.getItem", "lotv.sidebar")) == "collapsed"; } catch { }
     try { await JS.InvokeVoidAsync("lotvScrollShadow.attach"); } catch { }
     try { await JS.InvokeVoidAsync("lotvSlashSearch.attach"); } catch { }
-    Nav.LocationChanged += async (_, _) => { try { await JS.InvokeVoidAsync("lotvAutoLoad.attach"); } catch { } };
+    Nav.LocationChanged += async (_, _) =>
+    {
+      try { await JS.InvokeVoidAsync("lotvAutoLoad.attach"); } catch { }
+      await RefreshOpenCountAsync();   // keep the Cases badge in step with what the pages show
+    };
     _ = Auth.RefreshAvatarAsync();
 
     if (_isAdmin)
@@ -833,6 +837,18 @@
   {
     _sidebarCollapsed = !_sidebarCollapsed;
     try { await JS.InvokeVoidAsync("localStorage.setItem", "lotv.sidebar", _sidebarCollapsed ? "collapsed" : "expanded"); } catch { }
+  }
+
+  private async Task RefreshOpenCountAsync()
+  {
+    try
+    {
+      var stats = await Api.GetDashboardStatsAsync();
+      if (stats is null) return;
+      _openCount = stats.OpenCases;
+      await InvokeAsync(StateHasChanged);
+    }
+    catch { /* badge is cosmetic; the layout may also be disposed mid-navigation */ }
   }
 
   private async Task LoadNotificationsAsync()

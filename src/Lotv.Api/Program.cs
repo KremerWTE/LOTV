@@ -402,7 +402,10 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     await db.SaveChangesAsync();
 
     // Map package type string → RequestCategory
-    var category = body.PackageType switch
+    // Matched without regard to case: the form definition's default is "Comfort", which never matched "comfort",
+    // so every form submission used to land as Other.
+    var packageType = body.PackageType?.Trim();
+    var category = packageType?.ToLowerInvariant() switch
     {
         "comfort"        => RequestCategory.ResourceProvision,
         "memory"         => RequestCategory.Memorial,
@@ -411,10 +414,14 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         _                => RequestCategory.Other
     };
 
-    // Carry referrer info into notes when submitting on behalf of someone
-    var referrerNote = !body.ForSelf && !string.IsNullOrWhiteSpace(body.ReferrerFirstName)
-        ? $"Referred by: {body.ReferrerFirstName} {body.ReferrerLastName} <{body.ReferrerEmail}>"
-        : null;
+    // Carry referrer info into notes when submitting on behalf of someone, and keep the package the form
+    // asked for (several package types share one category, so the category alone loses it).
+    var noteLines = new List<string>();
+    if (!body.ForSelf && !string.IsNullOrWhiteSpace(body.ReferrerFirstName))
+        noteLines.Add($"Referred by: {body.ReferrerFirstName} {body.ReferrerLastName} <{body.ReferrerEmail}>");
+    if (!string.IsNullOrEmpty(packageType))
+        noteLines.Add($"Package requested: {packageType}");
+    var referrerNote = noteLines.Count > 0 ? string.Join("\n", noteLines) : null;
 
     var req = new PackageRequest
     {
@@ -804,24 +811,36 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     IChapterContextService ctx, IHubContext<RequestsHub> hub, IPushSender pushSvc,
     UserManager<LotvIdentityUser> userMgr, INotificationService notify, IConfiguration cfg) =>
 {
-    var r = await db.Requests.FindAsync(id);
-    if (r is null) return Results.NotFound();
-    var vol = await db.Volunteers.FindAsync(body.VolunteerId);
-    if (vol is null) return Results.NotFound(new { message = "Volunteer not found" });
-    var previousVolunteerId = r.AssignedToId;
-    r.AssignedToId = vol.Id;
-    r.AssignedTo = vol.FullName;
-    // Only a new request starts work when assigned; a case already packing, shipped or on hold keeps its status.
-    if (r.Status == CaseStatus.New) r.Status = CaseStatus.InProgress;
-    if (r.ProcessStage == ProcessStage.Unassigned) r.ProcessStage = ProcessStage.Assigned;
-    r.UpdatedAt = DateTime.UtcNow;
-    db.RequestActivities.Add(new RequestActivity
+    PackageRequest? r;
+    Volunteer? vol;
+    int? previousVolunteerId;
+    try
     {
-        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
-        ActivityType = ActivityType.Assigned, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
-    });
-    await db.SaveChangesAsync();
-    await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId, vol.Id);
+        r = await db.Requests.FindAsync(id);
+        if (r is null) return Results.NotFound();
+        vol = await db.Volunteers.FindAsync(body.VolunteerId);
+        if (vol is null) return Results.NotFound(new { message = "Volunteer not found" });
+        previousVolunteerId = r.AssignedToId;
+        r.AssignedToId = vol.Id;
+        r.AssignedTo = vol.FullName;
+        // Only a new request starts work when assigned; a case already packing, shipped or on hold keeps its status.
+        if (r.Status == CaseStatus.New) r.Status = CaseStatus.InProgress;
+        if (r.ProcessStage == ProcessStage.Unassigned) r.ProcessStage = ProcessStage.Assigned;
+        r.UpdatedAt = DateTime.UtcNow;
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
+            ActivityType = ActivityType.Assigned, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId, vol.Id);
+    }
+    catch (Exception ex)
+    {
+        // Staff-only screen: say what failed (e.g. a database column that hasn't been added yet) instead of a bare 500.
+        app.Logger.LogError(ex, "Could not assign request {RequestId} to volunteer {VolunteerId}.", id, body.VolunteerId);
+        return Results.Json(new { error = $"The assignment could not be saved ({ex.GetType().Name}): {(ex.InnerException ?? ex).Message}" }, statusCode: 500);
+    }
 
     // Tell the volunteer (and the one it was taken from, if it moved).
     var assignedFamily = await db.Families.FindAsync(r.FamilyId);
@@ -1747,7 +1766,11 @@ dashboard.MapGet("/stats", async (LotvDbContext db, IChapterContextService ctx) 
     var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
     var lastMonth = startOfMonth.AddMonths(-1);
 
-    var openCases = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId) && r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress);
+    // Same definition as the Cases page's "Open Cases": New, In Progress or Awaiting Shipment, leaving out requests
+    // held for duplicate review. (This used to be `chapter && New || InProgress`, so the chapter filter only applied to New.)
+    var openCases = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId)
+        && !r.NeedsDuplicateReview
+        && (r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress || r.Status == CaseStatus.AwaitingShipment));
     var overdue = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId) && r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled && r.CreatedAt < DateTime.UtcNow.AddDays(-7));
     var donationsThisMonth = await db.Donations.Where(d => (!chapterId.HasValue || d.ChapterId == chapterId) && d.Date >= startOfMonth).SumAsync(d => (decimal?)d.Amount) ?? 0m;
     var donationsLastMonth = await db.Donations.Where(d => (!chapterId.HasValue || d.ChapterId == chapterId) && d.Date >= lastMonth && d.Date < startOfMonth).SumAsync(d => (decimal?)d.Amount) ?? 0m;
