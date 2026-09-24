@@ -3,6 +3,9 @@ namespace Lotv.Core.Models;
 /// <summary>Outcome of a Mother's Day mailing list CSV import (or dry run).</summary>
 public record MailingImportResultDto(int Year, bool DryRun, int TotalRows, int Created, int SkippedDuplicates, List<MailingImportErrorDto> Errors);
 
+/// <summary>How much QA sample data is currently loaded.</summary>
+public record QaSampleStatusDto(bool Loaded, int Families, int Requests, int Volunteers);
+
 /// <summary>Outcome of filling a mailing list from the last year's requests.</summary>
 public record MailingBuildResultDto(int Year, int Created, int AlreadyOnList, int NoFather);
 

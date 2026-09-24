@@ -335,6 +335,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     // environment, unlike DevSeedData which is Development-only.
     var repairUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
     await CoreAdminAccountRepair.RepairAsync(repairUserMgr, app.Logger);
+    try { await StaffAccountProvisioning.EnsureAsync(repairUserMgr, app.Logger); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not provision staff accounts."); }
 
     try
     {
@@ -499,8 +501,14 @@ publicIntake.MapPost("/volunteer", async (Volunteer vol, LotvDbContext db) =>
 // ── Auth ──────────────────────────────────────────────────────────────────────
 var auth = app.MapGroup("/api/v1/auth").WithTags("Auth").AllowAnonymous().RequireRateLimiting("auth");
 
-auth.MapPost("/register", async (RegisterRequest req, UserManager<LotvIdentityUser> userMgr) =>
+auth.MapPost("/register", async (RegisterRequest req, UserManager<LotvIdentityUser> userMgr, IConfiguration cfg, HttpContext http) =>
 {
+    // Accounts, and the role each one gets, are created by an HQ admin only. Open registration exists for the
+    // automated test suite alone (Auth:AllowOpenRegistration) and is off everywhere else.
+    var callerIsAdmin = http.User.HasClaim("role", nameof(UserRole.HQAdmin));
+    if (!callerIsAdmin && !cfg.GetValue<bool>("Auth:AllowOpenRegistration"))
+        return http.User.Identity?.IsAuthenticated == true ? Results.Forbid() : Results.Unauthorized();
+
     var user = new LotvIdentityUser
     {
         UserName = req.Email,
@@ -523,6 +531,8 @@ auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> us
         return Results.Unauthorized();
 
     var user = await userMgr.FindByNameAsync(req.Username);
+    if (user is null && req.Username.Contains('@'))
+        user = await StaffAccountProvisioning.FindByEmailSafeAsync(userMgr, req.Username.Trim());
     if (user is null || !await userMgr.CheckPasswordAsync(user, req.Password))
         return Results.Unauthorized();
     if (!user.IsActive)
@@ -541,17 +551,20 @@ auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> us
 // real deliverable address) — so password recovery has to be a separate opt-in
 // step where a user records a recovery email against their account first (see
 // PUT /api/v1/users/{id}/email), rather than the email being assumed to exist.
-auth.MapPost("/forgot-password", async (ForgotPasswordRequest req, UserManager<LotvIdentityUser> userMgr, INotificationService notify) =>
+auth.MapPost("/forgot-password", async (ForgotPasswordRequest req, UserManager<LotvIdentityUser> userMgr, INotificationService notify, IConfiguration cfg) =>
 {
     var user = string.IsNullOrWhiteSpace(req.Username) ? null : await userMgr.FindByNameAsync(req.Username);
+    if (user is null && req.Username.Contains('@'))
+        user = await StaffAccountProvisioning.FindByEmailSafeAsync(userMgr, req.Username.Trim());
     if (user is not null && !string.IsNullOrWhiteSpace(user.Email))
     {
         var token = await userMgr.GeneratePasswordResetTokenAsync(user);
-        var link = $"/reset-password?u={Uri.EscapeDataString(user.UserName ?? req.Username)}&t={Uri.EscapeDataString(token)}";
+        // Absolute link: this is read in a mail client, where a relative link goes nowhere.
+        var link = RequestNotifier.WebUrl(cfg, $"/reset-password?u={Uri.EscapeDataString(user.UserName ?? req.Username)}&t={Uri.EscapeDataString(token)}");
         _ = notify.SendEmailAsync(user.Email, user.FullName, "Reset your LOTV Staff Portal password",
-            $"<p>A password reset was requested for the account <strong>{user.UserName}</strong>.</p>" +
+            $"<p>A password reset was requested for the account <strong>{System.Net.WebUtility.HtmlEncode(user.UserName)}</strong>.</p>" +
             $"<p>Click below to choose a new password. This link expires in 2 hours. If you didn't request this, you can ignore this email.</p>" +
-            $"<p><a href=\"{link}\">{link}</a></p>");
+            $"<p><a href=\"{System.Net.WebUtility.HtmlEncode(link)}\">{System.Net.WebUtility.HtmlEncode(link)}</a></p>");
     }
     // Always return the same response whether or not the account/email exists,
     // so this endpoint can't be used to enumerate valid usernames.
@@ -4682,6 +4695,27 @@ app.MapPost("/api/v1/email-previews/{key}/test", async (string key, TestEmailReq
     return Results.Ok(new { provider, sentTo = to, delivered = provider != "Log only" });
 }).WithTags("Email").RequireAuthorization("HQAdmin");
 
+// ─── QA sample data (HQAdmin) ─────────────────────────────────────────────────
+// Adds (or removes) a clearly marked set of sample families, requests and volunteers so the portal can be tested
+// on a live database. Sample records use the reserved .invalid email domain, so nothing can ever be sent to them.
+var qaSample = app.MapGroup("/api/v1/qa-sample-data").WithTags("QaSample").RequireAuthorization("HQAdmin");
+
+qaSample.MapGet("/", async (LotvDbContext db) => Results.Ok(await QaSampleData.GetStatusAsync(db)));
+
+qaSample.MapPost("/", async (LotvDbContext db) =>
+{
+    var result = await QaSampleData.LoadAsync(db);
+    app.Logger.LogInformation("QA sample data load: {Message}", result.Message);
+    return result.Loaded ? Results.Ok(result) : Results.Conflict(result);
+});
+
+qaSample.MapDelete("/", async (LotvDbContext db) =>
+{
+    var status = await QaSampleData.RemoveAsync(db);
+    app.Logger.LogInformation("QA sample data removed.");
+    return Results.Ok(status);
+});
+
 // ─── CRM / GiveButter contact export (HQAdmin) ───────────────────────────────
 // One row per family - current AND historical, every status - with only the
 // contact columns a CRM import needs (deliberately no loss type, story or case
@@ -4696,7 +4730,9 @@ app.MapGet("/api/v1/export/families-crm", async (string? mom, bool? includeGrief
     if (momIs is not ("auto" or "parent1" or "parent2"))
         return Results.BadRequest(new { error = "mom must be auto, parent1 or parent2." });
 
+    // QA sample families never go into a real CRM / GiveButter import.
     var families = await db.Families.AsNoTracking()
+        .Where(f => !f.Email.EndsWith(".invalid"))
         .OrderBy(f => f.Parent1LastName).ThenBy(f => f.Parent1FirstName).ThenBy(f => f.Id)
         .ToListAsync();
 

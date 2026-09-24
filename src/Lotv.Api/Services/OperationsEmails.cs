@@ -170,7 +170,8 @@ public static class BereavementReminders
         var from = now.Date.AddDays(-DaysBack);
         var until = now.Date.AddDays(DaysAhead + 1);
         var due = await db.FollowUpMilestones.Include(m => m.FollowUpTracker)
-            .Where(m => !m.BookSent && m.ReminderSentAt == null && m.DueDate != null && m.DueDate >= from && m.DueDate < until)
+            .Where(m => !m.BookSent && m.ReminderSentAt == null && m.DueDate != null && m.DueDate >= from && m.DueDate < until
+                        && (m.FollowUpTracker == null || m.FollowUpTracker.Email == null || !m.FollowUpTracker.Email.EndsWith(".invalid")))
             .ToListAsync();
         if (due.Count == 0) return 0;
 

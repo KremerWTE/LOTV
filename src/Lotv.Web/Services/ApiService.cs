@@ -1590,6 +1590,34 @@ public class ApiService
         return resp is { IsSuccessStatusCode: true } ? await resp.Content.ReadFromJsonAsync<Volunteer>(JsonOpts) : null;
     }
 
+    // ── QA sample data ────────────────────────────────────────────────────────
+    public async Task<QaSampleStatusDto> GetQaSampleStatusAsync() =>
+        await GetAsync<QaSampleStatusDto>("/api/v1/qa-sample-data") ?? new QaSampleStatusDto(false, 0, 0, 0);
+
+    /// <summary>Loads the sample data. Returns the new status (when known), a message for the screen, and whether it worked.</summary>
+    public async Task<(QaSampleStatusDto? Status, string Message, bool Ok)> LoadQaSampleAsync()
+    {
+        var resp = await AuthedPostAsync("/api/v1/qa-sample-data", new { });
+        if (resp is null) return (null, "Network error — please try again.", false);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<JsonElement>(JsonOpts);
+            var message = body.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
+            var status = body.TryGetProperty("status", out var st) ? st.Deserialize<QaSampleStatusDto>(JsonOpts) : null;
+            return (status, string.IsNullOrEmpty(message) ? (resp.IsSuccessStatusCode ? "Loaded." : "Couldn't load the sample data.") : message, resp.IsSuccessStatusCode);
+        }
+        catch
+        {
+            return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden ? "Only HQ admins can load sample data." : $"Couldn't load the sample data ({(int)resp.StatusCode}).", false);
+        }
+    }
+
+    public async Task<QaSampleStatusDto?> RemoveQaSampleAsync()
+    {
+        var resp = await AuthedDeleteAsync("/api/v1/qa-sample-data");
+        return resp is { IsSuccessStatusCode: true } ? await resp.Content.ReadFromJsonAsync<QaSampleStatusDto>(JsonOpts) : null;
+    }
+
     // ── Assignment rules ──────────────────────────────────────────────────────
     public Task<List<AssignmentRule>> GetAssignmentRulesAsync() =>
         GetListAsync<AssignmentRule>("/api/v1/assignment-rules");

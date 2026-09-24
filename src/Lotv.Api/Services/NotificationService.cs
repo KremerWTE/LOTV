@@ -106,6 +106,13 @@ public class NotificationService : INotificationService
 
     public async Task<Result> SendEmailAsync(string toEmail, string toName, string subject, string htmlBody)
     {
+        // Addresses on the reserved .invalid domain can never receive mail (QA sample records use them): log, don't send.
+        if (toEmail.Trim().EndsWith(".invalid", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("[Email - undeliverable .invalid address, not sent] To: {Email} | Subject: {Subject}", toEmail, subject);
+            return Result.Ok();
+        }
+
         if (HasSocketLabs(_config)) return await SendViaSocketLabsAsync(toEmail, toName, subject, htmlBody);
 
         var host = _config["Smtp:Host"];

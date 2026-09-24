@@ -1,0 +1,109 @@
+@page "/admin/qa-sample-data"
+@layout AdminLayout
+@inject ApiService Api
+@inject AuthService Auth
+
+<PageTitle>QA Sample Data — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>QA Sample Data</h2>
+    <p>A small set of clearly marked sample families, requests and volunteers, so the portal can be tested without real people's information.</p>
+  </div>
+</div>
+
+@if (!Auth.IsHqAdmin)
+{
+  <div class="alert alert-danger" role="alert">Only HQ admins can load or remove sample data.</div>
+}
+else if (_loading)
+{
+  <Loading Message="Checking…" />
+}
+else
+{
+  <div class="kpi-grid" style="margin-bottom:20px;" id="qa-status" data-loaded="@_status.Loaded.ToString().ToLowerInvariant()">
+    <div class="kpi-card kpi-navy"><div class="kpi-label">Sample families</div><div class="kpi-value" style="color:var(--navy)" id="qa-families">@_status.Families</div></div>
+    <div class="kpi-card kpi-green"><div class="kpi-label">Sample requests</div><div class="kpi-value" style="color:var(--green)" id="qa-requests">@_status.Requests</div></div>
+    <div class="kpi-card kpi-gold"><div class="kpi-label">Sample volunteers</div><div class="kpi-value" style="color:var(--gold)" id="qa-volunteers">@_status.Volunteers</div></div>
+  </div>
+
+  @if (!string.IsNullOrEmpty(_message))
+  {
+    <div class="alert @(_isError ? "alert-danger" : "alert-success")" id="qa-message" role="status" style="margin-bottom:16px;">@_message</div>
+  }
+
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>@(_status.Loaded ? "Sample data is loaded" : "Add sample data")</h3></div>
+    <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;font-size:.88rem;">
+      <div>
+        Adds 12 families with requests at every stage, 3 volunteers, follow-ups and card-mailing entries, including a possible duplicate,
+        a request with a wrong zip code, a single-parent family, and families who did and did not ask for grief support.
+      </div>
+      <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;">
+        <strong>Safe by design.</strong> Every sample record uses an email address ending in <code>.invalid</code>, which can never receive mail.
+        No email is ever sent to them or about them (not to families, volunteers, or the team), they are left out of the CRM export,
+        and their card-mailing entries are marked <em>do not mail</em>. Nothing real is changed, and "Remove" takes it all out again.
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        @if (!_status.Loaded)
+        {
+          <label style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="qa-confirm" @bind="_confirmed" />
+            I understand this adds sample records to this database.
+          </label>
+          <button class="btn btn-primary" id="qa-load" @onclick="LoadAsync" disabled="@(!_confirmed || _busy)">@(_busy ? "Working…" : "Load QA sample data")</button>
+        }
+        else
+        {
+          <button class="btn" id="qa-remove" @onclick="RemoveAsync" disabled="@_busy">@(_busy ? "Working…" : "Remove all QA sample data")</button>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Where to look</h3></div>
+    <div class="panel-body" style="font-size:.86rem;line-height:1.7;">
+      <ul style="margin:0;padding-left:20px;">
+        <li><a href="/admin/kanban">Kanban Board</a> — requests at every stage; sample cards can be searched by the family surnames.</li>
+        <li><a href="/admin/queue">Unassigned Queue</a> — new requests waiting for a volunteer, including the one with a wrong zip.</li>
+        <li><a href="/admin/families/duplicate-review">Possible Duplicates</a> — a request held because it matches another family.</li>
+        <li><a href="/admin/follow-up-trackers">Bereavement Follow-Up</a> and <a href="/admin/grief-support">Grief Support List</a>.</li>
+        <li><a href="/admin/mothers-day">Mother's Day</a> and <a href="/admin/fathers-day">Father's Day</a> mailings (flagged "do not mail").</li>
+        <li><a href="/admin/assignment-rules">Assignment Rules</a> — try a rule against the sample requests.</li>
+      </ul>
+    </div>
+  </div>
+}
+
+@code {
+  private QaSampleStatusDto _status = new(false, 0, 0, 0);
+  private bool _loading = true, _busy, _confirmed, _isError;
+  private string? _message;
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (Auth.IsHqAdmin) _status = await Api.GetQaSampleStatusAsync();
+    _loading = false;
+  }
+
+  private async Task LoadAsync()
+  {
+    _busy = true; _message = null;
+    var (status, message, ok) = await Api.LoadQaSampleAsync();
+    _busy = false;
+    _status = status ?? _status; _message = message; _isError = !ok; _confirmed = false;
+  }
+
+  private async Task RemoveAsync()
+  {
+    _busy = true; _message = null;
+    var status = await Api.RemoveQaSampleAsync();
+    _busy = false;
+    if (status is null) { _message = "Couldn't remove the sample data."; _isError = true; return; }
+    _status = status;
+    _message = "All QA sample data was removed.";
+    _isError = false;
+  }
+}

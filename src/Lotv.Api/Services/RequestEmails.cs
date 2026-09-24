@@ -1,4 +1,5 @@
 using System.Net;
+using Lotv.Api.Data;
 using Lotv.Core.Models;
 using Lotv.Core.Services.Interfaces;
 
@@ -236,6 +237,7 @@ public static class RequestNotifier
     public static void NewRequest(INotificationService notify, IConfiguration cfg, PackageRequest r, Family f,
         string? referrerFirstName, string? referrerEmail, string? duplicateReason)
     {
+        if (QaSampleData.IsSample(f)) return;   // QA sample data never emails anyone, including the team
         // Confirmation goes to whoever actually submitted the form. If someone referred the family, the
         // family (who may not know a package is coming) is not emailed - staff make that first contact.
         var submitterEmail = r.IsForSelf ? f.Email : (referrerEmail ?? f.Email);
@@ -250,6 +252,7 @@ public static class RequestNotifier
 
     public static void Shipped(INotificationService notify, IConfiguration cfg, PackageRequest r)
     {
+        if (QaSampleData.IsSample(r.Family)) return;
         if (r.Family is not { } f) return;
         if (!string.IsNullOrWhiteSpace(f.Email))
         {
@@ -261,6 +264,7 @@ public static class RequestNotifier
 
     public static void Completed(INotificationService notify, IConfiguration cfg, PackageRequest r)
     {
+        if (QaSampleData.IsSample(r.Family)) return;
         if (r.Family is not { } f) return;
         if (!string.IsNullOrWhiteSpace(f.Email))
         {
