@@ -308,6 +308,13 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the FormDefinitions table; the intake form editor will be unavailable."); }
 
     // Father's Day entries share the mailing list table via a Kind column that older databases lack (idempotent).
+    try { AssignmentRulesTableBootstrap.EnsureTable(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not create the AssignmentRules table; routing rules will be unavailable."); }
+
+    // Volunteer case counts drifted because assigning never incremented them; make them match reality.
+    try { await VolunteerWorkload.RecomputeAllAsync(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not recompute volunteer case counts."); }
+
     try { FamilyGriefSupportColumnBootstrap.EnsureColumn(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the GriefSupportRequested column to Families."); }
     try { MailingListKindColumnBootstrap.EnsureColumn(db); }
@@ -593,14 +600,17 @@ auth.MapPost("/logout", async (RefreshRequest req, LotvDbContext db) =>
 var cases = app.MapGroup("/api/v1/requests").WithTags("Requests").RequireAuthorization("Staff");
 
 cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
-    string? status, string? priority, bool? overdue, bool? historical) =>
+    string? status, string? priority, bool? overdue, bool? historical, int? familyId) =>
 {
     var q = db.Requests.Include(r => r.Family).AsQueryable();
+    if (familyId.HasValue)
+        q = q.Where(r => r.FamilyId == familyId.Value);   // one family's own requests, including a historical family's
     // Historical (prior-year import) cases are excluded from the active pipeline
     // views by default — see /admin/historical for a dedicated read-only browser.
-    q = historical == true
-        ? q.Where(r => r.Family != null && r.Family.IsHistorical)
-        : q.Where(r => r.Family == null || !r.Family.IsHistorical);
+    else
+        q = historical == true
+            ? q.Where(r => r.Family != null && r.Family.IsHistorical)
+            : q.Where(r => r.Family == null || !r.Family.IsHistorical);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
         q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     if (!string.IsNullOrEmpty(status) && Enum.TryParse<CaseStatus>(status, true, out var cs))
@@ -611,6 +621,23 @@ cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
         q = q.Where(r => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled
                       && r.CreatedAt < DateTime.UtcNow.AddDays(-7));
     return await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
+});
+
+// The signed-in person's own cases: found through their volunteer record (same email, else same name).
+cases.MapGet("/mine", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(ctx.UserId);
+    var email = (user?.Email ?? "").Trim().ToLower();
+    var fullName = $"{user?.FirstName} {user?.LastName}".Trim().ToLower();
+    var volunteerIds = await db.Volunteers
+        .Where(v => (email != "" && v.Email.ToLower() == email)
+                 || (fullName != "" && (v.FirstName + " " + v.LastName).ToLower() == fullName))
+        .Select(v => v.Id).ToListAsync();
+    if (volunteerIds.Count == 0) return Results.Ok(new List<PackageRequest>());
+    var mine = await db.Requests.Include(r => r.Family)
+        .Where(r => r.AssignedToId != null && volunteerIds.Contains(r.AssignedToId.Value))
+        .OrderByDescending(r => r.CreatedAt).ToListAsync();
+    return Results.Ok(mine);
 });
 
 cases.MapGet("/queue", async (LotvDbContext db, IChapterContextService ctx) =>
@@ -693,6 +720,7 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
         OldValue = old.ToString(), NewValue = body.Status.ToString(), Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
+    await VolunteerWorkload.RecomputeAsync(db, r.AssignedToId);
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseStatusChanged", id, body.Status.ToString(), ctx.UserId);
 
     // Let the family know their package is on its way, and let the assigned
@@ -728,6 +756,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     if (r is null) return Results.NotFound();
     var vol = await db.Volunteers.FindAsync(body.VolunteerId);
     if (vol is null) return Results.NotFound(new { message = "Volunteer not found" });
+    var previousVolunteerId = r.AssignedToId;
     r.AssignedToId = vol.Id;
     r.AssignedTo = vol.FullName;
     r.Status = CaseStatus.InProgress;
@@ -739,6 +768,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
         ActivityType = ActivityType.Assigned, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
+    await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId, vol.Id);
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, vol.Id, vol.FullName);
     if (!string.IsNullOrEmpty(vol.Email))
     {
@@ -761,6 +791,7 @@ cases.MapPut("/{id:int}/unassign", async (int id, LotvDbContext db,
         return Results.BadRequest(new { error = "A shipped, fulfilled or cancelled request can't be unassigned." });
 
     var previous = r.AssignedTo;
+    var previousVolunteerId = r.AssignedToId;
     foreach (var a in await db.RequestAssignments
                  .Where(a => a.RequestId == id && (a.Status == AssignmentStatus.Pending || a.Status == AssignmentStatus.Accepted))
                  .ToListAsync())
@@ -777,6 +808,7 @@ cases.MapPut("/{id:int}/unassign", async (int id, LotvDbContext db,
         ActivityType = ActivityType.Unassigned, OldValue = previous, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
+    await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId);
     await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, 0, "");
     return Results.Ok(r);
 });
@@ -918,6 +950,21 @@ cases.MapPost("/{id:int}/accept", async (int id, LotvDbContext db, IChapterConte
     if (assignment is null) return Results.NotFound();
     assignment.Status = AssignmentStatus.Accepted;
     assignment.AcceptedAt = DateTime.UtcNow;
+
+    // The volunteer has taken it on: move the case from Assigned to Confirmed.
+    var accepted = await db.Requests.FindAsync(id);
+    if (accepted is not null && accepted.ProcessStage is ProcessStage.Assigned or ProcessStage.Unassigned)
+    {
+        var from = accepted.ProcessStage;
+        accepted.ProcessStage = ProcessStage.Confirmed;
+        accepted.UpdatedAt = DateTime.UtcNow;
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
+            ActivityType = ActivityType.ProcessStageChanged, OldValue = from.ToString(), NewValue = ProcessStage.Confirmed.ToString(),
+            Details = "Volunteer accepted the assignment.", Timestamp = DateTime.UtcNow
+        });
+    }
     await db.SaveChangesAsync();
     return Results.Ok();
 }).RequireAuthorization("Volunteer");
@@ -968,9 +1015,10 @@ cases.MapPost("/{id:int}/fulfill", async (int id, FulfillRequest body, LotvDbCon
     if (r.AssignedToId.HasValue)
     {
         var vol = await db.Volunteers.FindAsync(r.AssignedToId.Value);
-        if (vol is not null) { vol.TotalCasesFulfilled++; vol.ActiveCases = Math.Max(0, vol.ActiveCases - 1); }
+        if (vol is not null && !alreadyFulfilled) vol.TotalCasesFulfilled++;
     }
     await db.SaveChangesAsync();
+    await VolunteerWorkload.RecomputeAsync(db, r.AssignedToId);
 
     // Completed emails (family, referrer, team) - once only, even if the button is pressed twice.
     if (!alreadyFulfilled) RequestNotifier.Completed(notify, cfg, r);
@@ -4230,6 +4278,75 @@ mailingList.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
     await db.SaveChangesAsync();
     return Results.NoContent();
 });
+
+// ─── Assignment routing rules ("this kind of request goes to that volunteer") ─────
+var assignmentRules = app.MapGroup("/api/v1/assignment-rules").WithTags("AssignmentRules").RequireAuthorization("Staff");
+
+assignmentRules.MapGet("/", async (LotvDbContext db) =>
+    Results.Ok(await db.AssignmentRules.OrderBy(r => r.Priority).ThenBy(r => r.Id).ToListAsync()));
+
+static string? ValidateRule(AssignmentRule r)
+{
+    if (string.IsNullOrWhiteSpace(r.Name)) return "Give the rule a name.";
+    if (r.Name.Length > 200) return "The name is too long.";
+    if (!r.HasCondition) return "Choose at least one condition (a reason, place, or who the request is for).";
+    if (r.AssignToVolunteerId <= 0) return "Choose who the request should go to.";
+    if (!string.IsNullOrWhiteSpace(r.State) && r.State.Trim().Length != 2) return "Use the two-letter state code.";
+    if (!string.IsNullOrWhiteSpace(r.Reasons) && r.ReasonList.Count != r.Reasons.Split(',', StringSplitOptions.RemoveEmptyEntries).Length)
+        return "One of the reasons isn't recognized.";
+    return null;
+}
+
+assignmentRules.MapPost("/", async (AssignmentRule body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var error = ValidateRule(body);
+    if (error is not null) return Results.BadRequest(new { error });
+    if (!await db.Volunteers.AnyAsync(v => v.Id == body.AssignToVolunteerId))
+        return Results.BadRequest(new { error = "That volunteer doesn't exist." });
+    body.Id = 0;
+    body.CreatedAt = body.UpdatedAt = DateTime.UtcNow;
+    body.UpdatedBy = ctx.UserName;
+    db.AssignmentRules.Add(body);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/assignment-rules/{body.Id}", body);
+}).RequireAuthorization("ChapterAdmin");
+
+assignmentRules.MapPut("/{id:int}", async (int id, AssignmentRule body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    var rule = await db.AssignmentRules.FindAsync(id);
+    if (rule is null) return Results.NotFound();
+    var error = ValidateRule(body);
+    if (error is not null) return Results.BadRequest(new { error });
+    if (!await db.Volunteers.AnyAsync(v => v.Id == body.AssignToVolunteerId))
+        return Results.BadRequest(new { error = "That volunteer doesn't exist." });
+    rule.Name = body.Name.Trim(); rule.Priority = body.Priority; rule.IsActive = body.IsActive;
+    rule.Reasons = body.Reasons; rule.State = body.State; rule.City = body.City; rule.ZipPrefix = body.ZipPrefix;
+    rule.ChapterId = body.ChapterId; rule.ForSelf = body.ForSelf; rule.AssignToVolunteerId = body.AssignToVolunteerId;
+    rule.UpdatedAt = DateTime.UtcNow; rule.UpdatedBy = ctx.UserName;
+    await db.SaveChangesAsync();
+    return Results.Ok(rule);
+}).RequireAuthorization("ChapterAdmin");
+
+assignmentRules.MapDelete("/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var rule = await db.AssignmentRules.FindAsync(id);
+    if (rule is null) return Results.NotFound();
+    db.AssignmentRules.Remove(rule);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+}).RequireAuthorization("ChapterAdmin");
+
+// Applies the rules to requests already waiting in the unassigned queue.
+assignmentRules.MapPost("/apply", async (LotvDbContext db, IChapterContextService ctx, IAutoAssignmentService autoAssign) =>
+{
+    var q = db.Requests.Where(r => r.AssignedToId == null && r.Status == CaseStatus.New && !r.NeedsDuplicateReview);
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    var ids = await q.Select(r => r.Id).ToListAsync();
+    var assigned = 0;
+    foreach (var id in ids)
+        if (await autoAssign.TryAssignByRuleAsync(id) is not null) assigned++;
+    return Results.Ok(new { checkedRequests = ids.Count, assigned });
+}).RequireAuthorization("ChapterAdmin");
 
 // ─── Bereavement follow-up tracking (Stephen's Ministry-style touchpoints) ─────
 var followUp = app.MapGroup("/api/v1/follow-up-trackers").WithTags("FollowUp").RequireAuthorization("Staff");

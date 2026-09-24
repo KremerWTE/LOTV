@@ -44,6 +44,9 @@ public class AutoAssignmentService : IAutoAssignmentService
         if (request is null) return Result.Fail("Request not found");
         if (request.AssignedToId.HasValue) return Result.Fail("Request is already assigned");
 
+        // Routing rules come first ("this kind of request goes to that person").
+        if (await TryAssignByRuleAsync(requestId) is not null) return Result.Ok();
+
         var scores = (await GetScoresAsync(requestId)).OrderByDescending(s => s.CompositeScore).ToList();
 
         if (!scores.Any() || scores[0].CompositeScore < CompositeThreshold)
@@ -57,6 +60,18 @@ public class AutoAssignmentService : IAutoAssignmentService
         if (volunteer is null) return Result.Fail("Volunteer not found");
 
         return await AssignAsync(request, volunteer, "system", attempt: 1);
+    }
+
+    public async Task<string?> TryAssignByRuleAsync(int requestId)
+    {
+        var request = await _db.Requests.Include(r => r.Family).FirstOrDefaultAsync(r => r.Id == requestId);
+        if (request is null || request.AssignedToId.HasValue) return null;
+
+        var match = await AssignmentRuleMatcher.FindAsync(_db, request);
+        if (match is null) return null;
+
+        var result = await AssignAsync(request, match.Value.Volunteer, "system", attempt: 1, ruleName: match.Value.Rule.Name);
+        return result.IsSuccess ? match.Value.Volunteer.FullName : null;
     }
 
     public async Task<Result> HandleDeclineAsync(int requestId, int volunteerId, string reason)
@@ -79,6 +94,7 @@ public class AutoAssignmentService : IAutoAssignmentService
             request.AssignedToId = null;
             request.AssignedTo = null;
             await _db.SaveChangesAsync();
+            await VolunteerWorkload.RecomputeAsync(_db, volunteerId);
             await _hub.Clients.Group($"chapter-{request.ChapterId}")
                 .SendAsync("CaseEscalated", request.Id, "No volunteer accepted after maximum reassignment attempts");
             return Result.Ok();
@@ -162,7 +178,7 @@ public class AutoAssignmentService : IAutoAssignmentService
         );
     }
 
-    private async Task<Result> AssignAsync(PackageRequest request, Volunteer volunteer, string assignedById, int attempt)
+    private async Task<Result> AssignAsync(PackageRequest request, Volunteer volunteer, string assignedById, int attempt, string? ruleName = null)
     {
         var chapter = await _db.Chapters.FindAsync(request.ChapterId);
         int windowHours = request.Priority == RequestPriority.Urgent
@@ -172,6 +188,7 @@ public class AutoAssignmentService : IAutoAssignmentService
         request.AssignedToId = volunteer.Id;
         request.AssignedTo = volunteer.FullName;
         request.Status = CaseStatus.InProgress;
+        if (request.ProcessStage == ProcessStage.Unassigned) request.ProcessStage = ProcessStage.Assigned;
         request.UpdatedAt = DateTime.UtcNow;
 
         _db.RequestAssignments.Add(new RequestAssignment
@@ -180,7 +197,7 @@ public class AutoAssignmentService : IAutoAssignmentService
             AssignedToId = volunteer.Id,
             AssignedToName = volunteer.FullName,
             AssignedById = assignedById,
-            AssignedByName = assignedById == "system" ? "Auto-Assignment" : assignedById,
+            AssignedByName = ruleName is not null ? $"Rule: {ruleName}" : assignedById == "system" ? "Auto-Assignment" : assignedById,
             Status = AssignmentStatus.Pending,
             AssignedAt = DateTime.UtcNow,
             AcceptanceDeadline = DateTime.UtcNow.AddHours(windowHours),
@@ -191,13 +208,14 @@ public class AutoAssignmentService : IAutoAssignmentService
         {
             RequestId = request.Id,
             ActorId = assignedById,
-            ActorName = "Auto-Assignment",
+            ActorName = ruleName is not null ? $"Rule: {ruleName}" : "Auto-Assignment",
             ActivityType = ActivityType.Assigned,
             NewValue = volunteer.FullName,
             Timestamp = DateTime.UtcNow
         });
 
         await _db.SaveChangesAsync();
+        await VolunteerWorkload.RecomputeAsync(_db, volunteer.Id);
 
         await _hub.Clients.Group($"chapter-{request.ChapterId}")
             .SendAsync("CaseAssigned", request.Id, volunteer.Id, volunteer.FullName);

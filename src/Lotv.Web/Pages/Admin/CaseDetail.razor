@@ -52,6 +52,16 @@ else
 
   <DataQualityAlert Family="_request.Family" />
 
+  @if (_familyRequests.Where(o => o.Id != _request.Id && o.Status is not (CaseStatus.Fulfilled or CaseStatus.Cancelled)).ToList() is { Count: > 0 } otherOpen)
+  {
+    <div data-alert="repeat-request" role="alert" style="background:#e8f0fb;color:#1f3d73;border-radius:8px;padding:12px 16px;font-size:.86rem;margin-bottom:16px;">
+      <strong>This family has another open request.</strong>
+      @foreach (var o in otherOpen)
+      { <a href="/admin/cases/@o.Id" style="margin-left:8px;">#@o.Id (@o.Status)</a> }
+      — check that this isn't a repeat before shipping a second package.
+    </div>
+  }
+
   <!-- MAIN GRID -->
   <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;">
 

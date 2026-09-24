@@ -1538,6 +1538,50 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    // ── Assignment rules ──────────────────────────────────────────────────────
+    public Task<List<AssignmentRule>> GetAssignmentRulesAsync() =>
+        GetListAsync<AssignmentRule>("/api/v1/assignment-rules");
+
+    public async Task<(AssignmentRule? Rule, string? Error)> CreateAssignmentRuleAsync(AssignmentRule rule)
+        => await SaveAssignmentRuleAsync(await AuthedPostAsync("/api/v1/assignment-rules", rule));
+
+    public async Task<(AssignmentRule? Rule, string? Error)> UpdateAssignmentRuleAsync(AssignmentRule rule)
+        => await SaveAssignmentRuleAsync(await AuthedPutAsync($"/api/v1/assignment-rules/{rule.Id}", rule));
+
+    private async Task<(AssignmentRule? Rule, string? Error)> SaveAssignmentRuleAsync(HttpResponseMessage? resp)
+    {
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (await resp.Content.ReadFromJsonAsync<AssignmentRule>(JsonOpts), null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (body is not null && body.TryGetValue("error", out var msg)) return (null, msg.ToString());
+        }
+        catch { }
+        return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only admins can change assignment rules."
+            : $"Couldn't save the rule ({(int)resp.StatusCode}).");
+    }
+
+    public async Task<bool> DeleteAssignmentRuleAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/assignment-rules/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    /// <summary>Runs the rules over the unassigned queue. Null when the call failed.</summary>
+    public async Task<(int Checked, int Assigned)?> ApplyAssignmentRulesAsync()
+    {
+        var resp = await AuthedPostAsync("/api/v1/assignment-rules/apply", new { });
+        if (resp is null || !resp.IsSuccessStatusCode) return null;
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>(JsonOpts);
+        return (body.GetProperty("checkedRequests").GetInt32(), body.GetProperty("assigned").GetInt32());
+    }
+
+    /// <summary>The signed-in person's own cases (matched through their volunteer record).</summary>
+    public Task<List<PackageRequest>> GetMyRequestsAsync() =>
+        GetListAsync<PackageRequest>("/api/v1/requests/mine");
+
     public async Task<bool> MarkMailingEntrySentAsync(int id, bool sent)
     {
         var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/sent", new { Sent = sent });
