@@ -1,0 +1,100 @@
+@page "/admin/grief-support"
+@layout AdminLayout
+@inject ApiService Api
+@inject IJSRuntime JS
+
+<PageTitle>Grief Support List — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Grief Support List</h2>
+    <p>Families who asked to receive quarterly Grief Support (asked on the request form for stillbirth and infant loss).</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-primary btn-sm" id="grief-download" @onclick="DownloadAsync" disabled="@(_families.Count == 0)">⤓ Download CSV</button>
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi-card kpi-navy">
+    <div class="kpi-icon">🕊</div>
+    <div class="kpi-label">Families on the list</div>
+    <div class="kpi-value" style="color:var(--navy)" id="grief-count">@_families.Count</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-icon">⚠</div>
+    <div class="kpi-label">Need a check first</div>
+    <div class="kpi-value" style="color:var(--amber)">@_families.Count(f => FamilyDataQuality.Check(f).NeedsAttention)</div>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <Loading Message="Loading the list…" />
+}
+else if (_families.Count == 0)
+{
+  <div class="panel"><div class="panel-body"><div class="empty-state"><div class="icon">🕊</div>
+    <p>Nobody has asked for quarterly grief support yet.</p></div></div></div>
+}
+else
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table" id="grief-table">
+        <thead><tr><th>Family</th><th>Email</th><th>Phone</th><th>Address</th><th>Date of loss</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var f in _families)
+          {
+            <tr data-family="@f.Id">
+              <td>
+                <strong>@f.FullName</strong>
+                @if (FamilyDataQuality.Check(f).NeedsAttention)
+                { <span class="badge badge-onhold" style="margin-left:6px;" data-needs-info>⚠ Check info</span> }
+              </td>
+              <td style="font-size:.82rem;">@f.Email</td>
+              <td style="font-size:.82rem;">@(string.IsNullOrEmpty(f.Phone) ? "—" : f.Phone)</td>
+              <td style="font-size:.78rem;">@f.StreetAddress@(string.IsNullOrEmpty(f.Apt) ? "" : $", {f.Apt}"), @f.City, @f.State @f.Zip</td>
+              <td style="font-size:.8rem;">@(f.DateOfLoss?.ToString("MMM d, yyyy") ?? "—")</td>
+              <td><a href="/admin/families/@f.Id" class="btn btn-sm">Profile</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<Family> _families = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _families = await Api.GetGriefSupportFamiliesAsync();
+    _loading = false;
+  }
+
+  private Task DownloadAsync()
+  {
+    var sb = new System.Text.StringBuilder();
+    sb.Append("Family name,First parent,Second parent,Email address,Phone number,Street address,City,State,Zip,Date of loss\r\n");
+    foreach (var f in _families)
+    {
+      var street = string.IsNullOrWhiteSpace(f.Apt) ? f.StreetAddress : $"{f.StreetAddress}, {f.Apt}";
+      sb.Append(string.Join(",", new[]
+      {
+        CsvExport.Cell($"{f.Parent1LastName} Family"),
+        CsvExport.Cell($"{f.Parent1FirstName} {f.Parent1LastName}".Trim()),
+        CsvExport.Cell(string.IsNullOrWhiteSpace(f.Parent2FirstName) ? "" : $"{f.Parent2FirstName} {f.Parent2LastName}".Trim()),
+        CsvExport.Cell(f.Email), CsvExport.Cell(f.Phone), CsvExport.Cell(street), CsvExport.Cell(f.City),
+        CsvExport.Cell(f.State), CsvExport.Cell(f.Zip), CsvExport.Cell(f.DateOfLoss?.ToString("yyyy-MM-dd")),
+      })).Append("\r\n");
+    }
+    return JS.InvokeVoidAsync("downloadCsv", $"grief-support-{DateTime.Now:yyyyMMdd}.csv", sb.ToString()).AsTask();
+  }
+}

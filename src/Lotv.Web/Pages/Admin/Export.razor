@@ -28,6 +28,9 @@
           <option value="parent1">Always the first parent</option>
           <option value="parent2">Always the second parent</option>
         </select>
+        <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="crm-grief" @bind="_crmGrief" /> Add a "Quarterly grief support" column
+        </label>
         <button class="btn btn-primary btn-sm" @onclick="ExportFamiliesCrm" disabled="@_crmBusy">@(_crmBusy ? "Preparing…" : "Download families CSV")</button>
       </div>
       <p style="font-size:.74rem;color:var(--text-light);margin:10px 0 0;">
@@ -189,13 +192,14 @@
   private List<AuditEntry> _auditLog = [];
   private string _momIs = "auto";
   private bool _crmBusy;
+  private bool _crmGrief;
   private string? _crmError;
   private string? _toastMsg;
 
   private async Task ExportFamiliesCrm()
   {
     _crmBusy = true; _crmError = null;
-    var csv = await Api.GetFamiliesCrmCsvAsync(_momIs);
+    var csv = await Api.GetFamiliesCrmCsvAsync(_momIs, _crmGrief);
     _crmBusy = false;
     if (csv is null) { _crmError = "Couldn't build the export. Only HQ Admins can download it — check you're signed in as one."; return; }
     await JS.InvokeVoidAsync("downloadCsv", $"lotv-families-{DateTime.Now:yyyyMMdd}.csv", csv);

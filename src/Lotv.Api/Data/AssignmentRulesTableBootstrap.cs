@@ -27,7 +27,7 @@ public static class AssignmentRulesTableBootstrap
                         [ZipPrefix]           NVARCHAR(10)   NULL,
                         [ChapterId]           INT            NULL,
                         [ForSelf]             BIT            NULL,
-                        [AssignToVolunteerId] INT            NOT NULL,
+                        [AssignToVolunteerIds] NVARCHAR(500) NOT NULL,
                         [CreatedAt]           DATETIME2      NOT NULL,
                         [UpdatedAt]           DATETIME2      NOT NULL,
                         [UpdatedBy]           NVARCHAR(200)  NULL,
@@ -50,7 +50,7 @@ public static class AssignmentRulesTableBootstrap
                     "ZipPrefix"           TEXT    NULL,
                     "ChapterId"           INTEGER NULL,
                     "ForSelf"             INTEGER NULL,
-                    "AssignToVolunteerId" INTEGER NOT NULL,
+                    "AssignToVolunteerIds" TEXT   NOT NULL,
                     "CreatedAt"           TEXT    NOT NULL,
                     "UpdatedAt"           TEXT    NOT NULL,
                     "UpdatedBy"           TEXT    NULL

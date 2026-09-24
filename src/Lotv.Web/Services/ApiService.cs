@@ -975,12 +975,12 @@ public class ApiService
 
     // ─── CRM / GiveButter export ─────────────────────────────────────────────
     /// <summary>CSV text of every family (current + historical) with the CRM contact columns.</summary>
-    public async Task<string?> GetFamiliesCrmCsvAsync(string mom)
+    public async Task<string?> GetFamiliesCrmCsvAsync(string mom, bool includeGrief = false)
     {
         SetAuthHeader();
         try
         {
-            var resp = await _http.GetAsync($"/api/v1/export/families-crm?mom={Uri.EscapeDataString(mom)}");
+            var resp = await _http.GetAsync($"/api/v1/export/families-crm?mom={Uri.EscapeDataString(mom)}&includeGrief={includeGrief.ToString().ToLowerInvariant()}");
             return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync() : null;
         }
         catch { return null; }
@@ -1536,6 +1536,34 @@ public class ApiService
     {
         var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/flag", new { Flagged = flagged, Note = note });
         return resp?.IsSuccessStatusCode == true;
+    }
+
+    /// <summary>Emails the family asking them to confirm the details that look wrong. Returns an error message on failure, else null.</summary>
+    public async Task<string?> RequestFamilyDetailsAsync(int familyId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/families/{familyId}/request-details", new { });
+        if (resp is null) return "Network error — please try again.";
+        if (resp.IsSuccessStatusCode) return null;
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (body is not null && body.TryGetValue("error", out var msg)) return msg.ToString();
+        }
+        catch { }
+        return $"Couldn't send the email ({(int)resp.StatusCode}).";
+    }
+
+    /// <summary>Families who asked for quarterly grief support.</summary>
+    public Task<List<Family>> GetGriefSupportFamiliesAsync() =>
+        GetListAsync<Family>("/api/v1/families/grief-support");
+
+    /// <summary>The signed-in person's own volunteer record, or null if they don't have one yet.</summary>
+    public async Task<Volunteer?> GetMyVolunteerAsync() => await GetAsync<Volunteer>("/api/v1/volunteers/me");
+
+    public async Task<Volunteer?> CreateMyVolunteerAsync()
+    {
+        var resp = await AuthedPostAsync("/api/v1/volunteers/me", new { });
+        return resp is { IsSuccessStatusCode: true } ? await resp.Content.ReadFromJsonAsync<Volunteer>(JsonOpts) : null;
     }
 
     // ── Assignment rules ──────────────────────────────────────────────────────

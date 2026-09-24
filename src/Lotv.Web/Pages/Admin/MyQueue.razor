@@ -19,6 +19,21 @@
   </div>
 </div>
 
+@if (_loaded && _myVolunteer is null)
+{
+  <div class="panel" id="no-volunteer-record" style="margin-bottom:20px;">
+    <div class="panel-body" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+      <div style="flex:1;min-width:260px;font-size:.88rem;">
+        <strong>You aren't set up as a volunteer yet.</strong>
+        Cases can only be assigned to people with a volunteer record, so nothing can appear here until you have one.
+      </div>
+      <button class="btn btn-primary btn-sm" id="create-volunteer" @onclick="CreateMyVolunteerAsync" disabled="@_creating">
+        @(_creating ? "Creating…" : "Create my volunteer record")
+      </button>
+    </div>
+  </div>
+}
+
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
@@ -187,6 +202,8 @@ else
   private bool _saving;
   private bool _saved;
   private int _fulfilled;
+  private Volunteer? _myVolunteer;
+  private bool _loaded, _creating;
   private string _avgAge = "—";
   private string _activeFilter = "All";
   private string _saveError = "";
@@ -201,11 +218,21 @@ else
 
   protected override async Task OnInitializedAsync() => await LoadAsync();
 
+  private async Task CreateMyVolunteerAsync()
+  {
+    _creating = true;
+    _myVolunteer = await Api.CreateMyVolunteerAsync();
+    _creating = false;
+    await LoadAsync();
+  }
+
   private async Task LoadAsync()
   {
     _loading = true;
     // The API finds this person's cases through their volunteer record (same email, else same name).
     _mine = await Api.GetMyRequestsAsync();
+    _myVolunteer = await Api.GetMyVolunteerAsync();
+    _loaded = true;
 
     _fulfilled = _mine.Count(r => r.Status == CaseStatus.Fulfilled);
 

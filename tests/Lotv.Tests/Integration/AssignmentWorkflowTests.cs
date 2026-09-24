@@ -32,7 +32,7 @@ public class AssignmentWorkflowTests
         // A driver is never picked by automatic assignment, so a request landing on them can only be the rule.
         var specialist = await AddVolunteerAsync(chapter, "Sam", "Specialist", role: VolunteerRole.Driver);
         var admin = await AdminClientAsync();
-        await CreateRuleAsync(admin, "Losses go to Sam", new { Reasons = "Stillbirth,InfantLoss", AssignToVolunteerId = specialist, ChapterId = chapter });
+        await CreateRuleAsync(admin, "Losses go to Sam", new { Reasons = "Stillbirth,InfantLoss", AssignToVolunteerIds = specialist.ToString(), ChapterId = chapter });
 
         var (_, stillbirth) = await ApplyAsync(chapter, "Stillbirth");
         var (_, infertility) = await ApplyAsync(chapter, "Infertility");
@@ -52,13 +52,31 @@ public class AssignmentWorkflowTests
         var first = await AddVolunteerAsync(chapter, "First", "Rule", role: VolunteerRole.Driver);
         var second = await AddVolunteerAsync(chapter, "Second", "Rule", role: VolunteerRole.Driver);
         var admin = await AdminClientAsync();
-        await CreateRuleAsync(admin, "Wisconsin only", new { Priority = 1, State = "WI", AssignToVolunteerId = first, ChapterId = chapter });
-        await CreateRuleAsync(admin, "Illinois", new { Priority = 2, State = "IL", AssignToVolunteerId = second, ChapterId = chapter });
-        await CreateRuleAsync(admin, "Illinois losses", new { Priority = 3, State = "IL", Reasons = "Stillbirth", AssignToVolunteerId = first, ChapterId = chapter });
+        await CreateRuleAsync(admin, "Wisconsin only", new { Priority = 1, State = "WI", AssignToVolunteerIds = first.ToString(), ChapterId = chapter });
+        await CreateRuleAsync(admin, "Illinois", new { Priority = 2, State = "IL", AssignToVolunteerIds = second.ToString(), ChapterId = chapter });
+        await CreateRuleAsync(admin, "Illinois losses", new { Priority = 3, State = "IL", Reasons = "Stillbirth", AssignToVolunteerIds = first.ToString(), ChapterId = chapter });
 
         var (_, request) = await ApplyAsync(chapter, "Stillbirth");   // family lives in IL
 
         Assert.Equal(second, (await RequestAsync(request)).AssignedToId);   // rule 1 doesn't match, rule 2 does and comes before rule 3
+    }
+
+    [Fact]
+    public async Task ARuleForATeam_SendsEachRequestToTheLeastBusyEligibleMember()
+    {
+        var chapter = await NewChapterAsync();
+        var busy = await AddVolunteerAsync(chapter, "Busy", "Member", activeCases: 3, role: VolunteerRole.Driver);
+        var free = await AddVolunteerAsync(chapter, "Free", "Member", activeCases: 0, role: VolunteerRole.Driver);
+        var full = await AddVolunteerAsync(chapter, "Full", "Member", activeCases: 99, role: VolunteerRole.Driver);
+        var admin = await AdminClientAsync();
+        await CreateRuleAsync(admin, "Team rule", new { Reasons = "Infertility", AssignToVolunteerIds = $"{busy},{free},{full}", ChapterId = chapter });
+
+        var (_, first) = await ApplyAsync(chapter, "Infertility");
+        Assert.Equal(free, (await RequestAsync(first)).AssignedToId);
+
+        // The team member who took the first one now has a case, but is still the least busy of the eligible members.
+        var (_, second) = await ApplyAsync(chapter, "Infertility");
+        Assert.Equal(free, (await RequestAsync(second)).AssignedToId);
     }
 
     [Fact]
@@ -67,7 +85,7 @@ public class AssignmentWorkflowTests
         var chapter = await NewChapterAsync();
         var full = await AddVolunteerAsync(chapter, "Very", "Busy", activeCases: 99, role: VolunteerRole.Driver);
         var admin = await AdminClientAsync();
-        await CreateRuleAsync(admin, "Everything to the busy one", new { Reasons = "Infertility", AssignToVolunteerId = full, ChapterId = chapter });
+        await CreateRuleAsync(admin, "Everything to the busy one", new { Reasons = "Infertility", AssignToVolunteerIds = full.ToString(), ChapterId = chapter });
 
         var (_, request) = await ApplyAsync(chapter, "Infertility");
 
@@ -83,7 +101,7 @@ public class AssignmentWorkflowTests
 
         var specialist = await AddVolunteerAsync(chapter, "Late", "Rule", role: VolunteerRole.Driver);
         var admin = await AdminClientAsync();
-        await CreateRuleAsync(admin, "Late rule", new { Reasons = "Stillbirth", AssignToVolunteerId = specialist, ChapterId = chapter });
+        await CreateRuleAsync(admin, "Late rule", new { Reasons = "Stillbirth", AssignToVolunteerIds = specialist.ToString(), ChapterId = chapter });
 
         var resp = await admin.PostAsJsonAsync("/api/v1/assignment-rules/apply", new { });
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
@@ -98,18 +116,18 @@ public class AssignmentWorkflowTests
         var volunteer = await AddVolunteerAsync(chapter, "Val", "Idate");
         var admin = await AdminClientAsync();
 
-        var noCondition = await admin.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "Nothing", AssignToVolunteerId = volunteer });
+        var noCondition = await admin.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "Nothing", AssignToVolunteerIds = volunteer.ToString() });
         Assert.Equal(HttpStatusCode.BadRequest, noCondition.StatusCode);
-        var noName = await admin.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "", State = "IL", AssignToVolunteerId = volunteer });
+        var noName = await admin.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "", State = "IL", AssignToVolunteerIds = volunteer.ToString() });
         Assert.Equal(HttpStatusCode.BadRequest, noName.StatusCode);
-        var badReason = await admin.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "x", Reasons = "Nonsense", AssignToVolunteerId = volunteer });
+        var badReason = await admin.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "x", Reasons = "Nonsense", AssignToVolunteerIds = volunteer.ToString() });
         Assert.Equal(HttpStatusCode.BadRequest, badReason.StatusCode);
-        var noVolunteer = await admin.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "x", State = "IL", AssignToVolunteerId = 99999999 });
+        var noVolunteer = await admin.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "x", State = "IL", AssignToVolunteerIds = "99999999" });
         Assert.Equal(HttpStatusCode.BadRequest, noVolunteer.StatusCode);
 
         var staff = await AdminClientAsync("ChapterStaff");
         Assert.Equal(HttpStatusCode.OK, (await staff.GetAsync("/api/v1/assignment-rules")).StatusCode);
-        var create = await staff.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "Nope", State = "IL", AssignToVolunteerId = volunteer });
+        var create = await staff.PostAsJsonAsync("/api/v1/assignment-rules", new { Name = "Nope", State = "IL", AssignToVolunteerIds = volunteer.ToString() });
         Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
     }
 

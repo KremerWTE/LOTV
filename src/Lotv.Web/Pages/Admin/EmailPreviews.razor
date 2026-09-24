@@ -36,7 +36,7 @@ else
   @foreach (var audience in _data.Emails.Select(e => e.Audience).Distinct())
   {
     <h3 style="font-family:var(--ff-head);color:var(--navy);margin:24px 0 12px;">
-      @(audience == "Family" ? "To the family (or the person who referred them)" : "To Whitney and the team")
+      @(audience == "Family" ? "To the family (or the person who referred them)" : audience == "Volunteer" ? "To the volunteer" : "To Whitney and the team")
     </h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:20px;">
       @foreach (var email in _data.Emails.Where(e => e.Audience == audience))

@@ -15,15 +15,16 @@ public class EmailPreviewPageTests : E2ETestBase
         await WaitForBlazorAsync();
         await Page.Locator("[data-email]").First.WaitForAsync();
 
-        Assert.Equal(9, await Page.Locator("[data-email]").CountAsync());
+        Assert.Equal(13, await Page.Locator("[data-email]").CountAsync());
         await AssertVisibleAsync("text=To the family (or the person who referred them)");
         await AssertVisibleAsync("text=To Whitney and the team");
+        await AssertVisibleAsync("text=To the volunteer");
         await AssertVisibleAsync("text=Team emails go to:");
-        foreach (var name in new[] { "Package shipped", "Package delivered", "New request", "Package completed" })
+        foreach (var name in new[] { "Package shipped", "Package delivered", "New request", "Package completed", "New assignment", "Assignment removed", "Bereavement follow-ups due", "Please confirm your details" })
             Assert.True(await Page.Locator($"[data-email] h3:text-is('{name}')").CountAsync() >= 1, name);
 
         // Each email is rendered in its own frame with a subject line
-        Assert.Equal(9, await Page.Locator("[data-email] iframe").CountAsync());
+        Assert.Equal(13, await Page.Locator("[data-email] iframe").CountAsync());
         Assert.Contains("Your Prayer Care Package Has Been Delivered", await Page.Locator("[data-email='completed']").InnerTextAsync());
     }
 
