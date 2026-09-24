@@ -33,6 +33,13 @@ public static class QaSampleData
             await db.Volunteers.CountAsync(v => v.Email.EndsWith(".invalid")));
     }
 
+    /// <summary>Loads the sample data only if none is loaded. True when it loaded something (used by the optional startup switch).</summary>
+    public static async Task<bool> EnsureLoadedAsync(LotvDbContext db)
+    {
+        if ((await GetStatusAsync(db)).Loaded) return false;
+        return (await LoadAsync(db)).Loaded;
+    }
+
     // ── Load ──────────────────────────────────────────────────────────────────
 
     public static async Task<LoadResult> LoadAsync(LotvDbContext db, DateTime? now = null)
@@ -170,7 +177,7 @@ public static class QaSampleData
 
     private static Volunteer NewVolunteer(string first, string last, Chapter chapter, DateTime joined) => new()
     {
-        FirstName = first, LastName = last, Email = $"{first}.{last}@{Domain}".ToLowerInvariant(), Phone = "+13125550100",
+        FirstName = first, LastName = last + " (sample)", Email = $"{first}.{last}@{Domain}".ToLowerInvariant(), Phone = "+13125550100",
         Role = VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active, ChapterId = chapter.Id, JoinedDate = joined,
         ServiceRadiusMiles = 40, Notes = Marker,
     };

@@ -134,6 +134,35 @@ public class QaSampleDataTests
     }
 
     [Fact]
+    public async Task EnsureLoaded_LoadsOnlyWhenNothingIsLoaded()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        await QaSampleData.RemoveAsync(db);
+        await EnsureAChapterAsync(db);
+        try
+        {
+            Assert.True(await QaSampleData.EnsureLoadedAsync(db));    // empty: loads
+            var status = await QaSampleData.GetStatusAsync(db);
+            Assert.False(await QaSampleData.EnsureLoadedAsync(db));   // already there: nothing happens
+            Assert.Equal(status, await QaSampleData.GetStatusAsync(db));
+        }
+        finally { db.ChangeTracker.Clear(); await QaSampleData.RemoveAsync(db); }
+    }
+
+    [Fact]
+    public async Task SampleVolunteers_SayTheyAreSamples()
+    {
+        await WithSampleAsync(async db =>
+        {
+            var names = await db.Volunteers.AsNoTracking().Where(v => v.Email.EndsWith(".invalid")).Select(v => v.LastName).ToListAsync();
+            Assert.Equal(3, names.Count);
+            Assert.All(names, n => Assert.EndsWith("(sample)", n));
+            return 0;
+        });
+    }
+
+    [Fact]
     public async Task LoadingTwice_DoesNothing()
     {
         await WithSampleAsync(async db =>

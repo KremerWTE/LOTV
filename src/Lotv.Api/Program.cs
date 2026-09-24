@@ -340,6 +340,15 @@ app.MapHealthChecks("/health").AllowAnonymous();
     try { await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, app.Logger); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create volunteer records for staff accounts."); }
 
+    // Optional: load the marked QA sample data on startup (QaSample:AutoLoad=true, from a deployment secret).
+    // It adds nothing if sample data is already there; turn the setting off and use Admin > QA Sample Data to remove it.
+    try
+    {
+        if (app.Configuration.GetValue<bool>("QaSample:AutoLoad") && await QaSampleData.EnsureLoadedAsync(db))
+            app.Logger.LogInformation("Loaded the QA sample data (QaSample:AutoLoad is on).");
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not load the QA sample data on startup."); }
+
     try
     {
         var removedTrackers = await FollowUpTrackerDedupe.RunAsync(db);

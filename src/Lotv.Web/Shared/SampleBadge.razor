@@ -1,0 +1,12 @@
+@if (IsSample)
+{
+  <span class="badge badge-onhold" data-sample style="margin-left:6px;font-size:.66rem;letter-spacing:.04em;"
+        title="QA sample record: not a real family. It can never be emailed, and Admin > QA Sample Data removes it.">SAMPLE</span>
+}
+
+@code {
+  [Parameter] public Family? Family { get; set; }
+
+  /// <summary>QA sample families use the reserved .invalid email domain.</summary>
+  private bool IsSample => Family?.Email is { Length: > 0 } e && e.Trim().EndsWith(".invalid", StringComparison.OrdinalIgnoreCase);
+}
