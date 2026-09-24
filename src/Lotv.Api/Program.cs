@@ -599,7 +599,7 @@ cases.MapGet("/queue", async (LotvDbContext db, IChapterContextService ctx) =>
 {
     // Requests flagged NeedsDuplicateReview are held out of the normal queue until
     // staff resolve them at /admin/families/duplicate-review.
-    var q = db.Requests.Where(r => r.AssignedToId == null && r.Status == CaseStatus.New && !r.NeedsDuplicateReview);
+    var q = db.Requests.Include(r => r.Family).Where(r => r.AssignedToId == null && r.Status == CaseStatus.New && !r.NeedsDuplicateReview);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue)
         q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     return await q.OrderBy(r => r.CreatedAt).ToListAsync();
