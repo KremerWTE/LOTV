@@ -54,6 +54,7 @@
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/queue">
           <span class="icon">🔚</span> Unassigned Queue
+          <span class="sidebar-badge" id="unassigned-queue-count">@_unassignedCount</span>
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/my-queue">
           <span class="icon">📋</span> My Work Queue
@@ -734,6 +735,7 @@
 
 @code {
   private int _openCount;
+  private int _unassignedCount;
   private int _pendingAlloc;
   private int _pendingDupReview;
   private string _pageTitle = "Chapter Dashboard";
@@ -846,6 +848,7 @@
       var stats = await Api.GetDashboardStatsAsync();
       if (stats is null) return;
       _openCount = stats.OpenCases;
+      _unassignedCount = stats.UnassignedQueue;
       await InvokeAsync(StateHasChanged);
     }
     catch { /* badge is cosmetic; the layout may also be disposed mid-navigation */ }
@@ -854,8 +857,9 @@
   private async Task LoadNotificationsAsync()
   {
     var stats = await Api.GetDashboardStatsAsync();
-    _openCount    = stats?.OpenCases ?? 0;
-    _pendingAlloc = stats?.Overdue ?? 0;
+    _openCount       = stats?.OpenCases ?? 0;
+    _unassignedCount = stats?.UnassignedQueue ?? 0;
+    _pendingAlloc    = stats?.Overdue ?? 0;
 
     _overdueItems      = await Api.GetOverdueRequestsAsync();
     _pendingAllocItems = await Api.GetAllocationsAsync("PendingReview");

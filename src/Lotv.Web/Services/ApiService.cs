@@ -1768,7 +1768,8 @@ public record BoardTimelinePointDto(string Period, decimal Donations, int Reques
 
 public record DashboardStatsDto(
     int OpenCases, int Overdue,
-    decimal DonationsThisMonth, decimal DonationsLastMonth, int ActiveVolunteers);
+    decimal DonationsThisMonth, decimal DonationsLastMonth, int ActiveVolunteers,
+    int UnassignedQueue = 0);
 
 public record WorkloadRowDto(
     int Id, string FullName, string Role, int ActiveCases, int TotalCasesFulfilled,
