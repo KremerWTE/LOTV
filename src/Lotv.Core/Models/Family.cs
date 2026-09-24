@@ -29,6 +29,9 @@ public class Family
     public PrivacyPreference PrivacyPreference { get; set; } = PrivacyPreference.Anonymous;
     public DateTime? DateOfLoss { get; set; }
 
+    /// <summary>Answer to "Would you like to receive quarterly Grief Support?" (asked for stillbirth and infant loss only); null = not asked.</summary>
+    public bool? GriefSupportRequested { get; set; }
+
     // True for records imported from a prior year's closed-out request log — kept
     // out of the active Kanban pipeline and surfaced instead in the read-only
     // Historical section.

@@ -29,6 +29,8 @@ else
     </div>
   </div>
 
+  <DataQualityAlert Family="_family" />
+
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;">
     <!-- PROFILE -->
     <div class="panel">
@@ -168,6 +170,7 @@ else
     ("Parish",     _family.ParishName),
     ("Diocese",    _family.DioceseName),
     ("How Heard",  _family.HowHeard),
+    ("Grief Support", _family.GriefSupportRequested is { } g ? (g ? "Yes - quarterly" : "No") : null),
     ("Contact Notes", _family.ContactNotes),
   ];
 

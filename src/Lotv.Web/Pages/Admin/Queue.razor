@@ -11,6 +11,7 @@
     <p>Cases awaiting volunteer assignment — oldest first</p>
   </div>
   <div class="page-hd-actions">
+    <button class="btn btn-sm @(_needsInfoOnly ? "btn-primary" : "")" id="needs-info-filter" aria-pressed="@_needsInfoOnly" @onclick="() => _needsInfoOnly = !_needsInfoOnly">⚠ Needs info (@_queue.Count(HasInfoProblems))</button>
     <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
     <a href="/admin/cases" class="btn btn-sm">All Cases</a>
     <a href="/admin/kanban" class="btn btn-sm">☷ Kanban Board</a>
@@ -66,6 +67,8 @@ else
           <tr>
             <th>#</th>
             <th>Family</th>
+            <th>Contact</th>
+            <th>Location</th>
             <th>Reason</th>
             <th>Priority</th>
             <th>Status</th>
@@ -75,7 +78,7 @@ else
           </tr>
         </thead>
         <tbody>
-          @foreach (var r in _queue)
+          @foreach (var r in Shown)
           {
             <tr>
               <td style="font-size:.76rem;color:var(--text-light);">#@r.Id</td>
@@ -83,6 +86,17 @@ else
                 <strong>@r.Family?.FullName</strong>
                 @if (r.IsOverdue)
                 { <span class="badge badge-overdue" style="margin-left:6px;">Overdue</span> }
+                @if (r.Family is not null && FamilyDataQuality.Check(r.Family) is { NeedsAttention: true } dq)
+                { <div class="badge badge-onhold" data-needs-info style="margin:4px 0;" title="@string.Join(" ", dq.Issues.Select(i => i.Message))">⚠ @dq.Advice</div> }
+                <div style="font-size:.74rem;color:var(--text-light);">@(r.IsForSelf ? "For their own family" : "Requested for someone else")@(string.IsNullOrEmpty(r.ChildrenInitials) ? "" : $" • Bracelet: {r.ChildrenInitials}")</div>
+              </td>
+              <td style="font-size:.78rem;">
+                @if (!string.IsNullOrEmpty(r.Family?.Email)) { <div>@r.Family!.Email</div> }
+                @if (!string.IsNullOrEmpty(r.Family?.Phone)) { <div>@r.Family!.Phone</div> }
+              </td>
+              <td style="font-size:.78rem;">
+                <div>@r.Family?.City, @r.Family?.State @r.Family?.Zip</div>
+                @if (!string.IsNullOrEmpty(r.Family?.ParishName)) { <div style="color:var(--text-light);">@r.Family!.ParishName</div> }
               </td>
               <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason.ToDisplayName()</td>
               <td><span class="badge @GetPriorityBadge(r.Priority)">@r.Priority</span></td>
@@ -115,6 +129,16 @@ else
       <!-- Case summary -->
       <div style="background:var(--navy-pale);border-radius:10px;padding:14px 16px;font-size:.84rem;display:grid;gap:6px;">
         <div><strong>Family:</strong> @_assigning.Family?.FullName</div>
+        @if (_assigning.Family is { } fam)
+        {
+          <div><strong>Email:</strong> @fam.Email</div>
+          <div><strong>Phone:</strong> @(string.IsNullOrEmpty(fam.Phone) ? "—" : fam.Phone)</div>
+          <div><strong>Address:</strong> @fam.StreetAddress@(string.IsNullOrEmpty(fam.Apt) ? "" : $", Apt {fam.Apt}"), @fam.City, @fam.State @fam.Zip</div>
+          <div><strong>Parish / Diocese:</strong> @(fam.ParishName ?? "—") / @(fam.DioceseName ?? "—")</div>
+          <div><strong>Faith:</strong> @(fam.FaithTradition ?? "Not specified")</div>
+          <div><strong>Date of loss:</strong> @(fam.DateOfLoss?.ToString("MMM d, yyyy") ?? "—")</div>
+        }
+        <div><strong>Requested for:</strong> @(_assigning.IsForSelf ? "Their own family" : "Someone else")@(_assigning.IsForSelf ? "" : $" (referred by {_assigning.ReferrerName ?? "—"})")</div>
         <div><strong>Reason:</strong> @_assigning.Reason.ToDisplayName()</div>
         <div><strong>Created:</strong> @_assigning.CreatedAt.ToString("MMM d, yyyy") (@GetAge(_assigning.CreatedAt) old)</div>
         @if (_assigning.IsOverdue)
@@ -165,6 +189,9 @@ else
   private List<PackageRequest> _queue = [];
   private List<Volunteer> _volunteers = [];
   private List<VolunteerScoreResult> _candidates = [];
+  private bool _needsInfoOnly;
+  private IEnumerable<PackageRequest> Shown => _needsInfoOnly ? _queue.Where(HasInfoProblems) : _queue;
+  private static bool HasInfoProblems(PackageRequest r) => r.Family is not null && FamilyDataQuality.Check(r.Family).NeedsAttention;
   private PackageRequest? _assigning;
   private bool _loading = true;
   private bool _candidatesLoaded;

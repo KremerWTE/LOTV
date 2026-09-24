@@ -422,7 +422,8 @@
       howHeard: howHeard,
       chapterId: def.chapterId || 1,
       privacyPreference: forWho === "someone" ? (value("mentionPreference") === "Mention" ? "Public" : "Anonymous") : "Anonymous",
-      dateOfLoss: value("dateOfLoss") || null
+      dateOfLoss: value("dateOfLoss") || null,
+      griefSupportRequested: value("griefSupport") ? value("griefSupport") === "Yes" : null
     };
 
     // Notes: grief support, any custom questions staff added, then opt-ins.

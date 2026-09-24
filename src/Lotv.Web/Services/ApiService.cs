@@ -729,6 +729,12 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true;
     }
 
+    public async Task<bool> UnassignRequestAsync(int id)
+    {
+        var resp = await AuthedPutAsync($"/api/v1/requests/{id}/unassign", new { });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     public async Task<bool> UpdateRequestPriorityAsync(int id, RequestPriority priority)
     {
         var resp = await AuthedPutAsync($"/api/v1/requests/{id}/priority", new { Priority = priority });
@@ -963,6 +969,9 @@ public class ApiService
         }
         catch { return (false, "Failed to update email."); }
     }
+
+    // ─── Email previews ──────────────────────────────────────────────────────
+    public Task<EmailPreviewsDto?> GetEmailPreviewsAsync() => GetAsync<EmailPreviewsDto>("/api/v1/email-previews");
 
     // ─── CRM / GiveButter export ─────────────────────────────────────────────
     /// <summary>CSV text of every family (current + historical) with the CRM contact columns.</summary>
@@ -1484,10 +1493,43 @@ public class ApiService
     }
 
     // ── Mailing list (Mother's Day / Father's Day annual mailing) ──────────────
-    public Task<List<MailingListEntry>> GetMailingListAsync(int? year = null, bool? flagged = null, bool? sent = null)
+    public Task<List<MailingListEntry>> GetMailingListAsync(int? year = null, bool? flagged = null, bool? sent = null,
+        MailingKind kind = MailingKind.MothersDay)
     {
-        var qs = BuildQs(("year", year?.ToString()), ("flagged", flagged?.ToString().ToLower()), ("sent", sent?.ToString().ToLower()));
+        var qs = BuildQs(("year", year?.ToString()), ("flagged", flagged?.ToString().ToLower()), ("sent", sent?.ToString().ToLower()),
+            ("kind", kind.ToString()));
         return GetListAsync<MailingListEntry>($"/api/v1/mailing-list{qs}");
+    }
+
+    /// <summary>Fills the list from the last year's requests (one entry per family).</summary>
+    public async Task<(MailingBuildResultDto? Result, string? Error)> BuildMailingListAsync(MailingKind kind, int year)
+    {
+        var resp = await AuthedPostAsync("/api/v1/mailing-list/build", new { Kind = kind, Year = year });
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode)
+            return (await resp.Content.ReadFromJsonAsync<MailingBuildResultDto>(JsonOpts), null);
+        return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only admins can build the mailing list."
+            : $"Couldn't build the list ({(int)resp.StatusCode}).");
+    }
+
+    /// <summary>Bulk-adds recipients from CSV text. <paramref name="dryRun"/> reports the outcome without saving.</summary>
+    public async Task<(MailingImportResultDto? Result, string? Error)> ImportMailingListAsync(string csv, int year, bool dryRun,
+        MailingKind kind = MailingKind.MothersDay)
+    {
+        var resp = await AuthedPostAsync("/api/v1/mailing-list/import", new { Csv = csv, Year = year, DryRun = dryRun, Kind = kind });
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode)
+            return (await resp.Content.ReadFromJsonAsync<MailingImportResultDto>(JsonOpts), null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (body is not null && body.TryGetValue("error", out var msg)) return (null, msg.ToString());
+        }
+        catch { }
+        return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only admins can import the mailing list."
+            : $"The import failed ({(int)resp.StatusCode}).");
     }
 
     public async Task<bool> FlagMailingEntryAsync(int id, bool flagged, string? note)
