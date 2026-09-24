@@ -38,6 +38,13 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - Verified on the real API + LocalDB: healthy schema 200; columns stripped while running -> 500 "The assignment could not be saved (SqlException): Invalid column name 'ProcessStage'."; after restart the bootstrap added both columns and assign returned 200 (stage Assigned, status InProgress).
 - Found, not changed: `GET /dashboard/stats` open-case count (`Program.cs` ~line 1762) has an operator-precedence bug (`A && New || InProgress`), so the chapter filter applies only to New; it also counts only New + InProgress. The sidebar "Cases" badge reads it once at layout load.
 
+## Case page fixes (same day) ✅
+
+- **Sidebar Cases badge** now counts what the Cases page calls Open (New, In Progress, Awaiting Shipment), excludes requests held for duplicate review, and applies the chapter filter to all of them (was `chapter && New || InProgress`). It refreshes on every navigation instead of once at load. Test: `SidebarOpenCasesCount_MatchesTheCasesPage_...` (616 tests pass).
+- **Case details Save Changes** ignored the result of assign / priority / due date / tracking saves and could report success (or fail silently) when the volunteer change failed. Each step is now checked; the first failure stops the save, names the step (with the server's reason for assign) and keeps the edits on screen.
+- **Request-form answers on the case page:** the Family panel now shows the prayer-wall (privacy) preference and "Other answers from the request form" (`Family.ContactNotes`: grief-support answer, custom questions staff add in the form editor, newsletter / prayer-night opt-ins), which were saved but never displayed.
+- Known intake gaps, not changed: `PackageType` from the form is collapsed to a category and `"Comfort"` (capitalised default) doesn't match the lowercase `"comfort"` mapping so it becomes Other; when both parents give an email or phone only the first is kept.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

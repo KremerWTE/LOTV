@@ -1759,7 +1759,11 @@ dashboard.MapGet("/stats", async (LotvDbContext db, IChapterContextService ctx) 
     var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
     var lastMonth = startOfMonth.AddMonths(-1);
 
-    var openCases = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId) && r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress);
+    // Same definition as the Cases page's "Open Cases": New, In Progress or Awaiting Shipment, leaving out requests
+    // held for duplicate review. (This used to be `chapter && New || InProgress`, so the chapter filter only applied to New.)
+    var openCases = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId)
+        && !r.NeedsDuplicateReview
+        && (r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress || r.Status == CaseStatus.AwaitingShipment));
     var overdue = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId) && r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled && r.CreatedAt < DateTime.UtcNow.AddDays(-7));
     var donationsThisMonth = await db.Donations.Where(d => (!chapterId.HasValue || d.ChapterId == chapterId) && d.Date >= startOfMonth).SumAsync(d => (decimal?)d.Amount) ?? 0m;
     var donationsLastMonth = await db.Donations.Where(d => (!chapterId.HasValue || d.ChapterId == chapterId) && d.Date >= lastMonth && d.Date < startOfMonth).SumAsync(d => (decimal?)d.Amount) ?? 0m;

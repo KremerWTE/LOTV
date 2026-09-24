@@ -379,6 +379,25 @@ public class QaSampleDataTests
         Assert.False((await admin.GetFromJsonAsync<JsonElement>("/api/v1/qa-sample-data")).GetProperty("loaded").GetBoolean());
     }
 
+    // ── Cases badge ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SidebarOpenCasesCount_MatchesTheCasesPage_AndSkipsRequestsHeldForDuplicateReview()
+    {
+        await WithSampleAsync(async db =>
+        {
+            var expected = await db.Requests.CountAsync(r => !r.NeedsDuplicateReview
+                && (r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress || r.Status == CaseStatus.AwaitingShipment));
+            var held = await db.Requests.CountAsync(r => r.NeedsDuplicateReview && r.Status == CaseStatus.New);
+            Assert.True(held > 0, "the sample data should include a request held for duplicate review");
+
+            var admin = await ClientForAsync("HQAdmin", chapterId: null);   // an HQ admin isn't tied to one chapter
+            var stats = await admin.GetFromJsonAsync<JsonElement>("/api/v1/dashboard/stats");
+            Assert.Equal(expected, stats.GetProperty("openCases").GetInt32());
+            return 0;
+        });
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private sealed class CountingHandler : HttpMessageHandler
@@ -391,12 +410,12 @@ public class QaSampleDataTests
         }
     }
 
-    private async Task<HttpClient> ClientForAsync(string role)
+    private async Task<HttpClient> ClientForAsync(string role, int? chapterId = 1)
     {
         var client = _factory.CreateClient();
         var email = $"qa-{Guid.NewGuid():N}@test.com";
         const string password = "TestPass1Sample!";
-        await client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password = password, FirstName = "Qa", LastName = "Tester", Role = role, ChapterId = 1 });
+        await client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password = password, FirstName = "Qa", LastName = "Tester", Role = role, ChapterId = chapterId });
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { Username = email, Password = password });
         var body = await login.Content.ReadFromJsonAsync<LoginResponseDto>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);

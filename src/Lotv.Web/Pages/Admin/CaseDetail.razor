@@ -371,11 +371,29 @@ else
             { <div><strong>Children's Initials:</strong> @_request.Family.ChildrenInitials</div> }
             <div><strong>Date of Loss:</strong> @(_request.Family.DateOfLoss?.ToString("MMM d, yyyy") ?? "—")</div>
             <div><strong>How They Heard:</strong> @(_request.Family.HowHeard ?? "—")</div>
+            <div data-field="privacy-preference"><strong>Prayer wall:</strong> @(_request.Family.PrivacyPreference switch
+              {
+                PrivacyPreference.Public => "Name shown publicly",
+                PrivacyPreference.Private => "Prayers only — not listed",
+                _ => "Listed anonymously"
+              })</div>
             @if (!string.IsNullOrEmpty(_request.Family.Story))
             {
               <div>
                 <strong>Story:</strong>
                 <div style="margin-top:4px;font-style:italic;color:var(--text-mid);border-left:3px solid var(--green);padding-left:10px;">@_request.Family.Story</div>
+              </div>
+            }
+            @* The request form saves its extra answers here, joined by " | ": the grief-support answer, any custom
+               questions staff added ("Question: answer"), and newsletter / prayer-night opt-ins. *@
+            @if (FormAnswerNotes(_request.Family.ContactNotes) is { Count: > 0 } formNotes)
+            {
+              <div data-field="form-answers">
+                <strong>Other answers from the request form:</strong>
+                <ul style="margin:4px 0 0;padding-left:18px;line-height:1.6;">
+                  @foreach (var note in formNotes)
+                  { <li>@note</li> }
+                </ul>
               </div>
             }
           </div>
@@ -642,25 +660,35 @@ else
     _saveMsg = _errorMsg = "";
   }
 
+  private static List<string> FormAnswerNotes(string? contactNotes) =>
+    string.IsNullOrWhiteSpace(contactNotes)
+      ? []
+      : contactNotes.Split(" | ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+  private void FailSave(string message) => (_saving, _errorMsg) = (false, message);
+
   private async Task SaveDetailsAsync()
   {
     if (_request is null) return;
     _saving = true;
     _saveMsg = _errorMsg = "";
 
-    if (_editPriority != _request.Priority)
-      await Api.UpdateRequestPriorityAsync(_request.Id, _editPriority);
+    // Each step is checked: stop at the first failure and say which one, keeping the edits on screen
+    // (nothing is reloaded over them), instead of reporting "saved" when part of it wasn't.
+    if (_editPriority != _request.Priority && !await Api.UpdateRequestPriorityAsync(_request.Id, _editPriority))
+    { FailSave("Couldn't change the priority."); return; }
 
-    if (_editAssignedVolId.HasValue && _editAssignedVolId != _request.AssignedToId)
-      await Api.AssignRequestAsync(_request.Id, _editAssignedVolId.Value);
+    if (_editAssignedVolId.HasValue && _editAssignedVolId != _request.AssignedToId
+        && !await Api.AssignRequestAsync(_request.Id, _editAssignedVolId.Value))
+    { FailSave($"Couldn't change the assigned volunteer: {Api.LastAssignError ?? "please try again."}"); return; }
 
-    if (_editDueDate.HasValue && _editDueDate != _request.DueDate)
-      await Api.UpdateRequestDueDateAsync(_request.Id, _editDueDate.Value);
+    if (_editDueDate.HasValue && _editDueDate != _request.DueDate && !await Api.UpdateRequestDueDateAsync(_request.Id, _editDueDate.Value))
+    { FailSave("Couldn't change the due date."); return; }
 
     // Patch tracking BEFORE status — the backend requires a tracking number to
-    // already be saved before it will allow a transition into Shipped. Also runs
-    // after assign, since assign forces status back to InProgress as a side effect.
-    await Api.PatchRequestAsync(_request.Id, _editTracking, _editShippedDate, _editInternalNotes);
+    // already be saved before it will allow a transition into Shipped.
+    if (!await Api.PatchRequestAsync(_request.Id, _editTracking, _editShippedDate, _editInternalNotes))
+    { FailSave("Couldn't save the tracking number, shipped date or internal notes."); return; }
 
     if (_editStatus != _request.Status)
     {
