@@ -244,6 +244,8 @@ jobs:
         APP_EMAIL_FROM_NAME:       ${{ secrets.APP_EMAIL_FROM_NAME }}
         APP_EMAIL_REPLY_TO:        ${{ secrets.APP_EMAIL_REPLY_TO }}
         APP_TEAM_EMAILS:           ${{ secrets.APP_TEAM_EMAILS }}
+        # Optional starting password for Susan Harper's account (used only until she first signs in).
+        APP_SUSAN_INITIAL_PASSWORD: ${{ secrets.APP_SUSAN_INITIAL_PASSWORD }}
       run: |
         $ErrorActionPreference = "Stop"
 
@@ -297,6 +299,7 @@ jobs:
         Set-IfSet -root $cfg -path @("SocketLabs","FromName")                 -envVal $env:APP_EMAIL_FROM_NAME
         Set-IfSet -root $cfg -path @("SocketLabs","ReplyTo")                  -envVal $env:APP_EMAIL_REPLY_TO
         Set-IfSet -root $cfg -path @("Notifications","IntakeTeamEmails")      -envVal $env:APP_TEAM_EMAILS
+        Set-IfSet -root $cfg -path @("StaffAccounts","InitialPasswords","susan_harper") -envVal $env:APP_SUSAN_INITIAL_PASSWORD
 
         # Write back — no BOM, 2-space indent
         $indented = $cfg | ConvertTo-Json -Depth 20

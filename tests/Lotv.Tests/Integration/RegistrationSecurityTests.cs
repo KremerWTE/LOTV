@@ -142,6 +142,78 @@ public class RegistrationSecurityTests
     // ── Susan Harper ──────────────────────────────────────────────────────────
 
     [Fact]
+    public async Task AStartingPasswordFromConfiguration_IsUsedOnCreation_AndOnlyUntilTheFirstSignIn()
+    {
+        const string starting = "Start-Pass-2026!x";
+        const string chosen = "Chosen-By-Susan-9!";
+        using var host = ProductionLikeHost();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [StaffAccountProvisioning.InitialPasswordKey("susan.harper")] = starting,
+        }).Build();
+
+        // Each step gets its own scope, as each application start does.
+        async Task<T> InScope<T>(Func<UserManager<LotvIdentityUser>, Task<T>> body)
+        {
+            using var scope = host.Services.CreateScope();
+            return await body(scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>());
+        }
+
+        await InScope(async m => { var e = await m.FindByNameAsync("susan.harper"); if (e is not null) await m.DeleteAsync(e); return 0; });
+
+        // Created with the supplied password, and she can sign in with it (by username or email)
+        Assert.Equal(1, await InScope(m => StaffAccountProvisioning.EnsureAsync(m, logger, config)));
+        foreach (var who in new[] { "susan.harper", "susan@wte.net" })
+        {
+            var ok = await host.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { Username = who, Password = starting });
+            Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        }
+
+        // She has signed in, and picks her own password.
+        await InScope(async m =>
+        {
+            var susan = (await m.FindByNameAsync("susan.harper"))!;
+            Assert.NotNull(susan.LastLoginAt);
+            Assert.True((await m.ChangePasswordAsync(susan, starting, chosen)).Succeeded);
+            return 0;
+        });
+
+        // Deploying again must not put the starting password back.
+        Assert.Equal(0, await InScope(m => StaffAccountProvisioning.EnsureAsync(m, logger, config)));
+        await InScope(async m =>
+        {
+            var susan = (await m.FindByNameAsync("susan.harper"))!;
+            Assert.True(await m.CheckPasswordAsync(susan, chosen));
+            Assert.False(await m.CheckPasswordAsync(susan, starting));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task AStartingPasswordSuppliedLater_IsGivenToAnAccountThatNeverSignedIn()
+    {
+        const string starting = "Later-Pass-2026!y";
+        using var host = ProductionLikeHost();
+        using var scope = host.Services.CreateScope();
+        var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+
+        var existing = await userMgr.FindByNameAsync("susan.harper");
+        if (existing is not null) await userMgr.DeleteAsync(existing);
+        await StaffAccountProvisioning.EnsureAsync(userMgr, logger);   // created first with a random password
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [StaffAccountProvisioning.InitialPasswordKey("susan.harper")] = starting,
+        }).Build();
+
+        await StaffAccountProvisioning.EnsureAsync(userMgr, logger, config);   // the secret is added on a later deploy
+
+        var ok = await host.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { Username = "susan@wte.net", Password = starting });
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+    }
+
+    [Fact]
     public async Task StaffProvisioning_CreatesSusanAsAnHqAdmin_WithNoPasswordAnyoneKnows_AndLeavesExistingAccountsAlone()
     {
         using var host = ProductionLikeHost();

@@ -335,7 +335,7 @@ app.MapHealthChecks("/health").AllowAnonymous();
     // environment, unlike DevSeedData which is Development-only.
     var repairUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
     await CoreAdminAccountRepair.RepairAsync(repairUserMgr, app.Logger);
-    try { await StaffAccountProvisioning.EnsureAsync(repairUserMgr, app.Logger); }
+    try { await StaffAccountProvisioning.EnsureAsync(repairUserMgr, app.Logger, scope.ServiceProvider.GetRequiredService<IConfiguration>()); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not provision staff accounts."); }
 
     try
