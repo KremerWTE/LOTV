@@ -337,6 +337,17 @@ app.MapHealthChecks("/health").AllowAnonymous();
     await CoreAdminAccountRepair.RepairAsync(repairUserMgr, app.Logger);
     try { await StaffAccountProvisioning.EnsureAsync(repairUserMgr, app.Logger, scope.ServiceProvider.GetRequiredService<IConfiguration>()); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not provision staff accounts."); }
+    try { await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, app.Logger); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not create volunteer records for staff accounts."); }
+
+    // Optional: load the marked QA sample data on startup (QaSample:AutoLoad=true, from a deployment secret).
+    // It adds nothing if sample data is already there; turn the setting off and use Admin > QA Sample Data to remove it.
+    try
+    {
+        if (app.Configuration.GetValue<bool>("QaSample:AutoLoad") && await QaSampleData.EnsureLoadedAsync(db))
+            app.Logger.LogInformation("Loaded the QA sample data (QaSample:AutoLoad is on).");
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not load the QA sample data on startup."); }
 
     try
     {
@@ -788,7 +799,8 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     var previousVolunteerId = r.AssignedToId;
     r.AssignedToId = vol.Id;
     r.AssignedTo = vol.FullName;
-    r.Status = CaseStatus.InProgress;
+    // Only a new request starts work when assigned; a case already packing, shipped or on hold keeps its status.
+    if (r.Status == CaseStatus.New) r.Status = CaseStatus.InProgress;
     if (r.ProcessStage == ProcessStage.Unassigned) r.ProcessStage = ProcessStage.Assigned;
     r.UpdatedAt = DateTime.UtcNow;
     db.RequestActivities.Add(new RequestActivity

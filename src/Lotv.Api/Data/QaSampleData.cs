@@ -33,6 +33,13 @@ public static class QaSampleData
             await db.Volunteers.CountAsync(v => v.Email.EndsWith(".invalid")));
     }
 
+    /// <summary>Loads the sample data only if none is loaded. True when it loaded something (used by the optional startup switch).</summary>
+    public static async Task<bool> EnsureLoadedAsync(LotvDbContext db)
+    {
+        if ((await GetStatusAsync(db)).Loaded) return false;
+        return (await LoadAsync(db)).Loaded;
+    }
+
     // ── Load ──────────────────────────────────────────────────────────────────
 
     public static async Task<LoadResult> LoadAsync(LotvDbContext db, DateTime? now = null)
@@ -53,6 +60,9 @@ public static class QaSampleData
         db.Volunteers.AddRange(volunteers);
         await db.SaveChangesAsync();
         var (priya, marcus, helen) = (volunteers[0], volunteers[1], volunteers[2]);
+        // Susan Harper (the QA tester) is a volunteer too, when her record exists: give her a few cases to work.
+        var susan = await db.Volunteers.FirstOrDefaultAsync(v => v.Email == "susan@wte.net");
+        Volunteer? ForSusan(Volunteer? original) => susan ?? original;
 
         // Each entry is one situation worth checking in the portal.
         var families = new List<(Family Family, PackageRequest Request, Volunteer? Volunteer, ProcessStage Stage, CaseStatus Status, int DaysAgo, string Note)>();
@@ -80,9 +90,9 @@ public static class QaSampleData
         }
 
         families.Add(Scenario("Daniel", "Elena", "Whitaker", PackageReason.Infertility, CaseStatus.New, ProcessStage.Unassigned, null, 1, "Naperville", "IL", "60540", "New request waiting in the Unassigned Queue"));
-        families.Add(Scenario("Samuel", "Rebecca", "Lindgren", PackageReason.PrenatalDiagnosis, CaseStatus.InProgress, ProcessStage.Assigned, priya, 6, "Evanston", "IL", "60201", "Assigned, waiting for the volunteer to accept"));
-        families.Add(Scenario("Anthony", "Maria", "Castellanos", PackageReason.Miscarriage, CaseStatus.InProgress, ProcessStage.Confirmed, marcus, 9, "Chicago", "IL", "60614", "Volunteer accepted (Confirmed)", lossDaysAgo: 40));
-        families.Add(Scenario("Peter", "Hannah", "Ostrander", PackageReason.Stillbirth, CaseStatus.InProgress, ProcessStage.Packing, helen, 14, "Oak Park", "IL", "60302", "Being packed; grief support: yes, bereavement follow-up running", grief: true, lossDaysAgo: 30));
+        families.Add(Scenario("Samuel", "Rebecca", "Lindgren", PackageReason.PrenatalDiagnosis, CaseStatus.InProgress, ProcessStage.Assigned, ForSusan(priya), 6, "Evanston", "IL", "60201", "Assigned, waiting for the volunteer to accept"));
+        families.Add(Scenario("Anthony", "Maria", "Castellanos", PackageReason.Miscarriage, CaseStatus.InProgress, ProcessStage.Confirmed, ForSusan(marcus), 9, "Chicago", "IL", "60614", "Volunteer accepted (Confirmed)", lossDaysAgo: 40));
+        families.Add(Scenario("Peter", "Hannah", "Ostrander", PackageReason.Stillbirth, CaseStatus.InProgress, ProcessStage.Packing, ForSusan(helen), 14, "Oak Park", "IL", "60302", "Being packed; grief support: yes, bereavement follow-up running", grief: true, lossDaysAgo: 30));
         families.Add(Scenario("Thomas", "Grace", "Fairweather", PackageReason.InfantLoss, CaseStatus.AwaitingShipment, ProcessStage.Shipping, priya, 20, "Skokie", "IL", "60076", "Ready to ship; grief support: no", grief: false, lossDaysAgo: 60));
         families.Add(Scenario("Joseph", "Katherine", "Brennan", PackageReason.PrenatalLifeLimitingDiagnosis, CaseStatus.Shipped, ProcessStage.Shipping, marcus, 26, "Wheaton", "IL", "60187", "Shipped with a tracking number"));
         families.Add(Scenario("Nathan", "Olivia", "Prescott", PackageReason.Stillbirth, CaseStatus.Fulfilled, ProcessStage.Delivered, helen, 70, "Joliet", "IL", "60435", "Delivered; bereavement touchpoints partly sent", grief: true, lossDaysAgo: 100));
@@ -156,7 +166,9 @@ public static class QaSampleData
             _ = entry;
         }
         await db.SaveChangesAsync();
-        await Lotv.Api.Services.VolunteerWorkload.RecomputeAsync(db, volunteers.Select(v => v.Id).ToList());
+        var workers = volunteers.Select(v => v.Id).ToList();
+        if (susan is not null) workers.Add(susan.Id);
+        await Lotv.Api.Services.VolunteerWorkload.RecomputeAsync(db, workers);
         await tx.CommitAsync();
 
         var status2 = await GetStatusAsync(db);
@@ -165,7 +177,7 @@ public static class QaSampleData
 
     private static Volunteer NewVolunteer(string first, string last, Chapter chapter, DateTime joined) => new()
     {
-        FirstName = first, LastName = last, Email = $"{first}.{last}@{Domain}".ToLowerInvariant(), Phone = "+13125550100",
+        FirstName = first, LastName = last + " (sample)", Email = $"{first}.{last}@{Domain}".ToLowerInvariant(), Phone = "+13125550100",
         Role = VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active, ChapterId = chapter.Id, JoinedDate = joined,
         ServiceRadiusMiles = 40, Notes = Marker,
     };
@@ -227,9 +239,15 @@ public static class QaSampleData
             await db.SaveChangesAsync();
         }
 
+        // Volunteers who are not sample records (Susan) may have been given sample cases: their counts need fixing afterward.
+        var affectedVolunteers = await db.Requests.Where(r => familyIds.Contains(r.FamilyId) && r.AssignedToId != null)
+            .Select(r => r.AssignedToId!.Value).Distinct().ToListAsync();
+
         var seen = new HashSet<(string, int)>();
         await DeleteAsync(db, db.Model.FindEntityType(typeof(Family))!, familyIds, seen);
         await DeleteAsync(db, db.Model.FindEntityType(typeof(Volunteer))!, volunteerIds, seen);
+        db.ChangeTracker.Clear();
+        await Lotv.Api.Services.VolunteerWorkload.RecomputeAsync(db, affectedVolunteers.Where(id => !volunteerIds.Contains(id)).ToList());
         await tx.CommitAsync();
         return await GetStatusAsync(db);
     }

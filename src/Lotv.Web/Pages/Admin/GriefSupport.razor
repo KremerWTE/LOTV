@@ -49,7 +49,7 @@ else
           {
             <tr data-family="@f.Id">
               <td>
-                <strong>@f.FullName</strong>
+                <strong>@f.FullName</strong><SampleBadge Family="f" />
                 @if (FamilyDataQuality.Check(f).NeedsAttention)
                 { <span class="badge badge-onhold" style="margin-left:6px;" data-needs-info>⚠ Check info</span> }
               </td>

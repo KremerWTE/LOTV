@@ -87,7 +87,7 @@
           <tr>
             <td style="font-size:.76rem;color:var(--text-light);">#@r.Id</td>
             <td>
-              <strong>@r.Family?.FullName</strong>
+              <strong>@r.Family?.FullName</strong><SampleBadge Family="r.Family" />
               @if (r.IsOverdue)
               { <span class="badge badge-overdue" style="margin-left:6px;">Overdue</span> }
               <div style="font-size:.72rem;color:var(--text-light);">@r.Reason.ToDisplayName()</div>

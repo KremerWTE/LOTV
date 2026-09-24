@@ -11,7 +11,7 @@
     #@Request.Id
     <span class="badge @GetPriorityBadge(Request.Priority)" style="float:right;">@Request.Priority</span>
   </div>
-  <div class="kanban-card-name">@Request.Family?.FullName</div>
+  <div class="kanban-card-name">@Request.Family?.FullName<SampleBadge Family="Request.Family" /></div>
   <div class="kanban-card-reason">@Request.Reason.ToDisplayName()</div>
   <div class="kanban-card-meta">
     <span>@(Request.IsForSelf ? "For Self" : "For Someone Else")</span>
