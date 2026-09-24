@@ -29,6 +29,26 @@ public class EmailPreviewPageTests : E2ETestBase
     }
 
     [Fact]
+    public async Task Page_ShowsWhichEmailServiceIsActive_AndLetsAnAdminSendATestEmail()
+    {
+        await LoginAsAdminAsync();
+        await GoToAsync("/admin/email-previews");
+        await WaitForBlazorAsync();
+        await Page.Locator("#email-provider").WaitForAsync();
+
+        // Local dev has no email service configured, so the page says so instead of pretending emails go out.
+        await Page.Locator("#email-provider [data-provider='Log only']").WaitForAsync();
+
+        var send = Page.Locator("[data-send-test='completed']");
+        Assert.True(await send.IsDisabledAsync());                  // needs an address first
+        await Page.FillAsync("#test-to", "someone@example.org");
+        await send.ClickAsync();
+        var result = Page.Locator("[data-test-result='completed']");
+        await result.WaitForAsync();
+        Assert.Contains("only written to the server log", await result.InnerTextAsync());
+    }
+
+    [Fact]
     public async Task LeftNav_HasARequestEmailsLink()
     {
         await LoginAsAdminAsync();

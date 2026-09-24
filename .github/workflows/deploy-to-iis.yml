@@ -237,6 +237,12 @@ jobs:
         APP_SMTP_USERNAME:         ${{ secrets.APP_SMTP_USERNAME }}
         APP_SMTP_PASSWORD:         ${{ secrets.APP_SMTP_PASSWORD }}
         APP_SMTP_FROM_EMAIL:       ${{ secrets.APP_SMTP_FROM_EMAIL }}
+        # SocketLabs (preferred; used when both the server id and API key are set, otherwise SMTP above).
+        APP_SOCKETLABS_SERVER_ID:  ${{ secrets.APP_SOCKETLABS_SERVER_ID }}
+        APP_SOCKETLABS_API_KEY:    ${{ secrets.APP_SOCKETLABS_API_KEY }}
+        APP_EMAIL_FROM:            ${{ secrets.APP_EMAIL_FROM }}
+        APP_EMAIL_FROM_NAME:       ${{ secrets.APP_EMAIL_FROM_NAME }}
+        APP_EMAIL_REPLY_TO:        ${{ secrets.APP_EMAIL_REPLY_TO }}
         APP_TEAM_EMAILS:           ${{ secrets.APP_TEAM_EMAILS }}
       run: |
         $ErrorActionPreference = "Stop"
@@ -285,6 +291,11 @@ jobs:
         Set-IfSet -root $cfg -path @("Smtp","Username")                       -envVal $env:APP_SMTP_USERNAME
         Set-IfSet -root $cfg -path @("Smtp","Password")                       -envVal $env:APP_SMTP_PASSWORD
         Set-IfSet -root $cfg -path @("Smtp","FromEmail")                      -envVal $env:APP_SMTP_FROM_EMAIL
+        Set-IfSet -root $cfg -path @("SocketLabs","ServerId")                 -envVal $env:APP_SOCKETLABS_SERVER_ID
+        Set-IfSet -root $cfg -path @("SocketLabs","ApiKey")                   -envVal $env:APP_SOCKETLABS_API_KEY
+        Set-IfSet -root $cfg -path @("SocketLabs","FromEmail")                -envVal $env:APP_EMAIL_FROM
+        Set-IfSet -root $cfg -path @("SocketLabs","FromName")                 -envVal $env:APP_EMAIL_FROM_NAME
+        Set-IfSet -root $cfg -path @("SocketLabs","ReplyTo")                  -envVal $env:APP_EMAIL_REPLY_TO
         Set-IfSet -root $cfg -path @("Notifications","IntakeTeamEmails")      -envVal $env:APP_TEAM_EMAILS
 
         # Write back — no BOM, 2-space indent

@@ -973,6 +973,30 @@ public class ApiService
     // ─── Email previews ──────────────────────────────────────────────────────
     public Task<EmailPreviewsDto?> GetEmailPreviewsAsync() => GetAsync<EmailPreviewsDto>("/api/v1/email-previews");
 
+    /// <summary>Sends one sample email to an address through the live provider. Returns a message for the screen.</summary>
+    public async Task<(bool Ok, string Message)> SendTestEmailAsync(string key, string to)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/email-previews/{Uri.EscapeDataString(key)}/test", new { To = to });
+        if (resp is null) return (false, "Network error — please try again.");
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>(JsonOpts);
+            if (resp.IsSuccessStatusCode)
+            {
+                var provider = body is not null && body.TryGetValue("provider", out var p) ? p.GetString() : "";
+                var delivered = body is not null && body.TryGetValue("delivered", out var d) && d.ValueKind == JsonValueKind.True;
+                return delivered
+                    ? (true, $"Sent to {to} through {provider}.")
+                    : (true, "No email service is set up yet, so this was only written to the server log.");
+            }
+            if (body is not null && body.TryGetValue("error", out var msg)) return (false, msg.ToString());
+        }
+        catch { }
+        return (false, resp.StatusCode == System.Net.HttpStatusCode.Forbidden
+            ? "Only HQ admins can send test emails."
+            : $"Couldn't send the test ({(int)resp.StatusCode}).");
+    }
+
     // ─── CRM / GiveButter export ─────────────────────────────────────────────
     /// <summary>CSV text of every family (current + historical) with the CRM contact columns.</summary>
     public async Task<string?> GetFamiliesCrmCsvAsync(string mom, bool includeGrief = false)

@@ -108,6 +108,35 @@ public class OperationsTests
         Assert.False((await unsent.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sent").GetBoolean());
     }
 
+    // ── Test emails ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ThePreviewList_SaysWhichProviderIsActive()
+    {
+        var admin = await ClientForAsync("HQAdmin");
+        var body = await admin.GetFromJsonAsync<JsonElement>("/api/v1/email-previews");
+        Assert.Equal("Log only", body.GetProperty("provider").GetString());   // the test host has no email settings
+    }
+
+    [Fact]
+    public async Task SendingATestEmail_IsForHqAdmins_AndChecksTheAddressAndTheKey()
+    {
+        var admin = await ClientForAsync("HQAdmin");
+
+        var ok = await admin.PostAsJsonAsync("/api/v1/email-previews/completed/test", new { To = "someone@example.org" });
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var body = await ok.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Log only", body.GetProperty("provider").GetString());
+        Assert.False(body.GetProperty("delivered").GetBoolean());       // nothing configured, so only logged
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/email-previews/completed/test", new { To = "not an address" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/email-previews/completed/test", new { To = "" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync("/api/v1/email-previews/nonsense/test", new { To = "someone@example.org" })).StatusCode);
+
+        var staff = await ClientForAsync("ChapterStaff");
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync("/api/v1/email-previews/completed/test", new { To = "someone@example.org" })).StatusCode);
+    }
+
     // ── Bereavement reminders ─────────────────────────────────────────────────
 
     [Fact]

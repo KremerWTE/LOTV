@@ -4661,7 +4661,26 @@ app.MapGet("/api/v1/email-previews", (IConfiguration cfg) =>
     {
         teamRecipients = RequestNotifier.TeamEmails(cfg),
         emails = RequestEmails.Previews(),
+        provider = NotificationService.ActiveProvider(cfg),
     })).WithTags("Email").RequireAuthorization("Staff");
+
+// Sends one sample email to an address through whatever provider is active (SocketLabs, SMTP, or log only),
+// so an admin can confirm that email really goes out. HQ admins only; the subject is marked [TEST].
+app.MapPost("/api/v1/email-previews/{key}/test", async (string key, TestEmailRequest body, INotificationService notify, IConfiguration cfg) =>
+{
+    var to = (body.To ?? "").Trim();
+    if (!System.Net.Mail.MailAddress.TryCreate(to, out var address) || address.Address != to)
+        return Results.BadRequest(new { error = "Enter a valid email address." });
+    var preview = RequestEmails.Previews().FirstOrDefault(p => p.Key == key);
+    if (preview is null) return Results.NotFound();
+
+    var provider = NotificationService.ActiveProvider(cfg);
+    var result = await notify.SendEmailAsync(to, to, "[TEST] " + preview.Subject, preview.Html);
+    app.Logger.LogInformation("Test email {Key} to {To} via {Provider}: {Outcome}", key, to, provider, result.IsSuccess ? "ok" : "failed");
+    if (!result.IsSuccess)
+        return Results.BadRequest(new { error = result.Error ?? "The email couldn't be sent.", provider });
+    return Results.Ok(new { provider, sentTo = to, delivered = provider != "Log only" });
+}).WithTags("Email").RequireAuthorization("HQAdmin");
 
 // ─── CRM / GiveButter contact export (HQAdmin) ───────────────────────────────
 // One row per family - current AND historical, every status - with only the
@@ -4815,6 +4834,7 @@ record FlagMailingRequest(bool Flagged, string? Note);
 record ImportMailingRequest(string Csv, int? Year = null, bool DryRun = false, MailingKind Kind = MailingKind.MothersDay);
 record BuildMailingRequest(MailingKind Kind = MailingKind.MothersDay, int? Year = null);
 record MarkSentRequest(bool Sent);
+record TestEmailRequest(string? To);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
 record PriorityRequest(RequestPriority Priority);
