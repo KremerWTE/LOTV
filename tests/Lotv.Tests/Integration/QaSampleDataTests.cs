@@ -394,6 +394,11 @@ public class QaSampleDataTests
             var admin = await ClientForAsync("HQAdmin", chapterId: null);   // an HQ admin isn't tied to one chapter
             var stats = await admin.GetFromJsonAsync<JsonElement>("/api/v1/dashboard/stats");
             Assert.Equal(expected, stats.GetProperty("openCases").GetInt32());
+
+            // The Unassigned Queue badge equals what the queue page lists.
+            var queue = await admin.GetFromJsonAsync<JsonElement>("/api/v1/requests/queue");
+            Assert.True(queue.GetArrayLength() > 0, "the sample data should leave requests waiting in the queue");
+            Assert.Equal(queue.GetArrayLength(), stats.GetProperty("unassignedQueue").GetInt32());
             return 0;
         });
     }

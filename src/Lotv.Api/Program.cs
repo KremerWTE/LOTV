@@ -1771,12 +1771,16 @@ dashboard.MapGet("/stats", async (LotvDbContext db, IChapterContextService ctx) 
     var openCases = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId)
         && !r.NeedsDuplicateReview
         && (r.Status == CaseStatus.New || r.Status == CaseStatus.InProgress || r.Status == CaseStatus.AwaitingShipment));
+    // Exactly what the Unassigned Queue page lists (GET /requests/queue): new, unassigned, not held for duplicate review.
+    var isHq = ctx.IsHqAdmin;
+    var unassignedQueue = await db.Requests.CountAsync(r => r.AssignedToId == null && r.Status == CaseStatus.New && !r.NeedsDuplicateReview
+        && (isHq || !chapterId.HasValue || r.ChapterId == chapterId));
     var overdue = await db.Requests.CountAsync(r => (!chapterId.HasValue || r.ChapterId == chapterId) && r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled && r.CreatedAt < DateTime.UtcNow.AddDays(-7));
     var donationsThisMonth = await db.Donations.Where(d => (!chapterId.HasValue || d.ChapterId == chapterId) && d.Date >= startOfMonth).SumAsync(d => (decimal?)d.Amount) ?? 0m;
     var donationsLastMonth = await db.Donations.Where(d => (!chapterId.HasValue || d.ChapterId == chapterId) && d.Date >= lastMonth && d.Date < startOfMonth).SumAsync(d => (decimal?)d.Amount) ?? 0m;
     var activeVolunteers = await db.Volunteers.CountAsync(v => (!chapterId.HasValue || v.ChapterId == chapterId) && v.Status == VolunteerStatus.Active);
 
-    return Results.Ok(new { openCases, overdue, donationsThisMonth, donationsLastMonth, activeVolunteers });
+    return Results.Ok(new { openCases, unassignedQueue, overdue, donationsThisMonth, donationsLastMonth, activeVolunteers });
 });
 
 dashboard.MapGet("/donations/by-channel", async (LotvDbContext db, IChapterContextService ctx) =>
