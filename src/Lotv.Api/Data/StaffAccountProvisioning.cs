@@ -1,5 +1,6 @@
 using Lotv.Core.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Lotv.Api.Data;
 
@@ -14,11 +15,11 @@ namespace Lotv.Api.Data;
 /// </summary>
 public static class StaffAccountProvisioning
 {
-    public record StaffAccount(string UserName, string Email, string FirstName, string LastName);
+    public record StaffAccount(string UserName, string Email, string FirstName, string LastName, bool AlsoVolunteer = false);
 
     public static readonly StaffAccount[] Accounts =
     [
-        new("susan.harper", "susan@wte.net", "Susan", "Harper"),
+        new("susan.harper", "susan@wte.net", "Susan", "Harper", AlsoVolunteer: true),
     ];
 
     public static string InitialPasswordKey(string userName) => $"StaffAccounts:InitialPasswords:{userName.Replace('.', '_')}";
@@ -65,6 +66,39 @@ public static class StaffAccountProvisioning
             {
                 logger.LogWarning("Could not create staff account {UserName}: {Errors}", a.UserName, string.Join("; ", result.Errors.Select(e => e.Description)));
             }
+        }
+        return created;
+    }
+
+    /// <summary>
+    /// Gives each account flagged AlsoVolunteer a volunteer record (matched by email or name), so cases can be assigned to
+    /// them and appear in their My Work Queue. The role is deliberately not one automatic assignment picks from, so real
+    /// requests are never handed to them on their own; staff, or a routing rule, assign to them. Idempotent.
+    /// </summary>
+    public static async Task<int> EnsureVolunteerRecordsAsync(LotvDbContext db, ILogger logger)
+    {
+        var created = 0;
+        foreach (var a in Accounts.Where(x => x.AlsoVolunteer))
+        {
+            var email = a.Email.ToLower();
+            var full = $"{a.FirstName} {a.LastName}".ToLower();
+            if (await db.Volunteers.AnyAsync(v => v.Email.ToLower() == email || (v.FirstName + " " + v.LastName).ToLower() == full)) continue;
+
+            var chapter = await db.Chapters.OrderBy(c => c.Id).FirstOrDefaultAsync();
+            if (chapter is null)
+            {
+                logger.LogInformation("No chapter exists yet, so {Email} was not given a volunteer record.", a.Email);
+                continue;
+            }
+            db.Volunteers.Add(new Volunteer
+            {
+                FirstName = a.FirstName, LastName = a.LastName, Email = a.Email, ChapterId = chapter.Id,
+                Role = VolunteerRole.PrayerAmbassador, Status = VolunteerStatus.Active, JoinedDate = DateTime.UtcNow,
+                ServiceRadiusMiles = 50, Notes = "Staff account; cases are assigned to this volunteer by staff or a routing rule.",
+            });
+            await db.SaveChangesAsync();
+            created++;
+            logger.LogInformation("Created a volunteer record for {Email}.", a.Email);
         }
         return created;
     }

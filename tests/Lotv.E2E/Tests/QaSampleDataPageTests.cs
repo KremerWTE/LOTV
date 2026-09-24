@@ -34,7 +34,9 @@ public class QaSampleDataPageTests : E2ETestBase
         // The sample families are in the portal: on the board, and flagged in the Father's Day list
         await GoToAsync("/admin/kanban");
         await WaitForBlazorAsync();
-        await Page.Locator(".kanban-card", new() { HasText = "Whitaker" }).First.WaitForAsync();
+        var sampleCard = Page.Locator(".kanban-card", new() { HasText = "Whitaker" }).First;
+        await sampleCard.WaitForAsync();
+        Assert.True(await sampleCard.Locator("[data-sample]").CountAsync() > 0);      // clearly marked as a sample
         await GoToAsync("/admin/fathers-day");
         await WaitForBlazorAsync();
         var row = Page.Locator("tr", new() { HasText = "Lindgren" });

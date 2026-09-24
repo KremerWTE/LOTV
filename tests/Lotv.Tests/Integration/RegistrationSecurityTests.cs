@@ -8,6 +8,7 @@ using Lotv.Core.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -140,6 +141,34 @@ public class RegistrationSecurityTests
     }
 
     // ── Susan Harper ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SusanGetsAVolunteerRecord_ThatIsNeverAutoAssignedRealCases_AndIsCreatedOnlyOnce()
+    {
+        using var host = ProductionLikeHost();
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+
+        db.Volunteers.RemoveRange(db.Volunteers.Where(v => v.Email == "susan@wte.net"));
+        if (!await db.Chapters.AnyAsync())
+        {
+            db.Chapters.Add(new Chapter { Id = 9901, Name = "Vol Chapter", City = "Testville", State = "IL", ContactName = "T", ContactEmail = "t@test.example.com", IsActive = true });
+        }
+        await db.SaveChangesAsync();
+
+        Assert.Equal(1, await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, logger));
+        var volunteer = await db.Volunteers.AsNoTracking().SingleAsync(v => v.Email == "susan@wte.net");
+        Assert.Equal("Susan", volunteer.FirstName);
+        Assert.Equal("Harper", volunteer.LastName);
+        Assert.Equal(VolunteerStatus.Active, volunteer.Status);
+        // Not a role automatic assignment picks from, so real requests are only ever handed to her by a person or a rule
+        Assert.DoesNotContain(volunteer.Role, new[] { VolunteerRole.PackageAssembler, VolunteerRole.Admin });
+
+        Assert.Equal(0, await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, logger));   // already there
+        Assert.Equal(1, await db.Volunteers.CountAsync(v => v.Email == "susan@wte.net"));
+    }
+
 
     [Fact]
     public async Task AStartingPasswordFromConfiguration_IsUsedOnCreation_AndOnlyUntilTheFirstSignIn()
