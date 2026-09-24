@@ -47,6 +47,8 @@ public class LotvApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Jwt:Issuer"]        = "lotv-test",
                 ["Jwt:Audience"]      = "lotv-test",
                 ["Testing:SkipSeed"]  = "true",
+                // The suite creates accounts of every role through /auth/register; it is admin-only everywhere else
+                ["Auth:AllowOpenRegistration"] = "true",
                 // Force SQLite branch in Program.cs so the DbContext override below works
                 ["Database:Provider"] = "Sqlite",
                 ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}"
