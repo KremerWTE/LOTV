@@ -25,6 +25,8 @@ Get the QA sample data into production so the team can QA the site. The Load but
 ## Verification
 
 - Temporary LocalDB test (deleted afterwards): created the current schema, dropped `Volunteers.Level` and `Requests.ProcessStage`, ran the bootstrap (added both, second run added nothing), then loaded and removed the 39-family sample data successfully.
+- End-to-end on the real API (Development host, SQL Server LocalDB, `Volunteers.Level` and `Requests.ProcessStage` dropped first): startup logged `Added missing column Requests.ProcessStage` / `Volunteers.Level`; `POST /api/v1/qa-sample-data` returned 200 "Loaded 39 sample families, 39 requests and 5 volunteers"; `GET /volunteers` 200; `DELETE` removed everything. With no chapter in the database the endpoint returns a clear 409 "There is no chapter to attach sample data to." (production must have one).
+- Merged `wtesolutions/main` (7 PR merge commits, #61–#67, no file changes) into kremer-dev.
 - Bug found and fixed while testing: the store identifier must use the model's own schema (null), not `"dbo"`, or every column lookup returns null.
 - `dotnet build Lotv.slnx`: 0 warnings, 0 errors. 615/615 unit + integration tests pass.
 - Not covered by a permanent test: the repo has no SQL Server test infrastructure (CI has no LocalDB).
