@@ -75,12 +75,15 @@ public class FamilyDataQualityTests
     }
 
     [Fact]
-    public void AMissingPhone_IsAWarning_AndAdviceSaysToEmail()
+    public void AMissingPhone_IsNotFlagged_ButStillShapesTheAdvice()
     {
         var f = Good(); f.Phone = "";
+        Assert.False(FamilyDataQuality.Check(f).NeedsAttention);
+        Assert.DoesNotContain("Phone", Fields(f));
+
+        f.Zip = "606";   // something else is wrong, and there is no phone, so the advice is to email
         var report = FamilyDataQuality.Check(f);
-        Assert.Contains(report.Issues, i => i.Field == "Phone" && i.Severity == DataIssueSeverity.Warning);
-        Assert.False(report.HasProblems);
+        Assert.True(report.NeedsAttention);
         Assert.StartsWith("Email the family", report.Advice);
     }
 

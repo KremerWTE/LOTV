@@ -355,6 +355,8 @@ else
             <div><strong>Parish:</strong> @(_request.Family.ParishName ?? "—")</div>
             <div><strong>Diocese:</strong> @(_request.Family.DioceseName ?? "—")</div>
             <div><strong>Faith:</strong> @(_request.Family.FaithTradition ?? "Not specified")</div>
+            @if (_request.Family.GriefSupportRequested is { } grief)
+            { <div data-field="grief-support"><strong>Quarterly grief support:</strong> @(grief ? "Yes" : "No")</div> }
             @if (!string.IsNullOrEmpty(_request.Family.ChildrenInitials))
             { <div><strong>Children's Initials:</strong> @_request.Family.ChildrenInitials</div> }
             <div><strong>Date of Loss:</strong> @(_request.Family.DateOfLoss?.ToString("MMM d, yyyy") ?? "—")</div>

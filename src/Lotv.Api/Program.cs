@@ -308,6 +308,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the FormDefinitions table; the intake form editor will be unavailable."); }
 
     // Father's Day entries share the mailing list table via a Kind column that older databases lack (idempotent).
+    try { FamilyGriefSupportColumnBootstrap.EnsureColumn(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not add the GriefSupportRequested column to Families."); }
     try { MailingListKindColumnBootstrap.EnsureColumn(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the Kind column to MailingListEntries; the Father's Day list will be unavailable."); }
 
@@ -350,6 +352,9 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     var dupMatch = await dupSvc.FindPossibleDuplicateAsync(body.Family, body.Family.ChapterId);
 
     body.Family.CreatedAt = DateTime.UtcNow;
+    // The grief support question is only asked for stillbirth and infant loss; ignore a stale answer otherwise.
+    if (body.Family.Reason is not (PackageReason.Stillbirth or PackageReason.InfantLoss))
+        body.Family.GriefSupportRequested = null;
     // PrivacyPreference is sent as part of the Family object from the form
     db.Families.Add(body.Family);
     await db.SaveChangesAsync();

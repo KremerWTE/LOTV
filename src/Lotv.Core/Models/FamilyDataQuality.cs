@@ -51,12 +51,9 @@ public static class FamilyDataQuality
         else if (!emailOk)
             issues.Add(new("Email", $"The email address \"{f.Email}\" doesn't look valid.", DataIssueSeverity.Problem));
 
+        // A missing phone is not flagged (the form doesn't ask for one); it only shapes the advice below.
         var digits = new string((f.Phone ?? "").Where(char.IsDigit).ToArray());
         var phoneOk = digits.Length >= 10;
-        if (string.IsNullOrWhiteSpace(f.Phone))
-            issues.Add(new("Phone", "No phone number on file.", DataIssueSeverity.Warning));
-        else if (!phoneOk)
-            issues.Add(new("Phone", $"The phone number \"{f.Phone}\" is too short.", DataIssueSeverity.Warning));
 
         if (string.IsNullOrWhiteSpace(f.StreetAddress))
             issues.Add(new("Street address", "No street address, so the package can't be shipped.", DataIssueSeverity.Problem));

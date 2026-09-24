@@ -2,13 +2,13 @@ using Lotv.E2E.Infrastructure;
 
 namespace Lotv.E2E.Tests;
 
-/// <summary>A request with missing details shows a call/email alert on the case, a badge on the card and queue, and a filter.</summary>
+/// <summary>A request with a wrong detail shows a call/email alert on the case, a badge on the card and queue, and a filter.</summary>
 public class DataQualityAlertTests : E2ETestBase
 {
     public DataQualityAlertTests(BrowserFixture browser) : base(browser) { }
 
     [Fact]
-    public async Task ARequestWithNoPhone_ShowsTheAlert_TheBadge_AndIsFoundByTheFilter()
+    public async Task ARequestWithABadZip_ShowsTheAlert_TheBadge_AndIsFoundByTheFilter()
     {
         var couple = TestPeople.NewCouple();
         await using var api = await _browser.Playwright.APIRequest.NewContextAsync(new() { BaseURL = E2ESettings.ApiUrl });
@@ -21,7 +21,7 @@ public class DataQualityAlertTests : E2ETestBase
                     Parent1FirstName = couple.Husband, Parent1LastName = couple.Last, Parent2FirstName = couple.Wife, Parent2LastName = couple.Last,
                     Email = $"{couple.Husband}.{couple.Last}.{Guid.NewGuid():N}@example.org".ToLowerInvariant(), Phone = "",
                     StreetAddress = $"{Random.Shared.Next(100, 999)} Elm Court", City = "Naperville", State = "IL",
-                    Zip = $"6{Random.Shared.Next(1000, 9999)}", Reason = "Infertility", ChapterId = 1,
+                    Zip = "606", Reason = "Infertility", ChapterId = 1,
                 },
                 ForSelf = true, PackageType = "Comfort",
             }
@@ -31,13 +31,13 @@ public class DataQualityAlertTests : E2ETestBase
 
         await LoginAsAdminAsync();
 
-        // Case page: the alert says what is missing and to email (there is an email but no phone).
+        // Case page: the alert says what is wrong and to email (there is an email but no phone).
         await GoToAsync($"/admin/cases/{requestId}");
         await WaitForBlazorAsync();
         var alert = Page.Locator("[data-alert='data-quality']");
         await alert.WaitForAsync();
         var text = await alert.InnerTextAsync();
-        Assert.Contains("No phone number on file", text);
+        Assert.Contains("isn't a valid 5-digit zip", text);
         Assert.Contains("Email the family", text);
 
         // Queue (this request is auto-assigned, so it is not in it): the filter keeps only rows that carry the badge.
