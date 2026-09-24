@@ -94,3 +94,10 @@ scripts/*.log
 
 # ── Playwright MCP tool artifacts ──────────────────────────────────────────────
 .playwright-mcp/
+
+# ── Local run logs, screenshots and SQLite side files (never committed) ───────
+/api.log
+/web.log
+/*.png
+src/Lotv.Api/lotv-dev.db-shm
+src/Lotv.Api/lotv-dev.db-wal

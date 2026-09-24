@@ -1612,10 +1612,18 @@ public class ApiService
         }
     }
 
-    public async Task<QaSampleStatusDto?> RemoveQaSampleAsync()
+    public async Task<(QaSampleStatusDto? Status, string? Error)> RemoveQaSampleAsync()
     {
         var resp = await AuthedDeleteAsync("/api/v1/qa-sample-data");
-        return resp is { IsSuccessStatusCode: true } ? await resp.Content.ReadFromJsonAsync<QaSampleStatusDto>(JsonOpts) : null;
+        if (resp is null) return (null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode) return (await resp.Content.ReadFromJsonAsync<QaSampleStatusDto>(JsonOpts), null);
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<JsonElement>(JsonOpts);
+            if (body.TryGetProperty("message", out var m) && m.GetString() is { Length: > 0 } text) return (null, text);
+        }
+        catch { }
+        return (null, $"Couldn't remove the sample data ({(int)resp.StatusCode}).");
     }
 
     // ── Assignment rules ──────────────────────────────────────────────────────

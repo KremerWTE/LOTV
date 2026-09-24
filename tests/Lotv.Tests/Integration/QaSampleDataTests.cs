@@ -94,7 +94,7 @@ public class QaSampleDataTests
 
             // Volunteers carry real workloads
             var volunteers = await db.Volunteers.AsNoTracking().Where(v => v.Email.EndsWith(".invalid")).ToListAsync();
-            Assert.Equal(3, volunteers.Count);
+            Assert.Equal(5, volunteers.Count);
             Assert.All(volunteers, v => Assert.Equal(requests.Count(r => r.AssignedToId == v.Id && r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled), v.ActiveCases));
             return 0;
         });
@@ -134,6 +134,40 @@ public class QaSampleDataTests
     }
 
     [Fact]
+    public async Task EveryKindOfRequest_HasOneWaitingOneBeingWorkedAndOneFinished()
+    {
+        await WithSampleAsync(async db =>
+        {
+            var familyIds = await db.Families.AsNoTracking().Where(f => f.Email.EndsWith(".invalid")).Select(f => f.Id).ToListAsync();
+            var requests = await db.Requests.AsNoTracking().Where(r => familyIds.Contains(r.FamilyId)).ToListAsync();
+
+            foreach (var reason in Enum.GetValues<PackageReason>())
+            {
+                var ofKind = requests.Where(r => r.Reason == reason && !r.NeedsDuplicateReview).ToList();
+                Assert.True(ofKind.Count >= 3, $"{reason} has only {ofKind.Count} sample requests");
+                Assert.Contains(ofKind, r => r.Status == CaseStatus.New && r.AssignedToId == null);                                                   // waiting in the queue
+                Assert.Contains(ofKind, r => r.Status is CaseStatus.InProgress or CaseStatus.AwaitingShipment && r.AssignedToId != null);           // being worked
+                Assert.Contains(ofKind, r => r.Status is CaseStatus.Shipped or CaseStatus.Fulfilled);                                               // finished
+            }
+
+            // Every stage of the process shows up somewhere
+            foreach (var stage in Enum.GetValues<ProcessStage>())
+                Assert.Contains(requests, r => r.ProcessStage == stage);
+
+            // Losses have bereavement follow-ups; the urgent kind is flagged urgent
+            Assert.Contains(requests, r => r.Reason == PackageReason.PrenatalLifeLimitingDiagnosis && r.Priority == RequestPriority.Urgent);
+            var lossFamilies = await db.Families.AsNoTracking().Where(f => familyIds.Contains(f.Id) && f.DateOfLoss != null).Select(f => f.Id).ToListAsync();
+            var trackerFamilies = await db.FollowUpTrackers.AsNoTracking().Where(t => t.FamilyId != null && familyIds.Contains(t.FamilyId.Value)).Select(t => t.FamilyId!.Value).ToListAsync();
+            Assert.All(lossFamilies, id => Assert.Contains(id, trackerFamilies));
+
+            // No sample family trips the data check by accident: only the deliberate bad-zip one does
+            var flagged = await db.Families.AsNoTracking().Where(f => familyIds.Contains(f.Id)).ToListAsync();
+            Assert.Single(flagged, f => FamilyDataQuality.Check(f).NeedsAttention);
+            return 0;
+        });
+    }
+
+    [Fact]
     public async Task EnsureLoaded_LoadsOnlyWhenNothingIsLoaded()
     {
         using var scope = _factory.Services.CreateScope();
@@ -156,7 +190,7 @@ public class QaSampleDataTests
         await WithSampleAsync(async db =>
         {
             var names = await db.Volunteers.AsNoTracking().Where(v => v.Email.EndsWith(".invalid")).Select(v => v.LastName).ToListAsync();
-            Assert.Equal(3, names.Count);
+            Assert.Equal(5, names.Count);
             Assert.All(names, n => Assert.EndsWith("(sample)", n));
             return 0;
         });
@@ -334,7 +368,7 @@ public class QaSampleDataTests
             Assert.Equal(HttpStatusCode.OK, load.StatusCode);
             var loaded = await admin.GetFromJsonAsync<JsonElement>("/api/v1/qa-sample-data");
             Assert.True(loaded.GetProperty("loaded").GetBoolean());
-            Assert.Equal(12, loaded.GetProperty("families").GetInt32());
+            Assert.Equal(39, loaded.GetProperty("families").GetInt32());
 
             Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsync("/api/v1/qa-sample-data", null)).StatusCode);   // already loaded
         }
