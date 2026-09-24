@@ -1,0 +1,252 @@
+@page "/admin/assignment-rules"
+@layout AdminLayout
+@inject ApiService Api
+@inject AuthService Auth
+
+<PageTitle>Assignment Rules — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Assignment Rules</h2>
+    <p>Send certain requests straight to a person. Rules are tried top to bottom before automatic assignment; a rule is skipped if its volunteer is inactive or already at the case limit.</p>
+  </div>
+  <div class="page-hd-actions">
+    @if (CanEdit)
+    {
+      <button class="btn btn-primary btn-sm" id="rule-new" @onclick="NewRule">+ New rule</button>
+      <button class="btn btn-sm" id="rule-apply" @onclick="ApplyAsync" disabled="@_applying">@(_applying ? "Working…" : "Apply to unassigned queue")</button>
+    }
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+  </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+  <div class="alert alert-success" id="rule-message" role="status" style="margin-bottom:16px;">@_message</div>
+}
+
+@if (_editing is not null)
+{
+  <div class="panel" id="rule-form" style="margin-bottom:20px;">
+    <div class="panel-head"><h3>@(_editing.Id == 0 ? "New rule" : "Edit rule")</h3></div>
+    <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label" for="rule-name">Name *</label>
+        <input id="rule-name" class="form-input" @bind="_editing.Name" placeholder="e.g. Stillbirth and infant loss go to Claire" />
+      </div>
+
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">When the reason is (leave all unchecked for any reason)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 18px;">
+          @foreach (var reason in Enum.GetValues<PackageReason>())
+          {
+            var r = reason;
+            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;">
+              <input type="checkbox" data-reason="@r" checked="@_reasons.Contains(r)" @onchange="e => ToggleReason(r, (bool)(e.Value ?? false))" />
+              @r.ToDisplayName()
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="rule-state">State (two letters)</label>
+        <input id="rule-state" class="form-input" maxlength="2" @bind="_editing.State" placeholder="IL" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="rule-city">City</label>
+        <input id="rule-city" class="form-input" @bind="_editing.City" placeholder="Chicago" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="rule-zip">Zip starts with</label>
+        <input id="rule-zip" class="form-input" maxlength="10" @bind="_editing.ZipPrefix" placeholder="606" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="rule-for">Requested for</label>
+        <select id="rule-for" class="form-input" @bind="_forWho">
+          <option value="">Anyone</option>
+          <option value="self">Their own family</option>
+          <option value="other">Someone else</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">Send to * (choose one person, or several to share the work — the least busy one gets each request)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 18px;">
+          @foreach (var v in _volunteers)
+          {
+            var vol = v;
+            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;">
+              <input type="checkbox" data-volunteer="@vol.Id" checked="@_team.Contains(vol.Id)" @onchange="e => ToggleVolunteer(vol.Id, (bool)(e.Value ?? false))" />
+              @vol.FullName
+            </label>
+          }
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="rule-priority">Order (lower runs first)</label>
+        <input id="rule-priority" class="form-input" type="number" @bind="_editing.Priority" />
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.86rem;">
+        <input type="checkbox" @bind="_editing.IsActive" /> Rule is on
+      </label>
+
+      @if (!string.IsNullOrEmpty(_error))
+      { <div class="alert alert-danger" role="alert" style="grid-column:1/-1;">⚠ @_error</div> }
+
+      <div style="grid-column:1/-1;display:flex;gap:10px;">
+        <button class="btn btn-primary" id="rule-save" @onclick="SaveAsync" disabled="@_saving">@(_saving ? "Saving…" : "Save rule")</button>
+        <button class="btn" @onclick="() => _editing = null">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (_loading)
+{
+  <Loading Message="Loading rules…" />
+}
+else if (!_rules.Any())
+{
+  <div class="panel"><div class="panel-body"><div class="empty-state"><div class="icon">🧭</div>
+    <p>No rules yet — every request is assigned automatically by workload and distance.</p></div></div></div>
+}
+else
+{
+  <div class="panel">
+    <div class="panel-body" style="padding:0;">
+      <table class="data-table" id="rules-table">
+        <thead>
+          <tr><th>Order</th><th>Rule</th><th>When</th><th>Send to</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          @foreach (var rule in _rules)
+          {
+            <tr data-rule="@rule.Id">
+              <td>@rule.Priority</td>
+              <td><strong>@rule.Name</strong></td>
+              <td style="font-size:.82rem;">@Describe(rule)</td>
+              <td>@string.Join(", ", rule.VolunteerIdList.Select(VolunteerName))</td>
+              <td><span class="badge @(rule.IsActive ? "badge-fulfilled" : "badge-onhold")">@(rule.IsActive ? "On" : "Off")</span></td>
+              <td style="display:flex;gap:6px;">
+                @if (CanEdit)
+                {
+                  <button class="btn btn-sm" @onclick="() => Edit(rule)">Edit</button>
+                  <button class="btn btn-sm" @onclick="() => DeleteAsync(rule)">Delete</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  private List<AssignmentRule> _rules = [];
+  private List<Volunteer> _volunteers = [];
+  private AssignmentRule? _editing;
+  private HashSet<PackageReason> _reasons = [];
+  private HashSet<int> _team = [];
+  private string _forWho = "";
+  private bool _loading = true, _saving, _applying;
+  private string? _error, _message;
+
+  private bool CanEdit => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director";
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _rules = await Api.GetAssignmentRulesAsync();
+    _volunteers = await Api.GetVolunteersAsync("Active");
+    _loading = false;
+  }
+
+  private string VolunteerName(int id) => _volunteers.FirstOrDefault(v => v.Id == id)?.FullName ?? $"Volunteer #{id}";
+
+  private static string Describe(AssignmentRule r)
+  {
+    var parts = new List<string>();
+    if (r.ReasonList.Count > 0) parts.Add("reason is " + string.Join(" or ", r.ReasonList.Select(x => x.ToDisplayName())));
+    if (!string.IsNullOrWhiteSpace(r.City)) parts.Add("city is " + r.City);
+    if (!string.IsNullOrWhiteSpace(r.State)) parts.Add("state is " + r.State.ToUpperInvariant());
+    if (!string.IsNullOrWhiteSpace(r.ZipPrefix)) parts.Add("zip starts with " + r.ZipPrefix);
+    if (r.ChapterId.HasValue) parts.Add("chapter " + r.ChapterId);
+    if (r.ForSelf.HasValue) parts.Add(r.ForSelf.Value ? "requested for their own family" : "requested for someone else");
+    return string.Join(" and ", parts);
+  }
+
+  private void NewRule()
+  {
+    _editing = new AssignmentRule { Priority = (_rules.Count == 0 ? 0 : _rules.Max(r => r.Priority)) + 10 };
+    _reasons = [];
+    _team = [];
+    _forWho = "";
+    _error = _message = null;
+  }
+
+  private void Edit(AssignmentRule rule)
+  {
+    _editing = new AssignmentRule
+    {
+      Id = rule.Id, Name = rule.Name, Priority = rule.Priority, IsActive = rule.IsActive, Reasons = rule.Reasons,
+      State = rule.State, City = rule.City, ZipPrefix = rule.ZipPrefix, ChapterId = rule.ChapterId, ForSelf = rule.ForSelf,
+      AssignToVolunteerIds = rule.AssignToVolunteerIds,
+    };
+    _reasons = rule.ReasonList.ToHashSet();
+    _team = rule.VolunteerIdList.ToHashSet();
+    _forWho = rule.ForSelf is null ? "" : rule.ForSelf.Value ? "self" : "other";
+    _error = _message = null;
+  }
+
+  private void ToggleVolunteer(int id, bool on)
+  {
+    if (on) _team.Add(id); else _team.Remove(id);
+  }
+
+  private void ToggleReason(PackageReason reason, bool on)
+  {
+    if (on) _reasons.Add(reason); else _reasons.Remove(reason);
+  }
+
+  private async Task SaveAsync()
+  {
+    if (_editing is null) return;
+    _saving = true; _error = _message = null;
+    _editing.Reasons = _reasons.Count == 0 ? null : string.Join(",", _reasons);
+    _editing.AssignToVolunteerIds = string.Join(",", _team);
+    _editing.ForSelf = _forWho switch { "self" => true, "other" => false, _ => null };
+    _editing.State = Blank(_editing.State);
+    _editing.City = Blank(_editing.City);
+    _editing.ZipPrefix = Blank(_editing.ZipPrefix);
+
+    var (rule, error) = _editing.Id == 0
+      ? await Api.CreateAssignmentRuleAsync(_editing)
+      : await Api.UpdateAssignmentRuleAsync(_editing);
+    _saving = false;
+    if (rule is null) { _error = error; return; }
+    _editing = null;
+    _message = "Rule saved.";
+    await LoadAsync();
+  }
+
+  private static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+  private async Task DeleteAsync(AssignmentRule rule)
+  {
+    if (await Api.DeleteAssignmentRuleAsync(rule.Id)) { _message = "Rule deleted."; await LoadAsync(); }
+  }
+
+  private async Task ApplyAsync()
+  {
+    _applying = true; _message = null;
+    var result = await Api.ApplyAssignmentRulesAsync();
+    _applying = false;
+    _message = result is null
+      ? "Couldn't apply the rules."
+      : $"Checked {result.Value.Checked} waiting request(s); {result.Value.Assigned} assigned by a rule.";
+  }
+}

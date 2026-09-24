@@ -9,9 +9,11 @@ public sealed class BrowserFixture : IAsyncLifetime
 {
     public IPlaywright Playwright { get; private set; } = null!;
     public IBrowser    Browser    { get; private set; } = null!;
+    private TestDataCleanup? _cleanup;
 
     public async Task InitializeAsync()
     {
+        _cleanup = TestDataCleanup.Snapshot();
         Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         Browser    = await Playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
@@ -24,6 +26,7 @@ public sealed class BrowserFixture : IAsyncLifetime
     {
         await Browser.DisposeAsync();
         Playwright.Dispose();
+        _cleanup?.Run();
     }
 
     /// <summary>Creates a fresh browser context with sensible defaults.</summary>

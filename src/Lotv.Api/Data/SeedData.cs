@@ -265,6 +265,8 @@ public static class DevSeedData
             "Cynthia", "DeStefano", UserRole.HQAdmin, chapterId: null);
         await CreateUserIfMissingAsync(userMgr, "chris.kremer", null, "DevPassword1!",
             "Chris", "Kremer", UserRole.HQAdmin, chapterId: null);
+        await CreateUserIfMissingAsync(userMgr, "susan.harper", "susan@wte.net", "DevPassword1!",
+            "Susan", "Harper", UserRole.HQAdmin, chapterId: null);
         await CreateUserIfMissingAsync(userMgr, "admin", null, "DevPassword1!",
             "Admin", "Account", UserRole.HQAdmin, chapterId: null);
         await CreateUserIfMissingAsync(userMgr, "tech", null, "DevPassword1!",

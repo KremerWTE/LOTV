@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Lotv.Api.Data;
+namespace Lotv.Core.Models;
 
 /// <summary>CSV cell formatting for exports that open in Excel or import into a CRM.</summary>
 public static class CsvExport

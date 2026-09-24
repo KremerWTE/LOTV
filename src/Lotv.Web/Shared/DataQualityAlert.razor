@@ -1,8 +1,18 @@
+@inject ApiService Api
+
 @if (_report is { NeedsAttention: true })
 {
   <div data-alert="data-quality" role="alert"
        style="background:@(_report.HasProblems ? "#fdecea" : "#fff3cd");color:@(_report.HasProblems ? "#7a1f16" : "#856404");border-radius:8px;padding:12px 16px;font-size:.86rem;margin-bottom:16px;">
     <strong>⚠ This family's information needs a check.</strong> @_report.Advice
+    @if (_report.CanEmail && Family is not null)
+    {
+      <button class="btn btn-sm" id="email-family-details" style="margin-left:8px;" @onclick="EmailFamilyAsync" disabled="@_sending">
+        @(_sending ? "Sending…" : "✉ Email the family")
+      </button>
+    }
+    @if (!string.IsNullOrEmpty(_result))
+    { <div id="email-family-result" style="margin-top:8px;font-weight:600;">@_result</div> }
     <ul style="margin:8px 0 0 18px;padding:0;">
       @foreach (var issue in _report.Issues)
       {
@@ -16,6 +26,17 @@
   [Parameter] public Family? Family { get; set; }
 
   private FamilyDataReport? _report;
+  private bool _sending;
+  private string? _result;
+
+  private async Task EmailFamilyAsync()
+  {
+    if (Family is null) return;
+    _sending = true; _result = null;
+    var error = await Api.RequestFamilyDetailsAsync(Family.Id);
+    _sending = false;
+    _result = error is null ? $"✓ Emailed {Family.Email}. It's noted on the family's profile." : "⚠ " + error;
+  }
 
   protected override void OnParametersSet() =>
     _report = Family is null ? null : FamilyDataQuality.Check(Family);

@@ -27,6 +27,7 @@ public static class CoreAdminAccountRepair
         "whitney.whitmore",
         "cynthia.destefano",
         "chris.kremer",
+        "susan.harper",
         "admin",
         "tech",
     ];

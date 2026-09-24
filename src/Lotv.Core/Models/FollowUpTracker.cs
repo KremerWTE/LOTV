@@ -48,6 +48,9 @@ public class FollowUpMilestone
     public FollowUpMilestoneType Type { get; set; }
     public DateTime? DueDate { get; set; }
     public bool BookSent { get; set; }
+
+    /// <summary>When the team was emailed that this touchpoint is due (once per touchpoint).</summary>
+    public DateTime? ReminderSentAt { get; set; }
 }
 
 public enum FollowUpMilestoneType
