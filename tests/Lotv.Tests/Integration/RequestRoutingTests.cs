@@ -403,6 +403,78 @@ public class RequestRoutingTests
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
+    // ── Bereavement tracker: one entry per family ────────────────────────────
+
+    [Fact]
+    public async Task ResubmittingTheSameFamily_DoesNotAddAnotherBereavementTracker_UntilStaffConfirmItIsNew()
+    {
+        var chapter = await NewChapterAsync();
+        var email = $"twice-{Guid.NewGuid():N}@test.example.com";
+        var loss = DateTime.UtcNow.AddDays(-10);
+        var (firstFamily, _) = await ApplyAsync(chapter, "Miscarriage", email, loss);
+        var (secondFamily, secondRequest) = await ApplyAsync(chapter, "Miscarriage", email, loss);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+            Assert.Equal(1, await db.FollowUpTrackers.CountAsync(t => t.FamilyId == firstFamily));
+            Assert.Equal(0, await db.FollowUpTrackers.CountAsync(t => t.FamilyId == secondFamily));
+        }
+
+        var admin = await AdminClientAsync();
+        var resolve = await admin.PostAsJsonAsync($"/api/v1/families/duplicate-review/{secondRequest}/resolve", new { Action = "merge" });
+        Assert.Equal(HttpStatusCode.OK, resolve.StatusCode);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+            var forThisFamily = await db.FollowUpTrackers.Where(t => t.FamilyId == firstFamily || t.FamilyId == secondFamily).ToListAsync();
+            Assert.Single(forThisFamily);
+            Assert.Equal(firstFamily, forThisFamily[0].FamilyId);
+        }
+    }
+
+    [Fact]
+    public async Task ConfirmingADistinctFamily_GivesItItsOwnBereavementTracker()
+    {
+        var chapter = await NewChapterAsync();
+        var email = $"distinct-{Guid.NewGuid():N}@test.example.com";
+        var loss = DateTime.UtcNow.AddDays(-10);
+        await ApplyAsync(chapter, "Stillbirth", email, loss);
+        var (secondFamily, secondRequest) = await ApplyAsync(chapter, "Stillbirth", email, loss);
+        var admin = await AdminClientAsync();
+
+        var resolve = await admin.PostAsJsonAsync($"/api/v1/families/duplicate-review/{secondRequest}/resolve", new { Action = "confirm-new" });
+        Assert.Equal(HttpStatusCode.OK, resolve.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        Assert.Equal(1, await db.FollowUpTrackers.CountAsync(t => t.FamilyId == secondFamily));
+    }
+
+    [Fact]
+    public async Task StartupCleanup_RemovesExtraTrackersForTheSameFamily_KeepingTheOneWithProgress()
+    {
+        var chapter = await NewChapterAsync();
+        var (familyId, _) = await ApplyAsync(chapter, "Miscarriage", dateOfLoss: DateTime.UtcNow.AddDays(-30));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var original = await db.FollowUpTrackers.Include(t => t.Milestones).SingleAsync(t => t.FamilyId == familyId);
+        db.FollowUpTrackers.Add(new FollowUpTracker
+        {
+            FamilyId = familyId, Parent1Name = "Extra", DateOfLoss = original.DateOfLoss,
+            Milestones = [new() { Type = FollowUpMilestoneType.ThreeWeeks, DueDate = original.DateOfLoss!.Value.AddDays(21), BookSent = true }],
+        });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(1, await Lotv.Api.Data.FollowUpTrackerDedupe.RunAsync(db));
+        var left = await db.FollowUpTrackers.Include(t => t.Milestones).Where(t => t.FamilyId == familyId).ToListAsync();
+        Assert.Single(left);
+        Assert.Contains(left[0].Milestones, m => m.BookSent);
+        Assert.Equal(0, await Lotv.Api.Data.FollowUpTrackerDedupe.RunAsync(db));
+    }
+
     private async Task<int> NewChapterAsync()
     {
         var id = Interlocked.Increment(ref _nextChapterId);

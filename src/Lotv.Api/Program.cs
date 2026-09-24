@@ -312,6 +312,13 @@ app.MapHealthChecks("/health").AllowAnonymous();
     // environment, unlike DevSeedData which is Development-only.
     var repairUserMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
     await CoreAdminAccountRepair.RepairAsync(repairUserMgr, app.Logger);
+
+    try
+    {
+        var removedTrackers = await FollowUpTrackerDedupe.RunAsync(db);
+        if (removedTrackers > 0) app.Logger.LogInformation("Removed {Count} duplicate bereavement follow-up tracker(s).", removedTrackers);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not de-duplicate bereavement follow-up trackers."); }
 }
 
 // ── SignalR Hubs ──────────────────────────────────────────────────────────────
@@ -397,7 +404,9 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     if (dupMatch is null)
         await autoAssign.TryAutoAssignAsync(req.Id);
 
-    await CreateFollowUpTrackerIfLossKnownAsync(db, body.Family);
+    // A suspected duplicate gets its tracker only if staff confirm it is a separate family.
+    if (dupMatch is null)
+        await CreateFollowUpTrackerIfLossKnownAsync(db, body.Family);
 
     // Every new request joins the current Mother's Day card mailing (flagged for review when it
     // looks like a duplicate family or the address is incomplete).
@@ -1109,6 +1118,12 @@ families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
 
         // The existing family already has its own card entry; drop the one the duplicate added.
         await MothersDayMailing.RemoveUnsentEntriesAsync(db, newFamily.Id);
+
+        // ...and the family is already on the bereavement tracker under the existing record.
+        var extraTrackers = await db.FollowUpTrackers.Include(t => t.Milestones)
+            .Where(t => t.FamilyId == newFamily.Id && !t.Milestones.Any(m => m.BookSent)).ToListAsync();
+        db.FollowUpMilestones.RemoveRange(extraTrackers.SelectMany(t => t.Milestones));
+        db.FollowUpTrackers.RemoveRange(extraTrackers);
     }
     else if (body.Action == "confirm-new")
     {
@@ -1121,6 +1136,9 @@ families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
 
         // Staff cleared it, so the card entry no longer needs the duplicate warning.
         await MothersDayMailing.ClearDuplicateFlagAsync(db, req.FamilyId);
+
+        var confirmedFamily = await db.Families.FindAsync(req.FamilyId);
+        if (confirmedFamily is not null) await CreateFollowUpTrackerIfLossKnownAsync(db, confirmedFamily);
     }
     else
     {
@@ -2319,6 +2337,7 @@ static async Task<bool> ValidateApiKey(HttpContext http, LotvDbContext db, ApiKe
 static async Task CreateFollowUpTrackerIfLossKnownAsync(LotvDbContext db, Family family)
 {
     if (family.DateOfLoss is not { } lossDate) return;
+    if (await db.FollowUpTrackers.AnyAsync(t => t.FamilyId == family.Id)) return;   // one tracker per family
 
     var tracker = new FollowUpTracker
     {
