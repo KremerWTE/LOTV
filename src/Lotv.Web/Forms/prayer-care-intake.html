@@ -429,6 +429,10 @@
     // Notes: grief support, any custom questions staff added, then opt-ins.
     var notes = [], optins = [];
     if (value("griefSupport")) notes.push("Quarterly Grief Support requested: " + value("griefSupport"));
+    // The family record keeps one email and one phone; keep the second parent's when it is a different one.
+    var e1 = value("husbandEmail"), e2 = value("wifeEmail"), p1 = value("husbandPhone"), p2 = value("wifePhone");
+    if (e1 && e2 && e1.toLowerCase() !== e2.toLowerCase()) notes.push("Parent 2 email: " + e2);
+    if (p1 && p2 && p1 !== p2) notes.push("Parent 2 phone: " + p2);
     def.fields.forEach(function (f) {
       if (!isActive(f) || !f.key) return;
       if (f.type === "checkbox" && f.optinLabel) { if (rawValue(f.key)) optins.push(f.optinLabel); return; }

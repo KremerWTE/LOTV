@@ -402,7 +402,10 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     await db.SaveChangesAsync();
 
     // Map package type string → RequestCategory
-    var category = body.PackageType switch
+    // Matched without regard to case: the form definition's default is "Comfort", which never matched "comfort",
+    // so every form submission used to land as Other.
+    var packageType = body.PackageType?.Trim();
+    var category = packageType?.ToLowerInvariant() switch
     {
         "comfort"        => RequestCategory.ResourceProvision,
         "memory"         => RequestCategory.Memorial,
@@ -411,10 +414,14 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         _                => RequestCategory.Other
     };
 
-    // Carry referrer info into notes when submitting on behalf of someone
-    var referrerNote = !body.ForSelf && !string.IsNullOrWhiteSpace(body.ReferrerFirstName)
-        ? $"Referred by: {body.ReferrerFirstName} {body.ReferrerLastName} <{body.ReferrerEmail}>"
-        : null;
+    // Carry referrer info into notes when submitting on behalf of someone, and keep the package the form
+    // asked for (several package types share one category, so the category alone loses it).
+    var noteLines = new List<string>();
+    if (!body.ForSelf && !string.IsNullOrWhiteSpace(body.ReferrerFirstName))
+        noteLines.Add($"Referred by: {body.ReferrerFirstName} {body.ReferrerLastName} <{body.ReferrerEmail}>");
+    if (!string.IsNullOrEmpty(packageType))
+        noteLines.Add($"Package requested: {packageType}");
+    var referrerNote = noteLines.Count > 0 ? string.Join("\n", noteLines) : null;
 
     var req = new PackageRequest
     {
