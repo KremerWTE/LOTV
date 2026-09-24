@@ -317,6 +317,8 @@
 
   private void GroupByStatus(List<PackageRequest> requests)
   {
+    // Possible duplicates wait on the Possible Duplicates page until staff confirm or merge them.
+    requests = requests.Where(r => !r.NeedsDuplicateReview).ToList();
     var cutoff = DateTime.UtcNow - FulfilledWindow;
     var allFulfilled = requests.Where(r => r.Status == CaseStatus.Fulfilled).ToList();
     _hiddenFulfilledCount = allFulfilled.Count(r => r.UpdatedAt < cutoff);
