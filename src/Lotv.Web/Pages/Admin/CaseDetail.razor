@@ -379,10 +379,14 @@ else
               })</div>
             @if (!string.IsNullOrEmpty(_request.Family.Story))
             {
-              <div>
+              <div data-field="story">
                 <strong>Story:</strong>
-                <div style="margin-top:4px;font-style:italic;color:var(--text-mid);border-left:3px solid var(--green);padding-left:10px;">@_request.Family.Story</div>
+                <div style="margin-top:4px;font-style:italic;color:var(--text-mid);border-left:3px solid var(--green);padding-left:10px;white-space:pre-line;">@_request.Family.Story</div>
               </div>
+            }
+            else
+            {
+              <div data-field="story"><strong>Story:</strong> Not provided</div>
             }
             @* The request form saves its extra answers here, joined by " | ": the grief-support answer, any custom
                questions staff added ("Question: answer"), and newsletter / prayer-night opt-ins. *@
