@@ -82,7 +82,7 @@
         {
           <tr><td colspan="9"><div class="empty-state"><div class="icon">💕</div><p>No cases match this filter.</p></div></td></tr>
         }
-        @foreach (var r in _filtered)
+        @foreach (var r in _filtered.Take(_shown))
         {
           <tr>
             <td style="font-size:.76rem;color:var(--text-light);">#@r.Id</td>
@@ -113,6 +113,18 @@
         }
       </tbody>
     </table>
+    @if (_filtered.Count > _shown)
+    {
+      <div style="padding:12px;text-align:center;border-top:1px solid var(--border);">
+        <button class="btn btn-sm" id="cases-show-more" @onclick="() => _shown += PageSize">Show @Math.Min(PageSize, _filtered.Count - _shown) more (@(_filtered.Count - _shown) not shown)</button>
+      </div>
+    }
+    @if (HiddenCompleted)
+    {
+      <div id="cases-completed-note" style="padding:10px 16px;font-size:.78rem;color:var(--text-light);border-top:1px solid var(--border);">
+        Completed cases (Fulfilled and Cancelled) are hidden. Choose <strong>All</strong> or <strong>Fulfilled</strong> above to see them, or search for a family.
+      </div>
+    }
   </div>
 </div>
 
@@ -336,7 +348,9 @@
   private DateTime? _editShippedDate;
   private string? _editInternalNotes;
 
-  private string _activeFilter = "All";
+  private string _activeFilter = "Open";   // completed cases are out of the way until asked for
+  private const int PageSize = 100;
+  private int _shown = PageSize;
   private string _priorityFilter = "";
   private string _categoryFilter = "";
   private string _search = "";
@@ -353,7 +367,7 @@
   private string _newError = "";
   private bool _submitting;
 
-  private readonly string[] _filters = ["All", "New", "In Progress", "Awaiting Shipment", "Shipped", "Fulfilled", "On Hold", "Cancelled", "Overdue"];
+  private readonly string[] _filters = ["Open", "All", "New", "In Progress", "Awaiting Shipment", "Shipped", "Fulfilled", "On Hold", "Cancelled", "Overdue"];
 
   private Dictionary<int, int> _capacityById = new();
 
@@ -393,6 +407,7 @@
   }
 
   private void SetFilter(string f) { _activeFilter = f; ApplyFilter(); }
+  private bool HiddenCompleted => _activeFilter == "Open" && string.IsNullOrEmpty(_search);
 
   private void ApplyFilter()
   {
@@ -400,6 +415,8 @@
     {
       var matchFilter = _activeFilter switch
       {
+        // Open = not Fulfilled or Cancelled. Typing a search looks at every case, so a completed family can still be found.
+        "Open"              => !string.IsNullOrEmpty(_search) || (r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled),
         "New"               => r.Status == CaseStatus.New,
         "In Progress"       => r.Status == CaseStatus.InProgress,
         "Awaiting Shipment" => r.Status == CaseStatus.AwaitingShipment,
@@ -417,6 +434,7 @@
       var matchCategory = string.IsNullOrEmpty(_categoryFilter) || r.Category.ToString() == _categoryFilter;
       return matchFilter && matchSearch && matchPriority && matchCategory;
     }).ToList();
+    _shown = PageSize;
   }
 
   private static string PriorityColor(RequestPriority p) => p switch
