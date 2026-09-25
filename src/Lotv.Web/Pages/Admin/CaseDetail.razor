@@ -152,7 +152,7 @@ else
           <div><strong>Reason:</strong> @_request.Reason.ToDisplayName()</div>
           <div><strong>Submitted:</strong> @_request.CreatedAt.ToString("MMM d, yyyy h:mm tt")</div>
           <div><strong>Last updated:</strong> @_request.UpdatedAt.ToString("MMM d, yyyy h:mm tt")</div>
-          <div><strong>Process stage:</strong> @_request.ProcessStage</div>
+          <div><strong>Process stage:</strong> @_request.ProcessStage.ToDisplayName()</div>
           <div><strong>Staff outreach requested:</strong> @(_request.StaffOutreachRequested ? "Yes" : "No")</div>
           <div><strong>Bracelet / children's initials:</strong> @(_request.ChildrenInitials ?? _request.Family?.ChildrenInitials ?? "—")</div>
           <div><strong>Assigned to:</strong> @(_request.AssignedTo ?? "Unassigned")</div>

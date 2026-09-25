@@ -58,6 +58,39 @@ Get the QA sample data into production so the team can QA the site. The Load but
 
 - Requested: put the story in the notes thread. The family's story from the request form is now the first entry in the case page's Notes Thread ("Story from the request form", dated with the request; "No story was shared with this request." when empty) and was removed from the Family panel so it isn't shown twice. It is read from the family record, not copied into a stored note, so it appears for every existing request without a data change and follows any later correction. Not browser-checked (E2E suite needs running servers on :5000/:5001).
 
+## "Confirmed" lane: fix the gap, rename ✅
+
+- Confirmed = the volunteer accepted the assignment (`POST /requests/{id}/accept` moves Assigned -> Confirmed). The **Confirm Assignment** button in the Queue / Kanban dialogs only assigns (stage Assigned), which made the lane name misleading.
+- **Gap fixed:** `PUT /requests/{id}/assign` never created the pending `RequestAssignment` that Accept needs (only auto-assignment did), so Accept 404'd for hand-assigned cases and they could only reach Confirmed by dragging. New `Services/ManualAssignment.RecordAsync` creates it (acceptance window from the chapter, attempt number, who assigned), retires open assignments to someone else, does nothing when the same volunteer is chosen again, and the notification email now carries the real accept-by time. Choosing a different volunteer on a case at Confirmed sends it back to Assigned (the new volunteer hasn't accepted). No expiry / auto-reassign job exists for pending assignments, so this only enables Accept / Decline.
+- **Lane renamed** on the Kanban board and the case page's "Process stage" line to **Volunteer Accepted** (`ProcessStageExtensions.ToDisplayName`); the stored value and the `Confirmed` column key are unchanged. Activity-log text still says "Confirmed".
+- Tests: 3 new in `AssignmentWorkflowTests` (624 pass). Not browser-checked.
+- Decision left open: the **Confirm Assignment** button label is unchanged (only the lane was renamed as requested).
+
+## Volunteer accept / decline (wired up end to end) ✅
+
+- Found: the volunteer page (`/volunteer/pending/{id}`) never called the accept/decline endpoints (Accept just set status InProgress; Decline set status New but left the volunteer assigned), the email linked to the staff case page, the endpoints sit under the Staff-only `/requests` group, and there was no check that the caller owns the case.
+- Decided with the user: volunteers sign in with their own staff-portal username/password (Whitney creates it); a decline returns the case to the **unassigned queue** (no automatic reassignment).
+- New `Services/AssignmentResponses` (accept -> Assigned -> Confirmed/"Volunteer Accepted"; decline -> Unassigned/New, assignee cleared, workload recomputed, activity logged) used by both the staff endpoints (`/requests/{id}/accept|decline`, decline no longer auto-reassigns) and the new `/api/v1/my-assignments/{requestId}` (GET), `/accept`, `/decline` (Volunteer policy; the login is matched to its volunteer record by email, else name; 404 for anyone else's case; decline only while pending; returns just what a volunteer needs - no internal notes, contact details or address).
+- Page rewritten around those endpoints (already-accepted state, optional decline reason, no internal notes, empty layout instead of the template sidebar); the assignment email now links to `/volunteer/pending/{id}` ("Review and accept"); a push notification tells staff when a volunteer declines.
+- Verified in a real browser (API + Web on a scratch SQL Server LocalDB, Volunteer-role login): view, Decline with a reason (case back to New/Unassigned, assignment Declined, activity logged, nobody auto-assigned), staff re-assign, Accept (stage Confirmed, assignment Accepted, activity logged). 628 tests pass (4 new).
+- Not changed: the other volunteer pages (Dashboard, My Assignments, Available) call staff-only `/requests` endpoints, so a login with only the Volunteer role would get 403 there (by reading the code, not tested). A signed-out volunteer who follows the email link sees "Assignment Not Found" with a Sign in button, and lands on the dashboard after signing in (no return-to-page).
+- Access model stated by the user (open): board and staff see all items; volunteers only the Prayer Request Package section.
+
+## Nicolas Kremer provisioned as a volunteer ✅
+
+- Requested: a profile for Nicolas Kremer, a volunteer, using kremer@wte.net. Added to `StaffAccountProvisioning.Accounts` (same mechanism as Susan Harper): username `nicolas.kremer`, **Volunteer role** (not admin), no chapter tie, random unknown starting password (he sets his own through Forgot password, or a secret `StaffAccounts:InitialPasswords:nicolas_kremer` can supply one), plus a volunteer record (role Prayer Ambassador, so automatic assignment never picks him; staff or a routing rule assign to him). `StaffAccount` gained a `Role` (default HQAdmin, so Susan is unchanged); `CoreAdminAccountRepair` uses its own fixed list and does not touch him. Created on the next deploy; nothing was written to any database from here.
+- **Starting password:** the deploy workflow now feeds the GitHub secret `APP_NICOLAS_INITIAL_PASSWORD` into `StaffAccounts:InitialPasswords:nicolas_kremer` (same as Susan's). A strong random password was generated and stored only in that secret (it is not in the repo or any file); the person who asked was given it in chat once. It is applied when the account is created, or later to an account that has never signed in, and never after he has signed in or changed it. He should change it at first sign-in.
+- Skipping an account because its email is already used by another account now logs a warning (it was silent).
+- Tests updated to be independent of how many accounts are provisioned, plus assertions for Nicolas (628 pass).
+- Login is matched to the volunteer record by email, else name, so keep the two consistent if edited in the app. If he should be in the automatic rotation, change his volunteer role in the app (Volunteer role edit).
+
+## Request-form iframe could never shrink ✅
+
+- Question: how to shorten the embedded request-form iframe when it doesn't need to be so long. Cause: `prayer-care-intake.html` posts its height to the parent (`lotvIntakeHeight`) using `documentElement.scrollHeight`, but the file is a pasteable fragment with no doctype, so inside an iframe it is in **quirks mode** where body / scrollHeight stretch to the frame. An iframe that starts too tall reported its own height back and never shrank (measured: reported 3000 while the form was 185px tall).
+- Fix (both copies of the file, kept identical): measure the `#lotv-intake` container itself (bottom edge + body margins) and observe that element with the ResizeObserver. Verified in a browser: a 3000px iframe shrinks to 209px, grows to 1486px when the form opens. New E2E test `InAnOversizedIframe_TheFormReportsItsOwnHeight_SoTheFrameShrinksAndGrows` (fails with the old file by timing out, passes with the fix); the 31 existing intake E2E tests pass.
+- **The parent page still needs the listener** (Duda: page or site-wide HTML/embed): `window.addEventListener("message", function (e) { if (e.data && e.data.lotvIntakeHeight) document.getElementById("lotv-intake-frame").style.height = e.data.lotvIntakeHeight + "px"; });` and the iframe needs `id="lotv-intake-frame"`. Pasting the whole file into a Duda Embed Code widget instead of an iframe needs no listener. A pasted copy on Duda must be re-pasted to get the fix; an iframe pointing at `/request-prayer-care-package` gets it on deploy.
+- Note: `tests/Lotv.E2E` has `IsTestProject=false`, so plain `dotnet test` silently skips it; run with `-p:IsTestProject=true`.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

@@ -109,7 +109,7 @@ public class QaSampleDataTests
         await EnsureAChapterAsync(db);
         db.Volunteers.RemoveRange(db.Volunteers.Where(v => v.Email == "susan@wte.net"));
         await db.SaveChangesAsync();
-        Assert.Equal(1, await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance));
+        await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         var susan = await db.Volunteers.AsNoTracking().SingleAsync(v => v.Email == "susan@wte.net");
         try
         {

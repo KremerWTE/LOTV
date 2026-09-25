@@ -1,4 +1,5 @@
 @page "/volunteer/pending/{Id:int}"
+@layout EmptyLayout
 @inject ApiService Api
 @inject NavigationManager Nav
 
@@ -19,21 +20,24 @@
   {
     <Loading Message="Loading assignment details…" Size="lg" />
   }
-  else if (_request == null)
+  else if (_assignment == null)
   {
-    <div class="panel" style="text-align:center;padding:48px;">
+    <div class="panel" style="text-align:center;padding:48px;" id="pending-not-found">
       <div style="font-size:2rem;margin-bottom:12px;">✗</div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);">Assignment Not Found</h3>
-      <p style="color:var(--text-mid);">This assignment may have already been accepted or reassigned.</p>
-      <a href="/volunteer/dashboard" class="btn btn-primary" style="margin-top:16px;">Return to Dashboard</a>
+      <p style="color:var(--text-mid);">This assignment may have already been declined or reassigned, or it may belong to someone else. If you followed a link from an email, make sure you are signed in to the staff portal with the login the ministry created for you.</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
+        <a href="/login" class="btn btn-primary">Sign in</a>
+        <a href="/volunteer/dashboard" class="btn btn-sm">My Dashboard</a>
+      </div>
     </div>
   }
-  else if (_accepted)
+  else if (_accepted || _assignment.AssignmentStatus == "Accepted")
   {
-    <div class="panel" style="text-align:center;padding:48px;">
+    <div class="panel" style="text-align:center;padding:48px;" id="pending-accepted">
       <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 20px;">✓</div>
-      <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">Assignment Accepted!</h2>
-      <p style="color:var(--text-mid);margin:0 0 24px;">You're now assigned to help <strong>@(_request.Family?.FullName ?? $"Family #{_request.FamilyId}")</strong>. Thank you for stepping up.</p>
+      <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">@(_accepted ? "Assignment Accepted!" : "You've already accepted this")</h2>
+      <p style="color:var(--text-mid);margin:0 0 24px;">You're assigned to help <strong>@(_assignment.FamilyName ?? $"request #{_assignment.RequestId}")</strong>. Thank you for stepping up.</p>
       <div style="display:flex;gap:12px;justify-content:center;">
         <a href="/volunteer/my-assignments" class="btn btn-primary">View My Assignments</a>
         <a href="/volunteer/dashboard" class="btn btn-sm">Back to Dashboard</a>
@@ -42,10 +46,10 @@
   }
   else if (_declined)
   {
-    <div class="panel" style="text-align:center;padding:48px;">
+    <div class="panel" style="text-align:center;padding:48px;" id="pending-declined">
       <div style="font-size:2.5rem;margin-bottom:16px;">😊</div>
       <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">Assignment Declined</h2>
-      <p style="color:var(--text-mid);margin:0 0 24px;">No worries — this request has been returned to the queue for another volunteer to pick up.</p>
+      <p style="color:var(--text-mid);margin:0 0 24px;">No worries — this request has been returned to the unassigned queue, and our team will find another volunteer.</p>
       <div style="display:flex;gap:12px;justify-content:center;">
         <a href="/volunteer/available" class="btn btn-sm">Browse Available Requests</a>
         <a href="/volunteer/dashboard" class="btn btn-sm">Back to Dashboard</a>
@@ -63,65 +67,65 @@
 
     <div class="panel" style="margin-bottom:20px;">
       <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
-        <span>Request #@_request.Id</span>
-        <span class="badge @GetPriorityBadge(_request.Priority)" style="font-size:.68rem;">@_request.Priority</span>
+        <span>Request #@_assignment.RequestId</span>
+        <span class="badge @GetPriorityBadge(_assignment.Priority)" style="font-size:.68rem;">@_assignment.Priority</span>
       </div>
       <div class="panel-body">
         <table style="width:100%;border-collapse:collapse;font-size:.86rem;">
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:9px 0;color:var(--text-light);width:120px;">Family</td>
-            <td style="padding:9px 0;font-weight:600;">@(_request.Family?.FullName ?? $"Family #{_request.FamilyId}")</td>
+            <td style="padding:9px 0;font-weight:600;">@(_assignment.FamilyName ?? $"Request #{_assignment.RequestId}")</td>
           </tr>
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:9px 0;color:var(--text-light);">Need Type</td>
-            <td style="padding:9px 0;font-weight:600;">@_request.Reason</td>
+            <td style="padding:9px 0;font-weight:600;">@_assignment.Reason</td>
           </tr>
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:9px 0;color:var(--text-light);">Category</td>
-            <td style="padding:9px 0;">@_request.Category</td>
+            <td style="padding:9px 0;">@_assignment.Category</td>
           </tr>
-          @if (_request.DueDate.HasValue)
+          @if (_assignment.DueDate.HasValue)
           {
             <tr style="border-bottom:1px solid var(--border);">
               <td style="padding:9px 0;color:var(--text-light);">Due Date</td>
-              <td style="padding:9px 0;font-weight:600;color:@(_request.DueDate < DateTime.UtcNow ? "var(--blush)" : "inherit");">
-                @_request.DueDate.Value.ToString("MMMM d, yyyy")
-                @if (_request.DueDate < DateTime.UtcNow)
+              <td style="padding:9px 0;font-weight:600;color:@(_assignment.DueDate < DateTime.UtcNow ? "var(--blush)" : "inherit");">
+                @_assignment.DueDate.Value.ToString("MMMM d, yyyy")
+                @if (_assignment.DueDate < DateTime.UtcNow)
                 { <span class="badge badge-overdue" style="margin-left:6px;font-size:.62rem;">Overdue</span> }
               </td>
             </tr>
           }
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:9px 0;color:var(--text-light);">Submitted</td>
-            <td style="padding:9px 0;color:var(--text-mid);">@_request.CreatedAt.ToString("MMMM d, yyyy")</td>
+            <td style="padding:9px 0;color:var(--text-mid);">@_assignment.Submitted.ToString("MMMM d, yyyy")</td>
           </tr>
-          @if (!string.IsNullOrEmpty(_request.InternalNotes))
-          {
-            <tr>
-              <td style="padding:9px 0;color:var(--text-light);vertical-align:top;">Notes</td>
-              <td style="padding:9px 0;font-size:.82rem;color:var(--text-mid);">@_request.InternalNotes</td>
-            </tr>
-          }
+          <tr>
+            <td style="padding:9px 0;color:var(--text-light);">Please respond by</td>
+            <td style="padding:9px 0;color:var(--text-mid);">@_assignment.AcceptBy.ToString("MMMM d, yyyy h:mm tt") UTC</td>
+          </tr>
         </table>
       </div>
     </div>
 
     @if (!string.IsNullOrEmpty(_error))
     {
-      <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:14px;">⚠ @_error</div>
+      <div id="pending-error" style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:14px;">⚠ @_error</div>
     }
 
     <!-- ACTION BUTTONS -->
     <div style="display:flex;gap:12px;">
-      <button class="btn btn-primary" style="flex:1;padding:14px;" @onclick="AcceptAsync" disabled="@_busy">
+      <button id="pending-accept" class="btn btn-primary" style="flex:1;padding:14px;" @onclick="AcceptAsync" disabled="@_busy">
         @(_busy ? "Processing…" : "✓ Accept Assignment")
       </button>
-      <button class="btn" style="flex:1;padding:14px;" @onclick="DeclineAsync" disabled="@_busy">
+      <button id="pending-decline" class="btn" style="flex:1;padding:14px;" @onclick="DeclineAsync" disabled="@_busy">
         ✗ Decline
       </button>
     </div>
+    <div style="margin-top:12px;">
+      <input id="pending-decline-reason" class="form-input" style="width:100%;" @bind="_declineReason" @bind:event="oninput" placeholder="If declining, you can tell us why (optional)" />
+    </div>
     <p style="text-align:center;font-size:.76rem;color:var(--text-light);margin-top:12px;">
-      If you decline, this request returns to the unassigned queue for another volunteer.
+      If you decline, this request goes back to the unassigned queue and our team will find another volunteer.
     </p>
   }
 </div>
@@ -129,43 +133,44 @@
 @code {
   [Parameter] public int Id { get; set; }
 
-  private PackageRequest? _request;
+  private ApiService.MyAssignmentDto? _assignment;
   private bool _loading  = true;
   private bool _accepted;
   private bool _declined;
   private bool _busy;
   private string _error = "";
+  private string _declineReason = "";
 
   protected override async Task OnParametersSetAsync()
   {
     _loading = true;
-    _request = await Api.GetRequestAsync(Id);
+    _accepted = _declined = false;
+    _assignment = await Api.GetMyAssignmentAsync(Id);
     _loading = false;
   }
 
   private async Task AcceptAsync()
   {
     _busy = true; _error = "";
-    var ok = await Api.UpdateRequestStatusAsync(Id, CaseStatus.InProgress);
+    var (ok, error) = await Api.AcceptMyAssignmentAsync(Id);
     if (ok) _accepted = true;
-    else _error = "Could not accept the assignment. Please try again or contact staff.";
+    else _error = $"Could not accept the assignment: {error ?? "please try again or contact staff."}";
     _busy = false;
   }
 
   private async Task DeclineAsync()
   {
     _busy = true; _error = "";
-    // Return to queue: set back to New so staff can reassign
-    var ok = await Api.UpdateRequestStatusAsync(Id, CaseStatus.New);
+    var (ok, error) = await Api.DeclineMyAssignmentAsync(Id, string.IsNullOrWhiteSpace(_declineReason) ? null : _declineReason.Trim());
     if (ok) _declined = true;
-    else _error = "Could not decline the assignment. Please try again or contact staff.";
+    else _error = $"Could not decline the assignment: {error ?? "please try again or contact staff."}";
     _busy = false;
   }
 
-  private static string GetPriorityBadge(RequestPriority p) => p switch
+  private static string GetPriorityBadge(string priority) => priority switch
   {
-    RequestPriority.Urgent => "badge-overdue",
-    RequestPriority.High   => "badge-onhold",
-    _                      => "badge-new"
+    "Urgent" => "badge-overdue",
+    "High"   => "badge-onhold",
+    _        => "badge-new"
   };
 }

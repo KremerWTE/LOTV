@@ -246,6 +246,8 @@ jobs:
         APP_TEAM_EMAILS:           ${{ secrets.APP_TEAM_EMAILS }}
         # Optional starting password for Susan Harper's account (used only until she first signs in).
         APP_SUSAN_INITIAL_PASSWORD: ${{ secrets.APP_SUSAN_INITIAL_PASSWORD }}
+        # Same for Nicolas Kremer (volunteer).
+        APP_NICOLAS_INITIAL_PASSWORD: ${{ secrets.APP_NICOLAS_INITIAL_PASSWORD }}
         # Set to true to load the clearly marked QA sample data on startup (leave unset to load it from the admin page instead).
         APP_QA_SAMPLE_AUTOLOAD:    ${{ secrets.APP_QA_SAMPLE_AUTOLOAD }}
       run: |
@@ -302,6 +304,7 @@ jobs:
         Set-IfSet -root $cfg -path @("SocketLabs","ReplyTo")                  -envVal $env:APP_EMAIL_REPLY_TO
         Set-IfSet -root $cfg -path @("Notifications","IntakeTeamEmails")      -envVal $env:APP_TEAM_EMAILS
         Set-IfSet -root $cfg -path @("StaffAccounts","InitialPasswords","susan_harper") -envVal $env:APP_SUSAN_INITIAL_PASSWORD
+        Set-IfSet -root $cfg -path @("StaffAccounts","InitialPasswords","nicolas_kremer") -envVal $env:APP_NICOLAS_INITIAL_PASSWORD
         Set-IfSet -root $cfg -path @("QaSample","AutoLoad")                  -envVal $env:APP_QA_SAMPLE_AUTOLOAD
 
         # Write back — no BOM, 2-space indent
