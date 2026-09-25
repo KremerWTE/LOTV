@@ -106,6 +106,10 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Not done, need decisions:** "Login As" for admins (impersonation, needs audit logging), full case-view logging ("Chris Kremer viewed case ... at ..."), Cases page filters / hiding completed, Volunteers hub cases clickable, a volunteer with two roles (`Volunteer.Role` is a single enum today), inventory readiness for group build days, home page icons / "0+ dioceses", Families conditions as a dropdown.
 - **Storage (AWS) is mid-build, uncommitted:** `Services/Storage/` (IFileStorage, key rules, local and not-configured implementations) and the AWSSDK.S3 package reference. Still to write: S3 implementation, provider selection, avatar-to-S3, upload endpoint, tests, deploy secrets, backup runbook.
 
+## Iframe form background transparent (2026-09-25)
+
+- The page served at `/request-prayer-care-package` wrapped the form in a body with `background:#fff`, a solid white box inside any iframe. The wrapper's `html` and `body` are now `transparent`, so the embedding site's background shows through (verified: a tan host page shows through; only the buttons and fields stay white). A pasted copy of the form file (Duda Embed Code) never set a page background, so it already matches its site.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.
