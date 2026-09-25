@@ -456,10 +456,11 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     });
     await db.SaveChangesAsync();
 
-    // Hold flagged submissions out of auto-assignment until a human confirms they're
-    // not the same family — assigning a volunteer to what might be a duplicate case
-    // just creates more cleanup work later.
-    if (dupMatch is null)
+    // A new request waits in the Unassigned Queue for staff to assign (by hand, or with "Apply rules to queue").
+    // Intake:AutoAssign=true brings back assigning on submit (routing rules first, then the best-matching volunteer).
+    // Even then, flagged submissions stay out of auto-assignment until a human confirms they're not the same family —
+    // assigning a volunteer to what might be a duplicate case just creates more cleanup work later.
+    if (dupMatch is null && AutoAssignOnIntake(cfg))
         await autoAssign.TryAutoAssignAsync(req.Id);
 
     // A suspected duplicate gets its tracker only if staff confirm it is a separate family.
@@ -676,6 +677,11 @@ cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
     return await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
 });
 
+// Automatic assignment when a request arrives (public form, staff-created case, duplicate cleared) is OFF unless
+// Intake:AutoAssign is true: every new request waits in the Unassigned Queue for staff. The explicit staff actions
+// ("Auto-assign" on a case, "Apply rules to queue") still work.
+static bool AutoAssignOnIntake(IConfiguration cfg) => cfg.GetValue<bool>("Intake:AutoAssign");
+
 // The signed-in person's own volunteer record(s): same email, else same name.
 static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr)
 {
@@ -727,7 +733,7 @@ cases.MapGet("/{id:int}", async (int id, LotvDbContext db, IChapterContextServic
 });
 
 cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextService ctx,
-    IAutoAssignmentService autoAssign, IHubContext<RequestsHub> hub) =>
+    IAutoAssignmentService autoAssign, IHubContext<RequestsHub> hub, IConfiguration cfg) =>
 {
     req.ChapterId = ctx.ChapterId ?? req.ChapterId;
     req.CreatedAt = DateTime.UtcNow;
@@ -745,7 +751,9 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
     await hub.Clients.Group($"chapter-{req.ChapterId}")
         .SendAsync("CaseCreated", req.Id, req.Family?.FullName ?? "Unknown", req.Reason.ToString());
 
-    await autoAssign.TryAutoAssignAsync(req.Id);
+    // Stays in the Unassigned Queue unless Intake:AutoAssign is on (see the public form's /apply).
+    if (AutoAssignOnIntake(cfg))
+        await autoAssign.TryAutoAssignAsync(req.Id);
 
     // Staff-created requests join the Mother's Day mailing too (no-op if the family is already on it).
     var mailingFamily = await db.Families.FindAsync(req.FamilyId);
@@ -1310,7 +1318,7 @@ families.MapGet("/duplicate-review", async (LotvDbContext db, IChapterContextSer
 });
 
 families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
-    int requestId, DuplicateResolveRequest body, LotvDbContext db, IAutoAssignmentService autoAssign) =>
+    int requestId, DuplicateResolveRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IConfiguration cfg) =>
 {
     var req = await db.Requests.FirstOrDefaultAsync(r => r.Id == requestId);
     if (req is null) return Results.NotFound();
@@ -1373,8 +1381,10 @@ families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
     req.UpdatedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
 
-    // Now that a human has cleared it, let the case flow into the normal queue.
-    await autoAssign.TryAutoAssignAsync(req.Id);
+    // Now that a human has cleared it, the case flows into the Unassigned Queue (and is only assigned automatically
+    // when Intake:AutoAssign is on).
+    if (AutoAssignOnIntake(cfg))
+        await autoAssign.TryAutoAssignAsync(req.Id);
 
     return Results.Ok(req);
 });

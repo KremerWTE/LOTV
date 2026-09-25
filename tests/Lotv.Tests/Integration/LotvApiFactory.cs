@@ -49,6 +49,9 @@ public class LotvApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Testing:SkipSeed"]  = "true",
                 // The suite creates accounts of every role through /auth/register; it is admin-only everywhere else
                 ["Auth:AllowOpenRegistration"] = "true",
+                // Production leaves new requests in the Unassigned Queue; the assignment suites exercise automatic
+                // assignment on submit, so it is switched on here (IntakeQueueTests turns it off to check the default).
+                ["Intake:AutoAssign"] = "true",
                 // Force SQLite branch in Program.cs so the DbContext override below works
                 ["Database:Provider"] = "Sqlite",
                 ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}"
