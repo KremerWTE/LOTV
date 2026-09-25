@@ -98,10 +98,12 @@ else
     <div class="panel" style="margin-bottom:16px;" id="parish-import">
       <div class="panel-head"><h3>Import parishes</h3></div>
       <div class="panel-body" style="font-size:.86rem;line-height:1.6;">
-        <p style="margin:0 0 10px;">Upload a CSV with a header row and the columns <strong>Parish</strong>, <strong>Diocese</strong>, <strong>City</strong> and <strong>State</strong>
-          (Diocese, City and State are each optional). Every parish must belong to a diocese: it is added when the file names the diocese,
-          or when the diocese is certain from the city and state (the parish is in a diocese's seat city, or the state has only one diocese).
-          Anything else is listed below for you to decide; nothing is guessed.</p>
+        <p style="margin:0 0 10px;">Upload a CSV with a header row and the columns <strong>Parish</strong>, <strong>Diocese</strong>, <strong>City</strong>, <strong>State</strong> and, if you have it, <strong>County</strong>
+          (everything except Parish is optional). Every parish must belong to a diocese: it is added when the file names the diocese,
+          or when the diocese is certain from where the parish is. The diocesan map of the United States places a parish by its county, or by its town
+          (about 22,000 towns of 300 people or more), and also by a diocese's seat city or a state that has only one diocese.
+          A county split between two dioceses, a small town not on the map, or a state with several dioceses and no county is listed below
+          for you to decide; nothing is guessed.</p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <InputFile OnChange="OnFileChosen" accept=".csv,text/csv" id="parish-file" />
           <button class="btn btn-sm" id="parish-check" @onclick="() => RunImportAsync(true)" disabled="@(_csv is null || _importing)">Check the file (nothing is saved)</button>

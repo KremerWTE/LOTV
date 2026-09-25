@@ -21,7 +21,7 @@ public static class ParishDioceseRepair
         var touched = new HashSet<int>();
         foreach (var p in orphans)
         {
-            var match = DioceseMatcher.Find(dioceses, p.DioceseName, p.City, p.State);
+            var match = DioceseMatcher.Find(dioceses, p.DioceseName, p.City, p.State, null, Lotv.Api.Services.DioceseGeography.Instance);
             if (match.Diocese is null) { still++; continue; }
             p.DioceseId = match.Diocese.Id;
             p.DioceseName = match.Diocese.Name;

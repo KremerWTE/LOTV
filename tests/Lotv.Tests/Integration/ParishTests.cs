@@ -79,8 +79,8 @@ public class ParishTests : IAsyncLifetime
         await SeedTheUsualDiocesesAsync();
         var admin = await ClientAsync("HQAdmin");
 
-        // Illinois has two dioceses here and Naperville is not a seat, so it can't be worked out.
-        var resp = await admin.PostAsJsonAsync("/api/v1/parishes", new { name = "St. Raphael", city = "Naperville", state = "IL" });
+        // Illinois has two dioceses here and Tinyville is neither a seat nor on the diocesan map, so it can't be worked out.
+        var resp = await admin.PostAsJsonAsync("/api/v1/parishes", new { name = "St. Raphael", city = "Tinyville", state = "IL" });
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Contains("must belong to a diocese", body.GetProperty("error").GetString());
@@ -165,7 +165,7 @@ public class ParishTests : IAsyncLifetime
         "St. Mary, Queen of Peace",Diocese of Joliet,Joliet,IL
         Holy Name Cathedral,Archdiocese of Chicago,Chicago,IL
         St. Laramie,,Laramie,WY
-        St. Someone,,Naperville,IL
+        St. Someone,,Tinyville,IL
         St. Lost,Diocese of Nowhere,Nowhere,IL
         ,Diocese of Joliet,Joliet,IL
         """;
@@ -182,7 +182,7 @@ public class ParishTests : IAsyncLifetime
         Assert.Equal(7, result.GetProperty("rows").GetInt32());
         Assert.Equal(3, result.GetProperty("created").GetInt32());        // Holy Name, St. Mary, St. Laramie (state has one diocese)
         Assert.Equal(1, result.GetProperty("duplicates").GetInt32());     // Holy Name listed twice
-        Assert.Equal(1, result.GetProperty("needsReview").GetInt32());    // Naperville: two dioceses in IL, not a seat
+        Assert.Equal(1, result.GetProperty("needsReview").GetInt32());    // Tinyville: two dioceses in IL, not a seat, not on the map
         Assert.Equal(2, result.GetProperty("rejected").GetInt32());       // unknown diocese, and the row with no name
         var review = result.GetProperty("problems").EnumerateArray().Single(p => p.GetProperty("outcome").GetString() == "needs-review");
         Assert.Equal("St. Someone", review.GetProperty("name").GetString());
@@ -332,17 +332,41 @@ public class ParishTests : IAsyncLifetime
         var admin = await ClientAsync("HQAdmin");
         await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { dryRun = false });
         var csv = string.Join("\n", "Parish,City,State", "Holy Name Cathedral,Chicago,IL", "Cathedral of the Holy Family,Cheyenne,Wyoming",
-            "St. Laramie,Laramie,WY", "St. Naperville,Naperville,IL", "St. Dallas,Dallas,tx");
+            "St. Laramie,Laramie,WY", "St. Naperville,Naperville,IL", "St. Dallas,Dallas,tx", "St. Tiny,Tinyville,IL");
 
         var result = await (await admin.PostAsJsonAsync("/api/v1/parishes/import", new { csv, dryRun = false })).Content.ReadFromJsonAsync<JsonElement>();
 
-        Assert.Equal(4, result.GetProperty("created").GetInt32());        // Chicago (seat), Cheyenne (seat), Laramie (only diocese in WY), Dallas (seat)
-        Assert.Equal(1, result.GetProperty("needsReview").GetInt32());    // Naperville: six dioceses in IL and it is not a seat
+        Assert.Equal(5, result.GetProperty("created").GetInt32());        // Chicago (seat), Cheyenne (seat), Laramie (only diocese in WY), Dallas (seat), Naperville (diocesan map: Joliet)
+        Assert.Equal(1, result.GetProperty("needsReview").GetInt32());    // Tinyville: six dioceses in IL, not a seat, not on the map
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
         Assert.Equal("Archdiocese of Chicago", (await db.Parishes.AsNoTracking().SingleAsync(p => p.Name == "Holy Name Cathedral")).DioceseName);
         Assert.Equal("Diocese of Cheyenne", (await db.Parishes.AsNoTracking().SingleAsync(p => p.Name == "St. Laramie")).DioceseName);
         Assert.Equal("Diocese of Dallas", (await db.Parishes.AsNoTracking().SingleAsync(p => p.Name == "St. Dallas")).DioceseName);
+        Assert.Equal("Diocese of Joliet", (await db.Parishes.AsNoTracking().SingleAsync(p => p.Name == "St. Naperville")).DioceseName);
+    }
+
+    [Fact]
+    public async Task ACountyColumn_PlacesAParishOnTheDiocesanMap_AndASplitCountyIsNotGuessed()
+    {
+        var admin = await ClientAsync("HQAdmin");
+        await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { dryRun = false });
+        // Will County is Joliet; Fremont County, Idaho is split between Boise and Cheyenne (so the parish needs a decision);
+        // Ashton is in Fremont County: the county names both candidates and the town alone can't choose.
+        var csv = string.Join("\n", "Parish,City,County,State", "St. Rural,Peotone,Will,IL", "St. Ashton,Ashton,Fremont,ID", "St. Nobody,Nowhere,Nowhere,IL");
+
+        var dry = await (await admin.PostAsJsonAsync("/api/v1/parishes/import", new { csv, dryRun = true })).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, dry.GetProperty("created").GetInt32());
+        var problems = dry.GetProperty("problems").EnumerateArray().ToList();
+        var split = problems.Single(p => p.GetProperty("name").GetString() == "St. Ashton");
+        Assert.Equal("needs-review", split.GetProperty("outcome").GetString());
+        Assert.Equal(2, split.GetProperty("candidates").GetArrayLength());
+
+        await admin.PostAsJsonAsync("/api/v1/parishes/import", new { csv, dryRun = false });
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        Assert.Equal("Diocese of Joliet", (await db.Parishes.AsNoTracking().SingleAsync(p => p.Name == "St. Rural")).DioceseName);
+        Assert.False(await db.Parishes.AnyAsync(p => p.Name == "St. Ashton" || p.Name == "St. Nobody"));
     }
 }
 

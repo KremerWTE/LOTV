@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Lotv.Api.Services;
 
 public record ParishInput(string? Name, int? DioceseId, string? DioceseName, string? City, string? State,
-    string? LiaisonName, string? LiaisonEmail, ParishStatus? Status, CertificationLevel? CertificationLevel);
+    string? LiaisonName, string? LiaisonEmail, ParishStatus? Status, CertificationLevel? CertificationLevel, string? County = null);
 
 public record ParishImportRequest(string? Csv, bool DryRun = true);
 
@@ -104,7 +104,7 @@ public static class ParishEndpoints
             return found is null ? (null, Results.BadRequest(new { error = "That diocese doesn't exist." })) : (found, null);
         }
         var all = await db.Dioceses.AsNoTracking().ToListAsync();
-        var match = DioceseMatcher.Find(all, body.DioceseName, body.City, body.State);
+        var match = DioceseMatcher.Find(all, body.DioceseName, body.City, body.State, body.County, DioceseGeography.Instance);
         if (match.Diocese is null)
             return (null, Results.BadRequest(new
             {
@@ -141,7 +141,7 @@ public static class ParishEndpoints
 
     // ── Import ───────────────────────────────────────────────────────────────
 
-    private record Columns(int Name, int Diocese, int City, int State);
+    private record Columns(int Name, int Diocese, int City, int State, int County);
 
     private static Columns ReadHeader(List<string> header)
     {
@@ -150,7 +150,8 @@ public static class ParishEndpoints
             Find("parish", "name", "parish name", "church", "church name"),
             Find("diocese", "archdiocese", "diocese name"),
             Find("city", "town", "parish city"),
-            Find("state", "st", "state code", "parish state"));
+            Find("state", "st", "state code", "parish state"),
+            Find("county", "parish county", "county name"));
     }
 
     private static string? Cell(List<string> row, int index) => index >= 0 && index < row.Count && !string.IsNullOrWhiteSpace(row[index]) ? row[index].Trim() : null;
@@ -176,9 +177,10 @@ public static class ParishEndpoints
             var dioceseText = Cell(row, col.Diocese);
             var city = Cell(row, col.City);
             var state = Cell(row, col.State);
+            var county = Cell(row, col.County);
             if (name is null) { rejected++; Problem(new(i + 1, "", city, state, dioceseText, "rejected", "The row has no parish name.", null)); continue; }
 
-            var match = DioceseMatcher.Find(dioceses, dioceseText, city, state);
+            var match = DioceseMatcher.Find(dioceses, dioceseText, city, state, county, DioceseGeography.Instance);
             if (match.Diocese is null)
             {
                 // Named but unknown, or unsure: not added, so no parish is ever left without a diocese.
