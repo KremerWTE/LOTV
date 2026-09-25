@@ -110,6 +110,16 @@ Get the QA sample data into production so the team can QA the site. The Load but
 
 - The page served at `/request-prayer-care-package` wrapped the form in a body with `background:#fff`, a solid white box inside any iframe. The wrapper's `html` and `body` are now `transparent`, so the embedding site's background shows through (verified: a tan host page shows through; only the buttons and fields stay white). A pasted copy of the form file (Duda Embed Code) never set a page background, so it already matches its site.
 
+## Every parish belongs to a diocese (2026-09-25)
+
+- **Finding:** the Parish pages were reading the legacy **mock** route (`/api/parishes`); no endpoint read or wrote the `Parishes` table, dioceses had unvalidated CRUD, and families/donors carry parish and diocese only as free text. So nothing could enforce "every parish has a diocese".
+- **Built:** real `/api/v1/parishes` (list with search / diocese / state / paging + `X-Total-Count`, get, create, edit, import). Create and edit require a diocese (by id, by name, or worked out from city and state); an edit that doesn't mention one keeps the parish's; duplicates (same name + city in a diocese) are refused; a diocese's parish counts follow its parish records. `Parish` gained `City` and `State` (added on existing databases by `MissingColumnBootstrap`, which now also covers the local SQLite file).
+- **City / state matching** (`DioceseMatcher`, only when certain): the list named the diocese (wording-insensitive: "Chicago Archdiocese" = "Archdiocese of Chicago"), or the parish is in a diocese's seat city, or the state has exactly one diocese. Otherwise the parish is reported "needs a decision" with the candidate dioceses, never guessed. A named diocese that doesn't exist is rejected.
+- **Import** (`POST /parishes/import`, HQ/Chapter admin/Director; UI on the Parish & Diocese Directory page): CSV with Parish, Diocese, City, State columns; dry run first; the real run adds only what it can place, skips repeats and never creates a parish without a diocese. Startup repair (`ParishDioceseRepair`) links any existing parish whose diocese id is invalid, by name / city / state when certain.
+- **Pages:** ParishDirectory (server search + paging, City/State column, import panel), ParishDetail, DioceseDetail, DioceseData and ImpactReport now use paged / filtered calls, so thousands of parishes never load at once.
+- **Verified** in a browser (real API, LocalDB): CSV upload -> dry run (7 rows: 4 can be added incl. "Wyoming" = WY, 1 repeat, 1 needs a decision with 2 candidates, 1 rejected) -> import -> 4 parishes each under a diocese, diocese counts 1/2/1 and KPIs updated; the 2 unplaceable rows were not added. 676 tests pass (new: `DioceseMatcherTests`, `ParishTests`).
+- **Not done:** the actual list of US dioceses and parishes. Data source chosen: a public directory (research pending; ~195 dioceses, ~16,000 parishes; terms of use and the parish-to-diocese mapping to be checked before anything is fetched or loaded). Existing production parishes are demo/none, so the repair will only report.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

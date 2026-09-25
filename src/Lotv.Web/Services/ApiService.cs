@@ -200,8 +200,40 @@ public class ApiService
         GetListAsync<FundAllocation>($"/api/v1/allocations{BuildQs(("status", status))}");
 
     // ── Parishes & Dioceses ───────────────────────────────────────────────────
-    public Task<List<Parish>> GetParishesAsync() =>
-        GetListAsync<Parish>("/api/parishes");   // legacy route
+    public record ParishPage(List<Parish> Items, int Total);
+
+    /// <summary>One page of parishes, with the total that match (the directory can hold thousands, so it is never loaded whole).</summary>
+    public async Task<ParishPage> GetParishPageAsync(int? dioceseId = null, string? search = null, bool? withActiveCases = null, int skip = 0, int take = 100)
+    {
+        var q = new List<string> { $"skip={skip}", $"take={take}" };
+        if (dioceseId is int d) q.Add($"dioceseId={d}");
+        if (!string.IsNullOrWhiteSpace(search)) q.Add($"q={Uri.EscapeDataString(search.Trim())}");
+        if (withActiveCases is bool a) q.Add($"withActiveCases={a.ToString().ToLowerInvariant()}");
+        SetAuthHeader();
+        try
+        {
+            var resp = await _http.GetAsync("/api/v1/parishes?" + string.Join("&", q));
+            if (!resp.IsSuccessStatusCode) return new ParishPage([], 0);
+            var items = await resp.Content.ReadFromJsonAsync<List<Parish>>(JsonOpts) ?? [];
+            var total = resp.Headers.TryGetValues("X-Total-Count", out var v) && int.TryParse(v.FirstOrDefault(), out var n) ? n : items.Count;
+            return new ParishPage(items, total);
+        }
+        catch { return new ParishPage([], 0); }
+    }
+
+    public Task<Parish?> GetParishAsync(int id) => GetAsync<Parish>($"/api/v1/parishes/{id}");
+
+    public record ParishImportRowDto(int Row, string Name, string? City, string? State, string? Diocese, string Outcome, string Reason, List<string>? Candidates);
+    public record ParishImportResultDto(bool DryRun, int Rows, int Created, int Duplicates, int NeedsReview, int Rejected, List<ParishImportRowDto> Problems, bool ProblemsTruncated);
+
+    /// <summary>Checks (dry run) or adds parishes from CSV text; the second value is an error message when it could not run.</summary>
+    public async Task<(ParishImportResultDto? Result, string? Error)> ImportParishesAsync(string csv, bool dryRun)
+    {
+        var resp = await AuthedPostAsync("/api/v1/parishes/import", new { csv, dryRun });
+        if (resp is null) return (null, "Network error — please try again.");
+        if (!resp.IsSuccessStatusCode) return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden ? "Only an administrator can import parishes." : await ReadErrorTextAsync(resp));
+        return (await resp.Content.ReadFromJsonAsync<ParishImportResultDto>(JsonOpts), null);
+    }
 
     public Task<List<Diocese>> GetDiocesesAsync() =>
         GetListAsync<Diocese>("/api/v1/dioceses");

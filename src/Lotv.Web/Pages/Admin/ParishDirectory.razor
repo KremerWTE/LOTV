@@ -1,6 +1,7 @@
 @page "/admin/parishes"
 @layout AdminLayout
 @inject ApiService Api
+@inject AuthService Auth
 @using Lotv.Core.Models
 
 <PageTitle>Parish & Diocese Directory — LOTV Staff Portal</PageTitle>
@@ -23,7 +24,7 @@ else
     <div class="kpi-card kpi-navy">
       <div class="kpi-icon">⛪</div>
       <div class="kpi-label">Parishes</div>
-      <div class="kpi-value" style="color:var(--navy)">@_parishes.Count</div>
+      <div class="kpi-value" style="color:var(--navy)">@_grandTotal</div>
     </div>
     <div class="kpi-card kpi-green">
       <div class="kpi-icon">🏠</div>
@@ -33,7 +34,7 @@ else
     <div class="kpi-card kpi-amber">
       <div class="kpi-icon">👥</div>
       <div class="kpi-label">Avg Parishes/Diocese</div>
-      <div class="kpi-value" style="color:var(--amber)">@(_dioceses.Any() ? (_parishes.Count / (decimal)_dioceses.Count).ToString("F1") : "—")</div>
+      <div class="kpi-value" style="color:var(--amber)">@(_dioceses.Any() ? (_grandTotal / (decimal)_dioceses.Count).ToString("F1") : "—")</div>
     </div>
   </div>
 
@@ -77,14 +78,66 @@ else
     </div>
   </div>
 
+  @if (CanImport)
+  {
+    <div class="panel" style="margin-bottom:16px;" id="parish-import">
+      <div class="panel-head"><h3>Import parishes</h3></div>
+      <div class="panel-body" style="font-size:.86rem;line-height:1.6;">
+        <p style="margin:0 0 10px;">Upload a CSV with a header row and the columns <strong>Parish</strong>, <strong>Diocese</strong>, <strong>City</strong> and <strong>State</strong>
+          (Diocese, City and State are each optional). Every parish must belong to a diocese: it is added when the file names the diocese,
+          or when the diocese is certain from the city and state (the parish is in a diocese's seat city, or the state has only one diocese).
+          Anything else is listed below for you to decide; nothing is guessed.</p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <InputFile OnChange="OnFileChosen" accept=".csv,text/csv" id="parish-file" />
+          <button class="btn btn-sm" id="parish-check" @onclick="() => RunImportAsync(true)" disabled="@(_csv is null || _importing)">Check the file (nothing is saved)</button>
+          <button class="btn btn-sm btn-primary" id="parish-import-go" @onclick="() => RunImportAsync(false)" disabled="@(_csv is null || _importing || _result is null || !_result.DryRun || _result.Created == 0)">Import @(_result is { DryRun: true } ? _result.Created : 0) parishes</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_importMessage))
+        {
+          <div id="parish-import-message" style="margin-top:10px;padding:8px 12px;border-radius:8px;background:@(_importFailed ? "#fff3cd" : "var(--green-pale)");">@_importMessage</div>
+        }
+        @if (_result is not null)
+        {
+          <div id="parish-import-summary" style="margin-top:10px;">
+            <strong>@(_result.DryRun ? "Checked" : "Imported"):</strong>
+            @_result.Rows rows &middot; @_result.Created @(_result.DryRun ? "can be added" : "added") &middot; @_result.Duplicates already there &middot;
+            @_result.NeedsReview need a decision &middot; @_result.Rejected can't be used
+          </div>
+          @if (_result.Problems.Count > 0)
+          {
+            <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:.8rem;">
+              <thead><tr style="background:var(--bg);"><th style="padding:6px 10px;text-align:left;">Row</th><th style="padding:6px 10px;text-align:left;">Parish</th><th style="padding:6px 10px;text-align:left;">City, State</th><th style="padding:6px 10px;text-align:left;">Diocese in the file</th><th style="padding:6px 10px;text-align:left;">Why it wasn't added</th></tr></thead>
+              <tbody>
+                @foreach (var r in _result.Problems.Take(100))
+                {
+                  <tr style="border-top:1px solid var(--border);">
+                    <td style="padding:6px 10px;">@r.Row</td>
+                    <td style="padding:6px 10px;">@(string.IsNullOrEmpty(r.Name) ? "—" : r.Name)</td>
+                    <td style="padding:6px 10px;">@(string.Join(", ", new[] { r.City, r.State }.Where(x => !string.IsNullOrEmpty(x))))</td>
+                    <td style="padding:6px 10px;">@(r.Diocese ?? "—")</td>
+                    <td style="padding:6px 10px;">@r.Reason@(r.Candidates is { Count: > 0 } ? " Could be: " + string.Join("; ", r.Candidates) + "." : "")</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            @if (_result.Problems.Count > 100 || _result.ProblemsTruncated)
+            {
+              <div style="margin-top:6px;color:var(--text-light);">Showing the first 100 of the rows that were not added.</div>
+            }
+          }
+        }
+      </div>
+    </div>
+  }
+
   <div class="panel">
     <div class="panel-head">
-      <h3>Parishes (@_parishes.Count)</h3>
+      <h3>Parishes (@_total)</h3>
       <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 10px;"
-             placeholder="Search parishes…" @bind="_parishSearch" @bind:event="oninput" />
+             placeholder="Search parishes…" @bind="_parishSearch" @bind:event="oninput" @bind:after="SearchChangedAsync" />
     </div>
     <div class="panel-body" style="padding:0;">
-      @if (!FilteredParishes.Any())
+      @if (_items.Count == 0)
       {
         <div style="padding:40px;text-align:center;color:var(--text-light);">No parishes match.</div>
       }
@@ -94,6 +147,7 @@ else
           <thead>
             <tr style="background:var(--bg);">
               <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Parish</th>
+              <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">City / State</th>
               <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Diocese</th>
               <th style="padding:10px 16px;text-align:left;font-size:.74rem;font-weight:600;color:var(--text-light);">Liaison</th>
               <th style="padding:10px 16px;text-align:right;font-size:.74rem;font-weight:600;color:var(--text-light);">Active Cases</th>
@@ -101,10 +155,11 @@ else
             </tr>
           </thead>
           <tbody>
-            @foreach (var p in FilteredParishes)
+            @foreach (var p in _items)
             {
               <tr style="border-top:1px solid var(--border);">
                 <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@p.Name</td>
+                <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@CityState(p)</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@p.DioceseName</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(p.LiaisonName ?? "—")</td>
                 <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@p.ActiveCases</td>
@@ -113,23 +168,40 @@ else
             }
           </tbody>
         </table>
+        @if (_total > PageSize)
+        {
+          <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--border);font-size:.82rem;">
+            <span style="color:var(--text-light);">@(_page * PageSize + 1)–@(Math.Min((_page + 1) * PageSize, _total)) of @_total</span>
+            <button class="btn btn-sm" @onclick="() => GoToAsync(_page - 1)" disabled="@(_page == 0)">‹ Prev</button>
+            <button class="btn btn-sm" @onclick="() => GoToAsync(_page + 1)" disabled="@((_page + 1) * PageSize >= _total)">Next ›</button>
+          </div>
+        }
       }
     </div>
   </div>
 }
 
 @code {
-  private List<Parish> _parishes = [];
+  private const int PageSize = 100;
+  private List<Parish> _items = [];
+  private int _total, _grandTotal, _page;
   private List<Diocese> _dioceses = [];
   private string _parishSearch = "";
   private string _dioceseSearch = "";
   private bool _loading = true;
 
-  private IEnumerable<Parish> FilteredParishes => (_parishes ?? [])
-    .Where(p => string.IsNullOrEmpty(_parishSearch) ||
-                p.Name.Contains(_parishSearch, StringComparison.OrdinalIgnoreCase) ||
-                (p.DioceseName ?? "").Contains(_parishSearch, StringComparison.OrdinalIgnoreCase))
-    .OrderBy(p => p.DioceseName).ThenBy(p => p.Name);
+  // Importing
+  private string? _csv;
+  private bool _importing, _importFailed;
+  private string? _importMessage;
+  private ApiService.ParishImportResultDto? _result;
+  private bool CanImport => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director";
+
+  private static string CityState(Parish p)
+  {
+    var text = string.Join(", ", new[] { p.City, p.State }.Where(x => !string.IsNullOrEmpty(x)));
+    return text.Length > 0 ? text : "—";
+  }
 
   private IEnumerable<Diocese> FilteredDioceses => (_dioceses ?? [])
     .Where(d => string.IsNullOrEmpty(_dioceseSearch) ||
@@ -138,11 +210,45 @@ else
 
   protected override async Task OnInitializedAsync()
   {
-    var parishTask  = Api.GetParishesAsync();
     var dioceseTask = Api.GetDiocesesAsync();
-    await Task.WhenAll(parishTask, dioceseTask);
-    _parishes  = await parishTask;
-    _dioceses  = await dioceseTask;
+    var pageTask = Api.GetParishPageAsync(take: PageSize);
+    await Task.WhenAll(dioceseTask, pageTask);
+    _dioceses = await dioceseTask;
+    var first = await pageTask;
+    _items = first.Items; _total = _grandTotal = first.Total;
     _loading = false;
+  }
+
+  // The directory can hold thousands of parishes, so search and paging happen on the server.
+  private async Task LoadAsync()
+  {
+    var pg = await Api.GetParishPageAsync(search: _parishSearch, skip: _page * PageSize, take: PageSize);
+    _items = pg.Items; _total = pg.Total;
+  }
+
+  private async Task SearchChangedAsync() { _page = 0; await LoadAsync(); }
+  private async Task GoToAsync(int page) { _page = Math.Max(0, page); await LoadAsync(); }
+
+  private async Task OnFileChosen(InputFileChangeEventArgs e)
+  {
+    _result = null; _importMessage = null; _importFailed = false; _csv = null;
+    try
+    {
+      using var reader = new StreamReader(e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
+      _csv = await reader.ReadToEndAsync();
+      _importMessage = $"Loaded {e.File.Name}. Choose \"Check the file\" to see what would happen.";
+    }
+    catch { _importFailed = true; _importMessage = "That file couldn't be read (the limit is 10 MB)."; }
+  }
+
+  private async Task RunImportAsync(bool dryRun)
+  {
+    if (_csv is null) return;
+    _importing = true; _importMessage = null; _importFailed = false;
+    var (result, error) = await Api.ImportParishesAsync(_csv, dryRun);
+    _importing = false;
+    if (result is null) { _importFailed = true; _importMessage = error ?? "The import couldn't run."; return; }
+    _result = result;
+    if (!dryRun) { _csv = null; _page = 0; _parishSearch = ""; await LoadAsync(); _grandTotal = _total; _dioceses = await Api.GetDiocesesAsync(); }
   }
 }

@@ -334,6 +334,15 @@ app.MapHealthChecks("/health").AllowAnonymous();
     }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not repair request stages."); }
 
+    // Every parish belongs to a diocese: link any that don't point at a real one (by name, or city and state, when certain).
+    try
+    {
+        var (linked, stillWithout) = await ParishDioceseRepair.RunAsync(db);
+        if (linked > 0) app.Logger.LogInformation("Linked {Count} parish(es) to their diocese.", linked);
+        if (stillWithout > 0) app.Logger.LogWarning("{Count} parish(es) have no diocese and could not be matched safely; edit them and choose one.", stillWithout);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not check that every parish has a diocese."); }
+
     try { await VolunteerWorkload.RecomputeAllAsync(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not recompute volunteer case counts."); }
 
@@ -1823,6 +1832,7 @@ events.MapPost("/{id:int}/auction/close", async (int id, LotvDbContext db,
 var dioceses = app.MapGroup("/api/v1/dioceses").WithTags("Dioceses").RequireAuthorization("Staff");
 
 dioceses.MapGet("/", async (LotvDbContext db) => await db.Dioceses.OrderBy(d => d.Name).ToListAsync());
+app.MapParishEndpoints();   // the parish directory: every parish belongs to a diocese
 dioceses.MapPost("/", async (Diocese d, LotvDbContext db) => { db.Dioceses.Add(d); await db.SaveChangesAsync(); return Results.Created($"/api/v1/dioceses/{d.Id}", d); }).RequireAuthorization("ChapterAdmin");
 dioceses.MapPut("/{id:int}", async (int id, Diocese d, LotvDbContext db) => { d.Id = id; db.Dioceses.Update(d); await db.SaveChangesAsync(); return Results.Ok(d); }).RequireAuthorization("ChapterAdmin");
 dioceses.MapGet("/{id:int}/donors", async (int id, LotvDbContext db) => await db.Donors.Where(d => d.DioceseId == id).ToListAsync());

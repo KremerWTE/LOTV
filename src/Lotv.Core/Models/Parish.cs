@@ -6,6 +6,9 @@ public class Parish
     public string Name { get; set; } = "";
     public int DioceseId { get; set; }
     public string DioceseName { get; set; } = "";
+    /// <summary>Where the parish is, so two "St. Mary"s in one diocese can be told apart and a diocese can be worked out from it.</summary>
+    public string? City { get; set; }
+    public string? State { get; set; }
     public int ChapterId { get; set; }
     public Chapter? Chapter { get; set; }
     public string? LiaisonName { get; set; }
