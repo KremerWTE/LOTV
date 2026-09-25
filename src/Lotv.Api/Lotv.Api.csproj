@@ -66,6 +66,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Data\FormDefaults\*.json" />
+    <EmbeddedResource Include="Data\Reference\*.csv" />
   </ItemGroup>
 
 </Project>

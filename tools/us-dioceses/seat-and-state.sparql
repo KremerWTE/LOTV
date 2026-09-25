@@ -1,0 +1,9 @@
+SELECT ?title ?seatLabel ?stateLabel WHERE {
+  ?d wdt:P31/wdt:P279* wd:Q3146899 .
+  ?d wdt:P17 wd:Q30 .
+  ?d wdt:P159 ?seat .
+  ?article schema:about ?d ; schema:isPartOf <https://en.wikipedia.org/> ; schema:name ?title .
+  ?seat wdt:P131* ?state .
+  ?state wdt:P31 wd:Q35657 .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}

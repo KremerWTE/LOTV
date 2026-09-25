@@ -33,7 +33,16 @@ window.initLotvMap = function (id, markers) {
   // Track state offsets to avoid perfect stacking
   const stateUsed = {};
 
-  (markers || []).forEach(function (m) {
+  (markers || []).forEach(function (rawMarker) {
+    // Blazor JS interop sends C# properties in camelCase (state, value, ...). Read either casing: this file used to
+    // read only PascalCase (m.State), so every marker was skipped and the map stayed empty.
+    const m = {
+      State:   String(rawMarker.state ?? rawMarker.State ?? '').trim().toUpperCase(),
+      Value:   rawMarker.value ?? rawMarker.Value,
+      Color:   rawMarker.color ?? rawMarker.Color,
+      Label:   rawMarker.label ?? rawMarker.Label,
+      Tooltip: rawMarker.tooltip ?? rawMarker.Tooltip
+    };
     const center = STATE_CENTERS[m.State];
     if (!center) return;
 

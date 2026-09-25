@@ -334,6 +334,15 @@ app.MapHealthChecks("/health").AllowAnonymous();
     }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not repair request stages."); }
 
+    // Every parish belongs to a diocese: link any that don't point at a real one (by name, or city and state, when certain).
+    try
+    {
+        var (linked, stillWithout) = await ParishDioceseRepair.RunAsync(db);
+        if (linked > 0) app.Logger.LogInformation("Linked {Count} parish(es) to their diocese.", linked);
+        if (stillWithout > 0) app.Logger.LogWarning("{Count} parish(es) have no diocese and could not be matched safely; edit them and choose one.", stillWithout);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not check that every parish has a diocese."); }
+
     try { await VolunteerWorkload.RecomputeAllAsync(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not recompute volunteer case counts."); }
 
@@ -456,10 +465,11 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     });
     await db.SaveChangesAsync();
 
-    // Hold flagged submissions out of auto-assignment until a human confirms they're
-    // not the same family — assigning a volunteer to what might be a duplicate case
-    // just creates more cleanup work later.
-    if (dupMatch is null)
+    // A new request waits in the Unassigned Queue for staff to assign (by hand, or with "Apply rules to queue").
+    // Intake:AutoAssign=true brings back assigning on submit (routing rules first, then the best-matching volunteer).
+    // Even then, flagged submissions stay out of auto-assignment until a human confirms they're not the same family —
+    // assigning a volunteer to what might be a duplicate case just creates more cleanup work later.
+    if (dupMatch is null && AutoAssignOnIntake(cfg))
         await autoAssign.TryAutoAssignAsync(req.Id);
 
     // A suspected duplicate gets its tracker only if staff confirm it is a separate family.
@@ -676,6 +686,11 @@ cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
     return await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
 });
 
+// Automatic assignment when a request arrives (public form, staff-created case, duplicate cleared) is OFF unless
+// Intake:AutoAssign is true: every new request waits in the Unassigned Queue for staff. The explicit staff actions
+// ("Auto-assign" on a case, "Apply rules to queue") still work.
+static bool AutoAssignOnIntake(IConfiguration cfg) => cfg.GetValue<bool>("Intake:AutoAssign");
+
 // The signed-in person's own volunteer record(s): same email, else same name.
 static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr)
 {
@@ -727,7 +742,7 @@ cases.MapGet("/{id:int}", async (int id, LotvDbContext db, IChapterContextServic
 });
 
 cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextService ctx,
-    IAutoAssignmentService autoAssign, IHubContext<RequestsHub> hub) =>
+    IAutoAssignmentService autoAssign, IHubContext<RequestsHub> hub, IConfiguration cfg) =>
 {
     req.ChapterId = ctx.ChapterId ?? req.ChapterId;
     req.CreatedAt = DateTime.UtcNow;
@@ -745,7 +760,9 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
     await hub.Clients.Group($"chapter-{req.ChapterId}")
         .SendAsync("CaseCreated", req.Id, req.Family?.FullName ?? "Unknown", req.Reason.ToString());
 
-    await autoAssign.TryAutoAssignAsync(req.Id);
+    // Stays in the Unassigned Queue unless Intake:AutoAssign is on (see the public form's /apply).
+    if (AutoAssignOnIntake(cfg))
+        await autoAssign.TryAutoAssignAsync(req.Id);
 
     // Staff-created requests join the Mother's Day mailing too (no-op if the family is already on it).
     var mailingFamily = await db.Families.FindAsync(req.FamilyId);
@@ -1310,7 +1327,7 @@ families.MapGet("/duplicate-review", async (LotvDbContext db, IChapterContextSer
 });
 
 families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
-    int requestId, DuplicateResolveRequest body, LotvDbContext db, IAutoAssignmentService autoAssign) =>
+    int requestId, DuplicateResolveRequest body, LotvDbContext db, IAutoAssignmentService autoAssign, IConfiguration cfg) =>
 {
     var req = await db.Requests.FirstOrDefaultAsync(r => r.Id == requestId);
     if (req is null) return Results.NotFound();
@@ -1373,8 +1390,10 @@ families.MapPost("/duplicate-review/{requestId:int}/resolve", async (
     req.UpdatedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
 
-    // Now that a human has cleared it, let the case flow into the normal queue.
-    await autoAssign.TryAutoAssignAsync(req.Id);
+    // Now that a human has cleared it, the case flows into the Unassigned Queue (and is only assigned automatically
+    // when Intake:AutoAssign is on).
+    if (AutoAssignOnIntake(cfg))
+        await autoAssign.TryAutoAssignAsync(req.Id);
 
     return Results.Ok(req);
 });
@@ -1812,7 +1831,11 @@ events.MapPost("/{id:int}/auction/close", async (int id, LotvDbContext db,
 // ── Dioceses ──────────────────────────────────────────────────────────────────
 var dioceses = app.MapGroup("/api/v1/dioceses").WithTags("Dioceses").RequireAuthorization("Staff");
 
-dioceses.MapGet("/", async (LotvDbContext db) => await db.Dioceses.OrderBy(d => d.Name).ToListAsync());
+// Partner dioceses by default; the directory-only ones (the loaded US list) come with includeDirectoryOnly=true.
+dioceses.MapGet("/", async (LotvDbContext db, bool? includeDirectoryOnly) =>
+    await db.Dioceses.Where(d => includeDirectoryOnly == true || !d.IsDirectoryOnly).OrderBy(d => d.Name).ToListAsync());
+app.MapParishEndpoints();   // the parish directory: every parish belongs to a diocese
+app.MapDioceseDirectoryEndpoints();   // loads the US diocese list (directory-only) so parishes can be placed
 dioceses.MapPost("/", async (Diocese d, LotvDbContext db) => { db.Dioceses.Add(d); await db.SaveChangesAsync(); return Results.Created($"/api/v1/dioceses/{d.Id}", d); }).RequireAuthorization("ChapterAdmin");
 dioceses.MapPut("/{id:int}", async (int id, Diocese d, LotvDbContext db) => { d.Id = id; db.Dioceses.Update(d); await db.SaveChangesAsync(); return Results.Ok(d); }).RequireAuthorization("ChapterAdmin");
 dioceses.MapGet("/{id:int}/donors", async (int id, LotvDbContext db) => await db.Donors.Where(d => d.DioceseId == id).ToListAsync());
@@ -2633,7 +2656,7 @@ publicApi.MapGet("/impact", async (LotvDbContext db) =>
     var openRequests     = await db.Requests.CountAsync(r =>
         r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled);
     var familiesServed   = await db.Families.CountAsync();
-    var diocesesReached  = await db.Dioceses.CountAsync();
+    var diocesesReached  = await db.Dioceses.CountAsync(d => !d.IsDirectoryOnly);   // partners only; the loaded US list is not "reached"
     return Results.Ok(new { totalDonations, peopleHelped, activeVolunteers, openRequests,
         familiesServed, diocesesReached, generatedAt = DateTime.UtcNow });
 }).AllowAnonymous();
@@ -4795,7 +4818,7 @@ app.MapGet("/api/v1/email-previews", (IConfiguration cfg) =>
         provider = NotificationService.ActiveProvider(cfg),
     })).WithTags("Email").RequireAuthorization("Staff");
 
-// Sends one sample email to an address through whatever provider is active (SocketLabs, SMTP, or log only),
+// Sends one sample email to an address through whatever provider is active (SocketLabs, or log only),
 // so an admin can confirm that email really goes out. HQ admins only; the subject is marked [TEST].
 app.MapPost("/api/v1/email-previews/{key}/test", async (string key, TestEmailRequest body, INotificationService notify, IConfiguration cfg) =>
 {

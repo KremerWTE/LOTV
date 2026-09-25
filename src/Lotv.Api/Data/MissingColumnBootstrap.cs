@@ -14,6 +14,7 @@ public static class MissingColumnBootstrap
     public static IReadOnlyList<string> EnsureColumns(LotvDbContext db)
     {
         var added = new List<string>();
+        if (db.Database.IsSqlite()) return EnsureSqliteColumns(db);   // the local development database
         if (!db.Database.IsSqlServer()) return added;
 
         var live = db.Database.SqlQueryRaw<string>(
@@ -44,6 +45,45 @@ public static class MissingColumnBootstrap
             }
         }
         return added;
+    }
+
+    /// <summary>The same job for the local SQLite database (development), whose tracked file predates newer columns.</summary>
+    private static IReadOnlyList<string> EnsureSqliteColumns(LotvDbContext db)
+    {
+        var added = new List<string>();
+        var live = db.Database.SqlQueryRaw<string>(
+                "SELECT m.name || '.' || p.name AS Value FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table'")
+            .AsEnumerable().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var liveTables = live.Select(c => c[..c.IndexOf('.')]).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entity in db.Model.GetEntityTypes())
+        {
+            var table = entity.GetTableName();
+            if (table is null || entity.GetViewName() is not null || !liveTables.Contains(table)) continue;
+
+            var store = StoreObjectIdentifier.Table(table, entity.GetSchema());
+            foreach (var property in entity.GetProperties())
+            {
+                var column = property.GetColumnName(store);
+                if (column is null || property.IsPrimaryKey() || property.GetComputedColumnSql() is not null) continue;
+                if (live.Contains($"{table}.{column}")) continue;
+
+                var type = property.GetColumnType(store);
+                var sql = $"ALTER TABLE \"{table}\" ADD COLUMN \"{column}\" {type}" +
+                          (property.IsColumnNullable(store) ? "" : $" NOT NULL DEFAULT {SqliteDefault(type)}");
+                db.Database.ExecuteSqlRaw(sql.Replace("{", "{{").Replace("}", "}}"));
+                added.Add($"{table}.{column}");
+            }
+        }
+        return added;
+    }
+
+    private static string SqliteDefault(string storeType)
+    {
+        var t = storeType.ToLowerInvariant();
+        if (t.Contains("text") || t.Contains("char") || t.Contains("clob")) return "''";
+        if (t.Contains("blob")) return "X''";
+        return "0";   // INTEGER, REAL, NUMERIC and the date types SQLite stores as numbers or text
     }
 
     private static string Quote(string name) => "[" + name.Replace("]", "]]") + "]";

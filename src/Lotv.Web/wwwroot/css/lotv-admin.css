@@ -499,6 +499,9 @@ body.theme-dark a { color: #a8c8f0; }
 }
 /* Remove focus ring when navigating by mouse */
 :focus:not(:focus-visible) { outline: none; }
+/* Blazor moves focus to the page heading after each navigation so screen readers announce the page. That is not a keyboard
+   focus, so it gets no ring (it used to box the title of every page). */
+h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none; }
 
 /* ── Blazor error/reconnect UI ──────────────────────────────────────────────
    #blazor-error-ui: normally hidden; Blazor shows it on unhandled exceptions.

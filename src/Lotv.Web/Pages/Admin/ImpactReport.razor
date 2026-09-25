@@ -42,7 +42,7 @@
   <div class="kpi-card kpi-navy">
     <div class="kpi-icon">⛳</div>
     <div class="kpi-label">Parishes Engaged</div>
-    <div class="kpi-value" style="color:var(--navy)">@_parishes.Count(p => p.ActiveCases > 0)</div>
+    <div class="kpi-value" style="color:var(--navy)">@_parishesEngaged</div>
   </div>
   <div class="kpi-card kpi-amber">
     <div class="kpi-icon">🔄</div>
@@ -153,7 +153,7 @@
   private List<PackageRequest> _requests = [];
   private List<Donation> _donations = [];
   private List<Volunteer> _volunteers = [];
-  private List<Parish> _parishes = [];
+  private int _parishesEngaged;   // parishes with open cases (the directory can be large, so only the count is fetched)
   private List<Donor> _donors = [];
   private List<MinistryEvent> _events = [];
 
@@ -169,7 +169,7 @@
     var t2 = Api.GetRequestsAsync();
     var t3 = Api.GetDonationsAsync();
     var t4 = Api.GetVolunteersAsync();
-    var t5 = Api.GetParishesAsync();
+    var t5 = Api.GetParishPageAsync(withActiveCases: true, take: 1);
     var t6 = Api.GetDonorsAsync();
     var t7 = Api.GetEventsAsync();
     await Task.WhenAll(t1, t2, t3, t4, t5, t6, t7);
@@ -177,7 +177,7 @@
     _requests   = t2.Result;
     _donations  = t3.Result;
     _volunteers = t4.Result;
-    _parishes   = t5.Result;
+    _parishesEngaged = t5.Result.Total;
     _donors     = t6.Result;
     _events     = t7.Result;
 
