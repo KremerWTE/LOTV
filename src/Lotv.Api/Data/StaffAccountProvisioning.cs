@@ -15,11 +15,13 @@ namespace Lotv.Api.Data;
 /// </summary>
 public static class StaffAccountProvisioning
 {
-    public record StaffAccount(string UserName, string Email, string FirstName, string LastName, bool AlsoVolunteer = false);
+    public record StaffAccount(string UserName, string Email, string FirstName, string LastName, bool AlsoVolunteer = false, UserRole Role = UserRole.HQAdmin);
 
     public static readonly StaffAccount[] Accounts =
     [
         new("susan.harper", "susan@wte.net", "Susan", "Harper", AlsoVolunteer: true),
+        // A volunteer: signs in with the Volunteer role (can accept or decline assignments, nothing else) and has a volunteer record.
+        new("nicolas.kremer", "kremer@wte.net", "Nicolas", "Kremer", AlsoVolunteer: true, Role: UserRole.Volunteer),
     ];
 
     public static string InitialPasswordKey(string userName) => $"StaffAccounts:InitialPasswords:{userName.Replace('.', '_')}";
@@ -45,13 +47,17 @@ public static class StaffAccountProvisioning
                 }
                 continue;
             }
-            if (await FindByEmailSafeAsync(userMgr, a.Email) is not null) continue;
+            if (await FindByEmailSafeAsync(userMgr, a.Email) is not null)
+            {
+                logger.LogWarning("Staff account {UserName} was not created: another account already uses {Email}.", a.UserName, a.Email);
+                continue;
+            }
 
             var user = new LotvIdentityUser
             {
                 UserName = a.UserName, Email = a.Email, EmailConfirmed = true,
                 FirstName = a.FirstName, LastName = a.LastName,
-                Role = UserRole.HQAdmin, ChapterId = null, IsActive = true,
+                Role = a.Role, ChapterId = null, IsActive = true,
             };
             // Either the starting password supplied by configuration, or a long random one that is never shown or stored
             // (then the only way in is the emailed reset link).
@@ -60,7 +66,7 @@ public static class StaffAccountProvisioning
             if (result.Succeeded)
             {
                 created++;
-                logger.LogInformation("Created staff account {UserName} ({Email}) as HQAdmin; they set their password with Forgot password.", a.UserName, a.Email);
+                logger.LogInformation("Created staff account {UserName} ({Email}) as {Role}; they set their password with Forgot password.", a.UserName, a.Email, a.Role);
             }
             else
             {
@@ -94,7 +100,7 @@ public static class StaffAccountProvisioning
             {
                 FirstName = a.FirstName, LastName = a.LastName, Email = a.Email, ChapterId = chapter.Id,
                 Role = VolunteerRole.PrayerAmbassador, Status = VolunteerStatus.Active, JoinedDate = DateTime.UtcNow,
-                ServiceRadiusMiles = 50, Notes = "Staff account; cases are assigned to this volunteer by staff or a routing rule.",
+                ServiceRadiusMiles = 50, Notes = "Provisioned login; cases are assigned to this volunteer by staff or a routing rule.",
             });
             await db.SaveChangesAsync();
             created++;

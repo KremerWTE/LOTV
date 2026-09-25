@@ -76,6 +76,13 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - Not changed: the other volunteer pages (Dashboard, My Assignments, Available) call staff-only `/requests` endpoints, so a login with only the Volunteer role would get 403 there (by reading the code, not tested). A signed-out volunteer who follows the email link sees "Assignment Not Found" with a Sign in button, and lands on the dashboard after signing in (no return-to-page).
 - Access model stated by the user (open): board and staff see all items; volunteers only the Prayer Request Package section.
 
+## Nicolas Kremer provisioned as a volunteer ✅
+
+- Requested: a profile for Nicolas Kremer, a volunteer, using kremer@wte.net. Added to `StaffAccountProvisioning.Accounts` (same mechanism as Susan Harper): username `nicolas.kremer`, **Volunteer role** (not admin), no chapter tie, random unknown starting password (he sets his own through Forgot password, or a secret `StaffAccounts:InitialPasswords:nicolas_kremer` can supply one), plus a volunteer record (role Prayer Ambassador, so automatic assignment never picks him; staff or a routing rule assign to him). `StaffAccount` gained a `Role` (default HQAdmin, so Susan is unchanged); `CoreAdminAccountRepair` uses its own fixed list and does not touch him. Created on the next deploy; nothing was written to any database from here.
+- Skipping an account because its email is already used by another account now logs a warning (it was silent).
+- Tests updated to be independent of how many accounts are provisioned, plus assertions for Nicolas (628 pass).
+- Login is matched to the volunteer record by email, else name, so keep the two consistent if edited in the app. If he should be in the automatic rotation, change his volunteer role in the app (Volunteer role edit).
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.
