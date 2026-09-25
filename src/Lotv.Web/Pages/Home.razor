@@ -38,10 +38,13 @@
       <div style="font-family:var(--ff-head);font-size:2rem;font-weight:700;color:var(--amber);">@_volunteers+</div>
       <div style="font-size:.78rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">@Loc["home.kpiVolunteers"]</div>
     </div>
-    <div>
-      <div style="font-family:var(--ff-head);font-size:2rem;font-weight:700;color:var(--gold);">@_dioceses+</div>
-      <div style="font-size:.78rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">@Loc["home.kpiDioceses"]</div>
-    </div>
+    @if (_dioceses > 0)   @* only once there are partner dioceses to count; a "0+" reads as broken *@
+    {
+      <div>
+        <div style="font-family:var(--ff-head);font-size:2rem;font-weight:700;color:var(--gold);">@_dioceses</div>
+        <div style="font-size:.78rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">@Loc["home.kpiDioceses"]</div>
+      </div>
+    }
   </div>
 </div>
 
@@ -56,7 +59,7 @@
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;">
 
     <div style="background:white;border-radius:14px;padding:28px 26px;border:1px solid var(--border);box-shadow:0 2px 12px rgba(0,0,0,.05);">
-      <div style="font-size:2rem;margin-bottom:12px;">💕</div>
+      <div style="font-size:1.9rem;margin-bottom:12px;color:var(--green);"><Icon Name="hand-holding-heart" /></div>
       <h3 style="font-family:var(--ff-head);font-size:1.1rem;color:var(--navy);margin:0 0 10px;">@Loc["home.cardPackTitle"]</h3>
       <p style="font-size:.86rem;color:var(--text-mid);line-height:1.65;margin:0 0 18px;">
         @Loc["home.cardPackBody"]
@@ -65,7 +68,7 @@
     </div>
 
     <div style="background:white;border-radius:14px;padding:28px 26px;border:1px solid var(--border);box-shadow:0 2px 12px rgba(0,0,0,.05);">
-      <div style="font-size:2rem;margin-bottom:12px;">🙏</div>
+      <div style="font-size:1.9rem;margin-bottom:12px;color:var(--green);"><Icon Name="hands-praying" /></div>
       <h3 style="font-family:var(--ff-head);font-size:1.1rem;color:var(--navy);margin:0 0 10px;">@Loc["home.cardPrayTitle"]</h3>
       <p style="font-size:.86rem;color:var(--text-mid);line-height:1.65;margin:0 0 18px;">
         @Loc["home.cardPrayBody"]
@@ -111,13 +114,13 @@
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;">
     <div style="background:white;border-radius:14px;padding:32px;border:1px solid var(--border);box-shadow:0 2px 12px rgba(0,0,0,.05);text-align:center;">
-      <div style="font-size:2.4rem;margin-bottom:12px;">💸</div>
+      <div style="font-size:2.2rem;margin-bottom:12px;color:var(--green);"><Icon Name="hand-holding-dollar" /></div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 10px;">@Loc["home.giDonateTitle"]</h3>
       <p style="font-size:.86rem;color:var(--text-mid);line-height:1.6;margin:0 0 20px;">@Loc["home.giDonateBody"]</p>
       <a href="/give" style="display:inline-block;padding:11px 28px;background:var(--green);color:white;border-radius:8px;font-weight:700;font-size:.88rem;text-decoration:none;">@Loc["home.giDonateBtn"]</a>
     </div>
     <div style="background:white;border-radius:14px;padding:32px;border:1px solid var(--border);box-shadow:0 2px 12px rgba(0,0,0,.05);text-align:center;">
-      <div style="font-size:2.4rem;margin-bottom:12px;">🤝</div>
+      <div style="font-size:2.2rem;margin-bottom:12px;color:var(--navy);"><Icon Name="handshake" /></div>
       <h3 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 10px;">@Loc["home.giVolTitle"]</h3>
       <p style="font-size:.86rem;color:var(--text-mid);line-height:1.6;margin:0 0 20px;">@Loc["home.giVolBody"]</p>
       <a href="/volunteer" style="display:inline-block;padding:11px 28px;background:var(--navy);color:white;border-radius:8px;font-weight:700;font-size:.88rem;text-decoration:none;">@Loc["home.giVolBtn"]</a>

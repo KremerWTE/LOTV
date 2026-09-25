@@ -62,7 +62,7 @@ public class SidebarLayoutTests : E2ETestBase
 
         Assert.Equal(new[]
         {
-            "Kanban Board", "Possible Duplicates", "Cases", "Unassigned Queue",
+            "Package Pipeline", "Possible Duplicates", "Cases", "Unassigned Queue",
             "My Work Queue", "Request Form", "Edit Request Form",
         }, await GroupLinksAsync(sidebar, "Prayer Request Package"));
     }

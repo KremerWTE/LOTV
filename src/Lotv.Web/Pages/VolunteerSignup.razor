@@ -40,7 +40,7 @@ else
       @foreach (var (role, icon, desc) in _roles)
       {
         <div style="background:white;border-radius:10px;padding:18px;border:1px solid var(--border);font-size:.84rem;">
-          <div style="font-size:1.4rem;margin-bottom:6px;">@icon</div>
+          <div style="font-size:1.4rem;margin-bottom:6px;color:var(--green);"><Icon Name="@icon" /></div>
           <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">@role</div>
           <div style="color:var(--text-mid);line-height:1.5;">@desc</div>
         </div>
@@ -136,12 +136,12 @@ else
 
   private static readonly (string role, string icon, string desc)[] _roles =
   [
-    ("Package Assembler", "📦", "Assemble and pack comfort boxes with love and care."),
-    ("Prayer Ambassador", "🙏", "Commit to praying daily for assigned families by name."),
-    ("Parish Liaison",    "⛳",   "Coordinate between LOTV and your local parish community."),
-    ("Event Helper",      "📅", "Support galas, prayer nights, and community gatherings."),
-    ("Driver",            "🚗", "Deliver packages locally when families cannot receive by mail."),
-    ("Admin Support",     "✍",   "Help with case coordination, data entry, and communications."),
+    ("Package Assembler", "box-open", "Assemble and pack comfort boxes with love and care."),
+    ("Prayer Ambassador", "hands-praying", "Commit to praying daily for assigned families by name."),
+    ("Parish Liaison",    "church",   "Coordinate between LOTV and your local parish community."),
+    ("Event Helper",      "calendar-days", "Support galas, prayer nights, and community gatherings."),
+    ("Driver",            "truck-fast", "Deliver packages locally when families cannot receive by mail."),
+    ("Admin Support",     "pen-to-square",   "Help with case coordination, data entry, and communications."),
   ];
 
   private async Task SubmitAsync()

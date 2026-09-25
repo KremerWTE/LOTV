@@ -14,7 +14,7 @@
     <button class="btn btn-sm @(_needsInfoOnly ? "btn-primary" : "")" id="needs-info-filter" aria-pressed="@_needsInfoOnly" @onclick="() => _needsInfoOnly = !_needsInfoOnly">⚠ Needs info (@_queue.Count(HasInfoProblems))</button>
     <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
     <a href="/admin/cases" class="btn btn-sm">All Cases</a>
-    <a href="/admin/kanban" class="btn btn-sm">☷ Kanban Board</a>
+    <a href="/admin/kanban" class="btn btn-sm">☷ Package Pipeline</a>
     <a href="/admin/my-queue" class="btn btn-sm">📋 My Work Queue</a>
   </div>
 </div>
