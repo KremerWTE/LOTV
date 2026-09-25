@@ -106,6 +106,55 @@ public class PrayerCareIntakeTests : E2ETestBase
         return captured!.Value;
     }
 
+    // ── Iframe auto-height ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The form is pasted in without a doctype, so inside an iframe the page is in quirks mode and its body / scrollHeight
+    /// stretch to fill the frame. It used to report the frame's own height back, so an iframe that was too tall for the form
+    /// could never shrink. It now reports the form's own height.
+    /// </summary>
+    [Fact]
+    public async Task InAnOversizedIframe_TheFormReportsItsOwnHeight_SoTheFrameShrinksAndGrows()
+    {
+        await Page.RouteAsync($"{ApiOrigin}/api/v1/public/forms/prayer-care-intake", route =>
+            route.FulfillAsync(new RouteFulfillOptions
+            {
+                Status = 200,
+                ContentType = "application/json",
+                Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = "*" },
+                Body = DefaultDefinitionJson,
+            }));
+
+        // A stand-in for the Duda page: a 3000px iframe plus the listener the form's header comment recommends.
+        var host = Path.Combine(Path.GetTempPath(), $"lotv-iframe-host-{Guid.NewGuid():N}.html");
+        File.WriteAllText(host, $$"""
+            <!doctype html><body style="margin:0">
+            <iframe id="frame" src="{{GetFormFileUrl()}}" style="width:700px;height:3000px;border:0"></iframe>
+            <script>
+              window.addEventListener("message", function (e) {
+                if (e.data && e.data.lotvIntakeHeight)
+                  document.getElementById("frame").style.height = e.data.lotvIntakeHeight + "px";
+              });
+            </script>
+            """);
+        try
+        {
+            await Page.GotoAsync(new Uri(host).AbsoluteUri);
+
+            // Before a choice is made only "Who is this for?" shows, so the frame must collapse well below 3000px.
+            await Page.WaitForFunctionAsync("() => document.getElementById('frame').getBoundingClientRect().height < 1000");
+            var collapsed = await Page.EvaluateAsync<double>("() => document.getElementById('frame').getBoundingClientRect().height");
+            Assert.InRange(collapsed, 100, 400);
+
+            // Choosing "for me" reveals the whole form, and the frame grows to fit it (not back to 3000px).
+            await Page.FrameLocator("#frame").Locator(".lotv-toggle[data-forwho='me']").ClickAsync();
+            await Page.WaitForFunctionAsync("() => document.getElementById('frame').getBoundingClientRect().height > 1000");
+            var open = await Page.EvaluateAsync<double>("() => document.getElementById('frame').getBoundingClientRect().height");
+            Assert.InRange(open, 1000, 2900);
+        }
+        finally { File.Delete(host); }
+    }
+
     // ── Fill helpers ─────────────────────────────────────────────────────────
 
     private async Task FillRequiredFamilyFieldsAsync()

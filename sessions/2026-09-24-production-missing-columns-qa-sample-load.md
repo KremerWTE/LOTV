@@ -84,6 +84,13 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - Tests updated to be independent of how many accounts are provisioned, plus assertions for Nicolas (628 pass).
 - Login is matched to the volunteer record by email, else name, so keep the two consistent if edited in the app. If he should be in the automatic rotation, change his volunteer role in the app (Volunteer role edit).
 
+## Request-form iframe could never shrink ✅
+
+- Question: how to shorten the embedded request-form iframe when it doesn't need to be so long. Cause: `prayer-care-intake.html` posts its height to the parent (`lotvIntakeHeight`) using `documentElement.scrollHeight`, but the file is a pasteable fragment with no doctype, so inside an iframe it is in **quirks mode** where body / scrollHeight stretch to the frame. An iframe that starts too tall reported its own height back and never shrank (measured: reported 3000 while the form was 185px tall).
+- Fix (both copies of the file, kept identical): measure the `#lotv-intake` container itself (bottom edge + body margins) and observe that element with the ResizeObserver. Verified in a browser: a 3000px iframe shrinks to 209px, grows to 1486px when the form opens. New E2E test `InAnOversizedIframe_TheFormReportsItsOwnHeight_SoTheFrameShrinksAndGrows` (fails with the old file by timing out, passes with the fix); the 31 existing intake E2E tests pass.
+- **The parent page still needs the listener** (Duda: page or site-wide HTML/embed): `window.addEventListener("message", function (e) { if (e.data && e.data.lotvIntakeHeight) document.getElementById("lotv-intake-frame").style.height = e.data.lotvIntakeHeight + "px"; });` and the iframe needs `id="lotv-intake-frame"`. Pasting the whole file into a Duda Embed Code widget instead of an iframe needs no listener. A pasted copy on Duda must be re-pasted to get the fix; an iframe pointing at `/request-prayer-care-package` gets it on deploy.
+- Note: `tests/Lotv.E2E` has `IsTestProject=false`, so plain `dotnet test` silently skips it; run with `-p:IsTestProject=true`.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.
