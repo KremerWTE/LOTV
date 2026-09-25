@@ -124,8 +124,7 @@ else
 
   protected override async Task OnInitializedAsync()
   {
-    var all  = await Api.GetParishesAsync();
-    _parish  = all.FirstOrDefault(p => p.Id == Id);
+    _parish  = await Api.GetParishAsync(Id);
     _loading = false;
   }
 

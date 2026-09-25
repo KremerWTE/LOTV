@@ -230,11 +230,16 @@
     requests = requests.Where(r => !r.NeedsDuplicateReview).ToList();
     _allRequests = requests;
     if (_needsInfoOnly) requests = requests.Where(HasInfoProblems).ToList();
+    // The 90-day window keeps the Fulfilled lane from becoming an archive, but the "Needs info" button counts every case
+    // with a data problem, so while that filter is on the board shows all of them (older fulfilled ones included).
+    var applyWindow = !_needsInfoOnly;
     var cutoff = DateTime.UtcNow - FulfilledWindow;
     var allFulfilled = requests.Where(r => r.Status == CaseStatus.Fulfilled).ToList();
-    _hiddenFulfilledCount = allFulfilled.Count(r => r.UpdatedAt < cutoff);
+    _hiddenFulfilledCount = applyWindow ? allFulfilled.Count(r => r.UpdatedAt < cutoff) : 0;
 
-    var visible = requests.Where(r => r.Status != CaseStatus.Fulfilled || r.UpdatedAt >= cutoff).ToList();
+    var visible = applyWindow
+      ? requests.Where(r => r.Status != CaseStatus.Fulfilled || r.UpdatedAt >= cutoff).ToList()
+      : requests;
 
     _byColumn = _columns.ToDictionary(
       col => col.Key,

@@ -102,15 +102,16 @@ app.MapGet(PrayerCareFormRoute, async (IWebHostEnvironment env) =>
     using var reader = new StreamReader(stream);
     var form = await reader.ReadToEndAsync();
 
+    // The page background is transparent so that, inside an iframe, the site around it shows through (it was solid white).
     var page = $$"""
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" style="background:transparent;">
         <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Request a Prayer Care Package | Lily of the Valley Ministry</title>
         </head>
-        <body style="margin:0;padding:24px 16px;background:#fff;">
+        <body style="margin:0;padding:24px 16px;background:transparent;">
         {{form}}
         </body>
         </html>

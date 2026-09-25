@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LOTV Ministry — Staff Portal</title>
     <base href="/" />
-    <link rel="stylesheet" href="css/lotv-admin.css" />
+    <link rel="stylesheet" href="css/lotv-admin.css?v=@AssetVersion" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="Lotv.Web.styles.css" rel="stylesheet" />
@@ -68,8 +68,8 @@
       };
     </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="js/lotv-map.js"></script>
-    <script src="js/lotv-app.js"></script>
+    <script src="js/lotv-map.js?v=@AssetVersion"></script>
+    <script src="js/lotv-app.js?v=@AssetVersion"></script>
     <script>window.lotvTheme && window.lotvTheme.init();</script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <script src="_framework/blazor.web.js"></script>
@@ -78,6 +78,11 @@
 </html>
 
 @code {
+    // Our own scripts are addressed with the build's timestamp, so a deploy changes their URL. Without it a browser keeps
+    // running the old copy (a fixed lotv-map.js was ignored until the cache expired and the map stayed empty).
+    private static readonly string AssetVersion =
+        File.GetLastWriteTimeUtc(typeof(App).Assembly.Location).Ticks.ToString("x");
+
     // Prerendering is off: this app's whole auth model restores the JWT
     // session via JS interop (reads the refresh token from sessionStorage),
     // and JS interop is unavailable during the static prerender pass -

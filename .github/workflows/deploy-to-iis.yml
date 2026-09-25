@@ -231,13 +231,8 @@ jobs:
         VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
         # Mail the APP sends to families and the team (request received / shipped / delivered emails).
         # Separate from the NOTIFICATION_EMAIL_* / SMTP_* secrets above, which are only the pipeline's
-        # own build-status mail. All optional: without APP_SMTP_HOST the API only logs emails.
-        APP_SMTP_HOST:             ${{ secrets.APP_SMTP_HOST }}
-        APP_SMTP_PORT:             ${{ secrets.APP_SMTP_PORT }}
-        APP_SMTP_USERNAME:         ${{ secrets.APP_SMTP_USERNAME }}
-        APP_SMTP_PASSWORD:         ${{ secrets.APP_SMTP_PASSWORD }}
-        APP_SMTP_FROM_EMAIL:       ${{ secrets.APP_SMTP_FROM_EMAIL }}
-        # SocketLabs (preferred; used when both the server id and API key are set, otherwise SMTP above).
+        # own build-status mail. All optional: without the SocketLabs server id and API key the API only logs emails.
+        # SocketLabs is the only way the app sends email (there is no SMTP path).
         APP_SOCKETLABS_SERVER_ID:  ${{ secrets.APP_SOCKETLABS_SERVER_ID }}
         APP_SOCKETLABS_API_KEY:    ${{ secrets.APP_SOCKETLABS_API_KEY }}
         APP_EMAIL_FROM:            ${{ secrets.APP_EMAIL_FROM }}
@@ -292,11 +287,6 @@ jobs:
         Set-IfSet -root $cfg -path @("Twilio","FromNumber")                   -envVal $env:TWILIO_FROM_NUMBER
         Set-IfSet -root $cfg -path @("Push","VapidPublicKey")                 -envVal $env:VAPID_PUBLIC_KEY
         Set-IfSet -root $cfg -path @("Push","VapidPrivateKey")                -envVal $env:VAPID_PRIVATE_KEY
-        Set-IfSet -root $cfg -path @("Smtp","Host")                           -envVal $env:APP_SMTP_HOST
-        Set-IfSet -root $cfg -path @("Smtp","Port")                           -envVal $env:APP_SMTP_PORT
-        Set-IfSet -root $cfg -path @("Smtp","Username")                       -envVal $env:APP_SMTP_USERNAME
-        Set-IfSet -root $cfg -path @("Smtp","Password")                       -envVal $env:APP_SMTP_PASSWORD
-        Set-IfSet -root $cfg -path @("Smtp","FromEmail")                      -envVal $env:APP_SMTP_FROM_EMAIL
         Set-IfSet -root $cfg -path @("SocketLabs","ServerId")                 -envVal $env:APP_SOCKETLABS_SERVER_ID
         Set-IfSet -root $cfg -path @("SocketLabs","ApiKey")                   -envVal $env:APP_SOCKETLABS_API_KEY
         Set-IfSet -root $cfg -path @("SocketLabs","FromEmail")                -envVal $env:APP_EMAIL_FROM
