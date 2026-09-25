@@ -128,8 +128,11 @@ builder.Services.AddAuthorization(o =>
     o.AddPolicy("HQAdmin",       p => p.RequireClaim("role", nameof(UserRole.HQAdmin)));
     // Director is "near-admin": same operational access as ChapterAdmin
     // (cases, donations, volunteers), but never HQAdmin-only endpoints.
-    o.AddPolicy("ChapterAdmin",  p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.Director)));
-    o.AddPolicy("Staff",         p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Director)));
+    // Access rule (see AccessRules): staff work with everything, Board sees the same areas read-only, volunteers only their
+    // own prayer request package cases. "ChapterAdmin" and "Staff" therefore also let Board through for reads (GET) only.
+    o.AddPolicy("ChapterAdmin",  AccessRules.AdminOrBoardRead);
+    o.AddPolicy("Staff",         AccessRules.StaffOrBoardRead);
+    o.AddPolicy("CaseWork",      AccessRules.CaseWork);
     o.AddPolicy("Volunteer",     p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Volunteer), nameof(UserRole.Director)));
     // Board: read-only governance role, deliberately its own policy rather
     // than folded into Staff/ChapterAdmin — kept off every case/family/
@@ -534,7 +537,8 @@ publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db) =
     return Results.Created($"/api/v1/donations/{body.Donation.Id}", new { donorId = donor.Id, donationId = body.Donation.Id });
 });
 
-// Volunteer signup: creates a Volunteer record in Onboarding status
+// Volunteer signup: creates a Volunteer record in Onboarding status. It only takes what the form asks for (a caller can't
+// choose its own status, level or chapter); staff approve it under Volunteers > Pending Onboarding, and a login is a separate step.
 publicIntake.MapPost("/volunteer", async (Volunteer vol, LotvDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(vol.FirstName) ||
@@ -542,11 +546,25 @@ publicIntake.MapPost("/volunteer", async (Volunteer vol, LotvDbContext db) =>
         string.IsNullOrWhiteSpace(vol.Email))
         return Results.BadRequest(new { error = "First name, last name, and email are required." });
 
-    vol.Status     = VolunteerStatus.Onboarding;
-    vol.JoinedDate = DateTime.UtcNow;
-    db.Volunteers.Add(vol);
+    var chapterId = await db.Chapters.Where(c => c.IsActive).OrderBy(c => c.Id).Select(c => (int?)c.Id).FirstOrDefaultAsync();
+    if (chapterId is null) return Results.Problem("Volunteer sign-up is not available right now.", statusCode: 503);
+
+    var signup = new Volunteer
+    {
+        FirstName  = vol.FirstName.Trim(),
+        LastName   = vol.LastName.Trim(),
+        Email      = vol.Email.Trim(),
+        Phone      = vol.Phone,
+        ParishName = vol.ParishName,
+        Role       = vol.Role,
+        Notes      = vol.Notes,
+        ChapterId  = chapterId.Value,
+        Status     = VolunteerStatus.Onboarding,
+        JoinedDate = DateTime.UtcNow,
+    };
+    db.Volunteers.Add(signup);
     await db.SaveChangesAsync();
-    return Results.Created($"/api/v1/volunteers/{vol.Id}", vol);
+    return Results.Created($"/api/v1/volunteers/{signup.Id}", new { signup.Id, signup.FirstName, signup.LastName, Role = signup.Role, Status = signup.Status });
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -671,7 +689,7 @@ auth.MapPost("/logout", async (RefreshRequest req, LotvDbContext db) =>
 }).RequireAuthorization();
 
 // ── Cases / Requests ──────────────────────────────────────────────────────────
-var cases = app.MapGroup("/api/v1/requests").WithTags("Requests").RequireAuthorization("Staff");
+var cases = app.MapGroup("/api/v1/requests").WithTags("Requests").RequireAuthorization("CaseWork");
 
 cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
     string? status, string? priority, bool? overdue, bool? historical, int? familyId) =>
@@ -713,6 +731,23 @@ static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChap
                  || (fullName != "" && (v.FirstName + " " + v.LastName).ToLower() == fullName))
         .ToListAsync();
 }
+
+// A volunteer reaches only their own assigned cases, and only the routes the package work needs (see AccessRules).
+// Staff and Board pass straight through (Board reads only, by the policy).
+cases.AddEndpointFilter(async (fc, next) =>
+{
+    var http = fc.HttpContext;
+    if (http.User.FindFirst("role")?.Value != nameof(UserRole.Volunteer)) return await next(fc);
+    var db = http.RequestServices.GetRequiredService<LotvDbContext>();
+    var ctx = http.RequestServices.GetRequiredService<IChapterContextService>();
+    var userMgr = http.RequestServices.GetRequiredService<UserManager<LotvIdentityUser>>();
+    var allowed = await AccessRules.VolunteerCanUse(http, async id =>
+    {
+        var mine = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToList();
+        return await db.Requests.AnyAsync(r => r.Id == id && r.AssignedToId != null && mine.Contains(r.AssignedToId.Value));
+    });
+    return allowed ? await next(fc) : Results.Forbid();
+});
 
 // The signed-in person's own cases, found through their volunteer record.
 cases.MapGet("/mine", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
@@ -1428,11 +1463,12 @@ volunteers.MapGet("/{id:int}", async (int id, LotvDbContext db) =>
 volunteers.MapGet("/available", async (int requestId, LotvDbContext db, IAutoAssignmentService svc) =>
     await svc.GetScoresAsync(requestId));
 
-volunteers.MapGet("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+// A volunteer's own record: reachable by volunteers (everything else under /volunteers is staff-only).
+app.MapGet("/api/v1/volunteers/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
 {
     var mine = (await FindMyVolunteersAsync(db, ctx, userMgr)).FirstOrDefault();
     return mine is null ? Results.NotFound() : Results.Ok(mine);
-});
+}).WithTags("Volunteers").RequireAuthorization("Volunteer");
 
 // Creates the signed-in person's own volunteer record (so cases can be assigned to them and show in My Work Queue).
 volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>

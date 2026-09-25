@@ -23,6 +23,8 @@
       </div>
     </div>
 
+    @if (!_isVolunteer)
+    {
     <div class="sidebar-section">
       <div class="sidebar-section-label">Overview</div>
       <NavLink class="sidebar-link" href="/admin/dashboard" Match="NavLinkMatch.All">
@@ -35,13 +37,24 @@
         </NavLink>
       }
     </div>
+    }
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Prayer Request Package</div>
+      @if (_isVolunteer)
+      {
+        @* Volunteers see only the prayer request package: their own cases (see AccessRules on the API). *@
+        <NavLink class="sidebar-link" href="/admin/my-queue">
+          <span class="icon">📋</span> My Work Queue
+        </NavLink>
+        <a class="sidebar-link" href="/request-prayer-care-package" target="_blank" rel="noopener">
+          <span class="icon">📝</span> Request Form <span style="opacity:.6;font-size:.7rem;">↗</span>
+        </a>
+      }
       @if (_canSeeCases)
       {
         <NavLink class="sidebar-link" href="/admin/kanban">
-          <span class="icon">☷</span> Kanban Board
+          <span class="icon">☷</span> Package Pipeline
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/families/duplicate-review">
           <span class="icon">🔍</span> Possible Duplicates
@@ -120,6 +133,8 @@
       }
     </div>
 
+    @if (!_isVolunteer)
+    {
     <div class="sidebar-section">
       <div class="sidebar-section-label">System Admin</div>
       @if (_isAdmin)
@@ -400,7 +415,7 @@
             <span class="icon">💾</span> Export Data <span style="opacity:.5;font-size:.68rem;">(in Reports)</span>
           </NavLink>
         }
-        @if (_isAdmin)
+        @if (_seesAdminAreas)
         {
           <NavLink class="sidebar-link" href="/admin/audit">
             <span class="icon">🔍</span> Audit Log <span style="opacity:.5;font-size:.68rem;">(in Reports)</span>
@@ -431,7 +446,7 @@
           </NavLink>
         }
       }
-      @if (_isAdmin)
+      @if (_seesAdminAreas)
       {
         <NavLink class="sidebar-link" href="/admin/financial-hub">
           <span class="icon">📈</span> Financial Overview
@@ -480,7 +495,7 @@
           <span class="icon">📱</span> SMS Log <span style="opacity:.5;font-size:.68rem;">(in Communications)</span>
         </NavLink>
       }
-      @if (_isAdmin)
+      @if (_seesAdminAreas)
       {
         <NavLink class="sidebar-link" href="/admin/announcements">
           <span class="icon">📢</span> Announcements
@@ -524,6 +539,7 @@
       }
     </div>
     </div>
+    }
 
     <div class="sidebar-footer">
       <div style="margin-bottom:8px;">
@@ -552,6 +568,8 @@
       </div>
       <div class="topbar-right">
 
+        @if (!_isVolunteer)
+        {
         <!-- GLOBAL SEARCH -->
         <div style="position:relative;" role="search">
           <input class="topbar-search" type="search" placeholder="🔍 Search families, donors..."
@@ -606,6 +624,7 @@
             </div>
           }
         </div>
+        }
 
         <!-- NOTIFICATIONS -->
         <div style="position:relative;">
@@ -759,9 +778,26 @@
   // Director is "near-admin" — everywhere ChapterAdmin appears, Director
   // does too, matching the same grouping on the API's "ChapterAdmin" policy.
   private bool _isAdmin          => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director";
-  private bool _canSeeCases      => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Volunteer" or "Director";
-  private bool _canSeeDonations  => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director";
-  private bool _canSeeVolunteers => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Director";
+  // Access rule: staff and Board see all items (Board read-only, enforced by the API); volunteers see only the prayer
+  // request package, i.e. their own cases in My Work Queue.
+  private bool _isVolunteer      => Auth.UserRole == "Volunteer";
+  private bool _seesAdminAreas   => _isAdmin || Auth.UserRole == "Board";
+  private bool _canSeeCases      => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Director" or "Board";
+  private bool _canSeeDonations  => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director" or "Board";
+  private bool _canSeeVolunteers => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Director" or "Board";
+
+  // A volunteer who types or follows any other staff address is sent back to their own work.
+  private static bool VolunteerMayOpen(string path) =>
+    path.StartsWith("/admin/my-queue", StringComparison.OrdinalIgnoreCase)
+    || System.Text.RegularExpressions.Regex.IsMatch(path, @"^/admin/cases/\d+/?$");
+
+  private void KeepVolunteerInTheirLane()
+  {
+    if (!_isVolunteer) return;
+    var path = new Uri(Nav.Uri).AbsolutePath;
+    if (path.StartsWith("/admin", StringComparison.OrdinalIgnoreCase) && !VolunteerMayOpen(path))
+      Nav.NavigateTo("/admin/my-queue", replace: true);
+  }
 
   // Search
   private string _searchText = "";
@@ -784,7 +820,8 @@
       return;
     }
 
-    await LoadNotificationsAsync();
+    KeepVolunteerInTheirLane();
+    if (!_isVolunteer) await LoadNotificationsAsync();
     try { await Hub.ConnectAsync(); } catch { }
 
     Hub.OnReconnected += async () =>
@@ -796,7 +833,7 @@
     Hub.OnCaseEscalated += async (_, _) => { await LoadNotificationsAsync(); await InvokeAsync(StateHasChanged); };
 
     Auth.OnChange += StateHasChanged;
-    Nav.LocationChanged += (_, _) => { UpdateTitle(); CloseSidebar(); InvokeAsync(StateHasChanged); };
+    Nav.LocationChanged += (_, _) => { KeepVolunteerInTheirLane(); UpdateTitle(); CloseSidebar(); InvokeAsync(StateHasChanged); };
     UpdateTitle();
 
     try { _dark = (await JS.InvokeAsync<string>("lotvTheme.get")) == "dark"; } catch { }
@@ -842,6 +879,7 @@
 
   private async Task RefreshOpenCountAsync()
   {
+    if (_isVolunteer) return;   // volunteers have no dashboard numbers
     try
     {
       var stats = await Api.GetDashboardStatsAsync();
@@ -940,7 +978,7 @@
       var u when u.EndsWith("/admin/email-previews") => "Request Emails",
       var u when u.Contains("/admin/cases/")       => "Case Detail",
       var u when u.Contains("/admin/cases")       => "Family Cases",
-      var u when u.EndsWith("/admin/kanban")      => "Kanban Board",
+      var u when u.EndsWith("/admin/kanban")      => "Package Pipeline",
       var u when u.EndsWith("/admin/historical")  => "Historical Cases",
       var u when u.EndsWith("/admin/assignment-rules") => "Assignment Rules",
       var u when u.EndsWith("/admin/qa-sample-data") => "QA Sample Data",

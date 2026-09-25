@@ -94,9 +94,8 @@
     }
   }
 
-  // Board is a read-only governance role with its own minimal portal, not
-  // AdminLayout — everyone else lands on the normal staff dashboard.
-  private string PostLoginUrl() => Auth.UserRole == "Board" ? "/board/portal" : "/admin/dashboard";
+  // Volunteers land on their own work; everyone else (Board too, read-only) on the dashboard.
+  private string PostLoginUrl() => Auth.UserRole == "Volunteer" ? "/admin/my-queue" : "/admin/dashboard";
 
   private async Task OnKeyDown(KeyboardEventArgs e)
   {

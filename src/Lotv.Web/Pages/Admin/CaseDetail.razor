@@ -37,7 +37,7 @@ else
     </div>
     <div class="page-hd-actions">
       <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
-      <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+      @if (!_isVolunteer) { <a href="/admin/cases" class="btn btn-sm">← All Cases</a> }
     </div>
   </div>
 
@@ -82,6 +82,8 @@ else
             </select>
           </div>
 
+          @if (!_isVolunteer)
+          {
           <div class="form-group">
             <label class="form-label">Priority</label>
             <select class="form-input" @bind="_editPriority">
@@ -105,6 +107,8 @@ else
                    value="@(_editDueDate?.ToString("yyyy-MM-dd") ?? "")"
                    @onchange='e => _editDueDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
           </div>
+
+          }
 
           <div class="form-group">
             <label class="form-label">Category</label>
@@ -130,17 +134,24 @@ else
             </div>
           }
 
+          @if (!_isVolunteer)
+          {
           <div class="form-group" style="grid-column:1/-1;">
             <label class="form-label">Internal Notes (staff only)</label>
             <textarea class="form-textarea" @bind="_editInternalNotes" placeholder="Add notes visible only to staff…"></textarea>
           </div>
 
+          }
+
+          @if (_canEdit)
+          {
           <div style="grid-column:1/-1;display:flex;gap:10px;">
             <button class="btn btn-primary" @onclick="SaveDetailsAsync" disabled="@_saving">
               @(_saving ? "Saving…" : "Save Changes")
             </button>
             <button class="btn" @onclick="ResetDetails">Discard</button>
           </div>
+          }
         </div>
       </div>
 
@@ -175,6 +186,8 @@ else
         </div>
       </div>
 
+          @if (!_isVolunteer)
+          {
       <!-- MOTHER'S DAY CARD -->
       <div class="panel" data-panel="mothers-day">
         <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -226,6 +239,8 @@ else
           }
         </div>
       </div>
+
+          }
 
       <!-- OTHER REQUESTS FROM THIS FAMILY -->
       <div class="panel" data-panel="family-requests">
@@ -361,7 +376,7 @@ else
         <div class="panel">
           <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
             <span>Family</span>
-            <a href="/admin/families/@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile →</a>
+            @if (!_isVolunteer) { <a href="/admin/families/@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile →</a> }
           </div>
           <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
             <div><strong>Name:</strong> @_request.Family.FullName</div>
@@ -574,6 +589,9 @@ else
 
   // Edit state for case details panel
   private CaseStatus _editStatus;
+  // Access rule: a volunteer works only their own case (no staff fields or other cases); Board sees it read-only.
+  private bool _isVolunteer => Auth.UserRole == "Volunteer";
+  private bool _canEdit => Auth.UserRole != "Board";
   private RequestPriority _editPriority;
   private int? _editAssignedVolId;
   private DateTime? _editDueDate;
