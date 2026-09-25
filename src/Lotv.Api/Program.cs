@@ -286,6 +286,17 @@ app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+// While an admin is signed in as someone else ("Login As"), nothing that changes the account itself is allowed.
+app.Use(async (http, next) =>
+{
+    if (ImpersonationEndpoints.IsBlockedDuringLoginAs(http))
+    {
+        http.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await http.Response.WriteAsJsonAsync(new { error = "Account and profile changes are not allowed while you are signed in as someone else." });
+        return;
+    }
+    await next();
+});
 
 // ── Health check (public — no auth required) ──────────────────────────────────
 app.MapHealthChecks("/health").AllowAnonymous();
@@ -738,6 +749,7 @@ cases.MapGet("/{id:int}", async (int id, LotvDbContext db, IChapterContextServic
     var r = await db.Requests.Include(r => r.Family).FirstOrDefaultAsync(r => r.Id == id);
     if (r is null) return Results.NotFound();
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue && r.ChapterId != ctx.ChapterId.Value) return Results.Forbid();
+    await CaseAudit.RecordViewAsync(db, id, ctx.UserId, ctx.UserName);   // who looked at this case, and when
     return Results.Ok(r);
 });
 
@@ -1085,10 +1097,11 @@ static async Task<(RequestAssignment? Assignment, PackageRequest? Request)> Find
     return request is null ? (null, null) : (assignment, request);
 }
 
-static async Task<IResult> ViewAssignmentAsync(int requestId, IReadOnlyCollection<int> volunteerIds, LotvDbContext db)
+static async Task<IResult> ViewAssignmentAsync(int requestId, IReadOnlyCollection<int> volunteerIds, LotvDbContext db, string? byId = null, string? byName = null)
 {
     var (assignment, request) = await FindAssignmentAsync(requestId, volunteerIds, db);
     if (assignment is null || request is null) return Results.NotFound();
+    await CaseAudit.RecordViewAsync(db, requestId, byId, byName ?? assignment.AssignedToName);   // a volunteer opening their assignment is a view too
     return Results.Ok(new
     {
         requestId = request.Id,
@@ -1130,7 +1143,7 @@ static async Task<List<int>> MyVolunteerIdsAsync(LotvDbContext db, IChapterConte
     (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToList();
 
 myAssignments.MapGet("/{requestId:int}", async (int requestId, LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
-    await ViewAssignmentAsync(requestId, await MyVolunteerIdsAsync(db, ctx, userMgr), db));
+    await ViewAssignmentAsync(requestId, await MyVolunteerIdsAsync(db, ctx, userMgr), db, ctx.UserId, ctx.UserName));
 
 myAssignments.MapPost("/{requestId:int}/accept", async (int requestId, LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
     await AcceptAssignmentAsync(requestId, await MyVolunteerIdsAsync(db, ctx, userMgr), db, ctx.UserId, ctx.UserName));
@@ -1834,6 +1847,7 @@ var dioceses = app.MapGroup("/api/v1/dioceses").WithTags("Dioceses").RequireAuth
 // Partner dioceses by default; the directory-only ones (the loaded US list) come with includeDirectoryOnly=true.
 dioceses.MapGet("/", async (LotvDbContext db, bool? includeDirectoryOnly) =>
     await db.Dioceses.Where(d => includeDirectoryOnly == true || !d.IsDirectoryOnly).OrderBy(d => d.Name).ToListAsync());
+app.MapImpersonationEndpoints();   // "Login As" for HQ admins (audited, time-limited)
 app.MapParishEndpoints();   // the parish directory: every parish belongs to a diocese
 app.MapDioceseDirectoryEndpoints();   // loads the US diocese list (directory-only) so parishes can be placed
 dioceses.MapPost("/", async (Diocese d, LotvDbContext db) => { db.Dioceses.Add(d); await db.SaveChangesAsync(); return Results.Created($"/api/v1/dioceses/{d.Id}", d); }).RequireAuthorization("ChapterAdmin");

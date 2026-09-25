@@ -1,0 +1,31 @@
+@inject AuthService Auth
+@inject NavigationManager Nav
+@implements IDisposable
+
+@* Shown on every page while an HQ admin is signed in as someone else ("Login As"), so it can never be forgotten. *@
+@if (Auth.IsImpersonating)
+{
+  <div id="impersonation-banner" role="status"
+       style="position:sticky;top:0;z-index:2000;background:#9a3412;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:.86rem;">
+    <span><strong>Signed in as @Auth.UserName (@Auth.UserRole)</strong> by @Auth.ImpersonatedByName. Everything you do is recorded under both names, and account and profile changes are turned off.</span>
+    <button class="btn btn-sm" id="impersonation-return" style="background:#fff;color:#9a3412;font-weight:700;" @onclick="ReturnAsync" disabled="@_busy">
+      @(_busy ? "Returning…" : "Return to my account")
+    </button>
+  </div>
+}
+
+@code {
+  private bool _busy;
+
+  protected override void OnInitialized() => Auth.OnChange += Changed;
+  private void Changed() => _ = InvokeAsync(StateHasChanged);
+  public void Dispose() => Auth.OnChange -= Changed;
+
+  private async Task ReturnAsync()
+  {
+    _busy = true;
+    var ok = await Auth.ReturnToOwnAccountAsync();
+    _busy = false;
+    Nav.NavigateTo(ok ? "/admin/users" : "/login");
+  }
+}

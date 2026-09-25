@@ -45,6 +45,11 @@ public class AuthService
         }
     }
     public bool IsHqAdmin => UserRole == nameof(Lotv.Core.Models.UserRole.HQAdmin);
+
+    // "Login As": an HQ admin using the portal as someone else. Only the in-memory access token changes; the admin's own
+    // refresh token is kept, so returning (or a page reload, or the 30-minute expiry) simply puts the admin back.
+    public bool IsImpersonating => GetClaim("impersonated_by") is not null;
+    public string? ImpersonatedByName => GetClaim("impersonated_by_name");
     public string? UserAvatarUrl { get; private set; }
 
     public async Task RefreshAvatarAsync()
@@ -98,6 +103,49 @@ public class AuthService
             return false;
         }
     }
+
+    // ── Login As ─────────────────────────────────────────────────
+    public async Task<(bool Ok, string? Error)> LoginAsAsync(string userId)
+    {
+        var token = _authState.GetAccessToken();
+        if (string.IsNullOrEmpty(token)) return (false, "Please sign in first.");
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/impersonate") { Content = JsonContent.Create(new { userId }) };
+            req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var err = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+                return (false, err is not null && err.TryGetValue("error", out var m) ? m : "That could not be done.");
+            }
+            var result = await resp.Content.ReadFromJsonAsync<ImpersonationResponse>();
+            if (result is null) return (false, "That could not be done.");
+            _authState.SetToken(result.AccessToken);
+            OnChange?.Invoke();
+            return (true, null);
+        }
+        catch { return (false, "Network error — please try again."); }
+    }
+
+    /// <summary>Ends Login As (recording it) and restores the admin's own session through their refresh token.</summary>
+    public async Task<bool> ReturnToOwnAccountAsync()
+    {
+        var token = _authState.GetAccessToken();
+        if (!string.IsNullOrEmpty(token))
+        {
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/impersonate/end");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                await _http.SendAsync(req);
+            }
+            catch { /* recording the end is best effort; the session is restored either way */ }
+        }
+        return await RefreshTokenAsync();
+    }
+
+    private record ImpersonationResponse(string AccessToken);
 
     // ── Password recovery ────────────────────────────────────────────────────
     // Always reports success regardless of whether the account/recovery-email

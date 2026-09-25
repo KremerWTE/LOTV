@@ -21,7 +21,10 @@ public class ChapterContextService : IChapterContextService
             var given = User?.FindFirstValue(ClaimTypes.GivenName);
             var surname = User?.FindFirstValue(ClaimTypes.Surname);
             var full = $"{given} {surname}".Trim();
-            return string.IsNullOrWhiteSpace(full) ? UserId : full;
+            var name = string.IsNullOrWhiteSpace(full) ? UserId : full;
+            // Signed in as someone else ("Login As"): every activity entry names both people.
+            var by = User?.FindFirstValue("impersonated_by_name");
+            return string.IsNullOrEmpty(by) ? name : $"{name} (signed in by {by})";
         }
     }
 

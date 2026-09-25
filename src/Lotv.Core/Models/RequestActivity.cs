@@ -31,5 +31,7 @@ public enum ActivityType
     Escalated,
     Created,
     // Appended last so stored integer values above don't shift.
-    Unassigned
+    Unassigned,
+    /// <summary>Someone opened the case. Kept so it is always possible to say who looked at it.</summary>
+    Viewed
 }

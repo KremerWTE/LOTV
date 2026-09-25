@@ -2,6 +2,7 @@
 @layout AdminLayout
 @inject ApiService Api
 @inject AuthService Auth
+@inject NavigationManager Nav
 
 <PageTitle>User Management — LOTV Staff Portal</PageTitle>
 
@@ -56,6 +57,10 @@
               @if (!isMe)
               {
                 <button class="btn btn-sm" @onclick="() => OpenEdit(u)">Edit</button>
+                @if (CanLoginAs(u))
+                {
+                  <button class="btn btn-sm login-as-btn" title="See the portal exactly as @(u.FullName ?? u.UserName) does" @onclick="() => AskLoginAs(u)">Login as</button>
+                }
                 <button class="btn btn-sm" title="Send test push" @onclick="() => PushTest(u)">🔔</button>
                 @if (!string.IsNullOrEmpty(u.AvatarUrl))
                 {
@@ -115,6 +120,28 @@
   </div>
 }
 
+@if (_loginAsUser is not null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CancelLoginAs"></div>
+  <div id="login-as-confirm" role="dialog" aria-label="Sign in as another person"
+       style="position:fixed;left:50%;top:28%;transform:translateX(-50%);width:min(480px,92vw);background:white;z-index:501;border-radius:12px;padding:22px 24px;box-shadow:0 8px 32px rgba(0,0,0,.25);">
+    <h3 style="margin:0 0 8px;font-family:var(--ff-head);">Sign in as @(_loginAsUser.FullName ?? _loginAsUser.UserName)?</h3>
+    <p style="margin:0 0 10px;font-size:.88rem;line-height:1.6;color:var(--text-mid);">
+      You will see the portal exactly as this <strong>@_loginAsUser.Role</strong> sees it. It is written to the audit log under both names,
+      everything you do is recorded under both names, account and profile changes are turned off, and it ends by itself after 30 minutes.
+      Use <strong>Return to my account</strong> in the banner to stop sooner.
+    </p>
+    @if (!string.IsNullOrEmpty(_loginAsError))
+    {
+      <div id="login-as-error" style="background:#fff3cd;color:#856404;border-radius:8px;padding:8px 12px;font-size:.84rem;margin-bottom:10px;">⚠ @_loginAsError</div>
+    }
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" @onclick="CancelLoginAs" disabled="@_loginAsBusy">Cancel</button>
+      <button class="btn btn-primary" id="login-as-go" @onclick="ConfirmLoginAsAsync" disabled="@_loginAsBusy">@(_loginAsBusy ? "Signing in…" : "Sign in as them")</button>
+    </div>
+  </div>
+}
+
 @if (_toast != null)
 {
   <div style="position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
@@ -123,6 +150,25 @@
 }
 
 @code {
+  // ── Login As ──
+  private StaffUserDto? _loginAsUser;
+  private string? _loginAsError;
+  private bool _loginAsBusy;
+  private bool CanLoginAs(StaffUserDto u) => Auth.IsHqAdmin && !Auth.IsImpersonating && u.IsActive && u.Role != UserRole.HQAdmin && u.Id != _myId;
+  private void AskLoginAs(StaffUserDto u) { _loginAsUser = u; _loginAsError = null; }
+  private void CancelLoginAs() => _loginAsUser = null;
+
+  private async Task ConfirmLoginAsAsync()
+  {
+    if (_loginAsUser is null) return;
+    _loginAsBusy = true; _loginAsError = null;
+    var (ok, error) = await Auth.LoginAsAsync(_loginAsUser.Id);
+    _loginAsBusy = false;
+    if (!ok) { _loginAsError = error ?? "That could not be done."; return; }
+    _loginAsUser = null;
+    Nav.NavigateTo("/admin/dashboard");
+  }
+
   private List<StaffUserDto> _users = [];
   private bool _drawerOpen;
   private StaffUserDto? _editUser;
