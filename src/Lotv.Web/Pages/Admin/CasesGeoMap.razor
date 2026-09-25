@@ -2,6 +2,7 @@
 @layout AdminLayout
 @inject ApiService Api
 @using Lotv.Core.Models
+@using Lotv.Core.Common
 
 <PageTitle>Cases Map — LOTV Staff Portal</PageTitle>
 
@@ -62,6 +63,13 @@ else
     </div>
     <div class="panel-body">
       <LeafletMap Markers="_markers" Height="420px" />
+      @if (_unplacedCases > 0)
+      {
+        <p id="map-unplaced" style="margin:10px 0 0;font-size:.78rem;color:var(--text-mid);">
+          @_unplacedCases case@(_unplacedCases == 1 ? "" : "s") can't be placed on the map because the family's state isn't recognisable
+          (@string.Join(", ", _unplacedStates.Take(8).Select(s => $"\"{s}\""))@(_unplacedStates.Count > 8 ? ", …" : "")). They are still in the totals above.
+        </p>
+      }
     </div>
   </div>
 
@@ -117,6 +125,8 @@ else
   private int _totalMapped;
   private List<StateRow> _byState = [];
   private List<MapMarker> _markers = [];
+  private int _unplacedCases;
+  private List<string> _unplacedStates = [];
 
   // US state → approx centroid coordinates
   private static readonly Dictionary<string, (double Lat, double Lng)> StateCentroids = new()
@@ -160,12 +170,18 @@ else
     var families = await Api.GetFamiliesAsync();
     var cases    = await Api.GetRequestsAsync();
 
-    // Group cases by family state
-    var familyState = families.Where(f => !string.IsNullOrWhiteSpace(f.State))
-                              .ToDictionary(f => f.Id, f => f.State!);
+    // Group cases by family state. The state is typed by hand ("Illinois", "il", "Ill."), so it is reduced to the
+    // two-letter code first; otherwise the same state shows up as several rows and never finds its place on the map.
+    var typedState = families.Where(f => !string.IsNullOrWhiteSpace(f.State)).ToDictionary(f => f.Id, f => f.State!.Trim());
+    var familyState = typedState.Select(kv => (kv.Key, Code: UsStates.ToCode(kv.Value)))
+                                .Where(x => x.Code is not null).ToDictionary(x => x.Key, x => x.Code!);
 
-    var casesWithState = cases.Where(c => familyState.ContainsKey(c.FamilyId)).ToList();
+    var casesWithState = cases.Where(c => typedState.ContainsKey(c.FamilyId)).ToList();
     _totalMapped = casesWithState.Count;
+    var unplaced = casesWithState.Where(c => !familyState.ContainsKey(c.FamilyId)).ToList();
+    _unplacedCases = unplaced.Count;
+    _unplacedStates = unplaced.Select(c => typedState[c.FamilyId]).Distinct().OrderBy(s => s).ToList();
+    casesWithState = casesWithState.Where(c => familyState.ContainsKey(c.FamilyId)).ToList();
 
     _byState = casesWithState
       .GroupBy(c => familyState[c.FamilyId])

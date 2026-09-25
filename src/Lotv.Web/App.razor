@@ -68,8 +68,8 @@
       };
     </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="js/lotv-map.js"></script>
-    <script src="js/lotv-app.js"></script>
+    <script src="js/lotv-map.js?v=@AssetVersion"></script>
+    <script src="js/lotv-app.js?v=@AssetVersion"></script>
     <script>window.lotvTheme && window.lotvTheme.init();</script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <script src="_framework/blazor.web.js"></script>
@@ -78,6 +78,11 @@
 </html>
 
 @code {
+    // Our own scripts are addressed with the build's timestamp, so a deploy changes their URL. Without it a browser keeps
+    // running the old copy (a fixed lotv-map.js was ignored until the cache expired and the map stayed empty).
+    private static readonly string AssetVersion =
+        File.GetLastWriteTimeUtc(typeof(App).Assembly.Location).Ticks.ToString("x");
+
     // Prerendering is off: this app's whole auth model restores the JWT
     // session via JS interop (reads the refresh token from sessionStorage),
     // and JS interop is unavailable during the static prerender pass -

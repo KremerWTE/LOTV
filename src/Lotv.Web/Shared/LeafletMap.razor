@@ -12,7 +12,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && Markers.Count > 0)
+        if (!_initialized && Markers.Count > 0)
         {
             await JS.InvokeVoidAsync("initLotvMap", _mapId, Markers);
             _initialized = true;
