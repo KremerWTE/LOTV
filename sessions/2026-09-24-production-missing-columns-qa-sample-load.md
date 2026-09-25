@@ -122,6 +122,14 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Limit that matters:** city + state alone places seat cities and single-diocese states only. Most parishes are in other towns of multi-diocese states and need either a diocese column in the file or a county-to-diocese map (the USCCB/Stamen diocesan boundaries are the candidate; not fetched).
 - **Not done:** the ~16,000 parishes themselves. No free, complete parish-to-diocese list exists (the Catholic Parish Directory is a paid spreadsheet of about 14,000 rows; the USCCB blocks scraping; each diocese publishes its own). Data source chosen: a public directory (research pending; ~195 dioceses, ~16,000 parishes; terms of use and the parish-to-diocese mapping to be checked before anything is fetched or loaded). Existing production parishes are demo/none, so the repair will only report.
 
+## Cases / Families / Volunteers polish, case-view log, Login As (2026-09-25)
+
+- **Cases page:** defaults to "Open" (Fulfilled and Cancelled hidden unless you pick All / Fulfilled or search), shows 100 at a time with "Show more", and says how many completed cases are hidden. Verified in a browser (33 open rows, 38 with All).
+- **Families:** the condition chips are one dropdown listing every reason. **Volunteers hub:** the active-case count links to that volunteer's cases (amber warning at 5 or more).
+- **Case-view log (HIPAA-style):** opening a case, or a volunteer opening an assignment, writes a "viewed this case" entry (who and when; one per person per case per 10 minutes) shown on the case timeline. `CaseAudit`, `ActivityType.Viewed`. 4 new tests.
+- **Login As (HQ admins only):** "Login as" button on Users (not for yourself, other admins or turned-off accounts) with a confirmation. Opens the portal as that person for 30 minutes with no refresh token; an orange banner shows on every layout with "Return to my account". Start and end go to the audit log, activity entries read "Name (signed in by Admin)", and account/profile changes (`/auth/*`, `/users/*` writes) are refused while active. Verified end to end in a browser. 7 new tests. 703 tests pass.
+- **Still open:** two roles per volunteer, inventory build-day planner, home page icons and "0+ dioceses", S3 storage and backups (bucket and region needed), Kanban rename (name needed), access rules for volunteers vs Board, bulk-unassign of existing assigned requests (needs a yes).
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.
