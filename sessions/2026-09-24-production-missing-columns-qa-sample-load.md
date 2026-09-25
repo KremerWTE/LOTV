@@ -66,6 +66,16 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - Tests: 3 new in `AssignmentWorkflowTests` (624 pass). Not browser-checked.
 - Decision left open: the **Confirm Assignment** button label is unchanged (only the lane was renamed as requested).
 
+## Volunteer accept / decline (wired up end to end) ✅
+
+- Found: the volunteer page (`/volunteer/pending/{id}`) never called the accept/decline endpoints (Accept just set status InProgress; Decline set status New but left the volunteer assigned), the email linked to the staff case page, the endpoints sit under the Staff-only `/requests` group, and there was no check that the caller owns the case.
+- Decided with the user: volunteers sign in with their own staff-portal username/password (Whitney creates it); a decline returns the case to the **unassigned queue** (no automatic reassignment).
+- New `Services/AssignmentResponses` (accept -> Assigned -> Confirmed/"Volunteer Accepted"; decline -> Unassigned/New, assignee cleared, workload recomputed, activity logged) used by both the staff endpoints (`/requests/{id}/accept|decline`, decline no longer auto-reassigns) and the new `/api/v1/my-assignments/{requestId}` (GET), `/accept`, `/decline` (Volunteer policy; the login is matched to its volunteer record by email, else name; 404 for anyone else's case; decline only while pending; returns just what a volunteer needs - no internal notes, contact details or address).
+- Page rewritten around those endpoints (already-accepted state, optional decline reason, no internal notes, empty layout instead of the template sidebar); the assignment email now links to `/volunteer/pending/{id}` ("Review and accept"); a push notification tells staff when a volunteer declines.
+- Verified in a real browser (API + Web on a scratch SQL Server LocalDB, Volunteer-role login): view, Decline with a reason (case back to New/Unassigned, assignment Declined, activity logged, nobody auto-assigned), staff re-assign, Accept (stage Confirmed, assignment Accepted, activity logged). 628 tests pass (4 new).
+- Not changed: the other volunteer pages (Dashboard, My Assignments, Available) call staff-only `/requests` endpoints, so a login with only the Volunteer role would get 403 there (by reading the code, not tested). A signed-out volunteer who follows the email link sees "Assignment Not Found" with a Sign in button, and lands on the dashboard after signing in (no return-to-page).
+- Access model stated by the user (open): board and staff see all items; volunteers only the Prayer Request Package section.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

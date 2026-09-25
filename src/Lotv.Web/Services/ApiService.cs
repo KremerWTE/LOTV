@@ -735,6 +735,27 @@ public class ApiService
         return false;
     }
 
+    // ── A volunteer's own assignment (accept / decline) ─────────────────────────
+    public record MyAssignmentDto(int RequestId, string AssignmentStatus, DateTime AcceptBy, string Priority, string? FamilyName,
+        string Reason, string Category, DateTime? DueDate, DateTime Submitted);
+
+    public Task<MyAssignmentDto?> GetMyAssignmentAsync(int requestId) =>
+        GetAsync<MyAssignmentDto>($"/api/v1/my-assignments/{requestId}");
+
+    public async Task<(bool Ok, string? Error)> AcceptMyAssignmentAsync(int requestId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/my-assignments/{requestId}/accept", new { });
+        return resp is null ? (false, "Network error — please try again.")
+             : resp.IsSuccessStatusCode ? (true, null) : (false, await ReadErrorTextAsync(resp));
+    }
+
+    public async Task<(bool Ok, string? Error)> DeclineMyAssignmentAsync(int requestId, string? reason)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/my-assignments/{requestId}/decline", new { Reason = reason });
+        return resp is null ? (false, "Network error — please try again.")
+             : resp.IsSuccessStatusCode ? (true, null) : (false, await ReadErrorTextAsync(resp));
+    }
+
     // The server's "error" / "message" text if it sent one, else the HTTP status.
     private static async Task<string> ReadErrorTextAsync(HttpResponseMessage resp)
     {

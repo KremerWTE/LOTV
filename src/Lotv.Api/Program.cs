@@ -1029,43 +1029,98 @@ cases.MapDelete("/{id:int}/items/{itemId:int}", async (int id, int itemId, LotvD
     return Results.NoContent();
 }).RequireAuthorization("Staff");
 
+// Staff answering for a volunteer (a volunteer answers through /api/v1/my-assignments below).
 cases.MapPost("/{id:int}/accept", async (int id, LotvDbContext db, IChapterContextService ctx) =>
 {
     var assignment = await db.RequestAssignments.FirstOrDefaultAsync(a => a.RequestId == id && a.Status == AssignmentStatus.Pending);
-    if (assignment is null) return Results.NotFound();
-    assignment.Status = AssignmentStatus.Accepted;
-    assignment.AcceptedAt = DateTime.UtcNow;
-
-    // The volunteer has taken it on: move the case from Assigned to Confirmed.
-    var accepted = await db.Requests.FindAsync(id);
-    if (accepted is not null && accepted.ProcessStage is ProcessStage.Assigned or ProcessStage.Unassigned)
-    {
-        var from = accepted.ProcessStage;
-        accepted.ProcessStage = ProcessStage.Confirmed;
-        accepted.UpdatedAt = DateTime.UtcNow;
-        db.RequestActivities.Add(new RequestActivity
-        {
-            RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
-            ActivityType = ActivityType.ProcessStageChanged, OldValue = from.ToString(), NewValue = ProcessStage.Confirmed.ToString(),
-            Details = "Volunteer accepted the assignment.", Timestamp = DateTime.UtcNow
-        });
-    }
-    await db.SaveChangesAsync();
+    var request = assignment is null ? null : await db.Requests.FindAsync(id);
+    if (assignment is null || request is null) return Results.NotFound();
+    await AssignmentResponses.AcceptAsync(db, request, assignment, ctx.UserId, ctx.UserName);
     return Results.Ok();
 }).RequireAuthorization("Volunteer");
 
-cases.MapPost("/{id:int}/decline", async (int id, DeclineRequest body, LotvDbContext db,
-    IChapterContextService ctx, IAutoAssignmentService autoAssign) =>
+// Declining puts the case back in the unassigned queue for staff to reassign; it is not handed to the next volunteer automatically.
+cases.MapPost("/{id:int}/decline", async (int id, DeclineRequest body, LotvDbContext db, IChapterContextService ctx) =>
 {
     var assignment = await db.RequestAssignments.FirstOrDefaultAsync(a => a.RequestId == id && a.Status == AssignmentStatus.Pending);
-    if (assignment is null) return Results.NotFound();
-    assignment.Status = AssignmentStatus.Declined;
-    assignment.DeclinedAt = DateTime.UtcNow;
-    assignment.DeclineReason = body.Reason;
-    await db.SaveChangesAsync();
-    await autoAssign.HandleDeclineAsync(id, assignment.AssignedToId, body.Reason ?? "");
+    var request = assignment is null ? null : await db.Requests.FindAsync(id);
+    if (assignment is null || request is null) return Results.NotFound();
+    await AssignmentResponses.DeclineAsync(db, request, assignment, body.Reason, ctx.UserId, ctx.UserName);
     return Results.Ok();
 }).RequireAuthorization("Volunteer");
+
+// ── A volunteer's own assignments: see it, accept it, decline it ───────────────
+// Volunteers sign in with their own staff-portal login (Whitney creates it); the login is matched to its volunteer record
+// by email, else by name. Each action is limited to a case that is the caller's own and to what a volunteer needs to
+// decide (no internal staff notes, contact details or address).
+var myAssignments = app.MapGroup("/api/v1/my-assignments").WithTags("MyAssignments").RequireAuthorization("Volunteer");
+
+static async Task<(RequestAssignment? Assignment, PackageRequest? Request)> FindAssignmentAsync(
+    int requestId, IReadOnlyCollection<int> volunteerIds, LotvDbContext db)
+{
+    if (volunteerIds.Count == 0) return (null, null);
+    var assignment = await db.RequestAssignments
+        .Where(a => a.RequestId == requestId && volunteerIds.Contains(a.AssignedToId)
+                    && (a.Status == AssignmentStatus.Pending || a.Status == AssignmentStatus.Accepted))
+        .OrderByDescending(a => a.Id).FirstOrDefaultAsync();
+    if (assignment is null) return (null, null);
+    var request = await db.Requests.Include(r => r.Family).FirstOrDefaultAsync(r => r.Id == requestId && r.AssignedToId == assignment.AssignedToId);
+    return request is null ? (null, null) : (assignment, request);
+}
+
+static async Task<IResult> ViewAssignmentAsync(int requestId, IReadOnlyCollection<int> volunteerIds, LotvDbContext db)
+{
+    var (assignment, request) = await FindAssignmentAsync(requestId, volunteerIds, db);
+    if (assignment is null || request is null) return Results.NotFound();
+    return Results.Ok(new
+    {
+        requestId = request.Id,
+        assignmentStatus = assignment.Status.ToString(),
+        acceptBy = assignment.AcceptanceDeadline,
+        priority = request.Priority.ToString(),
+        familyName = request.Family?.FullName,
+        reason = request.Reason.ToDisplayName(),
+        category = request.Category.ToString(),
+        dueDate = request.DueDate,
+        submitted = request.CreatedAt,
+    });
+}
+
+static async Task<IResult> AcceptAssignmentAsync(int requestId, IReadOnlyCollection<int> volunteerIds, LotvDbContext db, string? byId, string? byName)
+{
+    var (assignment, request) = await FindAssignmentAsync(requestId, volunteerIds, db);
+    if (assignment is null || request is null) return Results.NotFound();
+    if (assignment.Status == AssignmentStatus.Pending)
+        await AssignmentResponses.AcceptAsync(db, request, assignment, byId, byName ?? assignment.AssignedToName);
+    return Results.Ok(new { requestId, assignmentStatus = AssignmentStatus.Accepted.ToString() });   // accepting twice is harmless
+}
+
+static async Task<IResult> DeclineAssignmentAsync(int requestId, string? reason, IReadOnlyCollection<int> volunteerIds, LotvDbContext db,
+    IPushSender pushSvc, string? byId, string? byName)
+{
+    var (assignment, request) = await FindAssignmentAsync(requestId, volunteerIds, db);
+    if (assignment is null || request is null) return Results.NotFound();
+    // Once accepted a volunteer who needs out talks to staff, who can unassign; declining is for a pending assignment.
+    if (assignment.Status != AssignmentStatus.Pending)
+        return Results.BadRequest(new { error = "You have already accepted this assignment. Please contact staff if you can't continue." });
+    var who = assignment.AssignedToName;
+    await AssignmentResponses.DeclineAsync(db, request, assignment, reason, byId, byName ?? who);
+    _ = pushSvc.SendToAllAsync("Assignment declined", $"{who} declined request #{requestId}; it is back in the unassigned queue.", "/admin/queue");
+    return Results.Ok(new { requestId, assignmentStatus = AssignmentStatus.Declined.ToString() });
+}
+
+static async Task<List<int>> MyVolunteerIdsAsync(LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+    (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToList();
+
+myAssignments.MapGet("/{requestId:int}", async (int requestId, LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+    await ViewAssignmentAsync(requestId, await MyVolunteerIdsAsync(db, ctx, userMgr), db));
+
+myAssignments.MapPost("/{requestId:int}/accept", async (int requestId, LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+    await AcceptAssignmentAsync(requestId, await MyVolunteerIdsAsync(db, ctx, userMgr), db, ctx.UserId, ctx.UserName));
+
+myAssignments.MapPost("/{requestId:int}/decline", async (int requestId, DeclineRequest body, LotvDbContext db, IChapterContextService ctx,
+    UserManager<LotvIdentityUser> userMgr, IPushSender pushSvc) =>
+    await DeclineAssignmentAsync(requestId, body.Reason, await MyVolunteerIdsAsync(db, ctx, userMgr), db, pushSvc, ctx.UserId, ctx.UserName));
 
 cases.MapPost("/{id:int}/escalate", async (int id, EscalateRequest body, LotvDbContext db,
     IChapterContextService ctx, IHubContext<RequestsHub> hub, IPushSender pushSvc) =>
