@@ -66,10 +66,11 @@
               { <span class="badge badge-onhold">@v.Status</span> }
             </td>
             <td>
+              @* The count opens that volunteer's cases. Five or more is flagged as a heavy load. *@
               @if (v.ActiveCases >= 5)
-              { <span style="color:var(--amber);font-weight:700;">@v.ActiveCases ⚠</span> }
+              { <a href="/admin/volunteers/@v.Id/cases" class="volunteer-case-count" title="@v.ActiveCases open cases — a heavy load. Click to see them." style="color:var(--amber);font-weight:700;text-decoration:underline;">@v.ActiveCases ⚠</a> }
               else
-              { <span>@v.ActiveCases</span> }
+              { <a href="/admin/volunteers/@v.Id/cases" class="volunteer-case-count" title="See @v.FullName's cases" style="text-decoration:underline;">@v.ActiveCases</a> }
             </td>
             <td style="color:var(--text-mid);">@v.TotalCasesFulfilled</td>
             <td style="font-size:.76rem;color:var(--text-light);">@v.JoinedDate.ToString("MMM d, yyyy")</td>
