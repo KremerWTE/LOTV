@@ -857,10 +857,11 @@
     var stats = await Api.GetDashboardStatsAsync();
     _openCount       = stats?.OpenCases ?? 0;
     _unassignedCount = stats?.UnassignedQueue ?? 0;
-    _pendingAlloc    = stats?.Overdue ?? 0;
+    _pendingAlloc    = 0;   // set from the allocations actually waiting for review, below (this used to be the overdue-case count)
 
     _overdueItems      = await Api.GetOverdueRequestsAsync();
     _pendingAllocItems = await Api.GetAllocationsAsync("PendingReview");
+    _pendingAlloc      = _pendingAllocItems.Count;
     _notifCount        = _overdueItems.Count + _pendingAllocItems.Count;
 
     try { _pendingDupReview = (await Api.GetDuplicateReviewQueueAsync()).Count; } catch { }

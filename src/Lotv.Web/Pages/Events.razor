@@ -1,25 +1,10 @@
 @page "/events"
+@layout PublicLayout
 @inject ApiService Api
 @inject NavigationManager Nav
 @inject LocalizationService Loc
 
 <PageTitle>@Loc["events.title"] — LOTV Ministry</PageTitle>
-
-<!-- PUBLIC NAV -->
-<div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
-    <div>
-      <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
-      <div style="font-size:.7rem;opacity:.7;">Events &amp; Fundraisers</div>
-    </div>
-  </div>
-  <div style="display:flex;gap:12px;">
-    <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
-    <a href="/give" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Donate</a>
-    <a href="/volunteer" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Volunteer</a>
-  </div>
-</div>
 
 <!-- HERO -->
 <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy-dark,#0a1628) 100%);color:white;padding:48px 32px;text-align:center;">

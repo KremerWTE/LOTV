@@ -1,16 +1,4 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+@inherits LayoutComponentBase
+@* The fallback layout for a page that names none. It adds nothing around the page: this used to be the Blazor template
+   (a "Home / Counter / Weather" sidebar), which showed on every page that draws its own header. *@
+@Body
