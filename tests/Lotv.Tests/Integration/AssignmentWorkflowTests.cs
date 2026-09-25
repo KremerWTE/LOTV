@@ -222,6 +222,176 @@ public class AssignmentWorkflowTests
             a => a.ActivityType == ActivityType.ProcessStageChanged && a.NewValue == "Confirmed");
     }
 
+    // ── Assigning by hand gives the volunteer something to accept ─────────────
+
+    private async Task<List<RequestAssignment>> AssignmentsAsync(int requestId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        return await db.RequestAssignments.AsNoTracking().Where(a => a.RequestId == requestId).OrderBy(a => a.Id).ToListAsync();
+    }
+
+    [Fact]
+    public async Task AssigningByHand_CreatesAPendingAssignment_SoTheVolunteerCanAccept()
+    {
+        var chapter = await NewChapterAsync();
+        await AddVolunteerAsync(chapter, "Auto", "Picked");
+        var chosen = await AddVolunteerAsync(chapter, "Chosen", "ByStaff", role: VolunteerRole.Driver);   // never auto-picked
+        var (_, request) = await ApplyAsync(chapter, "Infertility");
+        var admin = await AdminClientAsync();
+
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = chosen })).StatusCode);
+
+        var current = (await AssignmentsAsync(request)).Single(a => a.Status == AssignmentStatus.Pending);
+        Assert.Equal(chosen, current.AssignedToId);
+        Assert.True(current.AcceptanceDeadline > DateTime.UtcNow);
+        Assert.Equal(ProcessStage.Assigned, (await RequestAsync(request)).ProcessStage);
+
+        // ...so Accept now works for a hand-assigned case and lands it in the Volunteer Accepted stage.
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync($"/api/v1/requests/{request}/accept", new { })).StatusCode);
+        Assert.Equal(ProcessStage.Confirmed, (await RequestAsync(request)).ProcessStage);
+    }
+
+    [Fact]
+    public async Task ChoosingTheSameVolunteerAgain_ChangesNothing_AndKeepsTheirAcceptance()
+    {
+        var chapter = await NewChapterAsync();
+        var volunteer = await AddVolunteerAsync(chapter, "Same", "Person", role: VolunteerRole.Driver);
+        var (_, request) = await ApplyAsync(chapter, "Infertility");
+        var admin = await AdminClientAsync();
+        await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = volunteer });
+        await admin.PostAsJsonAsync($"/api/v1/requests/{request}/accept", new { });
+        var before = (await AssignmentsAsync(request)).Count;
+
+        await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = volunteer });
+
+        var after = await AssignmentsAsync(request);
+        Assert.Equal(before, after.Count);
+        Assert.Equal(AssignmentStatus.Accepted, after.Last(a => a.AssignedToId == volunteer).Status);
+        Assert.Equal(ProcessStage.Confirmed, (await RequestAsync(request)).ProcessStage);
+    }
+
+    [Fact]
+    public async Task HandingTheCaseToSomeoneElse_RetiresTheFirstAssignment_AndAsksTheNewVolunteerToAccept()
+    {
+        var chapter = await NewChapterAsync();
+        var first = await AddVolunteerAsync(chapter, "First", "Holder", role: VolunteerRole.Driver);
+        var second = await AddVolunteerAsync(chapter, "Second", "Holder", role: VolunteerRole.Driver);
+        var (_, request) = await ApplyAsync(chapter, "Infertility");
+        var admin = await AdminClientAsync();
+        await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = first });
+        await admin.PostAsJsonAsync($"/api/v1/requests/{request}/accept", new { });
+        Assert.Equal(ProcessStage.Confirmed, (await RequestAsync(request)).ProcessStage);
+
+        await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = second });
+
+        var all = await AssignmentsAsync(request);
+        Assert.Equal(AssignmentStatus.Reassigned, all.Last(a => a.AssignedToId == first).Status);
+        var pending = Assert.Single(all, a => a.Status == AssignmentStatus.Pending);
+        Assert.Equal(second, pending.AssignedToId);
+        Assert.Equal(all.Count, pending.AttemptNumber);
+        // The new volunteer hasn't accepted, so the case is back at Assigned rather than staying "Volunteer Accepted".
+        Assert.Equal(ProcessStage.Assigned, (await RequestAsync(request)).ProcessStage);
+    }
+
+    // ── A volunteer answers their own assignment ──────────────────────────────
+
+    /// <summary>A volunteer record, a login with the Volunteer role for it (same email), and a hand-assigned request.</summary>
+    private async Task<(int Chapter, int VolunteerId, int RequestId, HttpClient Volunteer, HttpClient Admin)> AssignedToALoginAsync()
+    {
+        var chapter = await NewChapterAsync();
+        var email = $"vol-{Guid.NewGuid():N}@test.com";
+        var volunteerId = await AddVolunteerAsync(chapter, "Vera", "Volunteer", role: VolunteerRole.Driver, email: email);
+        var (_, request) = await ApplyAsync(chapter, "Infertility");
+        var admin = await AdminClientAsync();
+        var assign = await admin.PutAsJsonAsync($"/api/v1/requests/{request}/assign", new { VolunteerId = volunteerId });
+        Assert.Equal(HttpStatusCode.OK, assign.StatusCode);
+        return (chapter, volunteerId, request, await ClientForAsync(email, "Volunteer"), admin);
+    }
+
+    [Fact]
+    public async Task AVolunteer_SeesJustWhatTheyNeedToDecide_AndCanAcceptTheirOwnAssignment()
+    {
+        var (_, _, request, volunteer, _) = await AssignedToALoginAsync();
+
+        var view = await volunteer.GetAsync($"/api/v1/my-assignments/{request}");
+        Assert.Equal(HttpStatusCode.OK, view.StatusCode);
+        var json = await view.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Pending", json.GetProperty("assignmentStatus").GetString());
+        Assert.Equal(request, json.GetProperty("requestId").GetInt32());
+        // Not the staff view: no internal notes, contact details or address.
+        var names = json.EnumerateObject().Select(p => p.Name.ToLowerInvariant()).ToList();
+        Assert.DoesNotContain(names, n => n.Contains("note") || n.Contains("email") || n.Contains("phone") || n.Contains("street") || n.Contains("address"));
+
+        Assert.Equal(HttpStatusCode.OK, (await volunteer.PostAsync($"/api/v1/my-assignments/{request}/accept", null)).StatusCode);
+        Assert.Equal(ProcessStage.Confirmed, (await RequestAsync(request)).ProcessStage);
+        Assert.Equal(AssignmentStatus.Accepted, (await LatestAssignmentAsync(request)).Status);
+
+        // Accepting again is harmless, and the page then shows it as already accepted.
+        Assert.Equal(HttpStatusCode.OK, (await volunteer.PostAsync($"/api/v1/my-assignments/{request}/accept", null)).StatusCode);
+        var again = await (await volunteer.GetAsync($"/api/v1/my-assignments/{request}")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Accepted", again.GetProperty("assignmentStatus").GetString());
+    }
+
+    [Fact]
+    public async Task AVolunteer_CannotSeeOrAnswerSomeoneElsesAssignment_OrUseTheStaffApi()
+    {
+        var (_, _, request, owner, _) = await AssignedToALoginAsync();
+        var other = await ClientForAsync($"other-{Guid.NewGuid():N}@test.com", "Volunteer");
+
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/v1/my-assignments/{request}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsync($"/api/v1/my-assignments/{request}/accept", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsJsonAsync($"/api/v1/my-assignments/{request}/decline", new { Reason = "nope" })).StatusCode);
+        Assert.Equal(AssignmentStatus.Pending, (await LatestAssignmentAsync(request)).Status);   // untouched
+
+        // The staff API stays closed to a volunteer login.
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync($"/api/v1/requests/{request}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task DecliningReturnsTheCaseToTheUnassignedQueue_WithoutPassingItToAnotherVolunteer()
+    {
+        var (chapter, volunteerId, request, volunteer, admin) = await AssignedToALoginAsync();
+        await AddVolunteerAsync(chapter, "Next", "InLine");   // an eligible volunteer who must NOT be given it automatically
+        Assert.Equal(1, (await VolunteerAsync(volunteerId)).ActiveCases);
+
+        var decline = await volunteer.PostAsJsonAsync($"/api/v1/my-assignments/{request}/decline", new { Reason = "Out of town" });
+        Assert.Equal(HttpStatusCode.OK, decline.StatusCode);
+
+        var after = await RequestAsync(request);
+        Assert.Null(after.AssignedToId);
+        Assert.Null(after.AssignedTo);
+        Assert.Equal(CaseStatus.New, after.Status);
+        Assert.Equal(ProcessStage.Unassigned, after.ProcessStage);
+        var all = await AssignmentsAsync(request);
+        Assert.DoesNotContain(all, a => a.Status == AssignmentStatus.Pending);   // nobody was auto-assigned
+        var declined = all.Last();
+        Assert.Equal(AssignmentStatus.Declined, declined.Status);
+        Assert.Equal("Out of town", declined.DeclineReason);
+        Assert.Equal(0, (await VolunteerAsync(volunteerId)).ActiveCases);
+
+        var queue = await admin.GetFromJsonAsync<JsonElement>("/api/v1/requests/queue");
+        Assert.Contains(queue.EnumerateArray(), r => r.GetProperty("id").GetInt32() == request);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        Assert.Contains(await db.RequestActivities.Where(a => a.RequestId == request).ToListAsync(),
+            a => a.ActivityType == ActivityType.Unassigned && (a.Details ?? "").Contains("Out of town"));
+    }
+
+    [Fact]
+    public async Task AVolunteerWhoHasAlreadyAccepted_CannotDecline_ButStaffCanStillUnassign()
+    {
+        var (_, _, request, volunteer, admin) = await AssignedToALoginAsync();
+        await volunteer.PostAsync($"/api/v1/my-assignments/{request}/accept", null);
+
+        var decline = await volunteer.PostAsJsonAsync($"/api/v1/my-assignments/{request}/decline", new { Reason = "changed my mind" });
+        Assert.Equal(HttpStatusCode.BadRequest, decline.StatusCode);
+        Assert.Equal(ProcessStage.Confirmed, (await RequestAsync(request)).ProcessStage);
+
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/v1/requests/{request}/unassign", new { })).StatusCode);
+        Assert.Null((await RequestAsync(request)).AssignedToId);
+    }
+
     // ── My Work Queue ─────────────────────────────────────────────────────────
 
     [Fact]

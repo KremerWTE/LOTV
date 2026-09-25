@@ -140,7 +140,13 @@ public class RegistrationSecurityTests
         Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
     }
 
-    // ── Susan Harper ──────────────────────────────────────────────────────────
+    // ── Provisioned accounts (Susan Harper, Nicolas Kremer) ───────────────────
+
+    private static async Task DeleteProvisionedAsync(UserManager<LotvIdentityUser> userMgr)
+    {
+        foreach (var a in StaffAccountProvisioning.Accounts)
+            if (await userMgr.FindByNameAsync(a.UserName) is { } existing) await userMgr.DeleteAsync(existing);
+    }
 
     [Fact]
     public async Task SusanGetsAVolunteerRecord_ThatIsNeverAutoAssignedRealCases_AndIsCreatedOnlyOnce()
@@ -150,14 +156,15 @@ public class RegistrationSecurityTests
         var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
         var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
 
-        db.Volunteers.RemoveRange(db.Volunteers.Where(v => v.Email == "susan@wte.net"));
+        var provisionedEmails = StaffAccountProvisioning.Accounts.Select(a => a.Email.ToLower()).ToList();
+        db.Volunteers.RemoveRange(db.Volunteers.Where(v => provisionedEmails.Contains(v.Email.ToLower())));
         if (!await db.Chapters.AnyAsync())
         {
             db.Chapters.Add(new Chapter { Id = 9901, Name = "Vol Chapter", City = "Testville", State = "IL", ContactName = "T", ContactEmail = "t@test.example.com", IsActive = true });
         }
         await db.SaveChangesAsync();
 
-        Assert.Equal(1, await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, logger));
+        Assert.Equal(StaffAccountProvisioning.Accounts.Count(a => a.AlsoVolunteer), await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, logger));
         var volunteer = await db.Volunteers.AsNoTracking().SingleAsync(v => v.Email == "susan@wte.net");
         Assert.Equal("Susan", volunteer.FirstName);
         Assert.Equal("Harper", volunteer.LastName);
@@ -165,8 +172,16 @@ public class RegistrationSecurityTests
         // Not a role automatic assignment picks from, so real requests are only ever handed to her by a person or a rule
         Assert.DoesNotContain(volunteer.Role, new[] { VolunteerRole.PackageAssembler, VolunteerRole.Admin });
 
+        // Nicolas gets a record too, on the same terms
+        var nicolas = await db.Volunteers.AsNoTracking().SingleAsync(v => v.Email == "kremer@wte.net");
+        Assert.Equal("Nicolas", nicolas.FirstName);
+        Assert.Equal("Kremer", nicolas.LastName);
+        Assert.Equal(VolunteerStatus.Active, nicolas.Status);
+        Assert.DoesNotContain(nicolas.Role, new[] { VolunteerRole.PackageAssembler, VolunteerRole.Admin });
+
         Assert.Equal(0, await StaffAccountProvisioning.EnsureVolunteerRecordsAsync(db, logger));   // already there
         Assert.Equal(1, await db.Volunteers.CountAsync(v => v.Email == "susan@wte.net"));
+        Assert.Equal(1, await db.Volunteers.CountAsync(v => v.Email == "kremer@wte.net"));
     }
 
 
@@ -189,10 +204,10 @@ public class RegistrationSecurityTests
             return await body(scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>());
         }
 
-        await InScope(async m => { var e = await m.FindByNameAsync("susan.harper"); if (e is not null) await m.DeleteAsync(e); return 0; });
+        await InScope(async m => { await DeleteProvisionedAsync(m); return 0; });
 
         // Created with the supplied password, and she can sign in with it (by username or email)
-        Assert.Equal(1, await InScope(m => StaffAccountProvisioning.EnsureAsync(m, logger, config)));
+        Assert.Equal(StaffAccountProvisioning.Accounts.Length, await InScope(m => StaffAccountProvisioning.EnsureAsync(m, logger, config)));
         foreach (var who in new[] { "susan.harper", "susan@wte.net" })
         {
             var ok = await host.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { Username = who, Password = starting });
@@ -250,16 +265,22 @@ public class RegistrationSecurityTests
         var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<LotvIdentityUser>>();
         var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
 
-        var existing = await userMgr.FindByNameAsync("susan.harper");
-        if (existing is not null) await userMgr.DeleteAsync(existing);   // start from a clean slate for this test
+        await DeleteProvisionedAsync(userMgr);   // start from a clean slate for this test
 
-        Assert.Equal(1, await StaffAccountProvisioning.EnsureAsync(userMgr, logger));
+        Assert.Equal(StaffAccountProvisioning.Accounts.Length, await StaffAccountProvisioning.EnsureAsync(userMgr, logger));
         var susan = (await userMgr.FindByNameAsync("susan.harper"))!;
         Assert.Equal("susan@wte.net", susan.Email);
         Assert.Equal(UserRole.HQAdmin, susan.Role);
         Assert.Null(susan.ChapterId);
         Assert.False(await userMgr.CheckPasswordAsync(susan, "DevPassword1!"));
         Assert.False(await userMgr.CheckPasswordAsync(susan, Password));
+
+        // Nicolas is a volunteer, not an administrator: the Volunteer role and no chapter tie, with no password anyone knows.
+        var nicolas = (await userMgr.FindByNameAsync("nicolas.kremer"))!;
+        Assert.Equal("kremer@wte.net", nicolas.Email);
+        Assert.Equal(UserRole.Volunteer, nicolas.Role);
+        Assert.Null(nicolas.ChapterId);
+        Assert.False(await userMgr.CheckPasswordAsync(nicolas, "DevPassword1!"));
 
         // The only way in is the emailed reset link.
         var forgot = await host.CreateClient().PostAsJsonAsync("/api/v1/auth/forgot-password", new { Username = "susan@wte.net" });

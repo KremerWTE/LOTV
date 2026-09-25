@@ -75,6 +75,16 @@ public enum ProcessStage
     Delivered
 }
 
+/// <summary>Screen wording for a process stage. "Confirmed" is what the data calls the stage after a volunteer accepts an assignment.</summary>
+public static class ProcessStageExtensions
+{
+    public static string ToDisplayName(this ProcessStage s) => s switch
+    {
+        ProcessStage.Confirmed => "Volunteer Accepted",
+        _                      => s.ToString()
+    };
+}
+
 public enum RequestCategory
 {
     PackageDelivery,

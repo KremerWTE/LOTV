@@ -25,7 +25,7 @@ public static class OperationsEmails
             $"<p style=\"{P}\">A Prayer Care Package request has been assigned to you. Thank you for caring for this family.</p>" +
             RequestEmails.Facts(("Family", c.FamilyName), ("Location", c.Location),
                                 ("Please accept by", c.AcceptBy is { } d ? d.ToString("MMM d, yyyy h:mm tt") + " UTC" : null)) +
-            RequestEmails.Button("Open the request", c.CaseUrl);
+            RequestEmails.Button("Review and accept", c.CaseUrl);
         return new($"New assignment — {c.FamilyName}",
             RequestEmails.Wrap("A request was assigned to you", "You have a new assignment", body, RequestEmails.TeamFooter));
     }
@@ -119,7 +119,7 @@ public static class OperationsNotifier
     {
         if (string.IsNullOrWhiteSpace(v.Email)) return;
         var e = OperationsEmails.VolunteerAssigned(v.FirstName,
-            new(r.Id, f?.FullName ?? "a family", f is null ? null : Location(f), RequestNotifier.WebUrl(cfg, $"/admin/cases/{r.Id}"), acceptBy));
+            new(r.Id, f?.FullName ?? "a family", f is null ? null : Location(f), RequestNotifier.WebUrl(cfg, $"/volunteer/pending/{r.Id}"), acceptBy));
         _ = notify.SendEmailAsync(v.Email, v.FullName, e.Subject, e.Html);
     }
 

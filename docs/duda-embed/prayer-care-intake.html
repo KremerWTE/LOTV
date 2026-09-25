@@ -139,9 +139,14 @@
   // ── iframe auto-height ──────────────────────────────────────────────────
   function postHeight() {
     if (window.parent === window) return;
-    try { window.parent.postMessage({ lotvIntakeHeight: document.documentElement.scrollHeight }, "*"); } catch (e) {}
+    // Measure the form itself, not the document. This file is pasted in without a doctype, so in an iframe the page is in
+    // quirks mode, where <body> and documentElement.scrollHeight stretch to fill the frame: an iframe that starts too
+    // tall would then report its own height back and never shrink.
+    var root = document.getElementById("lotv-intake");
+    var h = root ? Math.ceil(root.getBoundingClientRect().bottom + (window.pageYOffset || 0)) + 16 : document.documentElement.scrollHeight;
+    try { window.parent.postMessage({ lotvIntakeHeight: h }, "*"); } catch (e) {}
   }
-  if (window.parent !== window && "ResizeObserver" in window) new ResizeObserver(postHeight).observe(document.body);
+  if (window.parent !== window && "ResizeObserver" in window) new ResizeObserver(postHeight).observe(document.getElementById("lotv-intake") || document.body);
 
   // ── load the definition ─────────────────────────────────────────────────
   fetch(API_BASE_URL + "/api/v1/public/forms/" + FORM_KEY)
