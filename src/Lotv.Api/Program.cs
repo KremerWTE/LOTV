@@ -4805,7 +4805,7 @@ app.MapGet("/api/v1/email-previews", (IConfiguration cfg) =>
         provider = NotificationService.ActiveProvider(cfg),
     })).WithTags("Email").RequireAuthorization("Staff");
 
-// Sends one sample email to an address through whatever provider is active (SocketLabs, SMTP, or log only),
+// Sends one sample email to an address through whatever provider is active (SocketLabs, or log only),
 // so an admin can confirm that email really goes out. HQ admins only; the subject is marked [TEST].
 app.MapPost("/api/v1/email-previews/{key}/test", async (string key, TestEmailRequest body, INotificationService notify, IConfiguration cfg) =>
 {

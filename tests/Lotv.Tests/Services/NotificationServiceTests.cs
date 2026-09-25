@@ -8,7 +8,7 @@ using Moq;
 
 namespace Lotv.Tests.Services;
 
-/// <summary>Email goes out through SocketLabs when it is configured, else SMTP, else it is only logged.</summary>
+/// <summary>Email goes out through SocketLabs when it is configured, else it is only logged. SMTP is not used.</summary>
 public class NotificationServiceTests
 {
     private sealed class FakeSocketLabs : HttpMessageHandler
@@ -132,7 +132,7 @@ public class NotificationServiceTests
     // ── Which provider ────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task SocketLabsIsPreferredOverSmtp_WhenBothAreSet()
+    public async Task SocketLabsIsTheOnlyWayEmailIsSent_ALeftoverSmtpSettingIsIgnored()
     {
         var settings = SocketLabsSettings();
         settings["Smtp:Host"] = "smtp.invalid.example";   // would fail if it were tried
@@ -140,6 +140,16 @@ public class NotificationServiceTests
 
         Assert.True((await Create(settings, handler).SendEmailAsync("a@example.org", "A", "S", Html)).IsSuccess);
         Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task WithOnlySmtpConfigured_TheEmailIsStillJustLogged_NeverSentBySmtp()
+    {
+        var handler = new FakeSocketLabs();
+        var result = await Create(new Dictionary<string, string?> { ["Smtp:Host"] = "smtp.invalid.example" }, handler)
+            .SendEmailAsync("a@example.org", "A", "S", Html);
+        Assert.True(result.IsSuccess);      // an SMTP attempt to that host would have failed
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]
@@ -157,7 +167,7 @@ public class NotificationServiceTests
     [InlineData("", "key", null, "Log only")]
     [InlineData("abc", "key", null, "Log only")]       // the id must be a number
     [InlineData("12345", "key", "smtp.example.org", "SocketLabs")]
-    [InlineData(null, null, "smtp.example.org", "SMTP")]
+    [InlineData(null, null, "smtp.example.org", "Log only")]   // SMTP is no longer a provider
     [InlineData(null, null, null, "Log only")]
     public void ActiveProvider_ReportsWhatWillBeUsed(string? serverId, string? apiKey, string? smtpHost, string expected)
     {

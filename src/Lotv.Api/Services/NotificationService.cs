@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Net.Mail;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Lotv.Core.Common;
@@ -9,10 +8,10 @@ using Lotv.Core.Services.Interfaces;
 namespace Lotv.Api.Services;
 
 /// <summary>
-/// Sends email through SocketLabs when "SocketLabs:ServerId" and "SocketLabs:ApiKey" are set (their HTTP injection
-/// API), else through SMTP when "Smtp:Host" is set, else only logs - which keeps local dev and tests working with no
-/// mail server. Credentials come from deployment secrets and are never committed or logged. Replies go to the
-/// configured Reply-To ("SocketLabs:ReplyTo" / "Smtp:ReplyTo"), since our emails invite people to reply.
+/// Sends email through SocketLabs (their HTTP injection API) when "SocketLabs:ServerId" and "SocketLabs:ApiKey" are set,
+/// else only logs - which keeps local dev and tests working with no mail server. SocketLabs is the only way email is sent.
+/// Credentials come from deployment secrets and are never committed or logged. Replies go to the configured Reply-To
+/// ("SocketLabs:ReplyTo"), since our emails invite people to reply.
 /// </summary>
 public class NotificationService : INotificationService
 {
@@ -34,9 +33,8 @@ public class NotificationService : INotificationService
     private static bool HasSocketLabs(IConfiguration c) =>
         int.TryParse(c["SocketLabs:ServerId"], out var id) && id > 0 && !string.IsNullOrWhiteSpace(c["SocketLabs:ApiKey"]);
 
-    /// <summary>Which mechanism emails will go out through right now: "SocketLabs", "SMTP" or "Log only".</summary>
-    public static string ActiveProvider(IConfiguration c) =>
-        HasSocketLabs(c) ? "SocketLabs" : !string.IsNullOrWhiteSpace(c["Smtp:Host"]) ? "SMTP" : "Log only";
+    /// <summary>Which mechanism emails will go out through right now: "SocketLabs" or "Log only".</summary>
+    public static string ActiveProvider(IConfiguration c) => HasSocketLabs(c) ? "SocketLabs" : "Log only";
 
     /// <summary>A plain-text version of an HTML email, for mail clients (and spam filters) that want one.</summary>
     public static string ToPlainText(string html)
@@ -115,47 +113,8 @@ public class NotificationService : INotificationService
 
         if (HasSocketLabs(_config)) return await SendViaSocketLabsAsync(toEmail, toName, subject, htmlBody);
 
-        var host = _config["Smtp:Host"];
-        if (string.IsNullOrWhiteSpace(host))
-        {
-            _logger.LogInformation("[Email - SMTP not configured, logging only] To: {Email} | Subject: {Subject}\n{Body}", toEmail, subject, htmlBody);
-            return Result.Ok();
-        }
-
-        var port = _config.GetValue<int?>("Smtp:Port") ?? 587;
-        var enableSsl = _config.GetValue<bool?>("Smtp:EnableSsl") ?? true;
-        var fromEmail = _config["Smtp:FromEmail"] ?? _config["Smtp:Username"] ?? "no-reply@lotvministry.org";
-        var fromName = _config["Smtp:FromName"] ?? "LOTV Ministry";
-        var username = _config["Smtp:Username"];
-        var password = _config["Smtp:Password"];
-
-        try
-        {
-            using var client = new SmtpClient(host, port)
-            {
-                EnableSsl = enableSsl
-            };
-            if (!string.IsNullOrWhiteSpace(username))
-                client.Credentials = new NetworkCredential(username, password);
-
-            using var message = new MailMessage
-            {
-                From = new MailAddress(fromEmail, fromName),
-                Subject = subject,
-                Body = htmlBody,
-                IsBodyHtml = true
-            };
-            message.To.Add(new MailAddress(toEmail, toName));
-            if (_config["Smtp:ReplyTo"] is { Length: > 0 } smtpReplyTo) message.ReplyToList.Add(new MailAddress(smtpReplyTo, fromName));
-
-            await client.SendMailAsync(message);
-            return Result.Ok();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send email to {Email} via SMTP host {Host}", toEmail, host);
-            return Result.Fail($"Email send failed: {ex.Message}");
-        }
+        _logger.LogInformation("[Email - SocketLabs not configured, logging only] To: {Email} | Subject: {Subject}\n{Body}", toEmail, subject, htmlBody);
+        return Result.Ok();
     }
 
     public Task<Result> SendEmailTemplateAsync(string toEmail, string toName, string templateId, object templateData)
