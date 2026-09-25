@@ -235,8 +235,20 @@ public class ApiService
         return (await resp.Content.ReadFromJsonAsync<ParishImportResultDto>(JsonOpts), null);
     }
 
-    public Task<List<Diocese>> GetDiocesesAsync() =>
-        GetListAsync<Diocese>("/api/v1/dioceses");
+    /// <summary>Partner dioceses; pass true to include the directory-only ones (the loaded US list).</summary>
+    public Task<List<Diocese>> GetDiocesesAsync(bool includeDirectoryOnly = false) =>
+        GetListAsync<Diocese>("/api/v1/dioceses" + (includeDirectoryOnly ? "?includeDirectoryOnly=true" : ""));
+
+    public record DioceseDirectoryResultDto(bool DryRun, int InList, int Added, int AlreadyThere, int ChapterId);
+
+    /// <summary>Previews (dry run) or adds the list of US dioceses; the second value is an error when it could not run.</summary>
+    public async Task<(DioceseDirectoryResultDto? Result, string? Error)> LoadUsDioceseDirectoryAsync(bool dryRun)
+    {
+        var resp = await AuthedPostAsync("/api/v1/dioceses/load-us-directory", new { dryRun });
+        if (resp is null) return (null, "Network error — please try again.");
+        if (!resp.IsSuccessStatusCode) return (null, resp.StatusCode == System.Net.HttpStatusCode.Forbidden ? "Only an HQ administrator can load the diocese list." : await ReadErrorTextAsync(resp));
+        return (await resp.Content.ReadFromJsonAsync<DioceseDirectoryResultDto>(JsonOpts), null);
+    }
 
     // ── Workload ──────────────────────────────────────────────────────────────
     public Task<List<WorkloadRowDto>> GetWorkloadAsync() =>

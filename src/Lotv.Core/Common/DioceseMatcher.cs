@@ -31,7 +31,10 @@ public static class DioceseMatcher
         var cleaned = new string(name.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : ' ').ToArray());
         var words = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(w => !Filler.Contains(w))
-            .Select(w => w == "saint" ? "st" : w);
+            .Select(w => w == "saint" ? "st" : w).ToList();
+        // "Springfield in Illinois" and "Portland in Oregon": the state is where the diocese is, not part of what it is called.
+        var inAt = words.LastIndexOf("in");
+        if (inAt > 0 && inAt < words.Count - 1 && UsStates.IsStateName(string.Join(' ', words.Skip(inAt + 1)))) words = words.Take(inAt).ToList();
         return string.Join(' ', words);
     }
 

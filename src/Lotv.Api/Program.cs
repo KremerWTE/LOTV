@@ -1831,8 +1831,11 @@ events.MapPost("/{id:int}/auction/close", async (int id, LotvDbContext db,
 // ── Dioceses ──────────────────────────────────────────────────────────────────
 var dioceses = app.MapGroup("/api/v1/dioceses").WithTags("Dioceses").RequireAuthorization("Staff");
 
-dioceses.MapGet("/", async (LotvDbContext db) => await db.Dioceses.OrderBy(d => d.Name).ToListAsync());
+// Partner dioceses by default; the directory-only ones (the loaded US list) come with includeDirectoryOnly=true.
+dioceses.MapGet("/", async (LotvDbContext db, bool? includeDirectoryOnly) =>
+    await db.Dioceses.Where(d => includeDirectoryOnly == true || !d.IsDirectoryOnly).OrderBy(d => d.Name).ToListAsync());
 app.MapParishEndpoints();   // the parish directory: every parish belongs to a diocese
+app.MapDioceseDirectoryEndpoints();   // loads the US diocese list (directory-only) so parishes can be placed
 dioceses.MapPost("/", async (Diocese d, LotvDbContext db) => { db.Dioceses.Add(d); await db.SaveChangesAsync(); return Results.Created($"/api/v1/dioceses/{d.Id}", d); }).RequireAuthorization("ChapterAdmin");
 dioceses.MapPut("/{id:int}", async (int id, Diocese d, LotvDbContext db) => { d.Id = id; db.Dioceses.Update(d); await db.SaveChangesAsync(); return Results.Ok(d); }).RequireAuthorization("ChapterAdmin");
 dioceses.MapGet("/{id:int}/donors", async (int id, LotvDbContext db) => await db.Donors.Where(d => d.DioceseId == id).ToListAsync());
@@ -2653,7 +2656,7 @@ publicApi.MapGet("/impact", async (LotvDbContext db) =>
     var openRequests     = await db.Requests.CountAsync(r =>
         r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled);
     var familiesServed   = await db.Families.CountAsync();
-    var diocesesReached  = await db.Dioceses.CountAsync();
+    var diocesesReached  = await db.Dioceses.CountAsync(d => !d.IsDirectoryOnly);   // partners only; the loaded US list is not "reached"
     return Results.Ok(new { totalDonations, peopleHelped, activeVolunteers, openRequests,
         familiesServed, diocesesReached, generatedAt = DateTime.UtcNow });
 }).AllowAnonymous();

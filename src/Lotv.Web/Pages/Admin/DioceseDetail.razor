@@ -140,7 +140,7 @@ else
 
   protected override async Task OnInitializedAsync()
   {
-    var diocTask  = Api.GetDiocesesAsync();
+    var diocTask  = Api.GetDiocesesAsync(includeDirectoryOnly: true);
     var parTask   = Api.GetParishPageAsync(dioceseId: Id, take: 1000);
     await Task.WhenAll(diocTask, parTask);
     _diocese  = (await diocTask).FirstOrDefault(d => d.Id == Id);

@@ -24,6 +24,10 @@ public class DioceseMatcherTests
     [InlineData("Diocese of Fort Wayne-South Bend", "fort wayne south bend")]
     [InlineData("Archdiocese of St. Paul and Minneapolis", "st paul and minneapolis")]
     [InlineData("Saint Paul and Minneapolis", "st paul and minneapolis")]
+    [InlineData("Diocese of Springfield in Illinois", "springfield")]      // the state is where it is, not what it is called
+    [InlineData("Archdiocese of Portland in Oregon", "portland")]
+    [InlineData("Archdiocese of Kansas City in Kansas", "kansas city")]
+    [InlineData("Diocese of Kansas City–Saint Joseph", "kansas city st joseph")]
     [InlineData("  ", "")]
     [InlineData(null, "")]
     public void Normalize_ReducesADioceseNameToItsDistinguishingWords(string? name, string expected) =>
@@ -52,7 +56,8 @@ public class DioceseMatcherTests
         Assert.Equal(5, DioceseMatcher.Find(All, "Diocese of Portland", "Biddeford", "ME").Diocese?.Id);
         var ambiguous = DioceseMatcher.Find(All, "Diocese of Portland", null, null);
         Assert.Null(ambiguous.Diocese);
-        Assert.Equal([5, 7], ambiguous.Candidates.Select(d => d.Id).OrderBy(i => i));   // both are called "Diocese of Portland"
+        // all three are "Portland" once "in Oregon" is dropped from the archdiocese name
+        Assert.Equal([5, 6, 7], ambiguous.Candidates.Select(d => d.Id).OrderBy(i => i));
     }
 
     [Fact]
@@ -79,6 +84,15 @@ public class DioceseMatcherTests
         Assert.Null(m.Diocese);
         Assert.Equal([1, 2, 3], m.Candidates.Select(d => d.Id).OrderBy(i => i));
         Assert.Contains("choose one", m.How);
+    }
+
+    [Fact]
+    public void AListThatSaysJustSpringfield_FindsSpringfieldInIllinois_WhenTheStateIsKnown()
+    {
+        var all = new List<Diocese> { D(1, "Diocese of Springfield in Illinois", "Springfield", "IL"), D(2, "Diocese of Springfield in Massachusetts", "Springfield", "MA"), D(3, "Diocese of Springfield–Cape Girardeau", "Springfield", "MO") };
+        Assert.Equal(1, DioceseMatcher.Find(all, "Diocese of Springfield", "Decatur", "IL").Diocese?.Id);
+        Assert.Equal(2, DioceseMatcher.Find(all, "Springfield", "Holyoke", "Massachusetts").Diocese?.Id);
+        Assert.Null(DioceseMatcher.Find(all, "Diocese of Springfield", null, null).Diocese);   // three of them: the state is needed
     }
 
     [Theory]

@@ -251,4 +251,98 @@ public class ParishTests : IAsyncLifetime
         Assert.Equal(0, (await db.Parishes.SingleAsync(p => p.Name == "Orphan With Nothing")).DioceseId);
         Assert.Equal(1, (await db.Dioceses.SingleAsync(d => d.Id == chicago)).TotalParishes);
     }
+
+    // ── The US diocese list ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task TheUsDioceseList_IsPreviewedThenLoaded_AsDirectoryOnly_AndIsSafeToRepeat()
+    {
+        var admin = await ClientAsync("HQAdmin");
+
+        var preview = await (await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { chapterId = _chapter, dryRun = true })).Content.ReadFromJsonAsync<JsonElement>();
+        var inList = preview.GetProperty("inList").GetInt32();
+        Assert.InRange(inList, 170, 200);
+        Assert.Equal(inList, preview.GetProperty("added").GetInt32());
+        using (var scope = _factory.Services.CreateScope())
+            Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<LotvDbContext>().Dioceses.CountAsync());   // a preview saves nothing
+
+        var loaded = await (await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { chapterId = _chapter, dryRun = false })).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(inList, loaded.GetProperty("added").GetInt32());
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+            var all = await db.Dioceses.AsNoTracking().ToListAsync();
+            Assert.Equal(inList, all.Count);
+            Assert.All(all, d => { Assert.True(d.IsDirectoryOnly); Assert.Equal(_chapter, d.ChapterId); Assert.False(string.IsNullOrWhiteSpace(d.City)); Assert.Equal(2, d.State.Length); });
+            Assert.Contains(all, d => d.Name == "Archdiocese of Chicago" && d.City == "Chicago" && d.State == "IL");
+            Assert.Contains(all, d => d.Name == "Diocese of Dallas" && d.State == "TX");
+            Assert.Equal(15, all.Count(d => d.State == "TX"));   // spot check against the real map
+        }
+
+        var again = await (await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { chapterId = _chapter, dryRun = false })).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, again.GetProperty("added").GetInt32());
+        Assert.Equal(inList, again.GetProperty("alreadyThere").GetInt32());
+    }
+
+    [Fact]
+    public async Task ADioceseAlreadyHere_UnderDifferentWording_IsNotAddedAgain()
+    {
+        await AddDioceseAsync("Archdiocese of St. Paul", "St. Paul", "MN");            // the list calls it "Saint Paul and Minneapolis"
+        await AddDioceseAsync("Diocese of Milwaukee", "Milwaukee", "WI");                // the list calls it an archdiocese
+        var admin = await ClientAsync("HQAdmin");
+
+        var before = await (await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { dryRun = true })).Content.ReadFromJsonAsync<JsonElement>();
+        await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { dryRun = false });
+
+        Assert.Equal(2, before.GetProperty("alreadyThere").GetInt32());
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        Assert.Equal(1, await db.Dioceses.CountAsync(d => d.State == "MN" && d.City.Contains("Paul")));
+        Assert.Equal(1, await db.Dioceses.CountAsync(d => d.State == "WI" && d.City == "Milwaukee"));
+        Assert.False((await db.Dioceses.AsNoTracking().SingleAsync(d => d.Name == "Archdiocese of St. Paul")).IsDirectoryOnly);   // yours keep their status
+    }
+
+    [Fact]
+    public async Task LoadedDioceses_AreNotReached_AndOnlyShowWhenAsked()
+    {
+        var partner = await AddDioceseAsync("Archdiocese of Chicago", "Chicago", "IL");
+        var admin = await ClientAsync("HQAdmin");
+        await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { dryRun = false });
+
+        var reached = await _factory.CreateClient().GetFromJsonAsync<JsonElement>("/api/public/v1/impact");
+        Assert.Equal(1, reached.GetProperty("diocesesReached").GetInt32());   // only the partner, not the ~185 listed
+
+        var partners = await admin.GetFromJsonAsync<JsonElement>("/api/v1/dioceses");
+        Assert.Equal(1, partners.GetArrayLength());
+        Assert.Equal(partner, partners[0].GetProperty("id").GetInt32());
+        var everything = await admin.GetFromJsonAsync<JsonElement>("/api/v1/dioceses?includeDirectoryOnly=true");
+        Assert.True(everything.GetArrayLength() > 150);
+    }
+
+    [Fact]
+    public async Task OnlyAnHqAdminCanLoadTheDioceseList()
+    {
+        Assert.Equal(HttpStatusCode.Forbidden, (await (await ClientAsync("ChapterAdmin")).PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { dryRun = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await (await ClientAsync("ChapterStaff")).PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { dryRun = true })).StatusCode);
+    }
+
+    [Fact]
+    public async Task WithTheListLoaded_AParishListWithNoDioceseColumn_IsPlacedByCityAndState()
+    {
+        var admin = await ClientAsync("HQAdmin");
+        await admin.PostAsJsonAsync("/api/v1/dioceses/load-us-directory", new { dryRun = false });
+        var csv = string.Join("\n", "Parish,City,State", "Holy Name Cathedral,Chicago,IL", "Cathedral of the Holy Family,Cheyenne,Wyoming",
+            "St. Laramie,Laramie,WY", "St. Naperville,Naperville,IL", "St. Dallas,Dallas,tx");
+
+        var result = await (await admin.PostAsJsonAsync("/api/v1/parishes/import", new { csv, dryRun = false })).Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(4, result.GetProperty("created").GetInt32());        // Chicago (seat), Cheyenne (seat), Laramie (only diocese in WY), Dallas (seat)
+        Assert.Equal(1, result.GetProperty("needsReview").GetInt32());    // Naperville: six dioceses in IL and it is not a seat
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        Assert.Equal("Archdiocese of Chicago", (await db.Parishes.AsNoTracking().SingleAsync(p => p.Name == "Holy Name Cathedral")).DioceseName);
+        Assert.Equal("Diocese of Cheyenne", (await db.Parishes.AsNoTracking().SingleAsync(p => p.Name == "St. Laramie")).DioceseName);
+        Assert.Equal("Diocese of Dallas", (await db.Parishes.AsNoTracking().SingleAsync(p => p.Name == "St. Dallas")).DioceseName);
+    }
 }
+

@@ -44,6 +44,21 @@ else
       <input class="form-input" style="width:200px;font-size:.82rem;padding:5px 10px;"
              placeholder="Search dioceses…" @bind="_dioceseSearch" @bind:event="oninput" />
     </div>
+    @if (Auth.IsHqAdmin)
+    {
+      <div id="diocese-load" style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:.84rem;line-height:1.6;">
+        <div>Every parish must belong to a diocese. <strong>Add the U.S. diocese list</strong> (about 185 archdioceses and dioceses, with their seat city and state)
+          so parishes can be placed. They are marked <em>Directory only</em> and are not counted in "dioceses reached". Dioceses you already have are left alone.</div>
+        <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-sm" id="diocese-preview" @onclick="() => LoadDiocesesAsync(true)" disabled="@_loadingDioceses">Preview</button>
+          <button class="btn btn-sm btn-primary" id="diocese-add" @onclick="() => LoadDiocesesAsync(false)" disabled="@(_loadingDioceses || _dioceseLoad is not { DryRun: true, Added: > 0 })">Add @(_dioceseLoad is { DryRun: true } ? _dioceseLoad.Added : 0) dioceses</button>
+          @if (!string.IsNullOrEmpty(_dioceseLoadMessage))
+          {
+            <span id="diocese-load-message" style="@(_dioceseLoadFailed ? "color:#856404;" : "")">@_dioceseLoadMessage</span>
+          }
+        </div>
+      </div>
+    }
     <div class="panel-body" style="padding:0;">
       @if (!FilteredDioceses.Any())
       {
@@ -65,7 +80,7 @@ else
             @foreach (var d in FilteredDioceses)
             {
               <tr style="border-top:1px solid var(--border);">
-                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@d.Name</td>
+                <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@d.Name@if (d.IsDirectoryOnly) { <span class="badge badge-cancelled" style="margin-left:6px;font-size:.62rem;" title="Listed so parishes can belong to it; not a partner, so not counted in dioceses reached">Directory only</span> }</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@d.City, @d.State</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(d.CoordinatorName ?? "—")</td>
                 <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@d.ActiveParishes / @d.TotalParishes</td>
@@ -195,6 +210,24 @@ else
   private bool _importing, _importFailed;
   private string? _importMessage;
   private ApiService.ParishImportResultDto? _result;
+  // Loading the US diocese list
+  private bool _loadingDioceses, _dioceseLoadFailed;
+  private string? _dioceseLoadMessage;
+  private ApiService.DioceseDirectoryResultDto? _dioceseLoad;
+
+  private async Task LoadDiocesesAsync(bool dryRun)
+  {
+    _loadingDioceses = true; _dioceseLoadFailed = false; _dioceseLoadMessage = null;
+    var (result, error) = await Api.LoadUsDioceseDirectoryAsync(dryRun);
+    _loadingDioceses = false;
+    if (result is null) { _dioceseLoadFailed = true; _dioceseLoadMessage = error ?? "That couldn't run."; return; }
+    _dioceseLoad = result;
+    _dioceseLoadMessage = dryRun
+      ? $"{result.Added} of the {result.InList} dioceses in the list are not here yet ({result.AlreadyThere} already are)."
+      : $"Added {result.Added} dioceses ({result.AlreadyThere} were already here).";
+    if (!dryRun) _dioceses = await Api.GetDiocesesAsync(includeDirectoryOnly: true);
+  }
+
   private bool CanImport => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director";
 
   private static string CityState(Parish p)
@@ -210,7 +243,7 @@ else
 
   protected override async Task OnInitializedAsync()
   {
-    var dioceseTask = Api.GetDiocesesAsync();
+    var dioceseTask = Api.GetDiocesesAsync(includeDirectoryOnly: true);
     var pageTask = Api.GetParishPageAsync(take: PageSize);
     await Task.WhenAll(dioceseTask, pageTask);
     _dioceses = await dioceseTask;
@@ -249,6 +282,6 @@ else
     _importing = false;
     if (result is null) { _importFailed = true; _importMessage = error ?? "The import couldn't run."; return; }
     _result = result;
-    if (!dryRun) { _csv = null; _page = 0; _parishSearch = ""; await LoadAsync(); _grandTotal = _total; _dioceses = await Api.GetDiocesesAsync(); }
+    if (!dryRun) { _csv = null; _page = 0; _parishSearch = ""; await LoadAsync(); _grandTotal = _total; _dioceses = await Api.GetDiocesesAsync(includeDirectoryOnly: true); }
   }
 }

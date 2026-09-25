@@ -28,4 +28,13 @@ public class UsStatesTests
     [InlineData("N/A")]
     [InlineData("Illinoise")]
     public void NeverGuessesAtSomethingItCannotRecognise(string? typed) => Assert.Null(UsStates.ToCode(typed));
+
+    [Theory]
+    [InlineData("Illinois", true)]
+    [InlineData("new   york", true)]
+    [InlineData("IL", false)]        // a code is not a name
+    [InlineData("Wash", false)]      // nor is an old abbreviation
+    [InlineData("Chicago", false)]
+    [InlineData(null, false)]
+    public void IsStateName_IsTrueOnlyForAFullStateName(string? text, bool expected) => Assert.Equal(expected, UsStates.IsStateName(text));
 }
