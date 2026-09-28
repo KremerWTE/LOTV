@@ -68,7 +68,8 @@ else
   {
     _loaded = false;
     _myVolunteer = await Api.GetMyVolunteerAsync();
-    _families = await Api.GetMyRequestsAsync();
+    // Their prayer team seats — every family they've been added to, whichever volunteer is packing the box.
+    _families = await Api.GetMyPrayerListAsync();
     _loaded = true;
   }
 }

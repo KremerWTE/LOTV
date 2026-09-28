@@ -167,6 +167,13 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - 9 new tests (`VolunteerRolesTests`, `PrayerListTests`, plus an `AutoAssignmentServiceTests` case); fixed two of this session's own new tests (`VolunteerNotesPrivacyTests`, `PrayerListTests`) that hardcoded chapter 1 and could flake other chapter-1 tests now that auto-assignment matches more broadly — each gets its own chapter, like the rest of the suite. 746 tests pass.
 - **Not done:** a similar per-role landing page for other roles (Driver, Event Helper, Parish Liaison) if you want them; the legacy public `/volunteer/*` pages (separate from the real staff login) weren't touched.
 
+## Prayer team: many people praying for one family (2026-09-28)
+
+- **The ask:** "prayer list it could be many prayers to one who needs prayers" — the Prayer List I built earlier that day reused the single package-assignment field, so it could only ever show one Prayer Ambassador per family. Real ministry needs several people praying for the same family, and one Prayer Ambassador praying for several families — a many-to-many relationship, decoupled from who assembles and ships the actual box.
+- **Built:** a new `PrayerTeamMember` join table (request, volunteer, who added them, when) — separate from `PackageRequest.AssignedToId`. Staff manage it from a new "Prayer Team" panel on the case detail page: add any volunteer who holds the Prayer Ambassador role, remove any of them, no limit on how many. `GET /api/v1/requests/my-prayer-list` gives a volunteer every family they've been added to pray for, independent of `/requests/mine` (their package assignments). The Prayer List page (`/admin/prayer-list`) now reads from this instead.
+- **Verified in a browser:** added two Prayer Ambassadors (Ann and Bea) to one family's prayer team; the case detail page showed both. Logged in as Ann — her Prayer List showed that family even though her My Work Queue had zero cases (she wasn't the one packing it).
+- 5 new tests (`PrayerTeamTests`); 751 tests pass.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

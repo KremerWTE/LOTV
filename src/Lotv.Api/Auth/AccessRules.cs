@@ -52,8 +52,14 @@ public static class AccessRules
         "POST /api/v1/requests/{id:int}/fulfill",
     };
 
-    /// <summary>The list route a volunteer may call without naming a case (it returns only their own).</summary>
-    public const string VolunteerList = "GET /api/v1/requests/mine";
+    // List routes a volunteer may call without naming a case — each returns only what's theirs.
+    static readonly HashSet<string> VolunteerLists = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "GET /api/v1/requests/mine",
+        // Their prayer team seats, not their package assignments — see PrayerTeamMember. Many volunteers can be
+        // on one family's prayer team, so this is never the same list as "mine".
+        "GET /api/v1/requests/my-prayer-list",
+    };
 
     /// <summary>
     /// True when a volunteer may call this route. <paramref name="isOwnCase"/> is asked only for routes that name a case.
@@ -63,7 +69,7 @@ public static class AccessRules
         var pattern = (http.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText;
         if (pattern is null) return false;
         var key = $"{http.Request.Method} {pattern}";
-        if (key.Equals(VolunteerList, StringComparison.OrdinalIgnoreCase)) return true;
+        if (VolunteerLists.Contains(key)) return true;
         if (!VolunteerOwnCase.Contains(key)) return false;
         return int.TryParse(http.Request.RouteValues["id"]?.ToString(), out var id) && await isOwnCase(id);
     }

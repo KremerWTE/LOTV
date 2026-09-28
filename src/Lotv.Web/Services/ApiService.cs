@@ -1761,6 +1761,28 @@ public class ApiService
     public Task<List<PackageRequest>> GetMyRequestsAsync() =>
         GetListAsync<PackageRequest>("/api/v1/requests/mine");
 
+    /// <summary>Every family the signed-in person has been added to a prayer team for — independent of who packs the box.</summary>
+    public Task<List<PackageRequest>> GetMyPrayerListAsync() =>
+        GetListAsync<PackageRequest>("/api/v1/requests/my-prayer-list");
+
+    /// <summary>Who is praying for this family — can be several people, separate from who assembles the package.</summary>
+    public Task<List<PrayerTeamMember>> GetPrayerTeamAsync(int requestId) =>
+        GetListAsync<PrayerTeamMember>($"/api/v1/requests/{requestId}/prayer-team");
+
+    public async Task<(bool Ok, string? Error)> AddToPrayerTeamAsync(int requestId, int volunteerId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/requests/{requestId}/prayer-team", new { volunteerId });
+        if (resp?.IsSuccessStatusCode == true) return (true, null);
+        var err = resp is null ? null : await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        return (false, err is not null && err.TryGetValue("error", out var m) ? m : "That could not be done.");
+    }
+
+    public async Task<bool> RemoveFromPrayerTeamAsync(int requestId, int volunteerId)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/requests/{requestId}/prayer-team/{volunteerId}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     public async Task<bool> MarkMailingEntrySentAsync(int id, bool sent)
     {
         var resp = await AuthedPutAsync($"/api/v1/mailing-list/{id}/sent", new { Sent = sent });

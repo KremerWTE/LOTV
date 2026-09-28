@@ -339,6 +339,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the ReminderSentAt column to FollowUpMilestones."); }
     try { AssignmentRulesTableBootstrap.EnsureTable(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the AssignmentRules table; routing rules will be unavailable."); }
+    try { PrayerTeamTableBootstrap.EnsureTable(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not create the PrayerTeamMembers table; the prayer team will be unavailable."); }
 
     // Volunteer case counts drifted because assigning never incremented them; make them match reality.
     try
@@ -781,6 +783,49 @@ cases.MapGet("/mine", async (LotvDbContext db, IChapterContextService ctx, UserM
         .Where(r => r.AssignedToId != null && volunteerIds.Contains(r.AssignedToId.Value))
         .OrderByDescending(r => r.CreatedAt).ToListAsync();
     return Results.Ok(mine);
+});
+
+// The signed-in person's own prayer team seats — every family they've been added to pray for, whether or not
+// they're the one packing the box (that's "mine", above; the two lists are independent).
+cases.MapGet("/my-prayer-list", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var volunteerIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToList();
+    if (volunteerIds.Count == 0) return Results.Ok(new List<PackageRequest>());
+    var requestIds = await db.PrayerTeamMembers.Where(m => volunteerIds.Contains(m.VolunteerId)).Select(m => m.RequestId).Distinct().ToListAsync();
+    var mine = await db.Requests.Include(r => r.Family)
+        .Where(r => requestIds.Contains(r.Id))
+        .OrderByDescending(r => r.CreatedAt).ToListAsync();
+    return Results.Ok(mine);
+});
+
+// ── Prayer team: many volunteers can pray for one family, independent of who assembles and ships the package ──
+cases.MapGet("/{id:int}/prayer-team", async (int id, LotvDbContext db) =>
+    await db.PrayerTeamMembers.Where(m => m.RequestId == id).Include(m => m.Volunteer).OrderBy(m => m.AddedAt).ToListAsync());
+
+cases.MapPost("/{id:int}/prayer-team", async (int id, PrayerTeamAddRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    if (!await db.Requests.AnyAsync(r => r.Id == id)) return Results.NotFound();
+    var vol = await db.Volunteers.FindAsync(body.VolunteerId);
+    if (vol is null) return Results.NotFound(new { error = "That volunteer doesn't exist." });
+    if (!vol.HasRole(VolunteerRole.PrayerAmbassador))
+        return Results.BadRequest(new { error = $"{vol.FullName} isn't a Prayer Ambassador — add that role to their profile first." });
+    if (await db.PrayerTeamMembers.AnyAsync(m => m.RequestId == id && m.VolunteerId == body.VolunteerId))
+        return Results.BadRequest(new { error = $"{vol.FullName} is already on this family's prayer team." });
+
+    var member = new PrayerTeamMember { RequestId = id, VolunteerId = body.VolunteerId, AddedById = ctx.UserId, AddedByName = ctx.UserName, AddedAt = DateTime.UtcNow };
+    db.PrayerTeamMembers.Add(member);
+    await db.SaveChangesAsync();
+    member.Volunteer = vol;
+    return Results.Created($"/api/v1/requests/{id}/prayer-team", member);
+});
+
+cases.MapDelete("/{id:int}/prayer-team/{volunteerId:int}", async (int id, int volunteerId, LotvDbContext db) =>
+{
+    var member = await db.PrayerTeamMembers.FirstOrDefaultAsync(m => m.RequestId == id && m.VolunteerId == volunteerId);
+    if (member is null) return Results.NotFound();
+    db.PrayerTeamMembers.Remove(member);
+    await db.SaveChangesAsync();
+    return Results.Ok();
 });
 
 cases.MapGet("/queue", async (LotvDbContext db, IChapterContextService ctx) =>
@@ -5143,6 +5188,7 @@ record MarkSentRequest(bool Sent);
 record TestEmailRequest(string? To);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
+record PrayerTeamAddRequest(int VolunteerId);
 record PriorityRequest(RequestPriority Priority);
 record ProcessStageRequest(ProcessStage ProcessStage);
 record DueDateRequest(DateTime DueDate);
