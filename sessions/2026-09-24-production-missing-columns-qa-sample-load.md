@@ -182,6 +182,15 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Verified in a browser:** Ann started with three candidate families and none of her own; picked Mia Sorrow and Sam Grief; they moved into "The families you're praying for" with a "stop praying" button, and Grace Hope stayed in the pick list.
 - 3 new tests (self-service join, self-service leave-vs-can't-remove-others, can't add someone else); 754 tests pass.
 
+## Prayer-only requests (no package) (2026-09-28)
+
+- **The ask:** "the prayer list should include everyone who request a prayer care package along with anyone who just request prayers" — before this, the only way to reach LOTV was the Prayer Care Package form, which always created a package to assemble and ship. There was no way to ask for prayer alone.
+- **Built:** the request form (both the site copy and the Duda embed, kept identical as always) now opens with "What would help most right now?" — a comfort package, or prayer only. It's a new standard question (`PackageRequest.WantsPackage`, column bootstrap for existing databases) the same way "Reason" or "How did you hear about us" are — staff can reword it in the form editor but can't remove it, since real behavior depends on it. Existing requests are unaffected (all default to wanting a package, which is all any of them ever were).
+- A prayer-only request: never gets a package assembler auto-assigned (there's nothing to pack); the case detail page shows a "🙏 Prayer Only" badge and hides the Packing List panel entirely; it shows in "Families You Could Pray For" as any other request would, with the same badge, so Prayer Ambassadors see and can join every kind of request in one place.
+- **Verified with a real submission** through the actual public form at `/request-prayer-care-package` (not just the API): picked "Prayer only," submitted, confirmed `WantsPackage = 0` in the database, saw the "Prayer Only" badge and no Packing List on the case, and saw it appear with a "Prayer only" badge in a Prayer Ambassador's browse list.
+- 3 new tests (`PrayerOnlyRequestTests`); the new standard question required adding it to `IntakeFormDefinition.StandardKeys`, which needed no other test changes. 757 tests pass.
+- **Known limit:** a chapter's form definition that staff have already customized and saved in the dashboard won't have this question until they re-save it (adding it, or using Reset to Default) — existing saved custom forms are still served as-is and don't retroactively gain new standard questions.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

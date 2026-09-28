@@ -1773,7 +1773,7 @@ public class ApiService
     public Task<List<PrayerCandidateDto>> GetPrayerCandidatesAsync() =>
         GetListAsync<PrayerCandidateDto>("/api/v1/requests/prayer-candidates");
 
-    public record PrayerCandidateDto(int Id, string? FamilyName, string? Story, PackageReason Reason, DateTime CreatedAt, bool AlreadyPraying);
+    public record PrayerCandidateDto(int Id, string? FamilyName, string? Story, PackageReason Reason, DateTime CreatedAt, bool WantsPackage, bool AlreadyPraying);
 
     public async Task<(bool Ok, string? Error)> AddToPrayerTeamAsync(int requestId, int volunteerId)
     {

@@ -30,6 +30,8 @@ else
       <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="badge @GetStatusBadge(_request.Status)">@_request.Status</span>
         <span class="badge @GetPriorityBadge(_request.Priority)">@_request.Priority</span>
+        @if (!_request.WantsPackage)
+        { <span class="badge" style="background:var(--navy-pale);color:var(--navy);" title="No comfort package to assemble or ship — prayer only.">🙏 Prayer Only</span> }
         @if (_request.IsOverdue)
         { <span class="badge badge-overdue">Overdue</span> }
         <span style="font-size:.76rem;color:var(--text-light);">Created @_request.CreatedAt.ToString("MMM d, yyyy")</span>
@@ -559,7 +561,9 @@ else
         </div>
       </div>
 
-      <!-- PACKING LIST -->
+      <!-- PACKING LIST (nothing to pack for a prayer-only request) -->
+      @if (_request.WantsPackage)
+      {
       <div class="panel">
         <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span>Packing List</span>
@@ -602,6 +606,7 @@ else
           { <div style="font-size:.76rem;color:var(--red);margin-top:8px;">⚠ @_packingError</div> }
         </div>
       </div>
+      }
 
     </div>
   </div>

@@ -11,6 +11,11 @@ public class PackageRequest
     public string? ReferrerName { get; set; }
     public string? ReferrerEmail { get; set; }
 
+    /// <summary>
+    /// False when this is a prayer-only request — no comfort package to assemble or ship, just prayer.
+    /// Defaults true so every existing request (all of them were packages before this existed) is unaffected.
+    /// </summary>
+    public bool WantsPackage { get; set; } = true;
     public PackageReason Reason { get; set; }
     public RequestCategory Category { get; set; } = RequestCategory.Other;
     public CaseStatus Status { get; set; } = CaseStatus.New;

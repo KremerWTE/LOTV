@@ -377,6 +377,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the Kind column to MailingListEntries; the Father's Day list will be unavailable."); }
     try { VolunteerAdditionalRolesColumnBootstrap.EnsureColumn(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the AdditionalRoles column to Volunteers; a volunteer can only hold one role until this is fixed."); }
+    try { RequestWantsPackageColumnBootstrap.EnsureColumn(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not add the WantsPackage column to Requests; every request will be treated as a package request until this is fixed."); }
 
     // Self-heals the known HQ staff accounts' Role if it's ever drifted from
     // HQAdmin (see CoreAdminAccountRepair for why) — runs in every
@@ -455,7 +457,9 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     var noteLines = new List<string>();
     if (!body.ForSelf && !string.IsNullOrWhiteSpace(body.ReferrerFirstName))
         noteLines.Add($"Referred by: {body.ReferrerFirstName} {body.ReferrerLastName} <{body.ReferrerEmail}>");
-    if (!string.IsNullOrEmpty(packageType))
+    if (!body.WantsPackage)
+        noteLines.Add("Prayer only — no package requested.");
+    else if (!string.IsNullOrEmpty(packageType))
         noteLines.Add($"Package requested: {packageType}");
     var referrerNote = noteLines.Count > 0 ? string.Join("\n", noteLines) : null;
 
@@ -463,6 +467,7 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     {
         FamilyId       = body.Family.Id,
         ChapterId      = body.Family.ChapterId,
+        WantsPackage   = body.WantsPackage,
         Reason         = body.Family.Reason,
         Category       = category,
         IsForSelf      = body.ForSelf,
@@ -495,8 +500,10 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     // A new request waits in the Unassigned Queue for staff to assign (by hand, or with "Apply rules to queue").
     // Intake:AutoAssign=true brings back assigning on submit (routing rules first, then the best-matching volunteer).
     // Even then, flagged submissions stay out of auto-assignment until a human confirms they're not the same family —
-    // assigning a volunteer to what might be a duplicate case just creates more cleanup work later.
-    if (dupMatch is null && AutoAssignOnIntake(cfg))
+    // assigning a volunteer to what might be a duplicate case just creates more cleanup work later. A prayer-only
+    // request has no box to assemble, so it never gets a package assembler auto-assigned — it waits on the prayer
+    // team (which anyone can join themselves, or staff can add someone) instead.
+    if (dupMatch is null && AutoAssignOnIntake(cfg) && req.WantsPackage)
         await autoAssign.TryAutoAssignAsync(req.Id);
 
     // A suspected duplicate gets its tracker only if staff confirm it is a separate family.
@@ -507,11 +514,12 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     // looks like a duplicate family or the address is incomplete).
     await MothersDayMailing.EnsureEntryAsync(db, body.Family, possibleDuplicate: dupMatch is not null);
 
+    var askedFor = req.WantsPackage ? "a comfort package" : "prayer only, no package";
     _ = pushSvc.SendToAllAsync(
         dupMatch is null ? "New request submitted" : "New request submitted — possible duplicate",
         dupMatch is null
-            ? $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package."
-            : $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package. {dupMatch.Reason} — needs review.",
+            ? $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested {askedFor}."
+            : $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested {askedFor}. {dupMatch.Reason} — needs review.",
         dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
 
     // Emails (see RequestEmails / RequestNotifier): a confirmation to whoever submitted the form, and a
@@ -827,7 +835,7 @@ cases.MapGet("/prayer-candidates", async (LotvDbContext db, IChapterContextServi
     var candidates = await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
     return Results.Ok(candidates.Select(r => new
     {
-        r.Id, FamilyName = r.Family?.FullName, Story = r.Family?.Story, r.Reason, r.CreatedAt,
+        r.Id, FamilyName = r.Family?.FullName, Story = r.Family?.Story, r.Reason, r.CreatedAt, r.WantsPackage,
         AlreadyPraying = alreadyOn.Contains(r.Id),
     }));
 });
@@ -5203,6 +5211,7 @@ record PublicApplyRequest(
     Family Family,
     bool ForSelf = true,
     string? PackageType = null,
+    bool WantsPackage = true,
     string? ReferrerFirstName = null,
     string? ReferrerLastName = null,
     string? ReferrerEmail = null

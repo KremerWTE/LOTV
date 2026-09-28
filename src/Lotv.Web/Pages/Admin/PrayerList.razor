@@ -82,7 +82,11 @@ else
           <div class="panel-body" style="padding:16px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div>
               <strong>@(c.FamilyName ?? "A family")</strong>
-              <div style="font-size:.84rem;color:var(--text-mid);">@c.Reason.ToDisplayName() &bull; @c.CreatedAt.ToString("MMM d, yyyy")</div>
+              <div style="font-size:.84rem;color:var(--text-mid);">
+                @c.Reason.ToDisplayName() &bull; @c.CreatedAt.ToString("MMM d, yyyy")
+                @if (!c.WantsPackage)
+                { <span class="badge" style="background:var(--navy-pale);color:var(--navy);margin-left:6px;">Prayer only</span> }
+              </div>
               @if (!string.IsNullOrWhiteSpace(c.Story))
               { <div style="font-size:.85rem;line-height:1.6;margin-top:8px;max-width:640px;white-space:pre-wrap;">@c.Story</div> }
             </div>
