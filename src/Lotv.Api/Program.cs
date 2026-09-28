@@ -1288,8 +1288,14 @@ cases.MapGet("/sms-log", async (LotvDbContext db, int? caseId, int page = 1, int
     return Results.Ok(new { total, page, pageSize, rows });
 }).RequireAuthorization("Staff");
 
-cases.MapGet("/{id:int}/notes", async (int id, LotvDbContext db) =>
-    await db.RequestNotes.Where(n => n.RequestId == id).OrderBy(n => n.CreatedAt).ToListAsync());
+// A volunteer reading notes on their own case never sees an internal (staff-only) one — those may discuss the case in
+// ways not meant for the person doing the assembling. Staff and Board see everything.
+cases.MapGet("/{id:int}/notes", async (int id, LotvDbContext db, HttpContext http) =>
+{
+    var q = db.RequestNotes.Where(n => n.RequestId == id);
+    if (http.User.FindFirst("role")?.Value == nameof(UserRole.Volunteer)) q = q.Where(n => !n.IsInternal);
+    return await q.OrderBy(n => n.CreatedAt).ToListAsync();
+});
 
 cases.MapPost("/{id:int}/notes", async (int id, NoteRequest body, LotvDbContext db, IChapterContextService ctx) =>
 {

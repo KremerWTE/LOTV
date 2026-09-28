@@ -319,10 +319,13 @@ else
           <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:10px;">
             <textarea class="form-textarea" @bind="_newNoteText" placeholder="Add a note…" style="min-height:80px;"></textarea>
             <div style="display:flex;align-items:center;gap:16px;">
-              <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;">
-                <input type="checkbox" @bind="_newNoteInternal" />
-                <span>Internal only (hidden from recipient)</span>
-              </label>
+              @if (!_isVolunteer)
+              {
+                <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;">
+                  <input type="checkbox" @bind="_newNoteInternal" />
+                  <span>Internal only (hidden from recipient)</span>
+                </label>
+              }
               <button class="btn btn-sm btn-primary" @onclick="AddNoteAsync" disabled="@(string.IsNullOrWhiteSpace(_newNoteText) || _addingNote)">
                 @(_addingNote ? "Adding…" : "Add Note")
               </button>

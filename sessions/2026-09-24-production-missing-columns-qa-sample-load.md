@@ -152,6 +152,12 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - Moving a case from one volunteer to another now logs one "reassigned from X to Y" entry (who did it, both names) instead of a bare "assigned to Y" with no record of who had it before. A first-time assignment still logs "assigned to Y". Unassigning already logged who it was taken from. 2 new tests (`CaseAssignmentLogTests`); 739 tests pass.
 - Checked against today's feedback: /admin/cases-hub "All Cases" already defaults to Open (completed hidden, Show more) — fixed 2026-09-25, still pending deploy. /admin/volunteers-hub "Directory" tab already has clickable, warning-flagged case counts — same. The case-view log ("who viewed which case, when") is also already built and pending deploy.
 
+## Volunteers never see staff-internal notes (2026-09-28)
+
+- **Found while reviewing second-order effects of the access rule:** a volunteer could read a case's internal (staff-only) notes — the "hidden from recipient" content, meant for staff coordinating the case — because the notes endpoint returned everything to anyone who could open the case. Fixed server-side (a volunteer's GET is filtered to public notes only) and the "Internal only" checkbox is hidden from volunteers when adding a note. 1 new test (`VolunteerNotesPrivacyTests`); 740 tests pass.
+- **Checked and found fine:** the Package Pipeline (Kanban) view already hides fulfilled cases older than 3 months by default, so it doesn't have the same page-length problem Cases did.
+- **Found, not yet fixed:** the Donations page's bulk "Mark Allocated" / "Mark Unallocated" buttons still only flip the donation's own status field — like the single "Allocate" button did before this session's fix — without touching the Fund Allocation table. Bulk-approved donations won't show correctly in the Allocations queue.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.
