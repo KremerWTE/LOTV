@@ -917,10 +917,13 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
         // A different volunteer hasn't accepted yet, so a case the previous one had accepted goes back to Assigned.
         else if (r.ProcessStage == ProcessStage.Confirmed && previousVolunteerId != vol.Id) r.ProcessStage = ProcessStage.Assigned;
         r.UpdatedAt = DateTime.UtcNow;
+        // A case moving from one volunteer to another is a reassignment, not a fresh assignment — the log says who it came from.
+        var previousVolunteerName = previousVolunteerId is int prevVolId && prevVolId != vol.Id ? (await db.Volunteers.FindAsync(prevVolId))?.FullName : null;
         db.RequestActivities.Add(new RequestActivity
         {
             RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
-            ActivityType = ActivityType.Assigned, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
+            ActivityType = previousVolunteerName is null ? ActivityType.Assigned : ActivityType.Reassigned,
+            OldValue = previousVolunteerName, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
         await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId, vol.Id);

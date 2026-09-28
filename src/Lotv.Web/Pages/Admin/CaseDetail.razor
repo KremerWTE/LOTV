@@ -908,7 +908,7 @@ else
     ActivityType.Created        => "created this case",
     ActivityType.StatusChanged  => $"changed status from {ev.OldValue} → {ev.NewValue}",
     ActivityType.Assigned       => $"assigned to {ev.NewValue}",
-    ActivityType.Reassigned     => $"reassigned to {ev.NewValue}",
+    ActivityType.Reassigned     => string.IsNullOrEmpty(ev.OldValue) ? $"reassigned to {ev.NewValue}" : $"reassigned from {ev.OldValue} to {ev.NewValue}",
     ActivityType.Unassigned     => string.IsNullOrEmpty(ev.Details) ? $"unassigned {ev.OldValue}" : $"unassigned {ev.OldValue} — {ev.Details}",
     ActivityType.NoteAdded      => "added a note",
     ActivityType.PriorityChanged => $"set priority to {ev.NewValue}",

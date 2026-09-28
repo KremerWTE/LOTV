@@ -147,6 +147,11 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Existing donations:** a startup catch-up (`AllocationBackfill`, same pattern as `ParishDioceseRepair`) gives any older unallocated donation a pending allocation too, so production's real donations show up in the queue after this deploys, not just new ones.
 - 7 new tests (`AllocationAutoCreateTests`, `AllocationBackfillTests`); 737 tests pass.
 
+## Reassignment logged as a move, not two assignments (2026-09-28)
+
+- Moving a case from one volunteer to another now logs one "reassigned from X to Y" entry (who did it, both names) instead of a bare "assigned to Y" with no record of who had it before. A first-time assignment still logs "assigned to Y". Unassigning already logged who it was taken from. 2 new tests (`CaseAssignmentLogTests`); 739 tests pass.
+- Checked against today's feedback: /admin/cases-hub "All Cases" already defaults to Open (completed hidden, Show more) — fixed 2026-09-25, still pending deploy. /admin/volunteers-hub "Directory" tab already has clickable, warning-flagged case counts — same. The case-view log ("who viewed which case, when") is also already built and pending deploy.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.
