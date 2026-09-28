@@ -61,7 +61,7 @@ else
       <div class="panel-head"><h3>Change Role</h3></div>
       <div class="panel-body">
         <div class="form-group">
-          <label class="form-label">New Role</label>
+          <label class="form-label">Primary Role</label>
           <select class="form-input" @bind="_newRole">
             @foreach (var role in Enum.GetValues<VolunteerRole>())
             {
@@ -70,9 +70,21 @@ else
           </select>
         </div>
 
+        <div class="form-group">
+          <label class="form-label">Also does (optional)</label>
+          <div style="font-size:.78rem;color:var(--text-light);margin-bottom:6px;">A volunteer can hold more than one role — for example a Package Assembler who is also a Prayer Ambassador.</div>
+          @foreach (var role in Enum.GetValues<VolunteerRole>().Where(r => r != _newRole))
+          {
+            <label style="display:flex;align-items:center;gap:8px;font-size:.86rem;padding:4px 0;cursor:pointer;">
+              <input type="checkbox" checked="@_additionalRoles.Contains(role)" @onchange="e => ToggleAdditional(role, (bool)e.Value!)" />
+              @role.ToDisplayName()
+            </label>
+          }
+        </div>
+
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
           <a href="/admin/volunteers/@Id" class="btn btn-sm">Cancel</a>
-          <button class="btn btn-primary" @onclick="Save" disabled="@(_busy || _newRole == _vol.Role)">
+          <button class="btn btn-primary" @onclick="Save" disabled="@(_busy || (_newRole == _vol.Role && SameAdditionalRoles()))">
             @(_busy ? "Saving…" : "Update Role")
           </button>
         </div>
@@ -86,15 +98,28 @@ else
 
   private Volunteer? _vol;
   private VolunteerRole _newRole;
+  private HashSet<VolunteerRole> _additionalRoles = [];
   private bool _loading = true, _busy, _saved;
   private string _error = "";
 
   protected override async Task OnInitializedAsync()
   {
     _vol = await Api.GetVolunteerByIdAsync(Id);
-    if (_vol is not null) _newRole = _vol.Role;
+    if (_vol is not null)
+    {
+      _newRole = _vol.Role;
+      _additionalRoles = Volunteer.ParseAdditionalRoles(_vol.AdditionalRoles).ToHashSet();
+    }
     _loading = false;
   }
+
+  private void ToggleAdditional(VolunteerRole role, bool on)
+  {
+    if (on) _additionalRoles.Add(role); else _additionalRoles.Remove(role);
+  }
+
+  private bool SameAdditionalRoles() =>
+    _vol is not null && _additionalRoles.SetEquals(Volunteer.ParseAdditionalRoles(_vol.AdditionalRoles));
 
   private async Task Save()
   {
@@ -107,7 +132,8 @@ else
       LastName    = _vol.LastName,
       Email       = _vol.Email,
       Phone       = _vol.Phone,
-      Role        = _newRole,
+      Role            = _newRole,
+      AdditionalRoles = Volunteer.ToCsv(_additionalRoles.Where(r => r != _newRole)),
       Status      = _vol.Status,
       ChapterId   = _vol.ChapterId,
       JoinedDate  = _vol.JoinedDate,
@@ -116,7 +142,7 @@ else
     };
     var result = await Api.UpdateVolunteerAsync(Id, updated);
     _busy = false;
-    if (result is not null) { _vol = result; _saved = true; }
+    if (result is not null) { _vol = result; _saved = true; _additionalRoles = Volunteer.ParseAdditionalRoles(_vol.AdditionalRoles).ToHashSet(); }
     else _error = "Failed to update role. Please try again.";
   }
 }

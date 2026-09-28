@@ -22,14 +22,19 @@ public class VolunteerNotesPrivacyTests
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { Username = email, Password = "TestPass1Notes!" });
         client.DefaultRequestHeaders.Authorization = new("Bearer", (await login.Content.ReadFromJsonAsync<LoginResponseDto>())!.AccessToken);
 
+        // Its own chapter — Intake:AutoAssign is on for the whole test run, and a Package Assembler dropped into a
+        // chapter another test relies on could pick up that test's request before it gets to assert on it.
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
-        var vol = new Volunteer { FirstName = "Nina", LastName = "Notes", Email = email, Role = VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active, ChapterId = 1 };
-        var family = new Family { Parent1FirstName = "Fam", Parent1LastName = "Ily", ChapterId = 1 };
+        var chapter = new Chapter { Name = $"Notes {Guid.NewGuid():N}", IsActive = true, CreatedAt = DateTime.UtcNow };
+        db.Chapters.Add(chapter);
+        await db.SaveChangesAsync();
+        var vol = new Volunteer { FirstName = "Nina", LastName = "Notes", Email = email, Role = VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active, ChapterId = chapter.Id };
+        var family = new Family { Parent1FirstName = "Fam", Parent1LastName = "Ily", ChapterId = chapter.Id };
         db.Volunteers.Add(vol);
         db.Families.Add(family);
         await db.SaveChangesAsync();
-        var request = new PackageRequest { FamilyId = family.Id, ChapterId = 1, AssignedToId = vol.Id, AssignedTo = "Nina Notes", Status = CaseStatus.InProgress };
+        var request = new PackageRequest { FamilyId = family.Id, ChapterId = chapter.Id, AssignedToId = vol.Id, AssignedTo = "Nina Notes", Status = CaseStatus.InProgress };
         db.Requests.Add(request);
         await db.SaveChangesAsync();
         db.RequestNotes.AddRange(

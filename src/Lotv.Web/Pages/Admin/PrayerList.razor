@@ -1,0 +1,74 @@
+@page "/admin/prayer-list"
+@layout AdminLayout
+@inject ApiService Api
+@inject AuthService Auth
+@using Lotv.Core.Models
+
+<PageTitle>Prayer List — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Prayer List</h2>
+    <p>The families currently in your care, to hold in prayer by name.</p>
+  </div>
+  <div class="page-hd-actions">
+    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+  </div>
+</div>
+
+@if (!_loaded)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else if (_myVolunteer is null)
+{
+  <div class="panel"><div class="panel-body" style="padding:24px;">You aren't set up as a volunteer yet — visit My Work Queue to create your volunteer record.</div></div>
+}
+else if (!_myVolunteer.HasRole(VolunteerRole.PrayerAmbassador))
+{
+  <div class="panel"><div class="panel-body" style="padding:24px;">You aren't currently set up as a Prayer Ambassador. If that's changed, ask staff to add it to your volunteer record.</div></div>
+}
+else if (_families.Count == 0)
+{
+  <div class="empty-state" style="padding:40px;">
+    <div class="icon" style="font-size:32px;">🙏</div>
+    <p>No families are currently assigned to you to pray for.</p>
+  </div>
+}
+else
+{
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    @foreach (var r in _families.OrderByDescending(x => x.CreatedAt))
+    {
+      <div class="panel">
+        <div class="panel-body" style="padding:18px 22px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+            <strong style="font-size:1rem;">@(r.Family?.FullName ?? "A family")</strong>
+            <span style="font-size:.76rem;color:var(--text-light);">Praying since @r.CreatedAt.ToString("MMM d, yyyy")</span>
+          </div>
+          <div style="font-size:.84rem;color:var(--text-mid);margin-top:2px;">@r.Reason.ToDisplayName()</div>
+          @if (!string.IsNullOrWhiteSpace(r.Family?.Story))
+          {
+            <div style="font-size:.85rem;line-height:1.6;margin-top:10px;white-space:pre-wrap;">@r.Family!.Story</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}
+
+@code {
+  private bool _loaded;
+  private Volunteer? _myVolunteer;
+  private List<PackageRequest> _families = [];
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loaded = false;
+    _myVolunteer = await Api.GetMyVolunteerAsync();
+    _families = await Api.GetMyRequestsAsync();
+    _loaded = true;
+  }
+}

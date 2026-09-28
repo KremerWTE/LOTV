@@ -77,6 +77,24 @@ public class AutoAssignmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetScoresAsync_ExcludesAPrayerOnlyVolunteer_ButIncludesOneWhoAlsoAssemblesPackages()
+    {
+        var ch = SeedChapter();
+        var prayerOnly = SeedVolunteer(ch);
+        prayerOnly.Role = VolunteerRole.PrayerAmbassador;
+        var dualRole = SeedVolunteer(ch);
+        dualRole.Role = VolunteerRole.PrayerAmbassador;
+        dualRole.AdditionalRoles = "PackageAssembler";
+        var req = SeedRequest(ch);
+        await _db.SaveChangesAsync();
+
+        var scores = await _svc.GetScoresAsync(req.Id);
+
+        Assert.DoesNotContain(scores, s => s.VolunteerId == prayerOnly.Id);
+        Assert.Contains(scores, s => s.VolunteerId == dualRole.Id);
+    }
+
+    [Fact]
     public async Task GetScoresAsync_ReturnsOneScorePerActiveVolunteer()
     {
         var ch = SeedChapter();

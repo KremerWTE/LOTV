@@ -47,6 +47,9 @@
         <NavLink class="sidebar-link" href="/admin/my-queue">
           <span class="icon">📋</span> My Work Queue
         </NavLink>
+        <NavLink class="sidebar-link" href="/admin/prayer-list">
+          <span class="icon"><Icon Name="hands-praying" /></span> Prayer List
+        </NavLink>
         <a class="sidebar-link" href="/request-prayer-care-package" target="_blank" rel="noopener">
           <span class="icon">📝</span> Request Form <span style="opacity:.6;font-size:.7rem;">↗</span>
         </a>
@@ -789,6 +792,7 @@
   // A volunteer who types or follows any other staff address is sent back to their own work.
   private static bool VolunteerMayOpen(string path) =>
     path.StartsWith("/admin/my-queue", StringComparison.OrdinalIgnoreCase)
+    || path.StartsWith("/admin/prayer-list", StringComparison.OrdinalIgnoreCase)
     || System.Text.RegularExpressions.Regex.IsMatch(path, @"^/admin/cases/\d+/?$");
 
   private void KeepVolunteerInTheirLane()

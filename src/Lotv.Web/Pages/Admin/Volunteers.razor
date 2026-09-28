@@ -58,7 +58,11 @@
               <strong>@v.FullName</strong><br />
               <span style="font-size:.74rem;color:var(--text-light);">@v.Email</span>
             </td>
-            <td><span class="badge @RoleBadge(v.Role)" style="font-size:.68rem;">@FormatRole(v.Role)</span></td>
+            <td>
+              <span class="badge @RoleBadge(v.Role)" style="font-size:.68rem;">@FormatRole(v.Role)</span>
+              @foreach (var extra in Volunteer.ParseAdditionalRoles(v.AdditionalRoles))
+              { <span class="badge @RoleBadge(extra)" style="font-size:.68rem;margin-left:4px;">@FormatRole(extra)</span> }
+            </td>
             <td>
               @if (v.Status == VolunteerStatus.Active)
               { <span class="badge badge-fulfilled">Active</span> }

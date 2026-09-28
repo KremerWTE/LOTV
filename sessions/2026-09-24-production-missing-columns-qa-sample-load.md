@@ -158,6 +158,15 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Checked and found fine:** the Package Pipeline (Kanban) view already hides fulfilled cases older than 3 months by default, so it doesn't have the same page-length problem Cases did.
 - **Found, not yet fixed:** the Donations page's bulk "Mark Allocated" / "Mark Unallocated" buttons still only flip the donation's own status field — like the single "Allocate" button did before this session's fix — without touching the Fund Allocation table. Bulk-approved donations won't show correctly in the Allocations queue.
 
+## Two roles per volunteer: Package Assembler and Prayer Ambassador (2026-09-28)
+
+- **The ask:** "volunteers can have 2 roles. A Package person and a Prayer Person?" plus a real question — does Priya (a sample Prayer Ambassador) have anywhere to see who to pray for, or does she just log in to the package-assembly view?
+- **Answer before this work:** no. `Volunteer.Role` was a single value, and the volunteer portal was one generic view (packing/shipping tasks) regardless of role — a Prayer Ambassador saw a box-packing checklist, nothing devotional.
+- **Built:** `Volunteer.AdditionalRoles` (a volunteer keeps one primary role and can hold others — `HasRole()`/`Roles` read both); a column bootstrap adds it to existing databases. The Volunteers directory shows every role as a badge. Admin > "Change Role" now has checkboxes for the additional roles alongside the primary one. Auto-assignment now checks `HasRole(PackageAssembler)` / `HasRole(Admin)` instead of an exact match, so a dual-role volunteer is still eligible for packages; a prayer-only volunteer never is.
+- **New Prayer List page** (`/admin/prayer-list`, sidebar link next to My Work Queue for volunteers): shows the families currently assigned to the signed-in volunteer — name, reason, "praying since" date, and the family's own story — with no case-management controls and nothing staff-internal. A volunteer without the Prayer Ambassador role sees a message saying so instead of an empty page. Verified in a browser: gave Priya the additional role, assigned her a case, logged in as her — Prayer List showed exactly that family and story; the sidebar showed both "My Work Queue" and "Prayer List".
+- 9 new tests (`VolunteerRolesTests`, `PrayerListTests`, plus an `AutoAssignmentServiceTests` case); fixed two of this session's own new tests (`VolunteerNotesPrivacyTests`, `PrayerListTests`) that hardcoded chapter 1 and could flake other chapter-1 tests now that auto-assignment matches more broadly — each gets its own chapter, like the rest of the suite. 746 tests pass.
+- **Not done:** a similar per-role landing page for other roles (Driver, Event Helper, Parish Liaison) if you want them; the legacy public `/volunteer/*` pages (separate from the real staff login) weren't touched.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.
