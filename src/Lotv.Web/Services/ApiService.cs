@@ -931,6 +931,13 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donation>(JsonOpts) : null;
     }
 
+    /// <summary>Puts a donation back in the Allocations queue (creating its pending allocation if it somehow has none).</summary>
+    public async Task<bool> RequestAllocationAsync(int donationId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/donations/{donationId}/request-allocation", new { });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     // ── Allocations mutations ──────────────────────────────────────────────────
     public async Task<FundAllocation?> CreateAllocationAsync(FundAllocation alloc)
     {
@@ -1753,6 +1760,34 @@ public class ApiService
     /// <summary>The signed-in person's own cases (matched through their volunteer record).</summary>
     public Task<List<PackageRequest>> GetMyRequestsAsync() =>
         GetListAsync<PackageRequest>("/api/v1/requests/mine");
+
+    /// <summary>Every family the signed-in person has been added to a prayer team for — independent of who packs the box.</summary>
+    public Task<List<PackageRequest>> GetMyPrayerListAsync() =>
+        GetListAsync<PackageRequest>("/api/v1/requests/my-prayer-list");
+
+    /// <summary>Who is praying for this family — can be several people, separate from who assembles the package.</summary>
+    public Task<List<PrayerTeamMember>> GetPrayerTeamAsync(int requestId) =>
+        GetListAsync<PrayerTeamMember>($"/api/v1/requests/{requestId}/prayer-team");
+
+    /// <summary>Families a Prayer Ambassador could add themselves to, so they can pick who they pray for.</summary>
+    public Task<List<PrayerCandidateDto>> GetPrayerCandidatesAsync() =>
+        GetListAsync<PrayerCandidateDto>("/api/v1/requests/prayer-candidates");
+
+    public record PrayerCandidateDto(int Id, string? FamilyName, string? Story, PackageReason Reason, DateTime CreatedAt, bool WantsPackage, bool AlreadyPraying);
+
+    public async Task<(bool Ok, string? Error)> AddToPrayerTeamAsync(int requestId, int volunteerId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/requests/{requestId}/prayer-team", new { volunteerId });
+        if (resp?.IsSuccessStatusCode == true) return (true, null);
+        var err = resp is null ? null : await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        return (false, err is not null && err.TryGetValue("error", out var m) ? m : "That could not be done.");
+    }
+
+    public async Task<bool> RemoveFromPrayerTeamAsync(int requestId, int volunteerId)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/requests/{requestId}/prayer-team/{volunteerId}");
+        return resp?.IsSuccessStatusCode == true;
+    }
 
     public async Task<bool> MarkMailingEntrySentAsync(int id, bool sent)
     {

@@ -30,6 +30,8 @@ else
       <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="badge @GetStatusBadge(_request.Status)">@_request.Status</span>
         <span class="badge @GetPriorityBadge(_request.Priority)">@_request.Priority</span>
+        @if (!_request.WantsPackage)
+        { <span class="badge" style="background:var(--navy-pale);color:var(--navy);" title="No comfort package to assemble or ship — prayer only.">🙏 Prayer Only</span> }
         @if (_request.IsOverdue)
         { <span class="badge badge-overdue">Overdue</span> }
         <span style="font-size:.76rem;color:var(--text-light);">Created @_request.CreatedAt.ToString("MMM d, yyyy")</span>
@@ -37,7 +39,7 @@ else
     </div>
     <div class="page-hd-actions">
       <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
-      <a href="/admin/cases" class="btn btn-sm">← All Cases</a>
+      @if (!_isVolunteer) { <a href="/admin/cases" class="btn btn-sm">← All Cases</a> }
     </div>
   </div>
 
@@ -82,6 +84,8 @@ else
             </select>
           </div>
 
+          @if (!_isVolunteer)
+          {
           <div class="form-group">
             <label class="form-label">Priority</label>
             <select class="form-input" @bind="_editPriority">
@@ -105,6 +109,8 @@ else
                    value="@(_editDueDate?.ToString("yyyy-MM-dd") ?? "")"
                    @onchange='e => _editDueDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)' />
           </div>
+
+          }
 
           <div class="form-group">
             <label class="form-label">Category</label>
@@ -130,17 +136,24 @@ else
             </div>
           }
 
+          @if (!_isVolunteer)
+          {
           <div class="form-group" style="grid-column:1/-1;">
             <label class="form-label">Internal Notes (staff only)</label>
             <textarea class="form-textarea" @bind="_editInternalNotes" placeholder="Add notes visible only to staff…"></textarea>
           </div>
 
+          }
+
+          @if (_canEdit)
+          {
           <div style="grid-column:1/-1;display:flex;gap:10px;">
             <button class="btn btn-primary" @onclick="SaveDetailsAsync" disabled="@_saving">
               @(_saving ? "Saving…" : "Save Changes")
             </button>
             <button class="btn" @onclick="ResetDetails">Discard</button>
           </div>
+          }
         </div>
       </div>
 
@@ -175,6 +188,8 @@ else
         </div>
       </div>
 
+          @if (!_isVolunteer)
+          {
       <!-- MOTHER'S DAY CARD -->
       <div class="panel" data-panel="mothers-day">
         <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -226,6 +241,40 @@ else
           }
         </div>
       </div>
+
+      <!-- PRAYER TEAM -->
+      <div class="panel" data-panel="prayer-team">
+        <div class="panel-header">Prayer Team</div>
+        <div class="panel-body" style="font-size:.84rem;">
+          <div style="font-size:.76rem;color:var(--text-light);margin-bottom:10px;">Separate from who assembles and ships the package — any number of Prayer Ambassadors can be praying for this family.</div>
+          @if (!_prayerTeam.Any())
+          { <div style="color:var(--text-light);margin-bottom:10px;">No one is on this family's prayer team yet.</div> }
+          else
+          {
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+              @foreach (var m in _prayerTeam)
+              {
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+                  <span>@(m.Volunteer?.FullName ?? $"Volunteer #{m.VolunteerId}")</span>
+                  <button class="btn btn-sm" @onclick="() => RemoveFromPrayerTeamAsync(m.VolunteerId)">Remove</button>
+                </div>
+              }
+            </div>
+          }
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select class="form-input" style="max-width:260px;" @bind="_addPrayerVolunteerId">
+              <option value="0">— Add a Prayer Ambassador —</option>
+              @foreach (var v in _volunteers.Where(v => v.HasRole(VolunteerRole.PrayerAmbassador) && !_prayerTeam.Any(m => m.VolunteerId == v.Id)))
+              { <option value="@v.Id">@v.FullName</option> }
+            </select>
+            <button class="btn btn-sm btn-primary" disabled="@(_addPrayerVolunteerId == 0)" @onclick="AddToPrayerTeamAsync">Add</button>
+          </div>
+          @if (!string.IsNullOrEmpty(_prayerTeamError))
+          { <div style="color:var(--red);font-size:.78rem;margin-top:8px;">@_prayerTeamError</div> }
+        </div>
+      </div>
+
+          }
 
       <!-- OTHER REQUESTS FROM THIS FAMILY -->
       <div class="panel" data-panel="family-requests">
@@ -304,10 +353,13 @@ else
           <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:10px;">
             <textarea class="form-textarea" @bind="_newNoteText" placeholder="Add a note…" style="min-height:80px;"></textarea>
             <div style="display:flex;align-items:center;gap:16px;">
-              <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;">
-                <input type="checkbox" @bind="_newNoteInternal" />
-                <span>Internal only (hidden from recipient)</span>
-              </label>
+              @if (!_isVolunteer)
+              {
+                <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;">
+                  <input type="checkbox" @bind="_newNoteInternal" />
+                  <span>Internal only (hidden from recipient)</span>
+                </label>
+              }
               <button class="btn btn-sm btn-primary" @onclick="AddNoteAsync" disabled="@(string.IsNullOrWhiteSpace(_newNoteText) || _addingNote)">
                 @(_addingNote ? "Adding…" : "Add Note")
               </button>
@@ -361,7 +413,7 @@ else
         <div class="panel">
           <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
             <span>Family</span>
-            <a href="/admin/families/@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile →</a>
+            @if (!_isVolunteer) { <a href="/admin/families/@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile →</a> }
           </div>
           <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
             <div><strong>Name:</strong> @_request.Family.FullName</div>
@@ -509,7 +561,9 @@ else
         </div>
       </div>
 
-      <!-- PACKING LIST -->
+      <!-- PACKING LIST (nothing to pack for a prayer-only request) -->
+      @if (_request.WantsPackage)
+      {
       <div class="panel">
         <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span>Packing List</span>
@@ -552,6 +606,7 @@ else
           { <div style="font-size:.76rem;color:var(--red);margin-top:8px;">⚠ @_packingError</div> }
         </div>
       </div>
+      }
 
     </div>
   </div>
@@ -565,6 +620,25 @@ else
   private List<RequestActivity> _activity = [];
   private List<FundAllocation> _allocations = [];
   private List<Volunteer> _volunteers = [];
+  private List<PrayerTeamMember> _prayerTeam = [];
+  private int _addPrayerVolunteerId;
+  private string _prayerTeamError = "";
+
+  private async Task AddToPrayerTeamAsync()
+  {
+    if (_addPrayerVolunteerId == 0) return;
+    var (ok, error) = await Api.AddToPrayerTeamAsync(Id, _addPrayerVolunteerId);
+    if (!ok) { _prayerTeamError = error ?? "That could not be done."; return; }
+    _prayerTeamError = "";
+    _addPrayerVolunteerId = 0;
+    _prayerTeam = await Api.GetPrayerTeamAsync(Id);
+  }
+
+  private async Task RemoveFromPrayerTeamAsync(int volunteerId)
+  {
+    if (await Api.RemoveFromPrayerTeamAsync(Id, volunteerId))
+      _prayerTeam = await Api.GetPrayerTeamAsync(Id);
+  }
   private List<VolunteerScoreResult> _candidates = [];
   private bool _loading = true;
   private bool _candidatesLoaded;
@@ -574,6 +648,9 @@ else
 
   // Edit state for case details panel
   private CaseStatus _editStatus;
+  // Access rule: a volunteer works only their own case (no staff fields or other cases); Board sees it read-only.
+  private bool _isVolunteer => Auth.UserRole == "Volunteer";
+  private bool _canEdit => Auth.UserRole != "Board";
   private RequestPriority _editPriority;
   private int? _editAssignedVolId;
   private DateTime? _editDueDate;
@@ -620,7 +697,8 @@ else
     var t5 = Api.GetVolunteersAsync("Active");
     var t6 = Api.GetPackageItemsAsync(Id);
     var t7 = Api.GetInventoryAsync();
-    await Task.WhenAll(t1, t2, t3, t4, t5, t6, t7);
+    var t8 = Api.GetPrayerTeamAsync(Id);
+    await Task.WhenAll(t1, t2, t3, t4, t5, t6, t7, t8);
 
     _request   = t1.Result;
     _notes     = t2.Result;
@@ -629,6 +707,7 @@ else
     _volunteers  = t5.Result;
     _packageItems = t6.Result;
     _inventory    = t7.Result;
+    _prayerTeam   = t8.Result;
 
     if (_request is not null)
     {
@@ -890,7 +969,7 @@ else
     ActivityType.Created        => "created this case",
     ActivityType.StatusChanged  => $"changed status from {ev.OldValue} → {ev.NewValue}",
     ActivityType.Assigned       => $"assigned to {ev.NewValue}",
-    ActivityType.Reassigned     => $"reassigned to {ev.NewValue}",
+    ActivityType.Reassigned     => string.IsNullOrEmpty(ev.OldValue) ? $"reassigned to {ev.NewValue}" : $"reassigned from {ev.OldValue} to {ev.NewValue}",
     ActivityType.Unassigned     => string.IsNullOrEmpty(ev.Details) ? $"unassigned {ev.OldValue}" : $"unassigned {ev.OldValue} — {ev.Details}",
     ActivityType.NoteAdded      => "added a note",
     ActivityType.PriorityChanged => $"set priority to {ev.NewValue}",

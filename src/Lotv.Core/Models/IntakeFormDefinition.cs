@@ -31,6 +31,7 @@ public class IntakeFormDefinition
     /// <summary>Standard fields feed fixed properties on the submitted Family/request, so they can't be removed or retyped.</summary>
     public static readonly IReadOnlyDictionary<string, string> StandardKeys = new Dictionary<string, string>
     {
+        ["wantsPackage"] = "select",
         ["husbandFirst"] = "text",   ["wifeFirst"] = "text",
         ["husbandEmail"] = "email",  ["wifeEmail"] = "email",
         ["husbandPhone"] = "tel",    ["wifePhone"] = "tel",

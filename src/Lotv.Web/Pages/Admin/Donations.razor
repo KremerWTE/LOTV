@@ -402,8 +402,7 @@
 
   private async Task Allocate(Donation d)
   {
-    d.AllocationStatus = AllocationStatus.PendingReview;
-    await Api.UpdateDonationAsync(d.Id, d);
+    await Api.RequestAllocationAsync(d.Id);   // ensures a real pending Fund Allocation exists, not just the badge on this row
     await LoadAsync();
     _savedToast = true;
     StateHasChanged();

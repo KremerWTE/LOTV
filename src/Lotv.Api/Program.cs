@@ -128,8 +128,11 @@ builder.Services.AddAuthorization(o =>
     o.AddPolicy("HQAdmin",       p => p.RequireClaim("role", nameof(UserRole.HQAdmin)));
     // Director is "near-admin": same operational access as ChapterAdmin
     // (cases, donations, volunteers), but never HQAdmin-only endpoints.
-    o.AddPolicy("ChapterAdmin",  p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.Director)));
-    o.AddPolicy("Staff",         p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Director)));
+    // Access rule (see AccessRules): staff work with everything, Board sees the same areas read-only, volunteers only their
+    // own prayer request package cases. "ChapterAdmin" and "Staff" therefore also let Board through for reads (GET) only.
+    o.AddPolicy("ChapterAdmin",  AccessRules.AdminOrBoardRead);
+    o.AddPolicy("Staff",         AccessRules.StaffOrBoardRead);
+    o.AddPolicy("CaseWork",      AccessRules.CaseWork);
     o.AddPolicy("Volunteer",     p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Volunteer), nameof(UserRole.Director)));
     // Board: read-only governance role, deliberately its own policy rather
     // than folded into Staff/ChapterAdmin — kept off every case/family/
@@ -336,6 +339,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the ReminderSentAt column to FollowUpMilestones."); }
     try { AssignmentRulesTableBootstrap.EnsureTable(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the AssignmentRules table; routing rules will be unavailable."); }
+    try { PrayerTeamTableBootstrap.EnsureTable(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not create the PrayerTeamMembers table; the prayer team will be unavailable."); }
 
     // Volunteer case counts drifted because assigning never incremented them; make them match reality.
     try
@@ -357,10 +362,23 @@ app.MapHealthChecks("/health").AllowAnonymous();
     try { await VolunteerWorkload.RecomputeAllAsync(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not recompute volunteer case counts."); }
 
+    // Every donation waits for staff to say where it goes: give any older, unallocated donation a pending
+    // Fund Allocation too, so the Allocations queue reflects everything waiting, not only new donations.
+    try
+    {
+        var backfilled = await AllocationBackfill.RunAsync(db);
+        if (backfilled > 0) app.Logger.LogInformation("Created {Count} pending fund allocation(s) for existing unallocated donations.", backfilled);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not back-fill pending fund allocations."); }
+
     try { FamilyGriefSupportColumnBootstrap.EnsureColumn(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the GriefSupportRequested column to Families."); }
     try { MailingListKindColumnBootstrap.EnsureColumn(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the Kind column to MailingListEntries; the Father's Day list will be unavailable."); }
+    try { VolunteerAdditionalRolesColumnBootstrap.EnsureColumn(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not add the AdditionalRoles column to Volunteers; a volunteer can only hold one role until this is fixed."); }
+    try { RequestWantsPackageColumnBootstrap.EnsureColumn(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not add the WantsPackage column to Requests; every request will be treated as a package request until this is fixed."); }
 
     // Self-heals the known HQ staff accounts' Role if it's ever drifted from
     // HQAdmin (see CoreAdminAccountRepair for why) — runs in every
@@ -439,7 +457,9 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     var noteLines = new List<string>();
     if (!body.ForSelf && !string.IsNullOrWhiteSpace(body.ReferrerFirstName))
         noteLines.Add($"Referred by: {body.ReferrerFirstName} {body.ReferrerLastName} <{body.ReferrerEmail}>");
-    if (!string.IsNullOrEmpty(packageType))
+    if (!body.WantsPackage)
+        noteLines.Add("Prayer only — no package requested.");
+    else if (!string.IsNullOrEmpty(packageType))
         noteLines.Add($"Package requested: {packageType}");
     var referrerNote = noteLines.Count > 0 ? string.Join("\n", noteLines) : null;
 
@@ -447,6 +467,7 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     {
         FamilyId       = body.Family.Id,
         ChapterId      = body.Family.ChapterId,
+        WantsPackage   = body.WantsPackage,
         Reason         = body.Family.Reason,
         Category       = category,
         IsForSelf      = body.ForSelf,
@@ -479,8 +500,10 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     // A new request waits in the Unassigned Queue for staff to assign (by hand, or with "Apply rules to queue").
     // Intake:AutoAssign=true brings back assigning on submit (routing rules first, then the best-matching volunteer).
     // Even then, flagged submissions stay out of auto-assignment until a human confirms they're not the same family —
-    // assigning a volunteer to what might be a duplicate case just creates more cleanup work later.
-    if (dupMatch is null && AutoAssignOnIntake(cfg))
+    // assigning a volunteer to what might be a duplicate case just creates more cleanup work later. A prayer-only
+    // request has no box to assemble, so it never gets a package assembler auto-assigned — it waits on the prayer
+    // team (which anyone can join themselves, or staff can add someone) instead.
+    if (dupMatch is null && AutoAssignOnIntake(cfg) && req.WantsPackage)
         await autoAssign.TryAutoAssignAsync(req.Id);
 
     // A suspected duplicate gets its tracker only if staff confirm it is a separate family.
@@ -491,11 +514,12 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
     // looks like a duplicate family or the address is incomplete).
     await MothersDayMailing.EnsureEntryAsync(db, body.Family, possibleDuplicate: dupMatch is not null);
 
+    var askedFor = req.WantsPackage ? "a comfort package" : "prayer only, no package";
     _ = pushSvc.SendToAllAsync(
         dupMatch is null ? "New request submitted" : "New request submitted — possible duplicate",
         dupMatch is null
-            ? $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package."
-            : $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested a comfort package. {dupMatch.Reason} — needs review.",
+            ? $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested {askedFor}."
+            : $"{body.Family.Parent1FirstName} {body.Family.Parent1LastName} requested {askedFor}. {dupMatch.Reason} — needs review.",
         dupMatch is null ? $"/admin/cases/{req.Id}" : "/admin/families/duplicate-review");
 
     // Emails (see RequestEmails / RequestNotifier): a confirmation to whoever submitted the form, and a
@@ -530,11 +554,13 @@ publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db) =
     body.Donation.Date = DateTime.UtcNow;
     db.Donations.Add(body.Donation);
     await db.SaveChangesAsync();
+    await CreatePendingAllocationAsync(db, body.Donation);
 
     return Results.Created($"/api/v1/donations/{body.Donation.Id}", new { donorId = donor.Id, donationId = body.Donation.Id });
 });
 
-// Volunteer signup: creates a Volunteer record in Onboarding status
+// Volunteer signup: creates a Volunteer record in Onboarding status. It only takes what the form asks for (a caller can't
+// choose its own status, level or chapter); staff approve it under Volunteers > Pending Onboarding, and a login is a separate step.
 publicIntake.MapPost("/volunteer", async (Volunteer vol, LotvDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(vol.FirstName) ||
@@ -542,11 +568,25 @@ publicIntake.MapPost("/volunteer", async (Volunteer vol, LotvDbContext db) =>
         string.IsNullOrWhiteSpace(vol.Email))
         return Results.BadRequest(new { error = "First name, last name, and email are required." });
 
-    vol.Status     = VolunteerStatus.Onboarding;
-    vol.JoinedDate = DateTime.UtcNow;
-    db.Volunteers.Add(vol);
+    var chapterId = await db.Chapters.Where(c => c.IsActive).OrderBy(c => c.Id).Select(c => (int?)c.Id).FirstOrDefaultAsync();
+    if (chapterId is null) return Results.Problem("Volunteer sign-up is not available right now.", statusCode: 503);
+
+    var signup = new Volunteer
+    {
+        FirstName  = vol.FirstName.Trim(),
+        LastName   = vol.LastName.Trim(),
+        Email      = vol.Email.Trim(),
+        Phone      = vol.Phone,
+        ParishName = vol.ParishName,
+        Role       = vol.Role,
+        Notes      = vol.Notes,
+        ChapterId  = chapterId.Value,
+        Status     = VolunteerStatus.Onboarding,
+        JoinedDate = DateTime.UtcNow,
+    };
+    db.Volunteers.Add(signup);
     await db.SaveChangesAsync();
-    return Results.Created($"/api/v1/volunteers/{vol.Id}", vol);
+    return Results.Created($"/api/v1/volunteers/{signup.Id}", new { signup.Id, signup.FirstName, signup.LastName, Role = signup.Role, Status = signup.Status });
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -671,7 +711,7 @@ auth.MapPost("/logout", async (RefreshRequest req, LotvDbContext db) =>
 }).RequireAuthorization();
 
 // ── Cases / Requests ──────────────────────────────────────────────────────────
-var cases = app.MapGroup("/api/v1/requests").WithTags("Requests").RequireAuthorization("Staff");
+var cases = app.MapGroup("/api/v1/requests").WithTags("Requests").RequireAuthorization("CaseWork");
 
 cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
     string? status, string? priority, bool? overdue, bool? historical, int? familyId) =>
@@ -702,6 +742,17 @@ cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
 // ("Auto-assign" on a case, "Apply rules to queue") still work.
 static bool AutoAssignOnIntake(IConfiguration cfg) => cfg.GetValue<bool>("Intake:AutoAssign");
 
+// A new donation always waits for staff to say where it goes: creating it also creates a matching pending Fund
+// Allocation (the /admin/allocations queue), and keeps the donation's own AllocationStatus field — shown on the
+// Donations page — in step with it. Call this after the donation itself has been saved (so it has an Id).
+static async Task CreatePendingAllocationAsync(LotvDbContext db, Donation donation)
+{
+    donation.AllocationStatus = AllocationStatus.PendingReview;
+    db.FundAllocations.Add(new FundAllocation { DonationId = donation.Id, Amount = donation.Amount, Status = AllocationStatus.PendingReview, CreatedAt = DateTime.UtcNow });
+    await db.SaveChangesAsync();
+}
+
+
 // The signed-in person's own volunteer record(s): same email, else same name.
 static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr)
 {
@@ -714,6 +765,41 @@ static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChap
         .ToListAsync();
 }
 
+// A volunteer reaches only their own assigned cases, and only the routes the package work needs (see AccessRules).
+// Staff and Board pass straight through (Board reads only, by the policy).
+cases.AddEndpointFilter(async (fc, next) =>
+{
+    var http = fc.HttpContext;
+    if (http.User.FindFirst("role")?.Value != nameof(UserRole.Volunteer)) return await next(fc);
+    var db = http.RequestServices.GetRequiredService<LotvDbContext>();
+    var ctx = http.RequestServices.GetRequiredService<IChapterContextService>();
+    var userMgr = http.RequestServices.GetRequiredService<UserManager<LotvIdentityUser>>();
+    var pattern = (http.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "";
+
+    // Prayer team: a volunteer may join or leave one — but only speak for themselves, never another volunteer.
+    // This isn't "their own case" in the AssignedToId sense (that's the whole point of a separate prayer team),
+    // so it's checked here rather than through the AssignedToId-based rule below.
+    if (pattern == "/api/v1/requests/{id:int}/prayer-team" && HttpMethods.IsPost(http.Request.Method))
+    {
+        var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
+        var body = fc.Arguments.OfType<PrayerTeamAddRequest>().FirstOrDefault();
+        return body is not null && myIds.Contains(body.VolunteerId) ? await next(fc) : Results.Forbid();
+    }
+    if (pattern == "/api/v1/requests/{id:int}/prayer-team/{volunteerId:int}" && HttpMethods.IsDelete(http.Request.Method))
+    {
+        var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
+        return int.TryParse(http.Request.RouteValues["volunteerId"]?.ToString(), out var volId) && myIds.Contains(volId)
+            ? await next(fc) : Results.Forbid();
+    }
+
+    var allowed = await AccessRules.VolunteerCanUse(http, async id =>
+    {
+        var mine = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToList();
+        return await db.Requests.AnyAsync(r => r.Id == id && r.AssignedToId != null && mine.Contains(r.AssignedToId.Value));
+    });
+    return allowed ? await next(fc) : Results.Forbid();
+});
+
 // The signed-in person's own cases, found through their volunteer record.
 cases.MapGet("/mine", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
 {
@@ -723,6 +809,65 @@ cases.MapGet("/mine", async (LotvDbContext db, IChapterContextService ctx, UserM
         .Where(r => r.AssignedToId != null && volunteerIds.Contains(r.AssignedToId.Value))
         .OrderByDescending(r => r.CreatedAt).ToListAsync();
     return Results.Ok(mine);
+});
+
+// The signed-in person's own prayer team seats — every family they've been added to pray for, whether or not
+// they're the one packing the box (that's "mine", above; the two lists are independent).
+cases.MapGet("/my-prayer-list", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var volunteerIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToList();
+    if (volunteerIds.Count == 0) return Results.Ok(new List<PackageRequest>());
+    var requestIds = await db.PrayerTeamMembers.Where(m => volunteerIds.Contains(m.VolunteerId)).Select(m => m.RequestId).Distinct().ToListAsync();
+    var mine = await db.Requests.Include(r => r.Family)
+        .Where(r => requestIds.Contains(r.Id))
+        .OrderByDescending(r => r.CreatedAt).ToListAsync();
+    return Results.Ok(mine);
+});
+
+// Families a Prayer Ambassador could join praying for — lets them pick their own, rather than waiting for staff to
+// add them. Deliberately light (no address, tracking, internal notes): enough to choose, nothing case-management.
+cases.MapGet("/prayer-candidates", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
+    var alreadyOn = await db.PrayerTeamMembers.Where(m => myIds.Contains(m.VolunteerId)).Select(m => m.RequestId).ToListAsync();
+    var q = db.Requests.Include(r => r.Family).Where(r => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled);
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    var candidates = await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
+    return Results.Ok(candidates.Select(r => new
+    {
+        r.Id, FamilyName = r.Family?.FullName, Story = r.Family?.Story, r.Reason, r.CreatedAt, r.WantsPackage,
+        AlreadyPraying = alreadyOn.Contains(r.Id),
+    }));
+});
+
+// ── Prayer team: many volunteers can pray for one family, independent of who assembles and ships the package ──
+cases.MapGet("/{id:int}/prayer-team", async (int id, LotvDbContext db) =>
+    await db.PrayerTeamMembers.Where(m => m.RequestId == id).Include(m => m.Volunteer).OrderBy(m => m.AddedAt).ToListAsync());
+
+cases.MapPost("/{id:int}/prayer-team", async (int id, PrayerTeamAddRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    if (!await db.Requests.AnyAsync(r => r.Id == id)) return Results.NotFound();
+    var vol = await db.Volunteers.FindAsync(body.VolunteerId);
+    if (vol is null) return Results.NotFound(new { error = "That volunteer doesn't exist." });
+    if (!vol.HasRole(VolunteerRole.PrayerAmbassador))
+        return Results.BadRequest(new { error = $"{vol.FullName} isn't a Prayer Ambassador — add that role to their profile first." });
+    if (await db.PrayerTeamMembers.AnyAsync(m => m.RequestId == id && m.VolunteerId == body.VolunteerId))
+        return Results.BadRequest(new { error = $"{vol.FullName} is already on this family's prayer team." });
+
+    var member = new PrayerTeamMember { RequestId = id, VolunteerId = body.VolunteerId, AddedById = ctx.UserId, AddedByName = ctx.UserName, AddedAt = DateTime.UtcNow };
+    db.PrayerTeamMembers.Add(member);
+    await db.SaveChangesAsync();
+    member.Volunteer = vol;
+    return Results.Created($"/api/v1/requests/{id}/prayer-team", member);
+});
+
+cases.MapDelete("/{id:int}/prayer-team/{volunteerId:int}", async (int id, int volunteerId, LotvDbContext db) =>
+{
+    var member = await db.PrayerTeamMembers.FirstOrDefaultAsync(m => m.RequestId == id && m.VolunteerId == volunteerId);
+    if (member is null) return Results.NotFound();
+    db.PrayerTeamMembers.Remove(member);
+    await db.SaveChangesAsync();
+    return Results.Ok();
 });
 
 cases.MapGet("/queue", async (LotvDbContext db, IChapterContextService ctx) =>
@@ -861,10 +1006,13 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
         // A different volunteer hasn't accepted yet, so a case the previous one had accepted goes back to Assigned.
         else if (r.ProcessStage == ProcessStage.Confirmed && previousVolunteerId != vol.Id) r.ProcessStage = ProcessStage.Assigned;
         r.UpdatedAt = DateTime.UtcNow;
+        // A case moving from one volunteer to another is a reassignment, not a fresh assignment — the log says who it came from.
+        var previousVolunteerName = previousVolunteerId is int prevVolId && prevVolId != vol.Id ? (await db.Volunteers.FindAsync(prevVolId))?.FullName : null;
         db.RequestActivities.Add(new RequestActivity
         {
             RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
-            ActivityType = ActivityType.Assigned, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
+            ActivityType = previousVolunteerName is null ? ActivityType.Assigned : ActivityType.Reassigned,
+            OldValue = previousVolunteerName, NewValue = vol.FullName, Timestamp = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
         await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId, vol.Id);
@@ -1229,8 +1377,14 @@ cases.MapGet("/sms-log", async (LotvDbContext db, int? caseId, int page = 1, int
     return Results.Ok(new { total, page, pageSize, rows });
 }).RequireAuthorization("Staff");
 
-cases.MapGet("/{id:int}/notes", async (int id, LotvDbContext db) =>
-    await db.RequestNotes.Where(n => n.RequestId == id).OrderBy(n => n.CreatedAt).ToListAsync());
+// A volunteer reading notes on their own case never sees an internal (staff-only) one — those may discuss the case in
+// ways not meant for the person doing the assembling. Staff and Board see everything.
+cases.MapGet("/{id:int}/notes", async (int id, LotvDbContext db, HttpContext http) =>
+{
+    var q = db.RequestNotes.Where(n => n.RequestId == id);
+    if (http.User.FindFirst("role")?.Value == nameof(UserRole.Volunteer)) q = q.Where(n => !n.IsInternal);
+    return await q.OrderBy(n => n.CreatedAt).ToListAsync();
+});
 
 cases.MapPost("/{id:int}/notes", async (int id, NoteRequest body, LotvDbContext db, IChapterContextService ctx) =>
 {
@@ -1428,11 +1582,12 @@ volunteers.MapGet("/{id:int}", async (int id, LotvDbContext db) =>
 volunteers.MapGet("/available", async (int requestId, LotvDbContext db, IAutoAssignmentService svc) =>
     await svc.GetScoresAsync(requestId));
 
-volunteers.MapGet("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+// A volunteer's own record: reachable by volunteers (everything else under /volunteers is staff-only).
+app.MapGet("/api/v1/volunteers/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
 {
     var mine = (await FindMyVolunteersAsync(db, ctx, userMgr)).FirstOrDefault();
     return mine is null ? Results.NotFound() : Results.Ok(mine);
-});
+}).WithTags("Volunteers").RequireAuthorization("Volunteer");
 
 // Creates the signed-in person's own volunteer record (so cases can be assigned to them and show in My Work Queue).
 volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
@@ -1537,6 +1692,7 @@ donations.MapPost("/", async (Donation donation, LotvDbContext db, IChapterConte
     donation.Date = donation.Date == default ? DateTime.UtcNow : donation.Date;
     db.Donations.Add(donation);
     await db.SaveChangesAsync();
+    await CreatePendingAllocationAsync(db, donation);
     await hub.Clients.Group($"chapter-{donation.ChapterId}").SendAsync("DonationReceived", donation.Id, donation.Amount, donation.Channel.ToString());
     return Results.Created($"/api/v1/donations/{donation.Id}", donation);
 });
@@ -1546,6 +1702,27 @@ donations.MapPut("/{id:int}", async (int id, Donation donation, LotvDbContext db
     if (!await db.Donations.AnyAsync(d => d.Id == id)) return Results.NotFound();
     donation.Id = id;
     db.Donations.Update(donation);
+    await db.SaveChangesAsync();
+    return Results.Ok(donation);
+});
+
+// Puts a donation back in the Allocations queue (the Donations page's "Allocate" button): most donations already have a
+// pending allocation from the moment they were recorded, so this only creates one when there truly isn't one yet.
+donations.MapPost("/{id:int}/request-allocation", async (int id, LotvDbContext db) =>
+{
+    var donation = await db.Donations.FindAsync(id);
+    if (donation is null) return Results.NotFound();
+    if (donation.AllocationStatus == AllocationStatus.Allocated)
+        return Results.BadRequest(new { error = "This donation is already allocated." });
+
+    var alloc = await db.FundAllocations.Where(a => a.DonationId == id).OrderByDescending(a => a.Id).FirstOrDefaultAsync();
+    if (alloc is null || alloc.Status == AllocationStatus.Allocated)
+    {
+        alloc = new FundAllocation { DonationId = id, Amount = donation.Amount, Status = AllocationStatus.PendingReview, CreatedAt = DateTime.UtcNow };
+        db.FundAllocations.Add(alloc);
+    }
+    else alloc.Status = AllocationStatus.PendingReview;
+    donation.AllocationStatus = AllocationStatus.PendingReview;
     await db.SaveChangesAsync();
     return Results.Ok(donation);
 });
@@ -1603,13 +1780,14 @@ allocs.MapPost("/", async (FundAllocation alloc, LotvDbContext db, IFinancialAud
 
 allocs.MapPost("/{id:int}/approve", async (int id, ApproveAllocationRequest body, LotvDbContext db, IFinancialAuditService audit, HttpContext http) =>
 {
-    var alloc = await db.FundAllocations.FindAsync(id);
+    var alloc = await db.FundAllocations.Include(a => a.Donation).FirstOrDefaultAsync(a => a.Id == id);
     if (alloc is null) return Results.NotFound();
     if (alloc.Status != AllocationStatus.PendingReview)
         return Results.BadRequest("Only PendingReview allocations can be approved.");
     alloc.Status     = AllocationStatus.Allocated;
     alloc.ApprovedBy = body.ApprovedBy;
     alloc.ApprovedAt = DateTime.UtcNow;
+    if (alloc.Donation is not null) alloc.Donation.AllocationStatus = AllocationStatus.Allocated;
     await db.SaveChangesAsync();
     var actor = http.User.FindFirst("sub")?.Value ?? "system";
     await audit.LogAllocationApprovedAsync(alloc, actor, http.Connection.RemoteIpAddress?.ToString());
@@ -1618,11 +1796,12 @@ allocs.MapPost("/{id:int}/approve", async (int id, ApproveAllocationRequest body
 
 allocs.MapPost("/{id:int}/reject", async (int id, RejectAllocationRequest body, LotvDbContext db, IFinancialAuditService audit, HttpContext http) =>
 {
-    var alloc = await db.FundAllocations.FindAsync(id);
+    var alloc = await db.FundAllocations.Include(a => a.Donation).FirstOrDefaultAsync(a => a.Id == id);
     if (alloc is null) return Results.NotFound();
     if (alloc.Status == AllocationStatus.Allocated)
         return Results.BadRequest("Approved allocations cannot be rejected — contact HQ Admin.");
     alloc.Status = AllocationStatus.Unallocated;
+    if (alloc.Donation is not null) alloc.Donation.AllocationStatus = AllocationStatus.Unallocated;
     await db.SaveChangesAsync();
     var actor = http.User.FindFirst("sub")?.Value ?? "system";
     await audit.LogAllocationRejectedAsync(alloc, actor, body.Reason, http.Connection.RemoteIpAddress?.ToString());
@@ -2857,6 +3036,7 @@ publicApi.MapPost("/donations", async (HttpContext http, LotvDbContext db, Publi
     };
     db.Donations.Add(donation);
     await db.SaveChangesAsync();
+    await CreatePendingAllocationAsync(db, donation);
     return Results.Created($"/api/v1/donations/{donation.Id}",
         new { donationId = donation.Id, donorId = donor.Id });
 }).AllowAnonymous();
@@ -5031,6 +5211,7 @@ record PublicApplyRequest(
     Family Family,
     bool ForSelf = true,
     string? PackageType = null,
+    bool WantsPackage = true,
     string? ReferrerFirstName = null,
     string? ReferrerLastName = null,
     string? ReferrerEmail = null
@@ -5050,6 +5231,7 @@ record MarkSentRequest(bool Sent);
 record TestEmailRequest(string? To);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
+record PrayerTeamAddRequest(int VolunteerId);
 record PriorityRequest(RequestPriority Priority);
 record ProcessStageRequest(ProcessStage ProcessStage);
 record DueDateRequest(DateTime DueDate);
