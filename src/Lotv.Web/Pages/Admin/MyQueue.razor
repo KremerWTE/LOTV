@@ -13,9 +13,12 @@
   </div>
   <div class="page-hd-actions">
     <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
-    <a href="/admin/cases" class="btn btn-sm">All Cases</a>
-    <a href="/admin/kanban" class="btn btn-sm">☷ Kanban Board</a>
-    <a href="/admin/queue" class="btn btn-sm">🔚 Unassigned Queue</a>
+    @if (Auth.UserRole != "Volunteer")
+    {
+      <a href="/admin/cases" class="btn btn-sm">All Cases</a>
+      <a href="/admin/kanban" class="btn btn-sm">☷ Package Pipeline</a>
+      <a href="/admin/queue" class="btn btn-sm">🔚 Unassigned Queue</a>
+    }
   </div>
 </div>
 

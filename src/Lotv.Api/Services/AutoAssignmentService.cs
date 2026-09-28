@@ -138,12 +138,13 @@ public class AutoAssignmentService : IAutoAssignmentService
         var chapter = await _db.Chapters.FindAsync(request.ChapterId);
         int maxCases = chapter?.MaxActiveCasesPerVolunteer ?? 6;
 
-        return await _db.Volunteers
-            .Where(v => v.ChapterId == request.ChapterId
-                     && v.Status == VolunteerStatus.Active
-                     && (v.Role == VolunteerRole.PackageAssembler || v.Role == VolunteerRole.Admin)
-                     && v.ActiveCases < maxCases)
-            .ToListAsync();
+        // A prayer-only volunteer (or any other role) never gets a package to assemble; someone who also
+        // holds the Package Assembler or Admin role is eligible whatever their primary role is.
+        return (await _db.Volunteers
+            .Where(v => v.ChapterId == request.ChapterId && v.Status == VolunteerStatus.Active && v.ActiveCases < maxCases)
+            .ToListAsync())
+            .Where(v => v.HasRole(VolunteerRole.PackageAssembler) || v.HasRole(VolunteerRole.Admin))
+            .ToList();
     }
 
     private static VolunteerScoreResult ScoreVolunteer(Volunteer v, PackageRequest request)

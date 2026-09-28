@@ -8,6 +8,12 @@ public class Volunteer
     public string Email { get; set; } = "";
     public string? Phone { get; set; }
     public VolunteerRole Role { get; set; }
+    /// <summary>
+    /// Roles besides <see cref="Role"/> (the primary one): a volunteer can be, for example, a Package Assembler
+    /// and a Prayer Ambassador. Stored as a comma-separated list of <see cref="VolunteerRole"/> names — read it
+    /// through <see cref="Roles"/> or <see cref="HasRole"/> rather than parsing this directly.
+    /// </summary>
+    public string? AdditionalRoles { get; set; }
     public VolunteerLevel Level { get; set; } = VolunteerLevel.New;
     public VolunteerStatus Status { get; set; } = VolunteerStatus.Active;
     public string? ParishName { get; set; }
@@ -23,6 +29,21 @@ public class Volunteer
     public string? Notes { get; set; }
 
     public string FullName => $"{FirstName} {LastName}";
+
+    /// <summary>The primary role plus every additional one, in a stable order, with no duplicates.</summary>
+    public IReadOnlyList<VolunteerRole> Roles =>
+        new[] { Role }.Concat(ParseAdditionalRoles(AdditionalRoles)).Distinct().ToArray();
+
+    public bool HasRole(VolunteerRole role) => Role == role || ParseAdditionalRoles(AdditionalRoles).Contains(role);
+
+    public static IEnumerable<VolunteerRole> ParseAdditionalRoles(string? csv) =>
+        string.IsNullOrWhiteSpace(csv)
+            ? []
+            : csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                 .Select(s => Enum.TryParse<VolunteerRole>(s, out var r) ? r : (VolunteerRole?)null)
+                 .Where(r => r.HasValue).Select(r => r!.Value);
+
+    public static string ToCsv(IEnumerable<VolunteerRole> roles) => string.Join(',', roles.Distinct());
 }
 
 public enum VolunteerRole
