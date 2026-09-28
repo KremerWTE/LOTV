@@ -174,6 +174,14 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Verified in a browser:** added two Prayer Ambassadors (Ann and Bea) to one family's prayer team; the case detail page showed both. Logged in as Ann — her Prayer List showed that family even though her My Work Queue had zero cases (she wasn't the one packing it).
 - 5 new tests (`PrayerTeamTests`); 751 tests pass.
 
+## A Prayer Ambassador picks their own people (2026-09-28)
+
+- **The ask:** "can a prayer pick their people they pray for" — before this, only staff could put someone on a prayer team; a Prayer Ambassador could only see who staff had already added them to.
+- **Built:** the Prayer List page now has two parts. "Families You Could Pray For" lists every open case they aren't already on (name, reason, story — no address, tracking or internal notes), each with an "I'll pray for this family" button; the family drops out of that list and into their own once picked. Their own list gets an "I'll stop praying for this family" button to leave on their own. A new `GET /api/v1/requests/prayer-candidates` endpoint powers the browse list.
+- **Kept safe:** a volunteer can only ever add or remove *themselves* — the API checks the acting volunteer's own record on both the join and the leave, so Ann can't add or remove Bea. Staff can still manage any family's team from the case detail page as before.
+- **Verified in a browser:** Ann started with three candidate families and none of her own; picked Mia Sorrow and Sam Grief; they moved into "The families you're praying for" with a "stop praying" button, and Grace Hope stayed in the pick list.
+- 3 new tests (self-service join, self-service leave-vs-can't-remove-others, can't add someone else); 754 tests pass.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

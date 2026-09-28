@@ -3,13 +3,14 @@
 @inject ApiService Api
 @inject AuthService Auth
 @using Lotv.Core.Models
+@using static Lotv.Web.Services.ApiService
 
 <PageTitle>Prayer List — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
   <div>
     <h2>Prayer List</h2>
-    <p>The families currently in your care, to hold in prayer by name.</p>
+    <p>The families you're praying for, and any others you'd like to add yourself to.</p>
   </div>
   <div class="page-hd-actions">
     <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
@@ -28,39 +29,77 @@ else if (!_myVolunteer.HasRole(VolunteerRole.PrayerAmbassador))
 {
   <div class="panel"><div class="panel-body" style="padding:24px;">You aren't currently set up as a Prayer Ambassador. If that's changed, ask staff to add it to your volunteer record.</div></div>
 }
-else if (_families.Count == 0)
-{
-  <div class="empty-state" style="padding:40px;">
-    <div class="icon" style="font-size:32px;">🙏</div>
-    <p>No families are currently assigned to you to pray for.</p>
-  </div>
-}
 else
 {
-  <div style="display:flex;flex-direction:column;gap:14px;">
-    @foreach (var r in _families.OrderByDescending(x => x.CreatedAt))
-    {
-      <div class="panel">
-        <div class="panel-body" style="padding:18px 22px;">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
-            <strong style="font-size:1rem;">@(r.Family?.FullName ?? "A family")</strong>
-            <span style="font-size:.76rem;color:var(--text-light);">Praying since @r.CreatedAt.ToString("MMM d, yyyy")</span>
+  @if (!string.IsNullOrEmpty(_error))
+  { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:16px;">⚠ @_error</div> }
+
+  <!-- WHO I'M PRAYING FOR -->
+  @if (_families.Count == 0)
+  {
+    <div class="empty-state" style="padding:32px;margin-bottom:24px;">
+      <div class="icon" style="font-size:32px;">🙏</div>
+      <p>You haven't added yourself to any family's prayer team yet — pick one below.</p>
+    </div>
+  }
+  else
+  {
+    <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:28px;">
+      @foreach (var r in _families.OrderByDescending(x => x.CreatedAt))
+      {
+        <div class="panel">
+          <div class="panel-body" style="padding:18px 22px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+              <strong style="font-size:1rem;">@(r.Family?.FullName ?? "A family")</strong>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:.76rem;color:var(--text-light);">Praying since @r.CreatedAt.ToString("MMM d, yyyy")</span>
+                <button class="btn btn-sm" @onclick="() => LeaveAsync(r.Id)">I'll stop praying for this family</button>
+              </div>
+            </div>
+            <div style="font-size:.84rem;color:var(--text-mid);margin-top:2px;">@r.Reason.ToDisplayName()</div>
+            @if (!string.IsNullOrWhiteSpace(r.Family?.Story))
+            { <div style="font-size:.85rem;line-height:1.6;margin-top:10px;white-space:pre-wrap;">@r.Family!.Story</div> }
           </div>
-          <div style="font-size:.84rem;color:var(--text-mid);margin-top:2px;">@r.Reason.ToDisplayName()</div>
-          @if (!string.IsNullOrWhiteSpace(r.Family?.Story))
-          {
-            <div style="font-size:.85rem;line-height:1.6;margin-top:10px;white-space:pre-wrap;">@r.Family!.Story</div>
-          }
         </div>
-      </div>
-    }
+      }
+    </div>
+  }
+
+  <!-- PICK SOMEONE ELSE TO PRAY FOR -->
+  <div class="page-hd" style="margin-bottom:12px;">
+    <div><h3 style="margin:0;">Families You Could Pray For</h3></div>
   </div>
+  @if (_candidates.Count(c => !c.AlreadyPraying) == 0)
+  {
+    <div class="empty-state" style="padding:32px;"><p>No other families to add right now.</p></div>
+  }
+  else
+  {
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      @foreach (var c in _candidates.Where(c => !c.AlreadyPraying).OrderByDescending(c => c.CreatedAt))
+      {
+        <div class="panel">
+          <div class="panel-body" style="padding:16px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div>
+              <strong>@(c.FamilyName ?? "A family")</strong>
+              <div style="font-size:.84rem;color:var(--text-mid);">@c.Reason.ToDisplayName() &bull; @c.CreatedAt.ToString("MMM d, yyyy")</div>
+              @if (!string.IsNullOrWhiteSpace(c.Story))
+              { <div style="font-size:.85rem;line-height:1.6;margin-top:8px;max-width:640px;white-space:pre-wrap;">@c.Story</div> }
+            </div>
+            <button class="btn btn-sm btn-primary" @onclick="() => JoinAsync(c.Id)">I'll pray for this family</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
 }
 
 @code {
   private bool _loaded;
   private Volunteer? _myVolunteer;
   private List<PackageRequest> _families = [];
+  private List<PrayerCandidateDto> _candidates = [];
+  private string _error = "";
 
   protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -70,6 +109,22 @@ else
     _myVolunteer = await Api.GetMyVolunteerAsync();
     // Their prayer team seats — every family they've been added to, whichever volunteer is packing the box.
     _families = await Api.GetMyPrayerListAsync();
+    _candidates = await Api.GetPrayerCandidatesAsync();
     _loaded = true;
+  }
+
+  private async Task JoinAsync(int requestId)
+  {
+    if (_myVolunteer is null) return;
+    var (ok, error) = await Api.AddToPrayerTeamAsync(requestId, _myVolunteer.Id);
+    if (!ok) { _error = error ?? "That could not be done."; return; }
+    _error = "";
+    await LoadAsync();
+  }
+
+  private async Task LeaveAsync(int requestId)
+  {
+    if (_myVolunteer is null) return;
+    if (await Api.RemoveFromPrayerTeamAsync(requestId, _myVolunteer.Id)) await LoadAsync();
   }
 }

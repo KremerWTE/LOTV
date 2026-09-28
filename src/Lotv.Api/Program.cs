@@ -766,6 +766,24 @@ cases.AddEndpointFilter(async (fc, next) =>
     var db = http.RequestServices.GetRequiredService<LotvDbContext>();
     var ctx = http.RequestServices.GetRequiredService<IChapterContextService>();
     var userMgr = http.RequestServices.GetRequiredService<UserManager<LotvIdentityUser>>();
+    var pattern = (http.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "";
+
+    // Prayer team: a volunteer may join or leave one — but only speak for themselves, never another volunteer.
+    // This isn't "their own case" in the AssignedToId sense (that's the whole point of a separate prayer team),
+    // so it's checked here rather than through the AssignedToId-based rule below.
+    if (pattern == "/api/v1/requests/{id:int}/prayer-team" && HttpMethods.IsPost(http.Request.Method))
+    {
+        var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
+        var body = fc.Arguments.OfType<PrayerTeamAddRequest>().FirstOrDefault();
+        return body is not null && myIds.Contains(body.VolunteerId) ? await next(fc) : Results.Forbid();
+    }
+    if (pattern == "/api/v1/requests/{id:int}/prayer-team/{volunteerId:int}" && HttpMethods.IsDelete(http.Request.Method))
+    {
+        var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
+        return int.TryParse(http.Request.RouteValues["volunteerId"]?.ToString(), out var volId) && myIds.Contains(volId)
+            ? await next(fc) : Results.Forbid();
+    }
+
     var allowed = await AccessRules.VolunteerCanUse(http, async id =>
     {
         var mine = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToList();
@@ -796,6 +814,22 @@ cases.MapGet("/my-prayer-list", async (LotvDbContext db, IChapterContextService 
         .Where(r => requestIds.Contains(r.Id))
         .OrderByDescending(r => r.CreatedAt).ToListAsync();
     return Results.Ok(mine);
+});
+
+// Families a Prayer Ambassador could join praying for — lets them pick their own, rather than waiting for staff to
+// add them. Deliberately light (no address, tracking, internal notes): enough to choose, nothing case-management.
+cases.MapGet("/prayer-candidates", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
+    var alreadyOn = await db.PrayerTeamMembers.Where(m => myIds.Contains(m.VolunteerId)).Select(m => m.RequestId).ToListAsync();
+    var q = db.Requests.Include(r => r.Family).Where(r => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled);
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
+    var candidates = await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
+    return Results.Ok(candidates.Select(r => new
+    {
+        r.Id, FamilyName = r.Family?.FullName, Story = r.Family?.Story, r.Reason, r.CreatedAt,
+        AlreadyPraying = alreadyOn.Contains(r.Id),
+    }));
 });
 
 // ── Prayer team: many volunteers can pray for one family, independent of who assembles and ships the package ──

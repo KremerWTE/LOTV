@@ -59,6 +59,8 @@ public static class AccessRules
         // Their prayer team seats, not their package assignments — see PrayerTeamMember. Many volunteers can be
         // on one family's prayer team, so this is never the same list as "mine".
         "GET /api/v1/requests/my-prayer-list",
+        // Families a Prayer Ambassador could add themselves to — lets them pick who they pray for.
+        "GET /api/v1/requests/prayer-candidates",
     };
 
     /// <summary>

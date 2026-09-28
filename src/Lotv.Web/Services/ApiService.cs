@@ -1769,6 +1769,12 @@ public class ApiService
     public Task<List<PrayerTeamMember>> GetPrayerTeamAsync(int requestId) =>
         GetListAsync<PrayerTeamMember>($"/api/v1/requests/{requestId}/prayer-team");
 
+    /// <summary>Families a Prayer Ambassador could add themselves to, so they can pick who they pray for.</summary>
+    public Task<List<PrayerCandidateDto>> GetPrayerCandidatesAsync() =>
+        GetListAsync<PrayerCandidateDto>("/api/v1/requests/prayer-candidates");
+
+    public record PrayerCandidateDto(int Id, string? FamilyName, string? Story, PackageReason Reason, DateTime CreatedAt, bool AlreadyPraying);
+
     public async Task<(bool Ok, string? Error)> AddToPrayerTeamAsync(int requestId, int volunteerId)
     {
         var resp = await AuthedPostAsync($"/api/v1/requests/{requestId}/prayer-team", new { volunteerId });

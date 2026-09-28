@@ -138,4 +138,64 @@ public class PrayerTeamTests
         var team = await admin.GetFromJsonAsync<List<JsonElement>>($"/api/v1/requests/{request}/prayer-team", Json);
         Assert.Single(team!);
     }
+
+    // ── Self-service: a Prayer Ambassador picks their own people ────────────────
+
+    private async Task<HttpClient> VolunteerClientAsync(int volunteerId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var email = (await scope.ServiceProvider.GetRequiredService<LotvDbContext>().Volunteers.FindAsync(volunteerId))!.Email;
+        var client = _factory.CreateClient();
+        await client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password = "TestPass1PrayTeam!", FirstName = "V", LastName = "V", Role = "Volunteer", ChapterId = (int?)null });
+        var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { Username = email, Password = "TestPass1PrayTeam!" });
+        client.DefaultRequestHeaders.Authorization = new("Bearer", (await login.Content.ReadFromJsonAsync<LoginResponseDto>())!.AccessToken);
+        return client;
+    }
+
+    [Fact]
+    public async Task APrayerAmbassador_CanSeeAndJoinAFamilysTeamThemselves_WithoutStaff()
+    {
+        var (_, request, _, a, _) = await SetupAsync();
+        var ann = await VolunteerClientAsync(a);
+
+        var candidates = await ann.GetFromJsonAsync<List<JsonElement>>("/api/v1/requests/prayer-candidates", Json);
+        Assert.Contains(candidates!, c => c.GetProperty("id").GetInt32() == request && !c.GetProperty("alreadyPraying").GetBoolean());
+
+        var join = await ann.PostAsJsonAsync($"/api/v1/requests/{request}/prayer-team", new { volunteerId = a });
+        Assert.Equal(HttpStatusCode.Created, join.StatusCode);
+
+        var mine = await ann.GetFromJsonAsync<List<JsonElement>>("/api/v1/requests/my-prayer-list", Json);
+        Assert.Single(mine!);
+
+        var again = await ann.GetFromJsonAsync<List<JsonElement>>("/api/v1/requests/prayer-candidates", Json);
+        Assert.True(again!.Single(c => c.GetProperty("id").GetInt32() == request).GetProperty("alreadyPraying").GetBoolean());
+    }
+
+    [Fact]
+    public async Task APrayerAmbassador_CanLeaveATeamTheyJoined_ButNotSomeoneElsesTeam()
+    {
+        var (_, request, _, a, b) = await SetupAsync();
+        var ann = await VolunteerClientAsync(a);
+        await ann.PostAsJsonAsync($"/api/v1/requests/{request}/prayer-team", new { volunteerId = a });
+        var admin = await AdminClientAsync();
+        await admin.PostAsJsonAsync($"/api/v1/requests/{request}/prayer-team", new { volunteerId = b });
+
+        // Leaving herself is fine...
+        Assert.Equal(HttpStatusCode.OK, (await ann.DeleteAsync($"/api/v1/requests/{request}/prayer-team/{a}")).StatusCode);
+        // ...but she can't remove Bea from the team.
+        Assert.Equal(HttpStatusCode.Forbidden, (await ann.DeleteAsync($"/api/v1/requests/{request}/prayer-team/{b}")).StatusCode);
+
+        var team = await admin.GetFromJsonAsync<List<JsonElement>>($"/api/v1/requests/{request}/prayer-team", Json);
+        Assert.Single(team!);
+    }
+
+    [Fact]
+    public async Task APrayerAmbassador_CannotAddSomeoneElseToATeam()
+    {
+        var (_, request, _, a, b) = await SetupAsync();
+        var ann = await VolunteerClientAsync(a);
+
+        var resp = await ann.PostAsJsonAsync($"/api/v1/requests/{request}/prayer-team", new { volunteerId = b });
+        Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
 }
