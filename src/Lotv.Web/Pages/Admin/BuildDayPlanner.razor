@@ -1,0 +1,92 @@
+@page "/admin/inventory/build-day"
+@layout AdminLayout
+@inject ApiService Api
+
+<PageTitle>Build Day Planner — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Build Day Planner</h2>
+    <p>Say how many boxes you're building — see exactly what's short before people show up.</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory/recipe" class="btn btn-sm">Edit Recipe</a>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-body" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <label class="form-label" style="margin:0;">How many boxes?</label>
+    <input class="form-input" style="width:100px;" type="number" min="1" @bind="_boxes" @bind:event="oninput" />
+    <button class="btn btn-primary btn-sm" @onclick="PlanAsync" disabled="@(_boxes < 1)">Check Supplies</button>
+    @foreach (var quick in new[] { 2, 10, 40 })
+    {
+      <button class="btn btn-sm" @onclick="() => { _boxes = quick; return PlanAsync(); }">@quick boxes</button>
+    }
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Checking…</div></div>
+}
+else if (_result is not null)
+{
+  @if (_result.Items.Count == 0)
+  {
+    <div class="panel"><div class="panel-body" style="padding:24px;">
+      There's no recipe set up yet — <a href="/admin/inventory/recipe">add what goes in one box</a> first.
+    </div></div>
+  }
+  else
+  {
+    <div class="panel" style="margin-bottom:20px;border-left:4px solid @(_result.Ready ? "var(--green)" : "var(--red)");">
+      <div class="panel-body" style="font-weight:700;font-size:1rem;color:@(_result.Ready ? "var(--green)" : "var(--red)");">
+        @(_result.Ready
+          ? $"✓ You have enough on hand for {_result.Boxes} box{(_result.Boxes == 1 ? "" : "es")}."
+          : $"⚠ You're short on {_result.Items.Count(i => i.ShortBy > 0)} item(s) for {_result.Boxes} boxes.")
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>Item</th><th>Per box</th><th>Needed</th><th>On hand</th><th>Short by</th></tr></thead>
+          <tbody>
+            @foreach (var i in _result.Items)
+            {
+              <tr style="@(i.ShortBy > 0 ? "background:#fff3cd;" : "")">
+                <td>@i.Name</td>
+                <td>@i.QuantityPerBox</td>
+                <td>@i.Needed</td>
+                <td>@i.OnHand</td>
+                <td>
+                  @if (i.ShortBy > 0)
+                  { <strong style="color:var(--red);">@i.ShortBy short</strong> }
+                  else
+                  { <span style="color:var(--green);">✓ covered</span> }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+@code {
+  private int _boxes = 2;
+  private bool _loading;
+  private ApiService.BuildDayResultDto? _result;
+
+  protected override async Task OnInitializedAsync() => await PlanAsync();
+
+  private async Task PlanAsync()
+  {
+    if (_boxes < 1) return;
+    _loading = true;
+    _result = await Api.GetBuildDayPlanAsync(_boxes);
+    _loading = false;
+  }
+}

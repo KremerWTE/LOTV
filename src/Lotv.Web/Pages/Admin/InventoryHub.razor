@@ -29,6 +29,12 @@
   case "forecast":
     <ResourceForecast />
     break;
+  case "recipe":
+    <PackageRecipe />
+    break;
+  case "build-day":
+    <BuildDayPlanner />
+    break;
 }
 
 @code {
@@ -38,6 +44,8 @@
   [
     new("stock", "Stock"),
     new("forecast", "Forecast"),
+    new("recipe", "Box Recipe"),
+    new("build-day", "Build Day"),
   ];
 
   private string _active = "stock";
