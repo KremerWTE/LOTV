@@ -140,6 +140,13 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Public volunteer signup fixed:** it stored no chapter (chapter 0, which SQL Server's foreign key would refuse) and accepted any field the sender chose. It now uses the first active chapter, takes only the form's fields and always saves as Onboarding. Approval is Volunteers > Pending Onboarding; a login is a separate step on Users. 2 tests (`VolunteerSignupTests`).
 - Full suite: 733 pass.
 
+## Donations auto-create a pending allocation (2026-09-28)
+
+- **Why:** `/admin/allocations` showed 20 in the sidebar and none on the page. Traced it: the sidebar count had already been fixed (was showing the overdue-case count, not allocations — fixed 2026-09-25, not yet deployed); the page itself was correctly empty because nothing ever created a Fund Allocation record — the Donations page's "Allocate" button only flipped a status flag on the donation and never touched the Allocations table.
+- **Fixed:** every new donation (staff-entered, public gift form, public API, GiveButter sync) now creates a matching pending Fund Allocation the moment it's recorded, and keeps the donation's own status badge in step. Approving or rejecting an allocation now updates the donation's badge too. The Donations page "Allocate" button now really puts the donation in the queue instead of just changing a label.
+- **Existing donations:** a startup catch-up (`AllocationBackfill`, same pattern as `ParishDioceseRepair`) gives any older unallocated donation a pending allocation too, so production's real donations show up in the queue after this deploys, not just new ones.
+- 7 new tests (`AllocationAutoCreateTests`, `AllocationBackfillTests`); 737 tests pass.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

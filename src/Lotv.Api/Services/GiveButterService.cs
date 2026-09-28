@@ -193,6 +193,10 @@ public class GiveButterService(HttpClient http, LotvDbContext db, ILogger<GiveBu
 
         db.Donations.Add(donation);
         await db.SaveChangesAsync();
+        // Waits for staff to say where it goes, same as any other donation (see CreatePendingAllocationAsync in Program.cs).
+        donation.AllocationStatus = AllocationStatus.PendingReview;
+        db.FundAllocations.Add(new FundAllocation { DonationId = donation.Id, Amount = donation.Amount, Status = AllocationStatus.PendingReview, CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
 
         log.LogInformation("Synced GiveButter transaction {TxId} as donation for {Email}", tx.Id, tx.Email);
         return true;

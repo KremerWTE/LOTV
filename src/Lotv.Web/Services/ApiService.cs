@@ -931,6 +931,13 @@ public class ApiService
         return resp?.IsSuccessStatusCode == true ? await resp.Content.ReadFromJsonAsync<Donation>(JsonOpts) : null;
     }
 
+    /// <summary>Puts a donation back in the Allocations queue (creating its pending allocation if it somehow has none).</summary>
+    public async Task<bool> RequestAllocationAsync(int donationId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/donations/{donationId}/request-allocation", new { });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     // ── Allocations mutations ──────────────────────────────────────────────────
     public async Task<FundAllocation?> CreateAllocationAsync(FundAllocation alloc)
     {

@@ -360,6 +360,15 @@ app.MapHealthChecks("/health").AllowAnonymous();
     try { await VolunteerWorkload.RecomputeAllAsync(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not recompute volunteer case counts."); }
 
+    // Every donation waits for staff to say where it goes: give any older, unallocated donation a pending
+    // Fund Allocation too, so the Allocations queue reflects everything waiting, not only new donations.
+    try
+    {
+        var backfilled = await AllocationBackfill.RunAsync(db);
+        if (backfilled > 0) app.Logger.LogInformation("Created {Count} pending fund allocation(s) for existing unallocated donations.", backfilled);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not back-fill pending fund allocations."); }
+
     try { FamilyGriefSupportColumnBootstrap.EnsureColumn(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not add the GriefSupportRequested column to Families."); }
     try { MailingListKindColumnBootstrap.EnsureColumn(db); }
@@ -533,6 +542,7 @@ publicIntake.MapPost("/give", async (PublicGiveRequest body, LotvDbContext db) =
     body.Donation.Date = DateTime.UtcNow;
     db.Donations.Add(body.Donation);
     await db.SaveChangesAsync();
+    await CreatePendingAllocationAsync(db, body.Donation);
 
     return Results.Created($"/api/v1/donations/{body.Donation.Id}", new { donorId = donor.Id, donationId = body.Donation.Id });
 });
@@ -719,6 +729,17 @@ cases.MapGet("/", async (LotvDbContext db, IChapterContextService ctx,
 // Intake:AutoAssign is true: every new request waits in the Unassigned Queue for staff. The explicit staff actions
 // ("Auto-assign" on a case, "Apply rules to queue") still work.
 static bool AutoAssignOnIntake(IConfiguration cfg) => cfg.GetValue<bool>("Intake:AutoAssign");
+
+// A new donation always waits for staff to say where it goes: creating it also creates a matching pending Fund
+// Allocation (the /admin/allocations queue), and keeps the donation's own AllocationStatus field — shown on the
+// Donations page — in step with it. Call this after the donation itself has been saved (so it has an Id).
+static async Task CreatePendingAllocationAsync(LotvDbContext db, Donation donation)
+{
+    donation.AllocationStatus = AllocationStatus.PendingReview;
+    db.FundAllocations.Add(new FundAllocation { DonationId = donation.Id, Amount = donation.Amount, Status = AllocationStatus.PendingReview, CreatedAt = DateTime.UtcNow });
+    await db.SaveChangesAsync();
+}
+
 
 // The signed-in person's own volunteer record(s): same email, else same name.
 static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr)
@@ -1573,6 +1594,7 @@ donations.MapPost("/", async (Donation donation, LotvDbContext db, IChapterConte
     donation.Date = donation.Date == default ? DateTime.UtcNow : donation.Date;
     db.Donations.Add(donation);
     await db.SaveChangesAsync();
+    await CreatePendingAllocationAsync(db, donation);
     await hub.Clients.Group($"chapter-{donation.ChapterId}").SendAsync("DonationReceived", donation.Id, donation.Amount, donation.Channel.ToString());
     return Results.Created($"/api/v1/donations/{donation.Id}", donation);
 });
@@ -1582,6 +1604,27 @@ donations.MapPut("/{id:int}", async (int id, Donation donation, LotvDbContext db
     if (!await db.Donations.AnyAsync(d => d.Id == id)) return Results.NotFound();
     donation.Id = id;
     db.Donations.Update(donation);
+    await db.SaveChangesAsync();
+    return Results.Ok(donation);
+});
+
+// Puts a donation back in the Allocations queue (the Donations page's "Allocate" button): most donations already have a
+// pending allocation from the moment they were recorded, so this only creates one when there truly isn't one yet.
+donations.MapPost("/{id:int}/request-allocation", async (int id, LotvDbContext db) =>
+{
+    var donation = await db.Donations.FindAsync(id);
+    if (donation is null) return Results.NotFound();
+    if (donation.AllocationStatus == AllocationStatus.Allocated)
+        return Results.BadRequest(new { error = "This donation is already allocated." });
+
+    var alloc = await db.FundAllocations.Where(a => a.DonationId == id).OrderByDescending(a => a.Id).FirstOrDefaultAsync();
+    if (alloc is null || alloc.Status == AllocationStatus.Allocated)
+    {
+        alloc = new FundAllocation { DonationId = id, Amount = donation.Amount, Status = AllocationStatus.PendingReview, CreatedAt = DateTime.UtcNow };
+        db.FundAllocations.Add(alloc);
+    }
+    else alloc.Status = AllocationStatus.PendingReview;
+    donation.AllocationStatus = AllocationStatus.PendingReview;
     await db.SaveChangesAsync();
     return Results.Ok(donation);
 });
@@ -1639,13 +1682,14 @@ allocs.MapPost("/", async (FundAllocation alloc, LotvDbContext db, IFinancialAud
 
 allocs.MapPost("/{id:int}/approve", async (int id, ApproveAllocationRequest body, LotvDbContext db, IFinancialAuditService audit, HttpContext http) =>
 {
-    var alloc = await db.FundAllocations.FindAsync(id);
+    var alloc = await db.FundAllocations.Include(a => a.Donation).FirstOrDefaultAsync(a => a.Id == id);
     if (alloc is null) return Results.NotFound();
     if (alloc.Status != AllocationStatus.PendingReview)
         return Results.BadRequest("Only PendingReview allocations can be approved.");
     alloc.Status     = AllocationStatus.Allocated;
     alloc.ApprovedBy = body.ApprovedBy;
     alloc.ApprovedAt = DateTime.UtcNow;
+    if (alloc.Donation is not null) alloc.Donation.AllocationStatus = AllocationStatus.Allocated;
     await db.SaveChangesAsync();
     var actor = http.User.FindFirst("sub")?.Value ?? "system";
     await audit.LogAllocationApprovedAsync(alloc, actor, http.Connection.RemoteIpAddress?.ToString());
@@ -1654,11 +1698,12 @@ allocs.MapPost("/{id:int}/approve", async (int id, ApproveAllocationRequest body
 
 allocs.MapPost("/{id:int}/reject", async (int id, RejectAllocationRequest body, LotvDbContext db, IFinancialAuditService audit, HttpContext http) =>
 {
-    var alloc = await db.FundAllocations.FindAsync(id);
+    var alloc = await db.FundAllocations.Include(a => a.Donation).FirstOrDefaultAsync(a => a.Id == id);
     if (alloc is null) return Results.NotFound();
     if (alloc.Status == AllocationStatus.Allocated)
         return Results.BadRequest("Approved allocations cannot be rejected — contact HQ Admin.");
     alloc.Status = AllocationStatus.Unallocated;
+    if (alloc.Donation is not null) alloc.Donation.AllocationStatus = AllocationStatus.Unallocated;
     await db.SaveChangesAsync();
     var actor = http.User.FindFirst("sub")?.Value ?? "system";
     await audit.LogAllocationRejectedAsync(alloc, actor, body.Reason, http.Connection.RemoteIpAddress?.ToString());
@@ -2893,6 +2938,7 @@ publicApi.MapPost("/donations", async (HttpContext http, LotvDbContext db, Publi
     };
     db.Donations.Add(donation);
     await db.SaveChangesAsync();
+    await CreatePendingAllocationAsync(db, donation);
     return Results.Created($"/api/v1/donations/{donation.Id}",
         new { donationId = donation.Id, donorId = donor.Id });
 }).AllowAnonymous();
