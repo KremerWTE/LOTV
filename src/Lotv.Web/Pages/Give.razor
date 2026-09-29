@@ -1,14 +1,15 @@
 @page "/give"
 @layout PublicLayout
+@inject LocalizationService Loc
 
-<PageTitle>Donate — Lily of the Valley Ministry</PageTitle>
+<PageTitle>@Loc["nav.donate"] — Lily of the Valley Ministry</PageTitle>
 
 <!-- HERO -->
 <div style="background:var(--navy);color:white;padding:52px 24px 44px;text-align:center;">
   <div style="max-width:540px;margin:0 auto;">
-    <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 12px;">Support a Grieving Family</h1>
+    <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 12px;">@Loc["give.title"]</h1>
     <p style="color:rgba(255,255,255,.8);font-size:.94rem;line-height:1.7;margin:0;">
-      Every gift funds a hand-assembled comfort package delivered free of charge to a family navigating pregnancy or infant loss.
+      @Loc["give.subtitle"]
     </p>
   </div>
 </div>
@@ -22,6 +23,11 @@
   donations automatically via the GiveButter webhook
   (POST /api/v1/payments/givebutter/webhook -> Donor/Donation records),
   so this page doesn't need its own donor-info form or payment collection.
+
+  NOTE: the header's currency switcher does NOT affect this widget — GiveButter
+  is a third-party embed with its own fixed checkout currency (USD), which we
+  have no supported way to override at runtime. The switcher only affects
+  amounts LOTV renders itself (see the Transparency page).
 -->
 <div style="max-width:640px;margin:48px auto 80px;padding:0 24px;">
   <div class="donate-card" style="background:white;border-radius:14px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(0,0,0,.06);padding:36px 40px;">
@@ -31,7 +37,7 @@
       <givebutter-widget id="Lv36Zg"></givebutter-widget>
     </div>
     <p style="font-size:.76rem;color:var(--text-light);text-align:center;margin:20px 0 0;line-height:1.6;">
-      LOTV Ministry is a 501(c)(3) non-profit organization.
+      @Loc["give.donorNote"]
     </p>
   </div>
 </div>
