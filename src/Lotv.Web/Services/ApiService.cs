@@ -1744,9 +1744,9 @@ public class ApiService
     /// <summary>The signed-in person's own volunteer record, or null if they don't have one yet.</summary>
     public async Task<Volunteer?> GetMyVolunteerAsync() => await GetAsync<Volunteer>("/api/v1/volunteers/me");
 
-    public async Task<Volunteer?> CreateMyVolunteerAsync()
+    public async Task<Volunteer?> CreateMyVolunteerAsync(VolunteerRole? role = null)
     {
-        var resp = await AuthedPostAsync("/api/v1/volunteers/me", new { });
+        var resp = await AuthedPostAsync("/api/v1/volunteers/me", new { Role = role });
         return resp is { IsSuccessStatusCode: true } ? await resp.Content.ReadFromJsonAsync<Volunteer>(JsonOpts) : null;
     }
 

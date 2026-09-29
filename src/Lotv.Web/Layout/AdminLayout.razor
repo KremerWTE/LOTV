@@ -53,7 +53,7 @@
             <span class="icon">📋</span> My Work Queue
           </NavLink>
         }
-        @if (_isPrayerAmbassador)
+        @if (_showPrayerLink)
         {
           <NavLink class="sidebar-link" href="/admin/prayer-list">
             <span class="icon"><Icon Name="hands-praying" /></span> Prayer Dashboard
@@ -800,22 +800,25 @@
 
   // Which of the two volunteer dashboards this person actually has work in. Loaded once in
   // OnInitializedAsync, before the lane guard runs, so both the guard and the sidebar agree on it.
+  // A staff member with both roles sees both dashboards; most plain volunteers only ever have
+  // one — and in practice that's usually Prayer Ambassador, not Package Assembler. Someone with
+  // no volunteer record yet gets shown both links (either dashboard's own "create my record"
+  // button lets them pick which they are) but defaults to landing on the Prayer Dashboard, since
+  // that's the more common case, rather than assuming Package Assembler.
   private Volunteer? _myVolunteer;
+  private bool _hasNoRecordYet     => _myVolunteer is null;
   private bool _isPrayerAmbassador => _myVolunteer?.HasRole(VolunteerRole.PrayerAmbassador) ?? false;
   private bool _isPackageAssembler => _myVolunteer?.HasRole(VolunteerRole.PackageAssembler) ?? false;
-  // No volunteer record yet, or has package work, or doesn't have prayer work: show the work queue —
-  // it's the generic "cases assigned to you" view and the right fallback either way. Someone who is
-  // ONLY a Prayer Ambassador has nothing to do there, so it's hidden for them alone.
-  private bool _showMyQueueLink => _myVolunteer is null || _isPackageAssembler || !_isPrayerAmbassador;
-  private string _volunteerHomeLane => _isPrayerAmbassador && !_showMyQueueLink ? "/admin/prayer-list" : "/admin/my-queue";
+  private bool _showMyQueueLink    => _isPackageAssembler || _hasNoRecordYet;
+  private bool _showPrayerLink     => _isPrayerAmbassador || _hasNoRecordYet;
+  private string _volunteerHomeLane => _showPrayerLink && !_isPackageAssembler ? "/admin/prayer-list" : "/admin/my-queue";
 
-  // A volunteer who types or follows any other staff address is sent back to whichever of their own
-  // two dashboards applies — not always My Work Queue; a Prayer-Ambassador-only volunteer has no
-  // package work to land on.
+  // A volunteer who types or follows any other staff address is sent back to whichever of their
+  // own dashboards applies — same rule as which sidebar links they see.
   private bool VolunteerMayOpen(string path) =>
     (_showMyQueueLink && path.StartsWith("/admin/my-queue", StringComparison.OrdinalIgnoreCase))
-    || (_isPrayerAmbassador && (path.StartsWith("/admin/prayer-list", StringComparison.OrdinalIgnoreCase)
-                              || path.StartsWith("/admin/prayer-dashboard", StringComparison.OrdinalIgnoreCase)))
+    || (_showPrayerLink && (path.StartsWith("/admin/prayer-list", StringComparison.OrdinalIgnoreCase)
+                          || path.StartsWith("/admin/prayer-dashboard", StringComparison.OrdinalIgnoreCase)))
     || System.Text.RegularExpressions.Regex.IsMatch(path, @"^/admin/cases/\d+/?$");
 
   private void KeepVolunteerInTheirLane()

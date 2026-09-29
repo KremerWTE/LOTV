@@ -24,7 +24,13 @@
 }
 else if (_myVolunteer is null)
 {
-  <div class="panel"><div class="panel-body" style="padding:24px;">You aren't set up as a volunteer yet — visit My Work Queue to create your volunteer record.</div></div>
+  <div class="panel"><div class="panel-body" style="padding:24px;">
+    <p style="margin:0 0 12px;">You aren't set up as a volunteer yet.</p>
+    <button class="btn btn-primary btn-sm" @onclick="CreateAsPrayerAmbassadorAsync" disabled="@_creating">
+      @(_creating ? "Creating…" : "Create my volunteer record as a Prayer Ambassador")
+    </button>
+    <p style="font-size:.78rem;color:var(--text-light);margin:10px 0 0;">Here to assemble packages instead? Visit <a href="/admin/my-queue" style="color:var(--navy);">My Work Queue</a> to set up your record that way.</p>
+  </div></div>
 }
 else if (!_myVolunteer.HasRole(VolunteerRole.PrayerAmbassador))
 {
@@ -119,6 +125,15 @@ else
   private List<PackageRequest> _families = [];
   private List<PrayerCandidateDto> _candidates = [];
   private string _error = "";
+  private bool _creating;
+
+  private async Task CreateAsPrayerAmbassadorAsync()
+  {
+    _creating = true;
+    _myVolunteer = await Api.CreateMyVolunteerAsync(VolunteerRole.PrayerAmbassador);
+    _creating = false;
+    if (_myVolunteer is not null) await LoadAsync();
+  }
 
   protected override async Task OnInitializedAsync() => await LoadAsync();
 

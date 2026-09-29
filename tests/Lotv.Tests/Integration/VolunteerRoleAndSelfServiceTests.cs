@@ -84,6 +84,36 @@ public class VolunteerRoleAndSelfServiceTests
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
     }
 
+    [Fact]
+    public async Task CreateMyVolunteer_DefaultsToPackageAssembler_ButAcceptsAnExplicitRole()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var chapter = new Chapter { Name = $"CreateVol {Guid.NewGuid():N}", IsActive = true, CreatedAt = DateTime.UtcNow };
+        db.Chapters.Add(chapter);
+        await db.SaveChangesAsync();
+
+        var email1 = $"createvol-{Guid.NewGuid():N}@test.com";
+        var client1 = _factory.CreateClient();
+        await client1.PostAsJsonAsync("/api/v1/auth/register", new { Email = email1, Password = "TestPass1CreateVol!", FirstName = "De", LastName = "Fault", Role = "ChapterStaff", ChapterId = chapter.Id });
+        var login1 = await client1.PostAsJsonAsync("/api/v1/auth/login", new { Username = email1, Password = "TestPass1CreateVol!" });
+        client1.DefaultRequestHeaders.Authorization = new("Bearer", (await login1.Content.ReadFromJsonAsync<LoginResponseDto>())!.AccessToken);
+        var defaultCreated = await client1.PostAsJsonAsync("/api/v1/volunteers/me", new { });
+        Assert.Equal(HttpStatusCode.Created, defaultCreated.StatusCode);
+        var defaultVol = await defaultCreated.Content.ReadFromJsonAsync<Volunteer>(Json);
+        Assert.Equal(VolunteerRole.PackageAssembler, defaultVol!.Role);
+
+        var email2 = $"createvol-{Guid.NewGuid():N}@test.com";
+        var client2 = _factory.CreateClient();
+        await client2.PostAsJsonAsync("/api/v1/auth/register", new { Email = email2, Password = "TestPass1CreateVol!", FirstName = "Pray", LastName = "Er", Role = "ChapterStaff", ChapterId = chapter.Id });
+        var login2 = await client2.PostAsJsonAsync("/api/v1/auth/login", new { Username = email2, Password = "TestPass1CreateVol!" });
+        client2.DefaultRequestHeaders.Authorization = new("Bearer", (await login2.Content.ReadFromJsonAsync<LoginResponseDto>())!.AccessToken);
+        var prayerCreated = await client2.PostAsJsonAsync("/api/v1/volunteers/me", new { Role = "PrayerAmbassador" });
+        Assert.Equal(HttpStatusCode.Created, prayerCreated.StatusCode);
+        var prayerVol = await prayerCreated.Content.ReadFromJsonAsync<Volunteer>(Json);
+        Assert.Equal(VolunteerRole.PrayerAmbassador, prayerVol!.Role);
+    }
+
     // ── Public self-service assignment endpoints (magic-link portal) ──────────────────────────
 
     [Fact]

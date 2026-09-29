@@ -1600,8 +1600,12 @@ app.MapGet("/api/v1/volunteers/me", async (LotvDbContext db, IChapterContextServ
     return mine is null ? Results.NotFound() : Results.Ok(mine);
 }).WithTags("Volunteers").RequireAuthorization("Volunteer");
 
-// Creates the signed-in person's own volunteer record (so cases can be assigned to them and show in My Work Queue).
-volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+// Creates the signed-in person's own volunteer record (so cases can be assigned to them and show in My Work
+// Queue, or they can join a prayer team from the Prayer Dashboard). Role defaults to Package Assembler — the
+// button on My Work Queue creates one that way — but the Prayer Dashboard's own "create my record" button
+// passes PrayerAmbassador, since most volunteers who reach that page are prayer-only and would otherwise have
+// no self-service way to become one (only staff could add the role afterward).
+volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr, CreateMyVolunteerRequest? body) =>
 {
     var existing = (await FindMyVolunteersAsync(db, ctx, userMgr)).FirstOrDefault();
     if (existing is not null) return Results.Ok(existing);
@@ -1610,7 +1614,7 @@ volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, U
     var v = new Volunteer
     {
         FirstName = user.FirstName, LastName = user.LastName, Email = user.Email ?? "",
-        Role = VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active,
+        Role = body?.Role ?? VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active,
         ChapterId = ctx.ChapterId ?? user.ChapterId ?? 1, JoinedDate = DateTime.UtcNow,
     };
     db.Volunteers.Add(v);
@@ -5441,6 +5445,7 @@ record VolunteerAssignmentDto(int Id, string? FamilyName, string Category, strin
     bool IsOverdue, DateTime CreatedAt, DateTime? DueDate, DateTime UpdatedAt,
     string? Street, string? City, string? State, string? Zip, string? ChildrenInitials);
 record VolunteerStatusUpdateRequest(CaseStatus Status);
+record CreateMyVolunteerRequest(VolunteerRole? Role);
 record InventoryAdjustRequest(int QuantityDelta, string? Reason);
 record ResourceAllocationRequest(int RequestId, int Quantity, string? Notes);
 record ApplyPledgePaymentRequest(decimal Amount);
