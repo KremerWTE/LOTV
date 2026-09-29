@@ -778,20 +778,29 @@ cases.AddEndpointFilter(async (fc, next) =>
     var userMgr = http.RequestServices.GetRequiredService<UserManager<LotvIdentityUser>>();
     var pattern = (http.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "";
 
-    // Prayer team: a volunteer may join or leave one — but only speak for themselves, never another volunteer.
+    // Prayer team: a volunteer may join or leave one — but only speak for themselves, never another volunteer,
+    // and only if their own volunteer record actually carries the Prayer Ambassador role. The UI (PrayerList.razor)
+    // already hides this from anyone else; this is the server-side version of that same rule, since the UI check
+    // alone doesn't stop a direct API call.
     // This isn't "their own case" in the AssignedToId sense (that's the whole point of a separate prayer team),
     // so it's checked here rather than through the AssignedToId-based rule below.
     if (pattern == "/api/v1/requests/{id:int}/prayer-team" && HttpMethods.IsPost(http.Request.Method))
     {
-        var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
+        var mine = await FindMyVolunteersAsync(db, ctx, userMgr);
         var body = fc.Arguments.OfType<PrayerTeamAddRequest>().FirstOrDefault();
-        return body is not null && myIds.Contains(body.VolunteerId) ? await next(fc) : Results.Forbid();
+        var match = body is not null ? mine.FirstOrDefault(v => v.Id == body.VolunteerId) : null;
+        return match is not null && match.HasRole(VolunteerRole.PrayerAmbassador) ? await next(fc) : Results.Forbid();
     }
     if (pattern == "/api/v1/requests/{id:int}/prayer-team/{volunteerId:int}" && HttpMethods.IsDelete(http.Request.Method))
     {
         var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
         return int.TryParse(http.Request.RouteValues["volunteerId"]?.ToString(), out var volId) && myIds.Contains(volId)
             ? await next(fc) : Results.Forbid();
+    }
+    if ((pattern == "/api/v1/requests/my-prayer-list" || pattern == "/api/v1/requests/prayer-candidates") && HttpMethods.IsGet(http.Request.Method))
+    {
+        var mine = await FindMyVolunteersAsync(db, ctx, userMgr);
+        if (!mine.Any(v => v.HasRole(VolunteerRole.PrayerAmbassador))) return Results.Forbid();
     }
 
     var allowed = await AccessRules.VolunteerCanUse(http, async id =>
@@ -3386,6 +3395,104 @@ publicApi.MapGet("/volunteers/{id:int}/summary", async (int id, LotvDbContext db
     });
 }).AllowAnonymous();
 
+// ── Volunteer self-service assignments (magic-link portal: /volunteer/my-assignments,
+// /volunteer/available, /volunteer/history). Same trust model as the rest of this file's
+// magic-link self-service — the caller is trusted to be volunteer {id} because they hold
+// the session that got them a link with that id in it, not because of a re-checked token
+// on every call (see the family-profile PATCH above for the one place that got a stronger
+// check). Good enough for "which of MY OWN cases", not a substitute for real auth. ──────
+publicApi.MapGet("/volunteers/{id:int}/assignments", async (int id, LotvDbContext db) =>
+{
+    if (!await db.Volunteers.AnyAsync(v => v.Id == id)) return Results.NotFound();
+    var mine = await db.Requests.Include(r => r.Family)
+        .Where(r => r.AssignedToId == id)
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+    return Results.Ok(mine.Select(r => new VolunteerAssignmentDto(
+        r.Id, r.Family?.FullName, r.Category.ToString(), r.Reason.ToString(), r.Status.ToString(),
+        r.IsOverdue, r.CreatedAt, r.DueDate, r.UpdatedAt,
+        r.Family?.StreetAddress, r.Family?.City, r.Family?.State, r.Family?.Zip, r.ChildrenInitials)));
+}).AllowAnonymous();
+
+// Unassigned package requests in the volunteer's own chapter — enough to decide whether to pick one up
+// (no address; that only shows once it's actually theirs, via /assignments above).
+publicApi.MapGet("/volunteers/{id:int}/available", async (int id, LotvDbContext db) =>
+{
+    var vol = await db.Volunteers.FindAsync(id);
+    if (vol is null) return Results.NotFound();
+    var candidates = await db.Requests.Include(r => r.Family)
+        .Where(r => r.AssignedToId == null && r.Status == CaseStatus.New
+                 && r.WantsPackage && r.ChapterId == vol.ChapterId)
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+    return Results.Ok(candidates.Select(r => new
+    {
+        r.Id, Category = r.Category.ToString(), Reason = r.Reason.ToString(), r.CreatedAt,
+        City = r.Family?.City, State = r.Family?.State,
+    }));
+}).AllowAnonymous();
+
+// Self-assign an available request — first come, first served; refused if someone beat them to it.
+publicApi.MapPost("/volunteers/{id:int}/assignments/{requestId:int}/claim", async (int id, int requestId, LotvDbContext db) =>
+{
+    var vol = await db.Volunteers.FindAsync(id);
+    if (vol is null) return Results.NotFound(new { error = "Volunteer not found." });
+    var r = await db.Requests.FindAsync(requestId);
+    if (r is null) return Results.NotFound(new { error = "Request not found." });
+    if (r.AssignedToId is not null)
+        return Results.Conflict(new { error = "Someone already picked this one up." });
+
+    r.AssignedToId = id;
+    r.AssignedTo   = vol.FullName;
+    r.Status       = CaseStatus.InProgress;
+    r.ProcessStage = ProcessStage.Assigned;
+    r.UpdatedAt    = DateTime.UtcNow;
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = requestId, ActorId = "", ActorName = vol.FullName,
+        ActivityType = ActivityType.Assigned, Details = "Self-assigned via the volunteer portal", Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+    await VolunteerWorkload.RecomputeAsync(db, id);
+    return Results.Ok(new { r.Id, r.Status });
+}).AllowAnonymous();
+
+// The volunteer-portal equivalent of the staff status-update endpoint — same transition rules,
+// but scoped so a volunteer can only ever move a case that's actually assigned to them.
+publicApi.MapPost("/volunteers/{id:int}/assignments/{requestId:int}/status",
+    async (int id, int requestId, VolunteerStatusUpdateRequest body, LotvDbContext db,
+        IHubContext<RequestsHub> hub, INotificationService notify, IConfiguration cfg) =>
+{
+    var r = await db.Requests.Include(x => x.Family).FirstOrDefaultAsync(x => x.Id == requestId);
+    if (r is null) return Results.NotFound();
+    if (r.AssignedToId != id)
+        return Results.Json(new { error = "This case isn't assigned to you." }, statusCode: 403);
+
+    var old = r.Status;
+    if (!CaseStatusTransitions.IsValid(old, body.Status))
+        return Results.BadRequest(new { error = $"Can't move a case from {old} directly to {body.Status}." });
+
+    r.Status = body.Status;
+    r.UpdatedAt = DateTime.UtcNow;
+    if (body.Status == CaseStatus.Shipped && r.ShippedDate is null) r.ShippedDate = DateTime.UtcNow;
+    if (body.Status == CaseStatus.Fulfilled && old != CaseStatus.Fulfilled)
+    {
+        var vol = await db.Volunteers.FindAsync(id);
+        if (vol is not null) vol.TotalCasesFulfilled++;
+    }
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = requestId, ActorId = "", ActorName = r.AssignedTo ?? "Volunteer",
+        ActivityType = ActivityType.StatusChanged, OldValue = old.ToString(), NewValue = body.Status.ToString(), Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+    await VolunteerWorkload.RecomputeAsync(db, id);
+    try { await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseStatusChanged", requestId, body.Status.ToString(), (string?)null); } catch { }
+    if (old != body.Status && body.Status == CaseStatus.Shipped)   RequestNotifier.Shipped(notify, cfg, r);
+    if (old != body.Status && body.Status == CaseStatus.Fulfilled) RequestNotifier.Completed(notify, cfg, r);
+    return Results.Ok(new { r.Id, r.Status });
+}).AllowAnonymous();
+
 // ── Volunteer magic-link self-service auth ───────────────────────────────────
 publicApi.MapPost("/volunteer/magic-link", async (DonorMagicLinkRequest body,
     LotvDbContext db, INotificationService notify) =>
@@ -5330,6 +5437,10 @@ record DonorPrivacyRequest(bool IsAnonymous);
 record FamilyProfileUpdateRequest(string? FirstName, string? LastName,
     string? Email, string? Phone, string? Street, string? City, string? State, string? Zip,
     string? ConfirmEmail);
+record VolunteerAssignmentDto(int Id, string? FamilyName, string Category, string Reason, string Status,
+    bool IsOverdue, DateTime CreatedAt, DateTime? DueDate, DateTime UpdatedAt,
+    string? Street, string? City, string? State, string? Zip, string? ChildrenInitials);
+record VolunteerStatusUpdateRequest(CaseStatus Status);
 record InventoryAdjustRequest(int QuantityDelta, string? Reason);
 record ResourceAllocationRequest(int RequestId, int Quantity, string? Notes);
 record ApplyPledgePaymentRequest(decimal Amount);

@@ -43,13 +43,22 @@
       <div class="sidebar-section-label">Prayer Request Package</div>
       @if (_isVolunteer)
       {
-        @* Volunteers see only the prayer request package: their own cases (see AccessRules on the API). *@
-        <NavLink class="sidebar-link" href="/admin/my-queue">
-          <span class="icon">📋</span> My Work Queue
-        </NavLink>
-        <NavLink class="sidebar-link" href="/admin/prayer-list">
-          <span class="icon"><Icon Name="hands-praying" /></span> Prayer List
-        </NavLink>
+        @* Volunteers see only the prayer request package: their own cases (see AccessRules on the API).
+           Which of these two links they see depends on their actual VolunteerRole, not just being a
+           Volunteer — a Prayer-Ambassador-only volunteer has no package-assembly work to see, and
+           vice versa; someone with both roles sees both links. *@
+        @if (_showMyQueueLink)
+        {
+          <NavLink class="sidebar-link" href="/admin/my-queue">
+            <span class="icon">📋</span> My Work Queue
+          </NavLink>
+        }
+        @if (_isPrayerAmbassador)
+        {
+          <NavLink class="sidebar-link" href="/admin/prayer-list">
+            <span class="icon"><Icon Name="hands-praying" /></span> Prayer Dashboard
+          </NavLink>
+        }
         <a class="sidebar-link" href="/request-prayer-care-package" target="_blank" rel="noopener">
           <span class="icon">📝</span> Request Form <span style="opacity:.6;font-size:.7rem;">↗</span>
         </a>
@@ -789,10 +798,24 @@
   private bool _canSeeDonations  => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director" or "Board";
   private bool _canSeeVolunteers => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Director" or "Board";
 
-  // A volunteer who types or follows any other staff address is sent back to their own work.
-  private static bool VolunteerMayOpen(string path) =>
-    path.StartsWith("/admin/my-queue", StringComparison.OrdinalIgnoreCase)
-    || path.StartsWith("/admin/prayer-list", StringComparison.OrdinalIgnoreCase)
+  // Which of the two volunteer dashboards this person actually has work in. Loaded once in
+  // OnInitializedAsync, before the lane guard runs, so both the guard and the sidebar agree on it.
+  private Volunteer? _myVolunteer;
+  private bool _isPrayerAmbassador => _myVolunteer?.HasRole(VolunteerRole.PrayerAmbassador) ?? false;
+  private bool _isPackageAssembler => _myVolunteer?.HasRole(VolunteerRole.PackageAssembler) ?? false;
+  // No volunteer record yet, or has package work, or doesn't have prayer work: show the work queue —
+  // it's the generic "cases assigned to you" view and the right fallback either way. Someone who is
+  // ONLY a Prayer Ambassador has nothing to do there, so it's hidden for them alone.
+  private bool _showMyQueueLink => _myVolunteer is null || _isPackageAssembler || !_isPrayerAmbassador;
+  private string _volunteerHomeLane => _isPrayerAmbassador && !_showMyQueueLink ? "/admin/prayer-list" : "/admin/my-queue";
+
+  // A volunteer who types or follows any other staff address is sent back to whichever of their own
+  // two dashboards applies — not always My Work Queue; a Prayer-Ambassador-only volunteer has no
+  // package work to land on.
+  private bool VolunteerMayOpen(string path) =>
+    (_showMyQueueLink && path.StartsWith("/admin/my-queue", StringComparison.OrdinalIgnoreCase))
+    || (_isPrayerAmbassador && (path.StartsWith("/admin/prayer-list", StringComparison.OrdinalIgnoreCase)
+                              || path.StartsWith("/admin/prayer-dashboard", StringComparison.OrdinalIgnoreCase)))
     || System.Text.RegularExpressions.Regex.IsMatch(path, @"^/admin/cases/\d+/?$");
 
   private void KeepVolunteerInTheirLane()
@@ -800,7 +823,7 @@
     if (!_isVolunteer) return;
     var path = new Uri(Nav.Uri).AbsolutePath;
     if (path.StartsWith("/admin", StringComparison.OrdinalIgnoreCase) && !VolunteerMayOpen(path))
-      Nav.NavigateTo("/admin/my-queue", replace: true);
+      Nav.NavigateTo(_volunteerHomeLane, replace: true);
   }
 
   // Search
@@ -824,6 +847,7 @@
       return;
     }
 
+    if (_isVolunteer) { try { _myVolunteer = await Api.GetMyVolunteerAsync(); } catch { } }
     KeepVolunteerInTheirLane();
     if (!_isVolunteer) await LoadNotificationsAsync();
     try { await Hub.ConnectAsync(); } catch { }

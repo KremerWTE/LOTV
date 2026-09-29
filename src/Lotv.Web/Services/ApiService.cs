@@ -579,6 +579,48 @@ public class ApiService
         try { return await _http.GetFromJsonAsync<VolunteerSummaryDto>($"/api/public/v1/volunteers/{volunteerId}/summary", JsonOpts); }
         catch { return null; }
     }
+
+    public record VolunteerAssignmentDto(int Id, string? FamilyName, string Category, string Reason, string Status,
+        bool IsOverdue, DateTime CreatedAt, DateTime? DueDate, DateTime UpdatedAt,
+        string? Street, string? City, string? State, string? Zip, string? ChildrenInitials);
+
+    public async Task<List<VolunteerAssignmentDto>> GetVolunteerAssignmentsAsync(int volunteerId)
+    {
+        try { return await _http.GetFromJsonAsync<List<VolunteerAssignmentDto>>($"/api/public/v1/volunteers/{volunteerId}/assignments", JsonOpts) ?? []; }
+        catch { return []; }
+    }
+
+    public record VolunteerAvailableDto(int Id, string Category, string Reason, DateTime CreatedAt, string? City, string? State);
+
+    public async Task<List<VolunteerAvailableDto>> GetVolunteerAvailableAsync(int volunteerId)
+    {
+        try { return await _http.GetFromJsonAsync<List<VolunteerAvailableDto>>($"/api/public/v1/volunteers/{volunteerId}/available", JsonOpts) ?? []; }
+        catch { return []; }
+    }
+
+    public async Task<(bool Ok, string? Error)> ClaimVolunteerAssignmentAsync(int volunteerId, int requestId)
+    {
+        try
+        {
+            var resp = await _http.PostAsync($"/api/public/v1/volunteers/{volunteerId}/assignments/{requestId}/claim", null);
+            if (resp.IsSuccessStatusCode) return (true, null);
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "That could not be done.");
+        }
+        catch { return (false, "Network error — please try again."); }
+    }
+
+    public async Task<(bool Ok, string? Error)> UpdateVolunteerAssignmentStatusAsync(int volunteerId, int requestId, CaseStatus status)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/api/public/v1/volunteers/{volunteerId}/assignments/{requestId}/status", new { Status = status });
+            if (resp.IsSuccessStatusCode) return (true, null);
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "That could not be done.");
+        }
+        catch { return (false, "Network error — please try again."); }
+    }
     public record VolunteerSummaryDto(string FirstName, string Level, string Role, int TotalCasesFulfilled, DateTime JoinedDate);
 
     // ── Donor magic-link auth ─────────────────────────────────────────────
