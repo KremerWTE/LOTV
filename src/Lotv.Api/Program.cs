@@ -3205,11 +3205,29 @@ publicApi.MapGet("/families/{id:int}/requests", async (int id, LotvDbContext db)
     return Results.Ok(requests);
 }).AllowAnonymous();
 
-// PATCH /api/public/v1/families/{id}/profile — family self-service contact update
-publicApi.MapPatch("/families/{id:int}/profile", async (int id, FamilyProfileUpdateRequest body, LotvDbContext db) =>
+// PATCH /api/public/v1/families/{id}/profile — family self-service contact update.
+// This route has no login of its own (families never get an account) — the one thing
+// standing between "anyone who knows or guesses this family's numeric id" and rewriting
+// their contact info is ConfirmEmail: it must match the email already on file. Not real
+// authentication, but it means an attacker needs to already know the family's email
+// address, which nothing else in the public API discloses. A real token-based session
+// (like the donor/volunteer magic-link flow already has) would be a stronger fix if this
+// self-service page ever gets a working link sent to families in an email or confirmation
+// screen — right now nothing in the app actually hands a family this URL.
+publicApi.MapPatch("/families/{id:int}/profile", async (int id, FamilyProfileUpdateRequest body, LotvDbContext db, HttpContext http) =>
 {
     var family = await db.Families.FindAsync(id);
     if (family is null) return Results.NotFound(new { error = "Family not found." });
+
+    // A signed-in staff member (sent a valid Bearer token, even though this route allows anonymous
+    // callers too) is already authorized by the admin UI they're editing from — only an anonymous
+    // caller has to prove they know the email already on file.
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (string.IsNullOrWhiteSpace(body.ConfirmEmail) ||
+        !string.Equals(body.ConfirmEmail.Trim(), family.Email?.Trim(), StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new { error = "That doesn't match the email address we have on file." }, statusCode: 403);
+    }
 
     if (!string.IsNullOrWhiteSpace(body.FirstName)) family.Parent1FirstName = body.FirstName;
     if (!string.IsNullOrWhiteSpace(body.LastName))  family.Parent1LastName  = body.LastName;
@@ -5310,7 +5328,8 @@ record ApproveAllocationRequest(string ApprovedBy);
 record RejectAllocationRequest(string Reason);
 record DonorPrivacyRequest(bool IsAnonymous);
 record FamilyProfileUpdateRequest(string? FirstName, string? LastName,
-    string? Email, string? Phone, string? Street, string? City, string? State, string? Zip);
+    string? Email, string? Phone, string? Street, string? City, string? State, string? Zip,
+    string? ConfirmEmail);
 record InventoryAdjustRequest(int QuantityDelta, string? Reason);
 record ResourceAllocationRequest(int RequestId, int Quantity, string? Notes);
 record ApplyPledgePaymentRequest(decimal Amount);

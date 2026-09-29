@@ -162,7 +162,7 @@ else
       _err = "All required fields must be filled in."; return;
     }
     _saving = true; _err = ""; _successMsg = "";
-    var ok = await Api.UpdateFamilyProfileAsync(Id,
+    var (ok, error) = await Api.UpdateFamilyProfileAsync(Id,
       _form.FirstName, _form.LastName, _form.Email, _form.Phone,
       _form.Street, _form.City, _form.State, _form.Zip);
     _saving = false;
@@ -171,6 +171,6 @@ else
       _successMsg = "Family profile updated successfully.";
       _family = await Api.GetFamilyAsync(Id);
     }
-    else _err = "Save failed. Please try again.";
+    else _err = error ?? "Save failed. Please try again.";
   }
 }

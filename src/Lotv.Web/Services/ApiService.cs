@@ -501,18 +501,23 @@ public class ApiService
         catch { return false; }
     }
 
-    public async Task<bool> UpdateFamilyProfileAsync(int familyId,
+    public async Task<(bool Ok, string? Error)> UpdateFamilyProfileAsync(int familyId,
         string firstName, string lastName, string email, string phone,
-        string street, string city, string state, string zip)
+        string street, string city, string state, string zip, string? confirmEmail = null)
     {
         try
         {
+            // Staff (already authenticated) skip the ConfirmEmail check server-side — sending the
+            // token here is what lets the endpoint tell a staff edit apart from an anonymous one.
+            SetAuthHeader();
             var resp = await _http.PatchAsJsonAsync($"/api/public/v1/families/{familyId}/profile",
                 new { FirstName = firstName, LastName = lastName, Email = email, Phone = phone,
-                      Street = street, City = city, State = state, Zip = zip });
-            return resp.IsSuccessStatusCode;
+                      Street = street, City = city, State = state, Zip = zip, ConfirmEmail = confirmEmail });
+            if (resp.IsSuccessStatusCode) return (true, null);
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "Unable to save profile. Please try again.");
         }
-        catch { return false; }
+        catch { return (false, "Network error — please try again."); }
     }
 
     public async Task<string?> UpdateAvatarAsync(string? avatarUrl)
