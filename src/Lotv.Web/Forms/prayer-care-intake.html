@@ -361,7 +361,15 @@
   }
 
   // ── submit ──────────────────────────────────────────────────────────────
-  function showError(msg) { errorBox.textContent = "⚠ " + msg; errorBox.hidden = false; postHeight(); }
+  function showError(msg) {
+    errorBox.textContent = "⚠ " + msg;
+    errorBox.hidden = false;
+    postHeight();
+    // The banner lives at the top of a long form; someone who just clicked Submit at the bottom
+    // needs to actually see why nothing happened, not scroll up on the hope something changed.
+    errorBox.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (window.parent !== window) window.parent.postMessage({ lotvScrollToError: true }, "*");
+  }
   function clearError() { errorBox.hidden = true; }
   function plainLabel(f) { return byBranch(f, "label").replace(/[:\s]+$/, ""); }
   function nameParts(full) {
