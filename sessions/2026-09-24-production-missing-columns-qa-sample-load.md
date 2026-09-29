@@ -191,6 +191,20 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - 3 new tests (`PrayerOnlyRequestTests`); the new standard question required adding it to `IntakeFormDefinition.StandardKeys`, which needed no other test changes. 757 tests pass.
 - **Known limit:** a chapter's form definition that staff have already customized and saved in the dashboard won't have this question until they re-save it (adding it, or using Reset to Default) — existing saved custom forms are still served as-is and don't retroactively gain new standard questions.
 
+## Smoke test of the whole session's work, and a missed golf icon (2026-09-28)
+
+- Ran every feature built this session end to end against a fresh scratch database: Login As (impersonated Priya, confirmed she saw exactly a volunteer's access, ended cleanly), the access rule (Board full read + 403 on write, a volunteer 403 on the general case list but 200 on their own), the case-view log, reassignment logging (from/to both recorded), the internal-note privacy fix (a volunteer's GET never included the internal note), donations auto-creating a pending allocation, a prayer-only request (`wantsPackage:false`) showing up for a Prayer Ambassador to browse and self-join, a second family with two different people on its prayer team, and a parish placed by county (Naperville, Will County → Diocese of Joliet). All matched what was built.
+- **Found a real miss:** the home page's "Parish Network" card still had the golf-ball emoji — a third icon spot the earlier icon pass didn't touch (only the "How We Help" and "Get Involved" rows were done). Fixed: now the same Font Awesome church icon used elsewhere. Swept the rest of the public pages for any other leftover large emoji icons; found none.
+- Merged `wtesolutions/main`'s 8 commits (PR #74–#81's merge-commit history) into `kremer-dev` so GitHub's branch comparison shows it caught up — confirmed this added no file changes (kremer-dev already contained everything as ancestors; the 8 were only merge-commit nodes). Whole-solution build: **0 warnings, 0 errors** across all 6 projects. 757 tests pass.
+
+## Build Day planner (2026-09-28)
+
+- **The ask:** "making 2 does not warrant the drive, making 40 does — but you need supplies for 40 when people show up." No way to plan that existed: staff could only add package items to a case one at a time; there was no standard box recipe and no way to check readiness for a group build day ahead of time.
+- **Built:** a **Standard Box Recipe** (`/admin/inventory/recipe`) — what goes in one comfort package, using the inventory items already tracked. A **Build Day Planner** (`/admin/inventory/build-day`) — enter a target box count (quick buttons for 2 / 10 / 40), and it multiplies the recipe out against real stock, item by item: needed, on hand, and short by how many, with a clear "you have enough" or "you're short on N items" banner. Both are new tabs on the Inventory hub.
+- **Found and fixed two real bugs while building it, not just in tests:** (1) the GET and POST recipe endpoints picked *different* default chapters for an HQ admin with no chapter of their own, so a read could silently miss what was just written — now both resolve the same way, and an HQ admin can pass `?chapterId=` explicitly. (2) Setting the recipe was restricted to chapter admins only, so an ordinary chapter staff member — who is realistically who plans a build day — got "that could not be added" with no explanation; opened it to any staff member.
+- **Verified in a browser** as a chapter staff account: built a recipe (blanket, grief book, memory box), planned for 2 boxes — everything covered; planned for 40 — correctly flagged "short on 1 item(s)," short 30 grief books, the other two items still covered.
+- 3 new tests (`BuildDayPlannerTests`); whole-solution build 0 warnings/0 errors; 760 tests pass.
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

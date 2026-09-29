@@ -1,0 +1,96 @@
+@page "/admin/inventory/recipe"
+@layout AdminLayout
+@inject ApiService Api
+@using Lotv.Core.Models
+
+<PageTitle>Standard Box Recipe — LOTV Staff Portal</PageTitle>
+
+<div class="page-hd">
+  <div>
+    <h2>Standard Box Recipe</h2>
+    <p>What goes in one comfort package — the Build Day planner multiplies this by however many you're building.</p>
+  </div>
+  <div class="page-hd-actions">
+    <a href="/admin/inventory/build-day" class="btn btn-sm btn-primary">Plan a Build Day →</a>
+  </div>
+</div>
+
+@if (_loading)
+{
+  <div class="panel"><div class="panel-body" style="padding:40px;text-align:center;color:var(--text-light);">Loading…</div></div>
+}
+else
+{
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-body" style="padding:0;">
+      @if (!_recipe.Any())
+      {
+        <div class="empty-state" style="padding:32px;"><p>No recipe set yet — add what goes in one box below.</p></div>
+      }
+      else
+      {
+        <table class="data-table">
+          <thead><tr><th>Item</th><th>Qty per box</th><th></th></tr></thead>
+          <tbody>
+            @foreach (var r in _recipe)
+            {
+              <tr>
+                <td>@(r.ResourceItem?.Name ?? "(deleted item)")</td>
+                <td>@r.QuantityPerBox</td>
+                <td><button class="btn btn-sm" @onclick="() => RemoveAsync(r.Id)">Remove</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Add an item</h3></div>
+    <div class="panel-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <select class="form-input" style="max-width:280px;" @bind="_addResourceId">
+        <option value="0">— Select inventory item —</option>
+        @foreach (var i in _inventory.Where(i => !_recipe.Any(r => r.ResourceItemId == i.Id)))
+        { <option value="@i.Id">@i.Name</option> }
+      </select>
+      <input class="form-input" style="width:90px;" type="number" min="1" @bind="_addQty" />
+      <button class="btn btn-primary btn-sm" disabled="@(_addResourceId == 0)" @onclick="AddAsync">Add to Recipe</button>
+      @if (!string.IsNullOrEmpty(_error))
+      { <span style="color:var(--red);font-size:.82rem;">@_error</span> }
+    </div>
+  </div>
+}
+
+@code {
+  private bool _loading = true;
+  private List<PackageRecipeItem> _recipe = [];
+  private List<ResourceItem> _inventory = [];
+  private int _addResourceId;
+  private int _addQty = 1;
+  private string _error = "";
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _loading = true;
+    _recipe = await Api.GetPackageRecipeAsync();
+    _inventory = await Api.GetInventoryAsync();
+    _loading = false;
+  }
+
+  private async Task AddAsync()
+  {
+    if (_addResourceId == 0 || _addQty < 1) return;
+    if (!await Api.SetRecipeItemAsync(_addResourceId, _addQty)) { _error = "That could not be added."; return; }
+    _error = "";
+    _addResourceId = 0; _addQty = 1;
+    await LoadAsync();
+  }
+
+  private async Task RemoveAsync(int id)
+  {
+    if (await Api.RemoveRecipeItemAsync(id)) await LoadAsync();
+  }
+}

@@ -341,6 +341,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the AssignmentRules table; routing rules will be unavailable."); }
     try { PrayerTeamTableBootstrap.EnsureTable(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the PrayerTeamMembers table; the prayer team will be unavailable."); }
+    try { PackageRecipeTableBootstrap.EnsureTable(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not create the PackageRecipeItems table; the Build Day planner will be unavailable."); }
 
     // Volunteer case counts drifted because assigning never incremented them; make them match reality.
     try
@@ -2543,6 +2545,65 @@ inventory.MapPost("/{id:int}/allocate", async (int id, ResourceAllocationRequest
     await db.SaveChangesAsync();
     return Results.Ok(new { allocated = body.Quantity, remaining = item.QuantityOnHand });
 }).RequireAuthorization("Staff");
+
+// ── Build Day: the standard comfort package's recipe, and what a target box count needs. A box recipe belongs to
+// one chapter — chapter staff always mean their own; an HQ admin (who isn't tied to one) can pass ?chapterId=,
+// and otherwise gets the same "first chapter" default used elsewhere (e.g. the US diocese list) so a follow-up
+// read always agrees with what they just wrote, even without naming a chapter every time. ────────────────────
+static async Task<int> ResolveChapterAsync(LotvDbContext db, IChapterContextService ctx, int? chapterId) =>
+    ctx.ChapterId ?? chapterId ?? await db.Chapters.OrderBy(c => c.Id).Select(c => c.Id).FirstOrDefaultAsync();
+
+inventory.MapGet("/recipe", async (LotvDbContext db, IChapterContextService ctx, int? chapterId) =>
+{
+    var resolved = await ResolveChapterAsync(db, ctx, chapterId);
+    return await db.PackageRecipeItems.Include(r => r.ResourceItem).Where(r => r.ChapterId == resolved)
+        .OrderBy(r => r.ResourceItem!.Name).ToListAsync();
+});
+
+inventory.MapPost("/recipe", async (RecipeItemRequest body, LotvDbContext db, IChapterContextService ctx) =>
+{
+    if (body.QuantityPerBox <= 0) return Results.BadRequest(new { error = "Quantity per box must be at least 1." });
+    var item = await db.ResourceItems.FindAsync(body.ResourceItemId);
+    if (item is null) return Results.NotFound(new { error = "That inventory item doesn't exist." });
+    var chapterId = await ResolveChapterAsync(db, ctx, body.ChapterId);
+
+    var existing = await db.PackageRecipeItems.FirstOrDefaultAsync(r => r.ChapterId == chapterId && r.ResourceItemId == body.ResourceItemId);
+    if (existing is not null) { existing.QuantityPerBox = body.QuantityPerBox; await db.SaveChangesAsync(); return Results.Ok(existing); }
+
+    var recipe = new PackageRecipeItem { ChapterId = chapterId, ResourceItemId = body.ResourceItemId, QuantityPerBox = body.QuantityPerBox };
+    db.PackageRecipeItems.Add(recipe);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/v1/inventory/recipe/{recipe.Id}", recipe);
+});   // Staff (the group's default policy) — any chapter staff plans a build day, not just a chapter admin
+
+inventory.MapDelete("/recipe/{id:int}", async (int id, LotvDbContext db) =>
+{
+    var recipe = await db.PackageRecipeItems.FindAsync(id);
+    if (recipe is null) return Results.NotFound();
+    db.PackageRecipeItems.Remove(recipe);
+    await db.SaveChangesAsync();
+    return Results.Ok();
+});
+
+// What a group build day actually needs: the recipe times the target box count, against what's really on hand
+// (not just available — a build day consumes everything on the shelf, reserved or not).
+inventory.MapGet("/build-day", async (int boxes, LotvDbContext db, IChapterContextService ctx, int? chapterId) =>
+{
+    if (boxes < 1) return Results.BadRequest(new { error = "Enter at least 1 box." });
+    var resolved = await ResolveChapterAsync(db, ctx, chapterId);
+    var recipe = await db.PackageRecipeItems.Include(r => r.ResourceItem).Where(r => r.ChapterId == resolved)
+        .OrderBy(r => r.ResourceItem!.Name).ToListAsync();
+    var rows = recipe.Select(r => new
+    {
+        r.ResourceItemId,
+        Name = r.ResourceItem?.Name ?? "(deleted item)",
+        r.QuantityPerBox,
+        Needed = r.QuantityPerBox * boxes,
+        OnHand = r.ResourceItem?.QuantityOnHand ?? 0,
+        ShortBy = Math.Max(0, r.QuantityPerBox * boxes - (r.ResourceItem?.QuantityOnHand ?? 0)),
+    }).ToList();
+    return Results.Ok(new { boxes, ready = rows.All(r => r.ShortBy == 0), items = rows });
+});
 
 // ── Audit ─────────────────────────────────────────────────────────────────────
 app.MapGet("/api/v1/audit", async (LotvDbContext db, IChapterContextService ctx, int page = 1, int pageSize = 50) =>
@@ -5232,6 +5293,7 @@ record TestEmailRequest(string? To);
 record StatusUpdateRequest(CaseStatus Status);
 record AssignRequest(int VolunteerId);
 record PrayerTeamAddRequest(int VolunteerId);
+record RecipeItemRequest(int ResourceItemId, int QuantityPerBox, int? ChapterId = null);
 record PriorityRequest(RequestPriority Priority);
 record ProcessStageRequest(ProcessStage ProcessStage);
 record DueDateRequest(DateTime DueDate);

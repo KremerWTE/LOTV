@@ -954,6 +954,28 @@ public class ApiService
     public Task<List<ResourceItem>> GetInventoryAsync(string? category = null) =>
         GetListAsync<ResourceItem>($"/api/v1/inventory{BuildQs(("category", category))}");
 
+    // ── Build Day: the standard box recipe, and what a target count needs ──────
+    public Task<List<PackageRecipeItem>> GetPackageRecipeAsync() =>
+        GetListAsync<PackageRecipeItem>("/api/v1/inventory/recipe");
+
+    public async Task<bool> SetRecipeItemAsync(int resourceItemId, int quantityPerBox)
+    {
+        var resp = await AuthedPostAsync("/api/v1/inventory/recipe", new { resourceItemId, quantityPerBox });
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> RemoveRecipeItemAsync(int id)
+    {
+        var resp = await AuthedDeleteAsync($"/api/v1/inventory/recipe/{id}");
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public record BuildDayItemDto(int ResourceItemId, string Name, int QuantityPerBox, int Needed, int OnHand, int ShortBy);
+    public record BuildDayResultDto(int Boxes, bool Ready, List<BuildDayItemDto> Items);
+
+    public Task<BuildDayResultDto?> GetBuildDayPlanAsync(int boxes) =>
+        GetAsync<BuildDayResultDto>($"/api/v1/inventory/build-day?boxes={boxes}");
+
     public async Task<bool> AllocateResourceAsync(int resourceId, int requestId, int quantity, string? notes)
     {
         var resp = await AuthedPostAsync($"/api/v1/inventory/{resourceId}/allocate",
