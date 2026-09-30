@@ -99,7 +99,7 @@
 </style>
 
 <div id="lotv-intake">
-  <p id="lotv-loading" class="lotv-sub">Loading form&hellip;</p>
+  <p id="lotv-loading" class="lotv-sub"></p>
   <div id="lotv-load-error" class="lotv-error" hidden></div>
   <form id="lotv-intake-form" novalidate hidden></form>
   <div id="lotv-confirm" class="lotv-confirm" hidden></div>
@@ -114,9 +114,71 @@
     : "https://lotv_api.wte.net";
   var FORM_KEY = "prayer-care-intake";
 
+  // ── i18n for this page's OWN chrome only ───────────────────────────────
+  // The form's actual questions (title, intro, field labels/placeholders/help,
+  // option text, confirmation title/body, donation box, footer note) all come
+  // from `def` below — staff-authored content fetched from the API, editable
+  // in the dashboard's Edit Request Form page. Translating THAT is a content
+  // problem (staff would need a way to author a Spanish version and keep it in
+  // sync), not a code one, and is out of scope here. What this section does
+  // translate is the handful of strings this file hardcodes itself: loading/
+  // error states, the bracelet builder's column headers and options, and
+  // client-side validation messages. Reads the same "lotv.culture" localStorage
+  // key the main Blazor site's language switcher sets, so a visitor who picked
+  // Español before clicking through to this form sees it here too — same-origin
+  // only; a Duda-embedded iframe on another domain can't see that key and
+  // always falls back to English.
+  var LANG = (function () {
+    try { return localStorage.getItem("lotv.culture") === "es" ? "es" : "en"; }
+    catch (e) { return "en"; }
+  })();
+  var STRINGS = {
+    en: {
+      loading: "Loading form…",
+      unavailable: "This form is temporarily unavailable. Please try again in a few minutes.",
+      selectPlaceholder: "- Please select -",
+      colOrder: "Order", colInitial: "Child Initial", colBead: "Bead Type", colStatus: "Living or Deceased",
+      beadInitials: "Initials", beadHeart: "Heart",
+      statusLiving: "Living", statusDeceased: "Deceased", statusHeaven: "In Heaven",
+      initialPlaceholder: "e.g. E.M.",
+      removeChild: "Remove this child",
+      addAnotherChild: "+ Add Another Child",
+      unnamed: "(unnamed)",
+      submitting: "Submitting…",
+      submitFailed: "We couldn't submit your request. Please try again in a moment.",
+      validateForWho: "Please choose whether this request is for you or for someone else.",
+      validateBracelet: "at least one child for the bracelet (initials, or a Heart bead if unnamed)",
+      validateFillIn: "Please fill in: ",
+      validateEmail: "Please enter a valid email address for \"{0}\".",
+      validateNames: "Please enter both a first and last name for \"{0}\"."
+    },
+    es: {
+      loading: "Cargando formulario…",
+      unavailable: "Este formulario no está disponible temporalmente. Por favor, inténtelo de nuevo en unos minutos.",
+      selectPlaceholder: "- Seleccione -",
+      colOrder: "Orden", colInitial: "Inicial del Niño", colBead: "Tipo de Cuenta", colStatus: "Vivo o Fallecido",
+      beadInitials: "Iniciales", beadHeart: "Corazón",
+      statusLiving: "Vivo", statusDeceased: "Fallecido", statusHeaven: "En el Cielo",
+      initialPlaceholder: "ej. E.M.",
+      removeChild: "Eliminar este niño",
+      addAnotherChild: "+ Agregar Otro Niño",
+      unnamed: "(sin nombre)",
+      submitting: "Enviando…",
+      submitFailed: "No pudimos enviar su solicitud. Por favor, inténtelo de nuevo en un momento.",
+      validateForWho: "Por favor, elija si esta solicitud es para usted o para otra persona.",
+      validateBracelet: "al menos un niño para la pulsera (iniciales, o una cuenta de Corazón si no tiene nombre)",
+      validateFillIn: "Por favor complete: ",
+      validateEmail: "Por favor ingrese un correo electrónico válido para \"{0}\".",
+      validateNames: "Por favor ingrese nombre y apellido para \"{0}\"."
+    }
+  };
+  function t(key) { return (STRINGS[LANG] && STRINGS[LANG][key]) || STRINGS.en[key] || key; }
+  function tf(key, arg) { return t(key).replace("{0}", arg); }
+
   var root = document.getElementById("lotv-intake");
   var form = document.getElementById("lotv-intake-form");
   var loadingEl = document.getElementById("lotv-loading");
+  loadingEl.textContent = t("loading");
   var loadErrorEl = document.getElementById("lotv-load-error");
   var confirmEl = document.getElementById("lotv-confirm");
 
@@ -154,7 +216,7 @@
     .then(function (d) { def = d; build(); })
     .catch(function () {
       loadingEl.hidden = true;
-      loadErrorEl.textContent = "This form is temporarily unavailable. Please try again in a few minutes.";
+      loadErrorEl.textContent = t("unavailable");
       loadErrorEl.hidden = false;
     });
 
@@ -222,7 +284,7 @@
         var c;
         if (f.type === "select") {
           c = document.createElement("select");
-          var blank = el("option", null, "- Please select -"); blank.value = ""; c.appendChild(blank);
+          var blank = el("option", null, t("selectPlaceholder")); blank.value = ""; c.appendChild(blank);
           (f.options || []).forEach(function (o) { var op = el("option", null, o.label); op.value = o.value; c.appendChild(op); });
         } else if (f.type === "textarea") {
           c = document.createElement("textarea"); c.rows = 4;
@@ -302,7 +364,7 @@
     });
     if (braceletField) {
       braceletIntroEl.textContent = byBranch(braceletField, "label");
-      braceletAddBtn.textContent = byBranch(braceletField, "buttonLabel") || "+ Add Another Child";
+      braceletAddBtn.textContent = byBranch(braceletField, "buttonLabel") || t("addAnotherChild");
     }
     postHeight();
   }
@@ -324,15 +386,21 @@
       var d = el("div"); d.appendChild(el("span", "lotv-col-label", label)); d.appendChild(control); return d;
     }
     var order = document.createElement("input"); order.type = "number"; order.min = 1; order.max = 10; order.className = "lotv-bracelet-order"; order.value = braceletRowCount;
-    var initial = document.createElement("input"); initial.type = "text"; initial.className = "lotv-bracelet-initial"; initial.setAttribute("placeholder", "e.g. E.M.");
+    var initial = document.createElement("input"); initial.type = "text"; initial.className = "lotv-bracelet-initial"; initial.setAttribute("placeholder", t("initialPlaceholder"));
     var bead = document.createElement("select"); bead.className = "lotv-bracelet-bead";
-    ["Initials", "Heart"].forEach(function (t) { bead.appendChild(el("option", null, t)); });
+    // .value stays the fixed English key (braceletHasContent()/buildPayload() compare against "Heart")
+    // regardless of language; only the displayed text is translated.
+    [["Initials", t("beadInitials")], ["Heart", t("beadHeart")]].forEach(function (o) {
+      var op = el("option", null, o[1]); op.value = o[0]; bead.appendChild(op);
+    });
     var status = document.createElement("select"); status.className = "lotv-bracelet-status";
-    ["Living", "Deceased", "In Heaven"].forEach(function (t) { status.appendChild(el("option", null, t)); });
-    var rm = el("button", "lotv-bracelet-remove", "✕"); rm.type = "button"; rm.setAttribute("aria-label", "Remove this child");
+    [["Living", t("statusLiving")], ["Deceased", t("statusDeceased")], ["In Heaven", t("statusHeaven")]].forEach(function (o) {
+      var op = el("option", null, o[1]); op.value = o[0]; status.appendChild(op);
+    });
+    var rm = el("button", "lotv-bracelet-remove", "✕"); rm.type = "button"; rm.setAttribute("aria-label", t("removeChild"));
     rm.addEventListener("click", function () { row.remove(); updateBraceletRemoveState(); });
-    row.appendChild(col("Order", order)); row.appendChild(col("Child Initial", initial));
-    row.appendChild(col("Bead Type", bead)); row.appendChild(col("Living or Deceased", status)); row.appendChild(rm);
+    row.appendChild(col(t("colOrder"), order)); row.appendChild(col(t("colInitial"), initial));
+    row.appendChild(col(t("colBead"), bead)); row.appendChild(col(t("colStatus"), status)); row.appendChild(rm);
     braceletRowsEl.appendChild(row);
     updateBraceletRemoveState();
     postHeight();
@@ -379,27 +447,27 @@
 
   // Collects every problem at once so visitors can fix them in one pass.
   function validate() {
-    if (!forWho) return "Please choose whether this request is for you or for someone else.";
+    if (!forWho) return t("validateForWho");
     var missing = [], bad = [];
     for (var i = 0; i < def.fields.length; i++) {
       var f = def.fields[i];
       if (f.type === "heading" || f.type === "hint" || !isActive(f)) continue;
       if (f.type === "bracelet") {
         if (f.required && !braceletHasContent())
-          missing.push("at least one child for the bracelet (initials, or a Heart bead if unnamed)");
+          missing.push(t("validateBracelet"));
         continue;
       }
       var v = rawValue(f.key);
       if (f.required && !v) { missing.push(plainLabel(f)); continue; }
       if (f.type === "email" && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
-        bad.push("Please enter a valid email address for \"" + plainLabel(f) + "\".");
+        bad.push(tf("validateEmail", plainLabel(f)));
     }
     // The API needs a first AND last name for the primary contact.
     var husband = byKey.husbandFirst;
     if (husband && value("husbandFirst") && !nameParts(value("husbandFirst")).last)
-      bad.push("Please enter both a first and last name for \"" + plainLabel(husband) + "\".");
+      bad.push(tf("validateNames", plainLabel(husband)));
     var msgs = [];
-    if (missing.length) msgs.push("Please fill in: " + missing.join(", ") + ".");
+    if (missing.length) msgs.push(t("validateFillIn") + missing.join(", ") + ".");
     return msgs.concat(bad).join(" ") || null;
   }
 
@@ -416,6 +484,7 @@
       childrenInitials = getBraceletRows()
         .filter(function (r) { return r.initial || r.bead === "Heart"; })
         .sort(function (a, b) { return (parseInt(a.order, 10) || 0) - (parseInt(b.order, 10) || 0); })
+        // Not translated on purpose: this string never renders in the UI, it's only sent as data staff read internally.
         .map(function (r) { return r.order + ". " + (r.initial || "(unnamed)") + " (" + r.bead + ", " + r.status + ")"; })
         .join("; ");
     }
@@ -475,7 +544,7 @@
     if (problem) { showError(problem); return; }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "Submitting…";
+    submitBtn.textContent = t("submitting");
     fetch(API_BASE_URL + "/api/v1/public/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -485,7 +554,7 @@
         if (!resp.ok) throw new Error("Request failed (" + resp.status + ")");
         showConfirmation();
       })
-      .catch(function () { showError("We couldn't submit your request. Please try again in a moment."); })
+      .catch(function () { showError(t("submitFailed")); })
       .finally(function () { submitBtn.disabled = false; submitBtn.textContent = def.submitLabel; });
   }
 
