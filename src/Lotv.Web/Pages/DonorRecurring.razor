@@ -15,7 +15,7 @@
     </div>
   </div>
   <div style="display:flex;gap:16px;align-items:center;">
-    <a href="/donor/impact" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Impact</a>
+    <a href="@($"/my-impact?DonorId={DonorId}")" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Impact</a>
     <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
   </div>
 </div>
@@ -196,7 +196,7 @@
   <div style="background:#fff8e6;border:1px solid #ffe08a;border-radius:10px;padding:16px 20px;font-size:.82rem;color:#7a5c00;line-height:1.7;">
     <strong>Tax information:</strong> You will receive a tax receipt for each recurring gift by email.
     A full year-end giving statement is available each January from your
-    <a href="/donor/impact" style="color:#7a5c00;font-weight:600;">giving history page</a>.
+    <a href="@($"/my-impact?DonorId={DonorId}")" style="color:#7a5c00;font-weight:600;">giving history page</a>.
     Lily of the Valley Ministry is a 501(c)(3) organization (EIN: XX-XXXXXXX).
   </div>
 

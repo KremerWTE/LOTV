@@ -49,6 +49,10 @@
         {
           <button class="btn btn-sm" type="button" @onclick="RemoveAvatar" style="margin-top:6px;margin-left:6px;">Remove</button>
         }
+        @if (!string.IsNullOrEmpty(_avatarError))
+        {
+          <div style="font-size:.78rem;color:#b91c1c;margin-top:6px;">⚠ @_avatarError</div>
+        }
       </div>
     </div>
 
@@ -78,7 +82,7 @@
     }
 
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;">
-      <a href="/donor/impact?DonorId=@DonorId" class="panel" style="text-decoration:none;">
+      <a href="/my-impact?DonorId=@DonorId" class="panel" style="text-decoration:none;">
         <div class="panel-body">
           <div style="font-size:1.4rem;margin-bottom:8px;">📊</div>
           <strong style="font-family:var(--ff-head);color:var(--navy);">My Impact</strong>
@@ -150,16 +154,20 @@
 
   private async Task PickAvatar() => await JS.InvokeVoidAsync("lotvUpload.click", _fileInput);
 
+  private string? _avatarError;
+
   private async Task OnAvatarSelected()
   {
     if (DonorId is null) return;
+    _avatarError = null;
     try
     {
       var dataUrl = await JS.InvokeAsync<string?>("lotvUpload.readDataUrl", _fileInput);
       if (string.IsNullOrEmpty(dataUrl)) return;
       if (await Api.UpdateDonorAvatarAsync(DonorId.Value, dataUrl, _donorToken)) _avatarUrl = dataUrl;
+      else _avatarError = "Could not upload photo. Please try again.";
     }
-    catch { }
+    catch { _avatarError = "Could not upload photo. Please try again."; }
   }
 
   private async Task RemoveAvatar()
