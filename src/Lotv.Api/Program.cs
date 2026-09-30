@@ -3255,6 +3255,13 @@ publicApi.MapPatch("/families/{id:int}/profile", async (int id, FamilyProfileUpd
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
+// A live (unexpired) magic-link session for this exact donor. Unlike verify-link, this doesn't
+// check UsedAt — the token stays valid for ongoing calls after the one-time verify that first
+// established the session (refresh-session already extends ExpiresAt on activity the same way).
+static async Task<bool> HasLiveDonorSessionAsync(LotvDbContext db, int donorId, string? token) =>
+    !string.IsNullOrWhiteSpace(token) &&
+    await db.DonorMagicLinks.AnyAsync(l => l.Token == token && l.DonorId == donorId && l.ExpiresAt > DateTime.UtcNow);
+
 // ── Public Recurring Donations (donor self-service) ───────────────────────────
 publicApi.MapGet("/donors/{donorId:int}/recurring", async (int donorId, LotvDbContext db) =>
 {
@@ -3274,9 +3281,11 @@ publicApi.MapGet("/donors/{donorId:int}/recurring", async (int donorId, LotvDbCo
     return Results.Ok(items);
 }).AllowAnonymous();
 
-publicApi.MapPost("/donors/{donorId:int}/recurring", async (int donorId, PublicCreateRecurringRequest body, LotvDbContext db) =>
+publicApi.MapPost("/donors/{donorId:int}/recurring", async (int donorId, PublicCreateRecurringRequest body, LotvDbContext db, HttpContext http) =>
 {
     if (body.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than zero." });
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && !await HasLiveDonorSessionAsync(db, donorId, body.Token)) return Results.Forbid();
     var donor = await db.Donors.FindAsync(donorId);
     if (donor is null) return Results.NotFound(new { error = "Donor not found." });
     var r = new RecurringDonation
@@ -3297,37 +3306,45 @@ publicApi.MapPost("/donors/{donorId:int}/recurring", async (int donorId, PublicC
         new { r.Id });
 }).AllowAnonymous();
 
-publicApi.MapPost("/recurring/{id:int}/pause", async (int id, LotvDbContext db) =>
+publicApi.MapPost("/recurring/{id:int}/pause", async (int id, PublicRecurringAuthRequest body, LotvDbContext db, HttpContext http) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (r.DonorId != body.DonorId || !await HasLiveDonorSessionAsync(db, body.DonorId, body.Token))) return Results.Forbid();
     r.Status = RecurringStatus.Paused;
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
-publicApi.MapPost("/recurring/{id:int}/resume", async (int id, LotvDbContext db) =>
+publicApi.MapPost("/recurring/{id:int}/resume", async (int id, PublicRecurringAuthRequest body, LotvDbContext db, HttpContext http) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (r.DonorId != body.DonorId || !await HasLiveDonorSessionAsync(db, body.DonorId, body.Token))) return Results.Forbid();
     r.Status = RecurringStatus.Active;
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
-publicApi.MapPost("/recurring/{id:int}/cancel", async (int id, LotvDbContext db) =>
+publicApi.MapPost("/recurring/{id:int}/cancel", async (int id, PublicRecurringAuthRequest body, LotvDbContext db, HttpContext http) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (r.DonorId != body.DonorId || !await HasLiveDonorSessionAsync(db, body.DonorId, body.Token))) return Results.Forbid();
     r.Status = RecurringStatus.Cancelled;
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
-publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRequest body, LotvDbContext db) =>
+publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRequest body, LotvDbContext db, HttpContext http) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (r.DonorId != body.DonorId || !await HasLiveDonorSessionAsync(db, body.DonorId, body.Token))) return Results.Forbid();
     if (body.Amount.HasValue && body.Amount.Value > 0) r.Amount    = body.Amount.Value;
     if (body.Frequency.HasValue)                       r.Frequency = body.Frequency.Value;
     await db.SaveChangesAsync();
@@ -3344,9 +3361,11 @@ publicApi.MapGet("/donors/{id:int}/portal-status", async (int id, LotvDbContext 
     return Results.Ok(new { hasActiveRecurring = hasRecurring });
 }).AllowAnonymous();
 
-// Donor avatar update (self-service via magic-link query param)
-publicApi.MapPut("/donors/{donorId:int}/avatar", async (int donorId, AvatarUpdateRequest body, LotvDbContext db) =>
+// Donor avatar update (self-service via magic-link session)
+publicApi.MapPut("/donors/{donorId:int}/avatar", async (int donorId, AvatarUpdateRequest body, LotvDbContext db, HttpContext http) =>
 {
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && !await HasLiveDonorSessionAsync(db, donorId, body.Token)) return Results.Forbid();
     var d = await db.Donors.FindAsync(donorId);
     if (d is null) return Results.NotFound();
     if (body.AvatarUrl is not null && body.AvatarUrl.Length > 1_500_000)
@@ -5497,13 +5516,14 @@ record MarketingEmailRequest(string? CampaignName, string Audience, string Subje
 record PublicEventRsvpRequest(string Name, string Email, int GuestCount = 1);
 record PublicResourceDonationRequest(string DonorName, string? Email, string? Phone,
     string ResourceType, int Quantity, string? Unit, string? Description, string? Preference);
-record PublicCreateRecurringRequest(decimal Amount, RecurringFrequency Frequency, DateTime? StartDate, string? Campaign);
-record PublicUpdateRecurringRequest(decimal? Amount, RecurringFrequency? Frequency);
+record PublicCreateRecurringRequest(decimal Amount, RecurringFrequency Frequency, DateTime? StartDate, string? Campaign, string? Token);
+record PublicUpdateRecurringRequest(decimal? Amount, RecurringFrequency? Frequency, int DonorId, string? Token);
+record PublicRecurringAuthRequest(int DonorId, string? Token);
 record PublicIntakeRequest(string FamilyLastName, int ChapterId, PackageReason Reason,
     string? City, string? State, string? Notes);
 record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,
     string? DonorFirstName, string? DonorLastName, string? StripePaymentIntentId);
-record AvatarUpdateRequest(string? AvatarUrl);
+record AvatarUpdateRequest(string? AvatarUrl, string? Token);
 record BulkAllocateRequest(int[] Ids, string Status);
 record BulkChannelRequest(int[] Ids, string Channel);
 record PushSubscriptionRequest(string Endpoint, string P256dh, string Auth);

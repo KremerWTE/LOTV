@@ -341,12 +341,16 @@ public class ApiService
         catch { return false; }
     }
 
-    public async Task<bool> UpdateDonorAvatarAsync(int donorId, string? avatarUrl)
+    // donorToken: the magic-link session token (sessionStorage["lotv.donorToken"]) for an anonymous donor-portal
+    // caller. Staff callers (Admin/DonorAvatarEdit.razor etc.) omit it — SetAuthHeader() attaches their JWT
+    // instead, and the API accepts either: a signed-in staff caller, or a matching live donor session.
+    public async Task<bool> UpdateDonorAvatarAsync(int donorId, string? avatarUrl, string? donorToken = null)
     {
         try
         {
+            SetAuthHeader();
             var resp = await _http.PutAsJsonAsync($"/api/public/v1/donors/{donorId}/avatar",
-                new { AvatarUrl = avatarUrl });
+                new { AvatarUrl = avatarUrl, Token = donorToken });
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }
@@ -459,12 +463,17 @@ public class ApiService
     public Task<List<RecurringScheduleDto>> GetDonorRecurringAsync(int donorId) =>
         GetListAsync<RecurringScheduleDto>($"/api/public/v1/donors/{donorId}/recurring");
 
-    public async Task<int?> CreateDonorRecurringAsync(int donorId, decimal amount, string frequency, DateTime? startDate, string? campaign)
+    // donorToken: the magic-link session token from sessionStorage["lotv.donorToken"] (the calling page reads
+    // it — ApiService has no IJSRuntime), for an anonymous donor-portal caller. Staff callers (the Admin/
+    // Donor*.razor pages) omit donorId/donorToken — SetAuthHeader() attaches their JWT instead, and the API
+    // accepts either: a signed-in staff caller, or a matching live donor session.
+    public async Task<int?> CreateDonorRecurringAsync(int donorId, decimal amount, string frequency, DateTime? startDate, string? campaign, string? donorToken = null)
     {
         try
         {
+            SetAuthHeader();
             var resp = await _http.PostAsJsonAsync($"/api/public/v1/donors/{donorId}/recurring",
-                new { Amount = amount, Frequency = frequency, StartDate = startDate, Campaign = campaign });
+                new { Amount = amount, Frequency = frequency, StartDate = startDate, Campaign = campaign, Token = donorToken });
             if (!resp.IsSuccessStatusCode) return null;
             using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
             return doc.RootElement.GetProperty("id").GetInt32();
@@ -472,30 +481,31 @@ public class ApiService
         catch { return null; }
     }
 
-    public async Task<bool> PauseDonorRecurringAsync(int id)
+    public async Task<bool> PauseDonorRecurringAsync(int id, int donorId = 0, string? donorToken = null)
     {
-        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/pause", null))?.IsSuccessStatusCode == true; }
+        try { SetAuthHeader(); return (await _http.PostAsJsonAsync($"/api/public/v1/recurring/{id}/pause", new { DonorId = donorId, Token = donorToken })).IsSuccessStatusCode; }
         catch { return false; }
     }
 
-    public async Task<bool> ResumeDonorRecurringAsync(int id)
+    public async Task<bool> ResumeDonorRecurringAsync(int id, int donorId = 0, string? donorToken = null)
     {
-        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/resume", null))?.IsSuccessStatusCode == true; }
+        try { SetAuthHeader(); return (await _http.PostAsJsonAsync($"/api/public/v1/recurring/{id}/resume", new { DonorId = donorId, Token = donorToken })).IsSuccessStatusCode; }
         catch { return false; }
     }
 
-    public async Task<bool> CancelDonorRecurringAsync(int id)
+    public async Task<bool> CancelDonorRecurringAsync(int id, int donorId = 0, string? donorToken = null)
     {
-        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/cancel", null))?.IsSuccessStatusCode == true; }
+        try { SetAuthHeader(); return (await _http.PostAsJsonAsync($"/api/public/v1/recurring/{id}/cancel", new { DonorId = donorId, Token = donorToken })).IsSuccessStatusCode; }
         catch { return false; }
     }
 
-    public async Task<bool> UpdateDonorRecurringAsync(int id, decimal amount, string frequency)
+    public async Task<bool> UpdateDonorRecurringAsync(int id, decimal amount, string frequency, int donorId = 0, string? donorToken = null)
     {
         try
         {
+            SetAuthHeader();
             var resp = await _http.PatchAsJsonAsync($"/api/public/v1/recurring/{id}",
-                new { Amount = amount, Frequency = frequency });
+                new { Amount = amount, Frequency = frequency, DonorId = donorId, Token = donorToken });
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }

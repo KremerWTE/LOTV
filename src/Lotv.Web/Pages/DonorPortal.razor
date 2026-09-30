@@ -137,9 +137,12 @@
   private List<RecurringScheduleDto> _recurring = new();
   private ApiService.DonorPortalStatusDto? _status;
 
+  private string? _donorToken;
+
   private async Task CancelRecurring(int id)
   {
-    if (await Api.CancelDonorRecurringAsync(id))
+    if (DonorId is null) return;
+    if (await Api.CancelDonorRecurringAsync(id, DonorId.Value, _donorToken))
     {
       _recurring = await Api.GetDonorRecurringAsync(DonorId!.Value);
     }
@@ -154,7 +157,7 @@
     {
       var dataUrl = await JS.InvokeAsync<string?>("lotvUpload.readDataUrl", _fileInput);
       if (string.IsNullOrEmpty(dataUrl)) return;
-      if (await Api.UpdateDonorAvatarAsync(DonorId.Value, dataUrl)) _avatarUrl = dataUrl;
+      if (await Api.UpdateDonorAvatarAsync(DonorId.Value, dataUrl, _donorToken)) _avatarUrl = dataUrl;
     }
     catch { }
   }
@@ -162,12 +165,13 @@
   private async Task RemoveAvatar()
   {
     if (DonorId is null) return;
-    if (await Api.UpdateDonorAvatarAsync(DonorId.Value, null)) _avatarUrl = null;
+    if (await Api.UpdateDonorAvatarAsync(DonorId.Value, null, _donorToken)) _avatarUrl = null;
   }
 
   protected override async Task OnInitializedAsync()
   {
     if (DonorId is null or 0) return;
+    try { _donorToken = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorToken"); } catch { }
     _recurring = await Api.GetDonorRecurringAsync(DonorId.Value);
     _status    = await Api.GetDonorPortalStatusAsync(DonorId.Value);
     var impact = await Api.GetPublicDonorImpactAsync(DonorId.Value);
@@ -180,7 +184,7 @@
     try
     {
       // Refresh session if we have a token (sliding-window).
-      var token = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorToken");
+      var token = _donorToken;
       if (!string.IsNullOrEmpty(token))
       {
         var newExp = await Api.RefreshDonorSessionAsync(token);

@@ -189,13 +189,19 @@
 
   private async Task PickAvatar() => await JS.InvokeVoidAsync("lotvUpload.click", _fileInput);
 
+  private async Task<string?> DonorTokenAsync()
+  {
+    try { return await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorToken"); }
+    catch { return null; }
+  }
+
   private async Task OnAvatarSelected()
   {
     try
     {
       var dataUrl = await JS.InvokeAsync<string?>("lotvUpload.readDataUrl", _fileInput);
       if (string.IsNullOrEmpty(dataUrl) || DonorId is not > 0) return;
-      var ok = await Api.UpdateDonorAvatarAsync(DonorId.Value, dataUrl);
+      var ok = await Api.UpdateDonorAvatarAsync(DonorId.Value, dataUrl, await DonorTokenAsync());
       if (ok) _avatarUrl = dataUrl;
       else _error = "Could not upload avatar.";
     }
@@ -205,7 +211,7 @@
   private async Task RemoveAvatar()
   {
     if (DonorId is not > 0) return;
-    await Api.UpdateDonorAvatarAsync(DonorId.Value, null);
+    await Api.UpdateDonorAvatarAsync(DonorId.Value, null, await DonorTokenAsync());
     _avatarUrl = null;
   }
 
