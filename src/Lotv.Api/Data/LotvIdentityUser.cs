@@ -17,5 +17,12 @@ public class LotvIdentityUser : IdentityUser
     public DateTime? LastLoginAt { get; set; }
     public string? AvatarUrl { get; set; }
 
+    /// <summary>
+    /// Set whenever an admin hands this person a temporary password (see POST /api/v1/users/{id}/set-temp-password).
+    /// Checked at login: true forces the client to /change-password before anything else is reachable, so a temp
+    /// password never becomes a standing one. Cleared by a successful POST /api/v1/auth/change-password.
+    /// </summary>
+    public bool MustChangePassword { get; set; }
+
     public string FullName => $"{FirstName} {LastName}";
 }

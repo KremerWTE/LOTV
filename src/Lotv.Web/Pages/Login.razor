@@ -94,8 +94,11 @@
     }
   }
 
-  // Volunteers land on their own work; everyone else (Board too, read-only) on the dashboard.
-  private string PostLoginUrl() => Auth.UserRole == "Volunteer" ? "/admin/my-queue" : "/admin/dashboard";
+  // A temporary password (see admin User Management → Set Temporary Password) forces this before
+  // anything else is reachable, so it never becomes a standing password. Otherwise: volunteers land on
+  // their own work; everyone else (Board too, read-only) on the dashboard.
+  private string PostLoginUrl() => Auth.MustChangePassword ? "/change-password"
+    : Auth.UserRole == "Volunteer" ? "/admin/my-queue" : "/admin/dashboard";
 
   private async Task OnKeyDown(KeyboardEventArgs e)
   {

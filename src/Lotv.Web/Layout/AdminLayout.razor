@@ -23,7 +23,7 @@
       </div>
     </div>
 
-    @if (!_isVolunteer)
+    @if (!_isVolunteer && _isChrisKremer)
     {
     <div class="sidebar-section">
       <div class="sidebar-section-label">Overview</div>
@@ -189,6 +189,13 @@
           </NavLink>
         }
       }
+      @* Everything below this point (Families & Cases through Operations & Content) is restricted to
+         chris.kremer only — every other staff account sees just Prayer Request Package and System Admin,
+         per direct instruction. Login As still works normally: an admin using the portal as someone else
+         sees exactly what that person would see, chris.kremer included, since Auth.Username reflects
+         whoever the active session actually is. *@
+      @if (_isChrisKremer)
+      {
       @if (_canSeeCases)
       {
         <div class="sidebar-sublabel">Families &amp; Cases</div>
@@ -550,6 +557,7 @@
         }
       }
     </div>
+      }
     </div>
     }
 
@@ -790,6 +798,12 @@
   // Director is "near-admin" — everywhere ChapterAdmin appears, Director
   // does too, matching the same grouping on the API's "ChapterAdmin" policy.
   private bool _isAdmin          => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director";
+  // Direct instruction: everyone except chris.kremer sees only Prayer Request Package and System Admin
+  // in the sidebar — every other section (Overview, Families & Cases, Donations, Programs, Retreats,
+  // Reports, Operations & Content) is gated on this alongside its existing role check. Checked by
+  // username (not role/email), since some staff accounts have no email on file and role alone doesn't
+  // single out one specific person.
+  private bool _isChrisKremer    => Auth.Username.Equals("chris.kremer", StringComparison.OrdinalIgnoreCase);
   // Access rule: staff and Board see all items (Board read-only, enforced by the API); volunteers see only the prayer
   // request package, i.e. their own cases in My Work Queue.
   private bool _isVolunteer      => Auth.UserRole == "Volunteer";
@@ -847,6 +861,11 @@
     if (!Auth.IsAuthenticated)
     {
       Nav.NavigateTo("/login", replace: true);
+      return;
+    }
+    if (Auth.MustChangePassword)
+    {
+      Nav.NavigateTo("/change-password", replace: true);
       return;
     }
 

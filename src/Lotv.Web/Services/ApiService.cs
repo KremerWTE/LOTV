@@ -1140,6 +1140,24 @@ public class ApiService
         catch { return (false, "Failed to update email."); }
     }
 
+    /// <summary>Returns the generated password ONCE — the caller shows it to the admin and never persists it anywhere.</summary>
+    public async Task<(bool Ok, string? TempPassword, string? Error)> SetTempPasswordAsync(string id)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/users/{id}/set-temp-password", new { });
+        if (resp is null) return (false, null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode)
+        {
+            var doc = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>(JsonOpts);
+            return (true, doc is not null && doc.TryGetValue("tempPassword", out var pw) ? pw : null, null);
+        }
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>(JsonOpts);
+            return (false, null, body is not null && body.TryGetValue("error", out var msg) ? msg : "Could not set a temporary password.");
+        }
+        catch { return (false, null, "Could not set a temporary password."); }
+    }
+
     // ─── Email previews ──────────────────────────────────────────────────────
     public Task<EmailPreviewsDto?> GetEmailPreviewsAsync() => GetAsync<EmailPreviewsDto>("/api/v1/email-previews");
 

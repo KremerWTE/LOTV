@@ -637,7 +637,7 @@ auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> us
     db.RefreshTokens.Add(refreshToken);
     await db.SaveChangesAsync();
 
-    return Results.Ok(new { accessToken, refreshToken = refreshToken.Token, user.Role, user.ChapterId });
+    return Results.Ok(new { accessToken, refreshToken = refreshToken.Token, user.Role, user.ChapterId, user.MustChangePassword });
 });
 
 // Sign-in is by username, not email (several seeded/staff accounts don't have a
@@ -678,6 +678,24 @@ auth.MapPost("/reset-password", async (ResetPasswordRequest req, UserManager<Lot
 
     return Results.Ok(new { message = "Password updated — you can now sign in." });
 }).AllowAnonymous();
+
+// Self-service change, for anyone signed in — this is what closes the loop after an admin hands someone
+// a temp password (see POST /api/v1/users/{id}/set-temp-password): they sign in with it, the client sees
+// MustChangePassword on the login response and routes here before anything else, and a successful change
+// clears the flag so it's never enforced again until the next temp password.
+auth.MapPost("/change-password", async (ChangePasswordRequest req, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(ctx.UserId);
+    if (user is null) return Results.Unauthorized();
+
+    var result = await userMgr.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
+    if (!result.Succeeded)
+        return Results.BadRequest(new { error = result.Errors.FirstOrDefault()?.Description ?? "Could not change your password." });
+
+    user.MustChangePassword = false;
+    await userMgr.UpdateAsync(user);
+    return Results.Ok(new { message = "Password changed." });
+});
 
 auth.MapPost("/refresh", async (RefreshRequest req, LotvDbContext db,
     UserManager<LotvIdentityUser> userMgr, JwtTokenService tokenSvc) =>
@@ -756,6 +774,35 @@ static async Task CreatePendingAllocationAsync(LotvDbContext db, Donation donati
 
 
 // The signed-in person's own volunteer record(s): same email, else same name.
+// Meets the Identity password policy (12+ chars, upper, lower, digit, symbol) configured above, while
+// staying easy to read aloud or type over the phone — an admin relays this out-of-band (in person, a
+// call), not by email, so it needs to survive being spoken, not just copy-pasted.
+static string GenerateTempPassword()
+{
+    const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";      // no I/O — easy to confuse when read aloud
+    const string lower = "abcdefghijkmnpqrstuvwxyz";
+    const string digits = "23456789";                      // no 0/1
+    const string symbols = "!@#$%";
+    var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+    string Pick(string alphabet, int count)
+    {
+        var bytes = new byte[count];
+        rng.GetBytes(bytes);
+        return new string(bytes.Select(b => alphabet[b % alphabet.Length]).ToArray());
+    }
+    var chars = (Pick(upper, 2) + Pick(lower, 6) + Pick(digits, 3) + Pick(symbols, 1)).ToCharArray();
+    // Fisher-Yates, using the same CSPRNG rather than System.Random — this password is handed to a real
+    // person to sign in with, not test data.
+    for (var i = chars.Length - 1; i > 0; i--)
+    {
+        var buf = new byte[1];
+        rng.GetBytes(buf);
+        var j = buf[0] % (i + 1);
+        (chars[i], chars[j]) = (chars[j], chars[i]);
+    }
+    return new string(chars);
+}
+
 static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr)
 {
     var user = await userMgr.FindByIdAsync(ctx.UserId);
@@ -2415,6 +2462,28 @@ users.MapPut("/{id}/role", async (string id, RoleChangeRequest body, UserManager
     user.Role = body.Role; user.ChapterId = body.ChapterId;
     await userMgr.UpdateAsync(user);
     return Results.Ok();
+}).RequireAuthorization("ChapterAdmin");
+
+// Gives someone who's locked out (or never finished being provisioned) a way back in without anyone
+// ever knowing or setting their real password — same idea as StaffAccountProvisioning's initial-password
+// handoff, generalized to any account. The generated password is returned here ONCE, in this response
+// only: never logged, never stored anywhere but its (irreversible) Identity hash. MustChangePassword
+// forces them through /change-password on their very next login, so this never becomes a standing
+// password the admin (or anyone reading a chat/ticket it got relayed through) still knows afterward.
+users.MapPost("/{id}/set-temp-password", async (string id, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(id);
+    if (user is null) return Results.NotFound(new { error = "User not found." });
+
+    var temp = GenerateTempPassword();
+    var token = await userMgr.GeneratePasswordResetTokenAsync(user);
+    var result = await userMgr.ResetPasswordAsync(user, token, temp);
+    if (!result.Succeeded)
+        return Results.BadRequest(new { error = result.Errors.FirstOrDefault()?.Description ?? "Could not set a temporary password." });
+
+    user.MustChangePassword = true;
+    await userMgr.UpdateAsync(user);
+    return Results.Ok(new { tempPassword = temp });
 }).RequireAuthorization("ChapterAdmin");
 
 users.MapPost("/onboarding/staff", async (StaffOnboardingRequest body,
@@ -5432,6 +5501,7 @@ record LoginRequest(string Username, string Password);
 record RefreshRequest(string RefreshToken);
 record ForgotPasswordRequest(string Username);
 record ResetPasswordRequest(string Username, string Token, string NewPassword);
+record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 record UpdateEmailRequest(string? Email);
 record FlagMailingRequest(bool Flagged, string? Note);
 record ImportMailingRequest(string Csv, int? Year = null, bool DryRun = false, MailingKind Kind = MailingKind.MothersDay);

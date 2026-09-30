@@ -1,7 +1,7 @@
 namespace Lotv.Tests.Integration;
 
 // ── Response DTO mirrors the API's LoginResponse private record ───────────────
-internal record LoginResponseDto(string AccessToken, string RefreshToken, string Role, int? ChapterId);
+internal record LoginResponseDto(string AccessToken, string RefreshToken, string Role, int? ChapterId, bool MustChangePassword = false);
 
 // ── Minimal response shapes for resource endpoints ───────────────────────────
 internal record FamilyResponseDto(int Id);

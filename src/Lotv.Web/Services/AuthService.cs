@@ -35,6 +35,10 @@ public class AuthService
     }
     public string UserEmail => GetClaim(JwtRegisteredClaimNames.Email) ?? "";
     public string UserId    => GetClaim(ClaimTypes.NameIdentifier) ?? "";
+    // The actual sign-in username (e.g. "chris.kremer") — distinct from UserName above, which is a display
+    // name. Some staff accounts have no email on file, so this is the only stable way to identify one
+    // specific person by who they signed in as.
+    public string Username  => GetClaim(ClaimTypes.Name) ?? "";
     public string UserRole  => GetClaim("role") ?? "";
     public int? ChapterId
     {
@@ -77,6 +81,10 @@ public class AuthService
     public event Action? OnChange;
 
     // ── Login ─────────────────────────────────────────────────────────────────
+    // Set by a successful LoginAsync; Login.razor checks this right after to decide whether to route to
+    // /change-password instead of the normal destination. See POST /api/v1/users/{id}/set-temp-password.
+    public bool MustChangePassword { get; private set; }
+
     public async Task<bool> LoginAsync(string username, string password)
     {
         try
@@ -91,6 +99,7 @@ public class AuthService
 
             _authState.SetToken(result.AccessToken);
             _refreshToken = result.RefreshToken;
+            MustChangePassword = result.MustChangePassword;
 
             // Persist refresh token in sessionStorage (cleared when tab closes)
             await _js.InvokeVoidAsync("sessionStorage.setItem", "lotv_rt", result.RefreshToken);
@@ -102,6 +111,23 @@ public class AuthService
         {
             return false;
         }
+    }
+
+    public async Task<(bool Ok, string? Error)> ChangePasswordAsync(string currentPassword, string newPassword)
+    {
+        var token = _authState.GetAccessToken();
+        if (string.IsNullOrEmpty(token)) return (false, "Please sign in first.");
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/change-password")
+            { Content = JsonContent.Create(new { CurrentPassword = currentPassword, NewPassword = newPassword }) };
+            req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var resp = await _http.SendAsync(req);
+            if (resp.IsSuccessStatusCode) { MustChangePassword = false; return (true, null); }
+            var err = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, err is not null && err.TryGetValue("error", out var m) ? m : "Could not change your password.");
+        }
+        catch { return (false, "Network error — please try again."); }
     }
 
     // ── Login As ─────────────────────────────────────────────────
@@ -272,5 +298,5 @@ public class AuthService
         catch { return null; }
     }
 
-    private record LoginResponse(string AccessToken, string RefreshToken, string Role, int? ChapterId);
+    private record LoginResponse(string AccessToken, string RefreshToken, string Role, int? ChapterId, bool MustChangePassword);
 }
