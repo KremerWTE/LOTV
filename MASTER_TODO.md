@@ -104,12 +104,17 @@ Pulled from `origin/kremer-dev` into `pateep_dev_branch`:
 - [x] A volunteer with no record yet now defaults to landing on the Prayer Dashboard (most plain volunteers are prayer-only; an employee is the realistic case for having both)
 - 773 tests pass at session end.
 
+### Done — same-day follow-up round
+- [x] **Closed the sibling anonymous-no-ownership-check gap** — `PATCH /recurring/{id}`, `POST .../pause|resume|cancel`, `PUT /donors/{id}/avatar` now check the donor's real magic-link session (`DonorMagicLink` token+expiry, already stored client-side); staff callers bypass via their Bearer token. 6 new tests (`DonorSelfServiceSecurityTests`)
+- [x] **Fixed `VolunteerPending.razor`'s nav links** — pointed at the anonymous magic-link portal (needing a session a staff volunteer never has) instead of the staff `/admin/*` equivalents; now fixed, with a comment explaining why this page's own staff-JWT calls are correct despite the shared `/volunteer/*` prefix
+- [x] **Localized the static `/apply` intake form's own chrome** — loading/error states, bracelet builder, validation messages now translate (reads the same `lotv.culture` key the Blazor site sets); the staff-authored question text itself stays English on purpose (content-authoring problem, not a code fix — documented in a comment). Caught and fixed a real bug in the process: untranslated bracelet bead/status `<select>` values would have broken submission validation once translated
+- [x] Drafted a question for ministry staff about the "WW-In Kind" workflow, and clarifying questions for the client about "Group training" scope (see NEXT_STEPS.md) instead of guessing
+- 779/779 tests pass.
+
 ### Open
 - [ ] **PR kremer-dev → stage → main** — nothing from 2026-09-28 through 2026-09-30 is deployed yet; production is still on `770127c`'s predecessor at best
-- [ ] Decide on the sibling anonymous-no-ownership-check endpoints (`/recurring/{id}` PATCH, pause/resume/cancel, donor avatar PUT) — same pattern as the family-profile fix, money-adjacent, needs a go/no-go
-- [ ] `VolunteerPending.razor` mixes the staff-JWT and magic-link identity systems under one `/volunteer/*` URL prefix — needs a real fix or a documented decision
-- [ ] Static `/apply` intake form (`prayer-care-intake.html`) still has zero localization
-- [ ] "WW-In Kind" informal-request workflow has no app equivalent — needs a ministry-staff decision
+- [ ] "WW-In Kind" informal-request workflow — question drafted, awaiting ministry-staff answer
+- [ ] "Group training" — clarifying questions drafted, awaiting client answer
 
 ---
 

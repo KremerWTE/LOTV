@@ -47,13 +47,34 @@
 - **Not touched:** `VolunteerPending.razor` still lives under the `/volunteer/*` URL prefix but actually requires the staff login, not the magic-link session — a pre-existing mismatch between the two identity systems, out of the approved scope.
 - New tests: `VolunteerRoleAndSelfServiceTests` (9 — role gate both ways, assignments/available scoping, claim conflict, status ownership + invalid-transition rejection, default-role creation). 773/773 tests pass.
 
+## Follow-up round: the four remaining open items, same day
+
+User picked "let's work on these" for the security decision, the VolunteerPending fix, and the intake-form localization; the two ministry-decision items (WW-In Kind, Group training) got turned into questions to send rather than built blind.
+
+### Closed the sibling anonymous-endpoint security gap
+- Same pattern as the family-profile PATCH: `PATCH /api/public/v1/recurring/{id}`, `POST .../pause|resume|cancel`, and `PUT /donors/{id}/avatar` were all `AllowAnonymous` with no ownership check — anyone who knew or guessed a recurring-donation or donor id could change its amount/frequency, pause/resume/cancel it, or replace someone else's avatar.
+- Unlike families, donors already have a real magic-link session (`DonorMagicLink`: token + expiry, already stored client-side in `sessionStorage["lotv.donorToken"]`) — so this is a real live-session check server-side, not a ConfirmEmail workaround. A signed-in staff caller (the Admin `DonorAvatarEdit.razor`/`DonorRecurringCreate.razor`/`RecurringEdit.razor` pages reuse these same endpoints) sends its Bearer token via `ApiService.SetAuthHeader()` and skips the check.
+- `DonorRecurring.razor`, `DonorPortal.razor`, and `MyProfile.razor` now read the token from `sessionStorage` and pass it on every mutating call instead of just the donor's bare id.
+- 6 new tests (`DonorSelfServiceSecurityTests`). 779/779 tests pass.
+
+### Fixed VolunteerPending.razor's nav links
+- It's reached only from a real assignment-notification email sent to a `UserRole.Volunteer` staff login — its own API calls are staff-JWT only, and its own "not found" message already said so. But its nav links pointed at the anonymous magic-link portal pages (`/volunteer/dashboard`, `/volunteer/my-assignments`, `/volunteer/available`), which need a `VolunteerId` from a session a staff volunteer never has — a mismatch that got worse once those pages were wired up to actually require that session earlier this session.
+- Fixed: nav links now point at `/admin/my-queue` and `/admin/queue` (the staff equivalents), with a comment documenting why the page's own staff-JWT calls are correct despite the shared `/volunteer/*` URL prefix.
+
+### Localized the static intake form's own chrome
+- Translated the handful of strings `prayer-care-intake.html` hardcodes itself (loading/unavailable states, the bracelet builder's column headers/options, every validation message) — reads the same `lotv.culture` localStorage key the Blazor site's language switcher sets.
+- The form's actual questions (title, field labels, options, confirmation text) come from a staff-authored JSON definition fetched from the API — translating that is a content-authoring problem, not a code fix, and stays explicitly documented as out of scope.
+- Caught a real bug while doing this: the bracelet bead/status `<select>` options had no explicit `.value`, defaulting to the option's own text — translating the display text would have silently changed what got submitted (validation compares against the literal string `"Heart"`) and broken bracelet validation for Spanish submissions. Fixed by giving those options a fixed English `.value` distinct from their translated display text.
+- Both copies (`src/Lotv.Web/Forms/` and `docs/duda-embed/`) kept byte-identical, JS syntax verified via Node. No .NET code touched.
+
+### Turned into questions instead of built blind
+- **WW-In Kind workflow** — drafted a question for the user to send to Whitney/ministry staff (see below).
+- **Group training** — drafted clarifying questions for the client (see below).
+
 ## Open Items
 
-- [ ] PR kremer-dev → stage → main — none of this session's work (nor the 2026-09-28/29 work before it) is deployed to production yet.
-- [ ] Decide on the sibling `AllowAnonymous`-with-no-ownership-check endpoints (`/recurring/{id}` PATCH, pause/resume/cancel, donor avatar PUT) — same pattern as the family-profile fix, money-adjacent, needs a go/no-go before changing.
-- [ ] `VolunteerPending.razor` mixes the staff-JWT and magic-link identity systems under the same `/volunteer/*` URL prefix — worth a real fix or a documented decision.
-- [ ] Static `/apply` intake form (`prayer-care-intake.html`) still has zero localization.
-- [ ] The "WW-In Kind" informal-request workflow (Whitney's Excel sheet) has no clean equivalent in the app — needs a decision, not code, from ministry staff.
+- [ ] PR kremer-dev → stage → main — none of this session's work is deployed to production yet.
+- [ ] WW-In Kind and Group training — awaiting answers from ministry staff/client.
 
 ---
 

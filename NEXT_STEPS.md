@@ -4,23 +4,30 @@
 
 ---
 
-## 🎯 Current Focus: get everything since `770127c` deployed, then decide on the money-adjacent security follow-up
+## 🎯 Current Focus: get everything since `770127c` deployed; two questions waiting on ministry/client answers
 
-**Status:** Code complete and pushed to `kremer-dev` through `38bf752`. 773 unit/integration tests pass, 0 build warnings. Nothing from 2026-09-28 onward (Build Day planner, two volunteer roles, prayer-only requests, the UX audit fixes, full-site localization/currency, the family-profile IDOR fix, volunteer role-scoped dashboards) has reached production yet.
+**Status:** Code complete and pushed to `kremer-dev` through `636cc4f`. 779 unit/integration tests pass, 0 build warnings. Nothing from 2026-09-28 onward has reached production yet.
 
 **Next Tasks (Priority Order):**
 1. **PR kremer-dev → stage → main** — the single biggest blocker; production is several sessions behind
-2. **Decide on the sibling anonymous-no-ownership-check endpoints** (`/recurring/{id}` PATCH, pause/resume/cancel, donor avatar PUT) — same pattern just closed on the family-profile endpoint, but these are money-adjacent; needs a go/no-go before touching auth on them
-3. **`VolunteerPending.razor`** mixes the staff-JWT and magic-link identity systems under one `/volunteer/*` URL prefix — decide whether to fix or document as-is
-4. **"WW-In Kind" informal-request workflow** (from the ministry's Excel workbook) has no equivalent in the app — needs a decision from ministry staff, not code
-5. Static `/apply` intake form (`prayer-care-intake.html`) still has zero localization — separate, larger job (plain JS off an API-served schema)
-6. Group training — requirement still undefined (sessions? co-assigned volunteers? certifications?)
+2. **Send these two questions** (drafted this session, need your answers before any related build):
+
+   **WW-In Kind workflow** — for Whitney/ministry staff:
+   > The Excel workbook has a "WW-In Kind" sheet tracking requests you process directly and hand-deliver (bracelet + items), separate from the normal online request form. A few questions so we know whether this needs its own place in the app: (1) How does a WW-In Kind request usually reach you — phone, in person, email? (2) Does it skip the normal intake form on purpose, or is that just how it's happened so far? (3) Does it need to show up anywhere in the staff dashboard (so other staff can see it), or is it fine staying off-system? (4) Roughly how often does this happen — a few times a year, monthly, weekly?
+
+   **Group training** — for the client:
+   > "Group training" has been on the list without a definition for a while. To scope it: (1) Training *of* whom — new volunteers, staff, chapter leads? (2) What kind — a live session/webinar, a certification volunteers complete, or something else? (3) Does it need to be scheduled/tracked in the app (e.g., "completed onboarding training: yes/no" on a volunteer's record), or is it handled entirely outside the app and this is just a note-taking need? (4) Is there an existing process today (even an informal one) we should match, or is this net-new?
+
+3. Static `/apply` intake form's actual question text (title, field labels, options) is still staff-authored-English-only — the form's own chrome now translates, but making the questions themselves editable in Spanish would need a real content feature (a way for staff to author and maintain a Spanish version)
+4. Domain/DNS/SSL, uptime monitoring, automated DB backups — all still require actual cloud/infra setup no AI session has access to
 
 **Completed This Session (2026-09-30):**
 - ✅ Full page translation (Give/Volunteer/Events/Transparency) + real currency conversion on Transparency
 - ✅ Whitney sign-in review, mapped against the ministry's Excel workbook — app already replaces nearly all of it
-- ✅ Security: closed an anonymous IDOR on the family-profile self-service endpoint; fixed `/my-profile`'s blank-form/false-success bugs
-- ✅ Volunteer dashboards scoped by actual VolunteerRole (Prayer Dashboard vs. My Work Queue), server-side role check added, magic-link portal pages wired up, new-volunteer default fixed to Prayer Dashboard
+- ✅ Security: closed anonymous IDORs on both the family-profile AND donor-recurring/avatar self-service endpoints
+- ✅ Volunteer dashboards scoped by actual VolunteerRole (Prayer Dashboard vs. My Work Queue), server-side role check, magic-link portal wired up, new-volunteer default fixed
+- ✅ Fixed VolunteerPending.razor's nav links (pointed at the wrong identity system)
+- ✅ Localized the static intake form's own chrome (loading/error/bracelet/validation)
 
 ---
 
@@ -28,7 +35,7 @@
 
 - Full TODO: `MASTER_TODO.md` | Last session: `sessions/2026-09-30-localization-security-and-volunteer-role-scoping.md`
 - Directives: `.claude/CRITICAL_RULES_CONSOLIDATED.md`, `.claude/SESSION_STARTUP_DIRECTIVE.md`
-- PM plan / risks: `docs/LOTV-PM-Plan.md` (R-32 to R-37)
+- PM plan / risks: `docs/LOTV-PM-Plan.md` (R-32 to R-39)
 
 ---
 
