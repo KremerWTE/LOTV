@@ -205,6 +205,18 @@ Get the QA sample data into production so the team can QA the site. The Load but
 - **Verified in a browser** as a chapter staff account: built a recipe (blanket, grief book, memory box), planned for 2 boxes — everything covered; planned for 40 — correctly flagged "short on 1 item(s)," short 30 grief books, the other two items still covered.
 - 3 new tests (`BuildDayPlannerTests`); whole-solution build 0 warnings/0 errors; 760 tests pass.
 
+## Live-site UX audit, and fixes for what it found (2026-09-29)
+
+- **Ran a first-time-user audit against the real production site** (lotv.wte.net) with Playwright: Home, the request form, Donate, Volunteer, Events, Our Impact.
+- **Initial finding retracted after retesting:** I first saw the Donate page's Givebutter widget fail to load and reported it as completely broken. Retesting it twice more (and once against a local build) showed it loading correctly every time — the widget script and iframe both worked. I'm treating my first read as a slow-load fluke, not a real bug, and didn't change any Donate code. If it happens again for a real visitor, that's worth a fresh look.
+- **Four real, reproducible issues found and fixed:**
+  1. The new "What would help most right now?" package/prayer choice read **"A comfort package mailed to us"** — backwards; the ministry isn't mailing itself anything. Now reads "mailed to **you**."
+  2. Choosing "Prayer only — no package needed" still required filling in the **Children for Bracelet** section — a bracelet that goes inside a package the person just said they don't want. Added a `showWhen` rule (the form's existing conditional-field system, no new code needed) so the whole bracelet block is skipped and hidden when Prayer Only is chosen.
+  3. Clicking **Submit** on the request form with missing fields showed the error message only at the very top of the page, with no scroll — someone who submits from the bottom of a long form sees nothing happen and has every reason to think it's broken. The error banner now scrolls into view when validation fails.
+  4. On the **Volunteer** page, the six illustrated role cards at the top did nothing when clicked — the "Area of Interest" dropdown further down stayed on its default regardless. The cards are now real buttons: clicking one selects that role, shows a "✓ Selected" state, and sets the same dropdown.
+- **Also checked, not a bug:** the public Our Impact page shows "$0 Total Donated." The aggregation code itself is correct (`SUM(Donations.Amount)`); a $0 total means the Donations table has no rows yet, not a broken query. Worth a real test donation to confirm the Givebutter-to-database sync fires, but that's for ministry staff to do, not me.
+- All four fixes verified live against a local build (Playwright, both desktop and mobile-width), not just read from source. Full-solution build: 0 warnings, 0 errors. 760 tests pass (no existing test asserted the old text/behavior).
+
 ## Open Items
 
 - [ ] PR kremer-dev → stage → main; then check the API log for "Added missing column" lines and click Load on production.

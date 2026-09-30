@@ -7,10 +7,10 @@
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry — Volunteer Portal</div>
   <div style="display:flex;gap:16px;">
-    <a href="/volunteer/dashboard" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">Dashboard</a>
-    <a href="/volunteer/available" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">Available Requests</a>
-    <a href="/volunteer/my-assignments" style="color:white;font-size:.84rem;text-decoration:none;font-weight:600;">My Assignments</a>
-    <a href="/volunteer/history" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">History</a>
+    <a href="@($"/volunteer/portal?VolunteerId={VolunteerId}")" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">Dashboard</a>
+    <a href="@($"/volunteer/available?VolunteerId={VolunteerId}")" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">Available Requests</a>
+    <a href="@($"/volunteer/my-assignments?VolunteerId={VolunteerId}")" style="color:white;font-size:.84rem;text-decoration:none;font-weight:600;">My Assignments</a>
+    <a href="@($"/volunteer/history?VolunteerId={VolunteerId}")" style="color:white;font-size:.84rem;text-decoration:none;opacity:.8;">History</a>
   </div>
 </div>
 
@@ -18,12 +18,19 @@
 
   <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 20px;">My Assignments</h2>
 
-  @if (_loading)
+  @if (VolunteerId is null or 0)
+  {
+    <div class="panel"><div class="panel-body" style="padding:24px;">Please sign in from your <a href="/volunteer/login" style="color:var(--navy);">volunteer portal link</a> to see your assignments.</div></div>
+  }
+  else if (_loading)
   {
     <Loading Message="Loading your assignments…" />
   }
   else
   {
+    @if (!string.IsNullOrEmpty(_error))
+    { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:16px;">⚠ @_error</div> }
+
     <!-- FILTER CHIPS -->
     <div class="filter-bar" style="margin-bottom:16px;">
       @foreach (var f in new[]{"Active","Overdue","All","Fulfilled"})
@@ -44,7 +51,7 @@
           <div style="padding:14px 18px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
             <div>
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                <span style="font-weight:700;color:var(--navy);">@req.Category Assistance — Family #@req.FamilyId</span>
+                <span style="font-weight:700;color:var(--navy);">@req.Category Assistance — @(req.FamilyName ?? "A family")</span>
                 <span class="badge @GetBadge(req.Status)" style="font-size:.66rem;">@req.Status</span>
                 @if (req.IsOverdue)
                 { <span class="badge badge-overdue" style="font-size:.66rem;">OVERDUE</span> }
@@ -54,15 +61,18 @@
                 @if (req.DueDate.HasValue)
                 { <span> · Due @req.DueDate.Value.ToString("MMM d, yyyy")</span> }
               </div>
+              @if (!string.IsNullOrWhiteSpace(req.Street))
+              { <div style="font-size:.8rem;color:var(--text-mid);margin-top:4px;">@req.Street, @req.City, @req.State @req.Zip</div> }
+              @if (!string.IsNullOrWhiteSpace(req.ChildrenInitials))
+              { <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">Bracelet: @req.ChildrenInitials</div> }
             </div>
-            <a href="/volunteer/request/@req.Id" class="btn btn-sm">Manage</a>
           </div>
 
           <!-- QUICK STATUS UPDATE -->
-          @if (req.Status is CaseStatus.InProgress or CaseStatus.AwaitingShipment)
+          @if (req.Status is "InProgress" or "AwaitingShipment")
           {
             <div style="padding:12px 18px 14px;display:flex;gap:8px;flex-wrap:wrap;">
-              @if (req.Status == CaseStatus.InProgress)
+              @if (req.Status == "InProgress")
               {
                 <button class="btn btn-sm btn-primary" @onclick="() => MarkAsync(req, CaseStatus.AwaitingShipment)">📦 Ready to Ship</button>
               }
@@ -76,37 +86,44 @@
 </div>
 
 @code {
-  private List<PackageRequest> _all = [];
+  [Parameter, SupplyParameterFromQuery] public int? VolunteerId { get; set; }
+
+  private List<ApiService.VolunteerAssignmentDto> _all = [];
   private bool _loading = true;
   private string _filter = "Active";
+  private string _error = "";
 
-  private IEnumerable<PackageRequest> Filtered => _filter switch
+  private IEnumerable<ApiService.VolunteerAssignmentDto> Filtered => _filter switch
   {
-    "Active"    => _all.Where(r => r.Status is CaseStatus.InProgress or CaseStatus.AwaitingShipment or CaseStatus.Shipped).OrderBy(r => r.DueDate),
+    "Active"    => _all.Where(r => r.Status is "InProgress" or "AwaitingShipment" or "Shipped").OrderBy(r => r.DueDate),
     "Overdue"   => _all.Where(r => r.IsOverdue).OrderBy(r => r.CreatedAt),
-    "Fulfilled" => _all.Where(r => r.Status == CaseStatus.Fulfilled).OrderByDescending(r => r.UpdatedAt),
+    "Fulfilled" => _all.Where(r => r.Status == "Fulfilled").OrderByDescending(r => r.UpdatedAt),
     _           => _all.OrderByDescending(r => r.UpdatedAt)
   };
 
   protected override async Task OnInitializedAsync()
   {
+    if (VolunteerId is not > 0) { _loading = false; return; }
     _loading = true;
-    _all = await Api.GetRequestsAsync();
+    _all = await Api.GetVolunteerAssignmentsAsync(VolunteerId.Value);
     _loading = false;
   }
 
-  private async Task MarkAsync(PackageRequest req, CaseStatus newStatus)
+  private async Task MarkAsync(ApiService.VolunteerAssignmentDto req, CaseStatus newStatus)
   {
-    await Api.UpdateRequestStatusAsync(req.Id, newStatus);
-    req.Status = newStatus;
+    if (VolunteerId is not > 0) return;
+    var (ok, error) = await Api.UpdateVolunteerAssignmentStatusAsync(VolunteerId.Value, req.Id, newStatus);
+    if (!ok) { _error = error ?? "That could not be done."; return; }
+    _error = "";
+    _all = await Api.GetVolunteerAssignmentsAsync(VolunteerId.Value);
   }
 
-  private static string GetBadge(CaseStatus s) => s switch
+  private static string GetBadge(string s) => s switch
   {
-    CaseStatus.InProgress       => "badge-shipped",
-    CaseStatus.AwaitingShipment => "badge-onhold",
-    CaseStatus.Shipped          => "badge-onhold",
-    CaseStatus.Fulfilled        => "badge-delivered",
-    _                           => "badge-new"
+    "InProgress"       => "badge-shipped",
+    "AwaitingShipment" => "badge-onhold",
+    "Shipped"          => "badge-onhold",
+    "Fulfilled"        => "badge-delivered",
+    _                  => "badge-new"
   };
 }

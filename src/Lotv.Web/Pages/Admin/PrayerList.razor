@@ -1,15 +1,16 @@
 @page "/admin/prayer-list"
+@page "/admin/prayer-dashboard"
 @layout AdminLayout
 @inject ApiService Api
 @inject AuthService Auth
 @using Lotv.Core.Models
 @using static Lotv.Web.Services.ApiService
 
-<PageTitle>Prayer List — LOTV Staff Portal</PageTitle>
+<PageTitle>Prayer Dashboard — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
   <div>
-    <h2>Prayer List</h2>
+    <h2>Prayer Dashboard</h2>
     <p>The families you're praying for, and any others you'd like to add yourself to.</p>
   </div>
   <div class="page-hd-actions">
@@ -23,7 +24,13 @@
 }
 else if (_myVolunteer is null)
 {
-  <div class="panel"><div class="panel-body" style="padding:24px;">You aren't set up as a volunteer yet — visit My Work Queue to create your volunteer record.</div></div>
+  <div class="panel"><div class="panel-body" style="padding:24px;">
+    <p style="margin:0 0 12px;">You aren't set up as a volunteer yet.</p>
+    <button class="btn btn-primary btn-sm" @onclick="CreateAsPrayerAmbassadorAsync" disabled="@_creating">
+      @(_creating ? "Creating…" : "Create my volunteer record as a Prayer Ambassador")
+    </button>
+    <p style="font-size:.78rem;color:var(--text-light);margin:10px 0 0;">Here to assemble packages instead? Visit <a href="/admin/my-queue" style="color:var(--navy);">My Work Queue</a> to set up your record that way.</p>
+  </div></div>
 }
 else if (!_myVolunteer.HasRole(VolunteerRole.PrayerAmbassador))
 {
@@ -33,6 +40,20 @@ else
 {
   @if (!string.IsNullOrEmpty(_error))
   { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;margin-bottom:16px;">⚠ @_error</div> }
+
+  <!-- STATS -->
+  <div class="kpi-grid" style="margin-bottom:24px;">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">🙏</div>
+      <div class="kpi-label">Praying For</div>
+      <div class="kpi-value" style="color:var(--green)">@_families.Count</div>
+    </div>
+    <div class="kpi-card kpi-navy">
+      <div class="kpi-icon">💗</div>
+      <div class="kpi-label">Families You Could Join</div>
+      <div class="kpi-value" style="color:var(--navy)">@_candidates.Count(c => !c.AlreadyPraying)</div>
+    </div>
+  </div>
 
   <!-- WHO I'M PRAYING FOR -->
   @if (_families.Count == 0)
@@ -104,6 +125,15 @@ else
   private List<PackageRequest> _families = [];
   private List<PrayerCandidateDto> _candidates = [];
   private string _error = "";
+  private bool _creating;
+
+  private async Task CreateAsPrayerAmbassadorAsync()
+  {
+    _creating = true;
+    _myVolunteer = await Api.CreateMyVolunteerAsync(VolunteerRole.PrayerAmbassador);
+    _creating = false;
+    if (_myVolunteer is not null) await LoadAsync();
+  }
 
   protected override async Task OnInitializedAsync() => await LoadAsync();
 

@@ -132,7 +132,7 @@ else
     <div class="panel">
       <div class="panel-header">Quick Actions</div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
-        <a href="/health" target="_blank" class="btn btn-sm">🔗 Open API /health endpoint</a>
+        <a href="@($"{Api.BaseUrl}/health")" target="_blank" class="btn btn-sm">🔗 Open API /health endpoint</a>
         <a href="/admin/audit" class="btn btn-sm">🔍 View Audit Log</a>
         <a href="/admin/export" class="btn btn-sm">⇩ Export Data Backup</a>
         <button class="btn btn-sm" @onclick="CheckAsync">↻ Re-run Health Checks</button>

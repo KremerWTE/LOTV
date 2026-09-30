@@ -341,12 +341,16 @@ public class ApiService
         catch { return false; }
     }
 
-    public async Task<bool> UpdateDonorAvatarAsync(int donorId, string? avatarUrl)
+    // donorToken: the magic-link session token (sessionStorage["lotv.donorToken"]) for an anonymous donor-portal
+    // caller. Staff callers (Admin/DonorAvatarEdit.razor etc.) omit it — SetAuthHeader() attaches their JWT
+    // instead, and the API accepts either: a signed-in staff caller, or a matching live donor session.
+    public async Task<bool> UpdateDonorAvatarAsync(int donorId, string? avatarUrl, string? donorToken = null)
     {
         try
         {
+            SetAuthHeader();
             var resp = await _http.PutAsJsonAsync($"/api/public/v1/donors/{donorId}/avatar",
-                new { AvatarUrl = avatarUrl });
+                new { AvatarUrl = avatarUrl, Token = donorToken });
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }
@@ -459,12 +463,17 @@ public class ApiService
     public Task<List<RecurringScheduleDto>> GetDonorRecurringAsync(int donorId) =>
         GetListAsync<RecurringScheduleDto>($"/api/public/v1/donors/{donorId}/recurring");
 
-    public async Task<int?> CreateDonorRecurringAsync(int donorId, decimal amount, string frequency, DateTime? startDate, string? campaign)
+    // donorToken: the magic-link session token from sessionStorage["lotv.donorToken"] (the calling page reads
+    // it — ApiService has no IJSRuntime), for an anonymous donor-portal caller. Staff callers (the Admin/
+    // Donor*.razor pages) omit donorId/donorToken — SetAuthHeader() attaches their JWT instead, and the API
+    // accepts either: a signed-in staff caller, or a matching live donor session.
+    public async Task<int?> CreateDonorRecurringAsync(int donorId, decimal amount, string frequency, DateTime? startDate, string? campaign, string? donorToken = null)
     {
         try
         {
+            SetAuthHeader();
             var resp = await _http.PostAsJsonAsync($"/api/public/v1/donors/{donorId}/recurring",
-                new { Amount = amount, Frequency = frequency, StartDate = startDate, Campaign = campaign });
+                new { Amount = amount, Frequency = frequency, StartDate = startDate, Campaign = campaign, Token = donorToken });
             if (!resp.IsSuccessStatusCode) return null;
             using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
             return doc.RootElement.GetProperty("id").GetInt32();
@@ -472,47 +481,53 @@ public class ApiService
         catch { return null; }
     }
 
-    public async Task<bool> PauseDonorRecurringAsync(int id)
+    public async Task<bool> PauseDonorRecurringAsync(int id, int donorId = 0, string? donorToken = null)
     {
-        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/pause", null))?.IsSuccessStatusCode == true; }
+        try { SetAuthHeader(); return (await _http.PostAsJsonAsync($"/api/public/v1/recurring/{id}/pause", new { DonorId = donorId, Token = donorToken })).IsSuccessStatusCode; }
         catch { return false; }
     }
 
-    public async Task<bool> ResumeDonorRecurringAsync(int id)
+    public async Task<bool> ResumeDonorRecurringAsync(int id, int donorId = 0, string? donorToken = null)
     {
-        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/resume", null))?.IsSuccessStatusCode == true; }
+        try { SetAuthHeader(); return (await _http.PostAsJsonAsync($"/api/public/v1/recurring/{id}/resume", new { DonorId = donorId, Token = donorToken })).IsSuccessStatusCode; }
         catch { return false; }
     }
 
-    public async Task<bool> CancelDonorRecurringAsync(int id)
+    public async Task<bool> CancelDonorRecurringAsync(int id, int donorId = 0, string? donorToken = null)
     {
-        try { return (await _http.PostAsync($"/api/public/v1/recurring/{id}/cancel", null))?.IsSuccessStatusCode == true; }
+        try { SetAuthHeader(); return (await _http.PostAsJsonAsync($"/api/public/v1/recurring/{id}/cancel", new { DonorId = donorId, Token = donorToken })).IsSuccessStatusCode; }
         catch { return false; }
     }
 
-    public async Task<bool> UpdateDonorRecurringAsync(int id, decimal amount, string frequency)
+    public async Task<bool> UpdateDonorRecurringAsync(int id, decimal amount, string frequency, int donorId = 0, string? donorToken = null)
     {
         try
         {
+            SetAuthHeader();
             var resp = await _http.PatchAsJsonAsync($"/api/public/v1/recurring/{id}",
-                new { Amount = amount, Frequency = frequency });
+                new { Amount = amount, Frequency = frequency, DonorId = donorId, Token = donorToken });
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }
     }
 
-    public async Task<bool> UpdateFamilyProfileAsync(int familyId,
+    public async Task<(bool Ok, string? Error)> UpdateFamilyProfileAsync(int familyId,
         string firstName, string lastName, string email, string phone,
-        string street, string city, string state, string zip)
+        string street, string city, string state, string zip, string? confirmEmail = null)
     {
         try
         {
+            // Staff (already authenticated) skip the ConfirmEmail check server-side — sending the
+            // token here is what lets the endpoint tell a staff edit apart from an anonymous one.
+            SetAuthHeader();
             var resp = await _http.PatchAsJsonAsync($"/api/public/v1/families/{familyId}/profile",
                 new { FirstName = firstName, LastName = lastName, Email = email, Phone = phone,
-                      Street = street, City = city, State = state, Zip = zip });
-            return resp.IsSuccessStatusCode;
+                      Street = street, City = city, State = state, Zip = zip, ConfirmEmail = confirmEmail });
+            if (resp.IsSuccessStatusCode) return (true, null);
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "Unable to save profile. Please try again.");
         }
-        catch { return false; }
+        catch { return (false, "Network error — please try again."); }
     }
 
     public async Task<string?> UpdateAvatarAsync(string? avatarUrl)
@@ -573,6 +588,48 @@ public class ApiService
     {
         try { return await _http.GetFromJsonAsync<VolunteerSummaryDto>($"/api/public/v1/volunteers/{volunteerId}/summary", JsonOpts); }
         catch { return null; }
+    }
+
+    public record VolunteerAssignmentDto(int Id, string? FamilyName, string Category, string Reason, string Status,
+        bool IsOverdue, DateTime CreatedAt, DateTime? DueDate, DateTime UpdatedAt,
+        string? Street, string? City, string? State, string? Zip, string? ChildrenInitials);
+
+    public async Task<List<VolunteerAssignmentDto>> GetVolunteerAssignmentsAsync(int volunteerId)
+    {
+        try { return await _http.GetFromJsonAsync<List<VolunteerAssignmentDto>>($"/api/public/v1/volunteers/{volunteerId}/assignments", JsonOpts) ?? []; }
+        catch { return []; }
+    }
+
+    public record VolunteerAvailableDto(int Id, string Category, string Reason, DateTime CreatedAt, string? City, string? State);
+
+    public async Task<List<VolunteerAvailableDto>> GetVolunteerAvailableAsync(int volunteerId)
+    {
+        try { return await _http.GetFromJsonAsync<List<VolunteerAvailableDto>>($"/api/public/v1/volunteers/{volunteerId}/available", JsonOpts) ?? []; }
+        catch { return []; }
+    }
+
+    public async Task<(bool Ok, string? Error)> ClaimVolunteerAssignmentAsync(int volunteerId, int requestId)
+    {
+        try
+        {
+            var resp = await _http.PostAsync($"/api/public/v1/volunteers/{volunteerId}/assignments/{requestId}/claim", null);
+            if (resp.IsSuccessStatusCode) return (true, null);
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "That could not be done.");
+        }
+        catch { return (false, "Network error — please try again."); }
+    }
+
+    public async Task<(bool Ok, string? Error)> UpdateVolunteerAssignmentStatusAsync(int volunteerId, int requestId, CaseStatus status)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/api/public/v1/volunteers/{volunteerId}/assignments/{requestId}/status", new { Status = status });
+            if (resp.IsSuccessStatusCode) return (true, null);
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "That could not be done.");
+        }
+        catch { return (false, "Network error — please try again."); }
     }
     public record VolunteerSummaryDto(string FirstName, string Level, string Role, int TotalCasesFulfilled, DateTime JoinedDate);
 
@@ -1081,6 +1138,24 @@ public class ApiService
             return (false, body is not null && body.TryGetValue("error", out var msg) ? msg : "Failed to update email.");
         }
         catch { return (false, "Failed to update email."); }
+    }
+
+    /// <summary>Returns the generated password ONCE — the caller shows it to the admin and never persists it anywhere.</summary>
+    public async Task<(bool Ok, string? TempPassword, string? Error)> SetTempPasswordAsync(string id)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/users/{id}/set-temp-password", new { });
+        if (resp is null) return (false, null, "Network error — please try again.");
+        if (resp.IsSuccessStatusCode)
+        {
+            var doc = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>(JsonOpts);
+            return (true, doc is not null && doc.TryGetValue("tempPassword", out var pw) ? pw : null, null);
+        }
+        try
+        {
+            var body = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>(JsonOpts);
+            return (false, null, body is not null && body.TryGetValue("error", out var msg) ? msg : "Could not set a temporary password.");
+        }
+        catch { return (false, null, "Could not set a temporary password."); }
     }
 
     // ─── Email previews ──────────────────────────────────────────────────────
@@ -1697,9 +1772,9 @@ public class ApiService
     /// <summary>The signed-in person's own volunteer record, or null if they don't have one yet.</summary>
     public async Task<Volunteer?> GetMyVolunteerAsync() => await GetAsync<Volunteer>("/api/v1/volunteers/me");
 
-    public async Task<Volunteer?> CreateMyVolunteerAsync()
+    public async Task<Volunteer?> CreateMyVolunteerAsync(VolunteerRole? role = null)
     {
-        var resp = await AuthedPostAsync("/api/v1/volunteers/me", new { });
+        var resp = await AuthedPostAsync("/api/v1/volunteers/me", new { Role = role });
         return resp is { IsSuccessStatusCode: true } ? await resp.Content.ReadFromJsonAsync<Volunteer>(JsonOpts) : null;
     }
 

@@ -61,6 +61,7 @@
                 {
                   <button class="btn btn-sm login-as-btn" title="See the portal exactly as @(u.FullName ?? u.UserName) does" @onclick="() => AskLoginAs(u)">Login as</button>
                 }
+                <button class="btn btn-sm" title="Set a temporary password for them to sign in with" @onclick="() => AskTempPassword(u)">🔑 Temp Password</button>
                 <button class="btn btn-sm" title="Send test push" @onclick="() => PushTest(u)">🔔</button>
                 @if (!string.IsNullOrEmpty(u.AvatarUrl))
                 {
@@ -142,6 +143,42 @@
   </div>
 }
 
+@if (_tempPwUser is not null)
+{
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;" @onclick="CancelTempPassword"></div>
+  <div role="dialog" aria-label="Set a temporary password" id="temp-password-dialog"
+       style="position:fixed;left:50%;top:28%;transform:translateX(-50%);width:min(480px,92vw);background:white;z-index:501;border-radius:12px;padding:22px 24px;box-shadow:0 8px 32px rgba(0,0,0,.25);">
+    @if (_tempPwResult is null)
+    {
+      <h3 style="margin:0 0 8px;font-family:var(--ff-head);">Set a temporary password for @(_tempPwUser.FullName ?? _tempPwUser.UserName)?</h3>
+      <p style="margin:0 0 16px;font-size:.88rem;line-height:1.6;color:var(--text-mid);">
+        This replaces their current password immediately. They'll be shown here once — share it with
+        <strong>@(_tempPwUser.FullName ?? _tempPwUser.UserName)</strong> directly (in person or by phone, not email or chat), and they'll be
+        required to set their own password the moment they sign in with it.
+      </p>
+      @if (!string.IsNullOrEmpty(_tempPwError))
+      { <div style="background:#fff3cd;color:#856404;border-radius:8px;padding:8px 12px;font-size:.84rem;margin-bottom:10px;">⚠ @_tempPwError</div> }
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn" @onclick="CancelTempPassword" disabled="@_tempPwBusy">Cancel</button>
+        <button class="btn btn-primary" @onclick="ConfirmTempPasswordAsync" disabled="@_tempPwBusy">@(_tempPwBusy ? "Setting…" : "Set Temporary Password")</button>
+      </div>
+    }
+    else
+    {
+      <h3 style="margin:0 0 8px;font-family:var(--ff-head);color:var(--green-dark);">✓ Temporary password set</h3>
+      <p style="margin:0 0 10px;font-size:.88rem;color:var(--text-mid);">
+        Share this with <strong>@(_tempPwUser.FullName ?? _tempPwUser.UserName)</strong> now — it won't be shown again.
+      </p>
+      <div id="temp-password-value" style="font-family:monospace;font-size:1.1rem;font-weight:700;letter-spacing:.03em;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;text-align:center;margin-bottom:16px;user-select:all;">
+        @_tempPwResult
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-primary" @onclick="CancelTempPassword">Done</button>
+      </div>
+    }
+  </div>
+}
+
 @if (_toast != null)
 {
   <div style="position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);font-size:.88rem;font-weight:600;z-index:600;">
@@ -167,6 +204,24 @@
     if (!ok) { _loginAsError = error ?? "That could not be done."; return; }
     _loginAsUser = null;
     Nav.NavigateTo("/admin/dashboard");
+  }
+
+  // ── Temp Password ──
+  private StaffUserDto? _tempPwUser;
+  private string? _tempPwResult;
+  private string? _tempPwError;
+  private bool _tempPwBusy;
+  private void AskTempPassword(StaffUserDto u) { _tempPwUser = u; _tempPwResult = null; _tempPwError = null; }
+  private void CancelTempPassword() { _tempPwUser = null; _tempPwResult = null; _tempPwError = null; }
+
+  private async Task ConfirmTempPasswordAsync()
+  {
+    if (_tempPwUser is null) return;
+    _tempPwBusy = true; _tempPwError = null;
+    var (ok, tempPassword, error) = await Api.SetTempPasswordAsync(_tempPwUser.Id);
+    _tempPwBusy = false;
+    if (!ok || tempPassword is null) { _tempPwError = error ?? "Could not set a temporary password."; return; }
+    _tempPwResult = tempPassword;
   }
 
   private List<StaffUserDto> _users = [];

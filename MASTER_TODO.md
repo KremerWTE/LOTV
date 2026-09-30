@@ -2,7 +2,9 @@
 
 **Project**: LOTV SaaS Social Services Coordination Platform
 **Stack**: .NET 9 · ASP.NET Core Web API · Blazor WebAssembly · xUnit
-**Last Updated**: 2026-09-24 (Prayer Request workflow, SocketLabs email, registration security fix, QA sample data — see sessions/2026-09-24-prayer-request-workflow-email-security-and-qa-data.md and the "Session 2026-09-24" section below)
+**Last Updated**: 2026-09-30 (localization/currency fixes, a real anonymous IDOR closed on the family-profile endpoint, volunteer dashboards scoped by actual role — see sessions/2026-09-30-localization-security-and-volunteer-role-scoping.md and the "Session 2026-09-30" section below)
+**Previous Update**: 2026-09-28/29 (Build Day planner, two roles per volunteer + Prayer List/Prayer Team, prayer-only requests, live-site UX audit + 4 fixes — see sessions/2026-09-24-production-missing-columns-qa-sample-load.md, which the 2026-09-24 work continued into)
+**Previous Update**: 2026-09-24 (Prayer Request workflow, SocketLabs email, registration security fix, QA sample data — see sessions/2026-09-24-prayer-request-workflow-email-security-and-qa-data.md and the "Session 2026-09-24" section below)
 **Previous Update**: 2026-09-14 (session 6 — dev environment stable, Serilog Web, DB crash fix, port fix)
 **Previous Update**: 2026-09-10 (Stripe/JotForm removal, GiveButter donations, Duda intake form, admin nav hub consolidation, Board/Director roles, volunteer levels, notification-email real send, live smoke test + 2 bug fixes — see sessions/2026-09-10-stripe-jotform-removal-givebutter-duda-intake-roles.md) — direct client instruction to remove Stripe and JotForm entirely ("everything for donation is through GiveButter"); built a standalone Duda-embeddable prayer care intake form (`docs/duda-embed/prayer-care-intake.html`) posting straight to `Lotv.Api`, replacing the JotForm pipeline that (per the 2026-09-01 HIPAA-BAA root-cause finding) had never actually received a real submission; GiveButter's real JS widget embedded on the intake confirmation screen and the rewritten `Give.razor`; admin sidebar (120 links, 57 always-visible) consolidated into Cases/Reports/System-Admin tabbed hub pages per direct client feedback ("there are so many tabs"), with a legacy-link toggle preserving full reachability; added `Director` (near-admin) and `Board` (reports-only, PII-free) roles plus volunteer tenure `Level` (New/Standard/Senior/Lead), Board verified live end-to-end via Playwright; `NotificationService` was found to be a stub that only logged — replaced with real SMTP sending, and the new-request team notification widened from one hardcoded address to a configurable team list; a live smoke test of the running app (not just code review) found and fixed two real bugs: every case-activity/note entry showed the staff member's raw GUID instead of their name (11 call sites), and the notes endpoint 500'd on missing content instead of returning a clean 400. Full detail, including everything still blocking a real production deploy (no Azure App Service exists yet), in the session notes and `docs/LOTV-PM-Plan.md` risk register R-26 through R-31
 **Previous Update**: 2026-08-05 through 2026-09-01 (four sessions not previously rolled into this header — see `sessions/2026-08-13-jotform-webhook-fix-and-docker-deployment-verification.md`, `sessions/2026-08-31-hosting-blazor-server-conversion-and-ci-fixes.md`, `sessions/2026-08-31-spreadsheet-audit-and-followup-tracker-autocreation.md`, `sessions/2026-09-01-jotform-design-review-and-hipaa-baa-rootcause.md`) — JotForm webhook data-loss bug fixed and `docker compose up` verified end-to-end for the first time (2026-08-13); hosting decided as Azure App Service and `Lotv.Web` converted from Blazor WebAssembly to Blazor Server (2026-08-31); ministry's live spreadsheet audited field-by-field against the app and the bereavement follow-up tracker wired into real intake, not just historical import (2026-08-31); JotForm HIPAA-BAA root cause confirmed — the account discards all programmatic writes, explaining every prior "corruption" incident (2026-09-01)
@@ -64,6 +66,59 @@ Pulled from `origin/kremer-dev` into `pateep_dev_branch`:
 - [ ] Routing rules: shared named queues not built (people/teams only)
 - [ ] Untrack `src/Lotv.Api/lotv-dev.db` (tracked, shows modified with local data)
 - [ ] Walk each request type through the pipeline with Susan on the sample data; log enhancements
+
+---
+
+## Session 2026-09-28/29 — Build Day planner, two volunteer roles, prayer-only requests, live-site UX audit
+
+**State:** code complete and pushed to `kremer-dev` through `770127c`; still not deployed to production. Full detail in `sessions/2026-09-24-production-missing-columns-qa-sample-load.md` (the 2026-09-24 file the day's work was appended into).
+
+### Done
+- [x] **Build Day planner** — a standard box recipe (`/admin/inventory/recipe`) times a target box count (`/admin/inventory/build-day`) checked against real stock; found/fixed a GET/POST chapter-mismatch bug and a staff-vs-chapter-admin access bug while building it
+- [x] **Two roles per volunteer** — `Volunteer.AdditionalRoles` (a volunteer keeps one primary role, can hold others); Prayer List page for Prayer Ambassadors, separate from the package-assembly My Work Queue
+- [x] **Prayer team (many-to-many)** — `PrayerTeamMember` join table; several people can pray for one family, one Prayer Ambassador for several families, independent of who assembles the package
+- [x] **Self-service prayer picking** — a Prayer Ambassador can browse open cases and add/remove themselves from a family's prayer team, staff can still manage any team
+- [x] **Prayer-only requests** — the public form now asks "package or prayer only"; `PackageRequest.WantsPackage` drives no-auto-assign, a Prayer Only badge, hidden Packing List
+- [x] **Live-site UX audit + 4 fixes** — "mailed to us"→"you" wording, bracelet question skipped for prayer-only, error banner scrolls into view, volunteer role cards actually wire to the dropdown; Donate-page "broken" finding retracted after retesting
+- [x] Golf-ball emoji on the Parish Network card (missed by the earlier icon pass) replaced with the Font Awesome church icon
+- 760 tests pass at session end.
+
+### Open (carried forward — see 2026-09-30 session below for what's since been fixed)
+- [ ] PR kremer-dev → stage → main — still nothing from 2026-09-28 onward is deployed
+
+---
+
+## Session 2026-09-30 — Localization/currency fixes, a real IDOR closed, volunteer dashboards scoped by role
+
+**State:** code complete and pushed to `kremer-dev` through `38bf752`; still not deployed to production. Full detail in `sessions/2026-09-30-localization-security-and-volunteer-role-scoping.md`.
+
+### Done
+- [x] Closed out the three "needs further testing" items from the 2026-09-29 audit (mobile pass, real submission to confirmation, Events empty-state confirmed intentional)
+- [x] **Full page translation** — Give/Volunteer/Events/Transparency now route through `LocalizationService` (previously only Home did); ~90 new EN/ES key pairs
+- [x] **Real currency conversion** — Transparency's dollar figures now go through `CurrencyService`; documented (not silently ignored) why Give's Givebutter-widget amounts can't respect it
+- [x] **Whitney sign-in review** — mapped the app's Case Detail / Possible Duplicates / MDFD Mailing / Bereavement Follow-Up / Inventory against the ministry's "Prayer Care Package Request Database.xlsx"; confirms the app already replaces nearly all of it. The "WW-In Kind" informal-request sheet has no equivalent yet — a question for ministry staff, not a bug
+- [x] **Security: closed an anonymous IDOR** — `PATCH /api/public/v1/families/{id}/profile` was `AllowAnonymous` with no ownership check at all; now requires `ConfirmEmail` matching the email on file for anonymous callers, staff bypass via their existing Bearer token
+- [x] Fixed `/my-profile` (blank form, false "saved" success, staff seeing a page built for public account holders, VolunteerId/DonorId silently dropped)
+- [x] **Volunteer dashboards scoped by actual VolunteerRole, not just "is a Volunteer"** — Prayer Dashboard (enhanced Prayer List) and My Work Queue now show/land based on Package Assembler vs. Prayer Ambassador; server-side role check added on the prayer-team/prayer-list routes (previously UI-only)
+- [x] Wired up the previously-non-functional magic-link volunteer self-service portal (`/volunteer/my-assignments`, `/volunteer/available`, `/volunteer/history`); retired the orphaned duplicate `VolunteerDashboard.razor` as a redirect to the real hub
+- [x] A volunteer with no record yet now defaults to landing on the Prayer Dashboard (most plain volunteers are prayer-only; an employee is the realistic case for having both)
+- 773 tests pass at session end.
+
+### Done — same-day follow-up round
+- [x] **Closed the sibling anonymous-no-ownership-check gap** — `PATCH /recurring/{id}`, `POST .../pause|resume|cancel`, `PUT /donors/{id}/avatar` now check the donor's real magic-link session (`DonorMagicLink` token+expiry, already stored client-side); staff callers bypass via their Bearer token. 6 new tests (`DonorSelfServiceSecurityTests`)
+- [x] **Fixed `VolunteerPending.razor`'s nav links** — pointed at the anonymous magic-link portal (needing a session a staff volunteer never has) instead of the staff `/admin/*` equivalents; now fixed, with a comment explaining why this page's own staff-JWT calls are correct despite the shared `/volunteer/*` prefix
+- [x] **Localized the static `/apply` intake form's own chrome** — loading/error states, bracelet builder, validation messages now translate (reads the same `lotv.culture` key the Blazor site sets); the staff-authored question text itself stays English on purpose (content-authoring problem, not a code fix — documented in a comment). Caught and fixed a real bug in the process: untranslated bracelet bead/status `<select>` values would have broken submission validation once translated
+- [x] Drafted a question for ministry staff about the "WW-In Kind" workflow, and clarifying questions for the client about "Group training" scope (see NEXT_STEPS.md) instead of guessing
+- [x] **Full QA review of the public site + dashboards** (background code scan + live browser pass against production). Found and fixed 9 broken nav links (wrong routes: staff login, dashboard onboarding links x2, new-request, sponsors-vs-sponsorships x4, donor impact x2 + missing DonorId param, cross-app /health link, announcements create x2) and a silent donor-avatar-upload failure with no error feedback. **Biggest finding, not a code bug**: production's WebSocket transport to the Blazor Server circuit fails intermittently (3 sec–3+ min blank page on fresh load; console explicitly names "sticky sessions" as the likely fix) — recorded as R-40, needs IIS/hosting access nobody in these sessions has
+- 779/779 tests pass.
+
+### Open
+- [ ] **PR kremer-dev → stage → main** — nothing from 2026-09-28 through 2026-09-30 is deployed yet; production is still on `770127c`'s predecessor at best
+- [ ] **R-40: production WebSocket/sticky-sessions config on `wte_apps3`** — likely IIS app-pool web-garden or missing load-balancer session affinity; see risk register for exact settings to check. Affects every page load of the entire site, live right now, independent of any deploy
+- [ ] "WW-In Kind" informal-request workflow — question drafted, awaiting ministry-staff answer
+- [ ] "Group training" — clarifying questions drafted, awaiting client answer
+- [ ] Normalize missing `_loading` states across ~11 admin list pages (cosmetic polish, low priority)
+- [ ] Delete unused `NavMenu.razor` scaffold leftover
 
 ---
 

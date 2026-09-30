@@ -637,7 +637,7 @@ auth.MapPost("/login", async (LoginRequest req, UserManager<LotvIdentityUser> us
     db.RefreshTokens.Add(refreshToken);
     await db.SaveChangesAsync();
 
-    return Results.Ok(new { accessToken, refreshToken = refreshToken.Token, user.Role, user.ChapterId });
+    return Results.Ok(new { accessToken, refreshToken = refreshToken.Token, user.Role, user.ChapterId, user.MustChangePassword });
 });
 
 // Sign-in is by username, not email (several seeded/staff accounts don't have a
@@ -678,6 +678,24 @@ auth.MapPost("/reset-password", async (ResetPasswordRequest req, UserManager<Lot
 
     return Results.Ok(new { message = "Password updated — you can now sign in." });
 }).AllowAnonymous();
+
+// Self-service change, for anyone signed in — this is what closes the loop after an admin hands someone
+// a temp password (see POST /api/v1/users/{id}/set-temp-password): they sign in with it, the client sees
+// MustChangePassword on the login response and routes here before anything else, and a successful change
+// clears the flag so it's never enforced again until the next temp password.
+auth.MapPost("/change-password", async (ChangePasswordRequest req, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(ctx.UserId);
+    if (user is null) return Results.Unauthorized();
+
+    var result = await userMgr.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
+    if (!result.Succeeded)
+        return Results.BadRequest(new { error = result.Errors.FirstOrDefault()?.Description ?? "Could not change your password." });
+
+    user.MustChangePassword = false;
+    await userMgr.UpdateAsync(user);
+    return Results.Ok(new { message = "Password changed." });
+});
 
 auth.MapPost("/refresh", async (RefreshRequest req, LotvDbContext db,
     UserManager<LotvIdentityUser> userMgr, JwtTokenService tokenSvc) =>
@@ -756,6 +774,35 @@ static async Task CreatePendingAllocationAsync(LotvDbContext db, Donation donati
 
 
 // The signed-in person's own volunteer record(s): same email, else same name.
+// Meets the Identity password policy (12+ chars, upper, lower, digit, symbol) configured above, while
+// staying easy to read aloud or type over the phone — an admin relays this out-of-band (in person, a
+// call), not by email, so it needs to survive being spoken, not just copy-pasted.
+static string GenerateTempPassword()
+{
+    const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";      // no I/O — easy to confuse when read aloud
+    const string lower = "abcdefghijkmnpqrstuvwxyz";
+    const string digits = "23456789";                      // no 0/1
+    const string symbols = "!@#$%";
+    var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+    string Pick(string alphabet, int count)
+    {
+        var bytes = new byte[count];
+        rng.GetBytes(bytes);
+        return new string(bytes.Select(b => alphabet[b % alphabet.Length]).ToArray());
+    }
+    var chars = (Pick(upper, 2) + Pick(lower, 6) + Pick(digits, 3) + Pick(symbols, 1)).ToCharArray();
+    // Fisher-Yates, using the same CSPRNG rather than System.Random — this password is handed to a real
+    // person to sign in with, not test data.
+    for (var i = chars.Length - 1; i > 0; i--)
+    {
+        var buf = new byte[1];
+        rng.GetBytes(buf);
+        var j = buf[0] % (i + 1);
+        (chars[i], chars[j]) = (chars[j], chars[i]);
+    }
+    return new string(chars);
+}
+
 static async Task<List<Volunteer>> FindMyVolunteersAsync(LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr)
 {
     var user = await userMgr.FindByIdAsync(ctx.UserId);
@@ -778,20 +825,29 @@ cases.AddEndpointFilter(async (fc, next) =>
     var userMgr = http.RequestServices.GetRequiredService<UserManager<LotvIdentityUser>>();
     var pattern = (http.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "";
 
-    // Prayer team: a volunteer may join or leave one — but only speak for themselves, never another volunteer.
+    // Prayer team: a volunteer may join or leave one — but only speak for themselves, never another volunteer,
+    // and only if their own volunteer record actually carries the Prayer Ambassador role. The UI (PrayerList.razor)
+    // already hides this from anyone else; this is the server-side version of that same rule, since the UI check
+    // alone doesn't stop a direct API call.
     // This isn't "their own case" in the AssignedToId sense (that's the whole point of a separate prayer team),
     // so it's checked here rather than through the AssignedToId-based rule below.
     if (pattern == "/api/v1/requests/{id:int}/prayer-team" && HttpMethods.IsPost(http.Request.Method))
     {
-        var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
+        var mine = await FindMyVolunteersAsync(db, ctx, userMgr);
         var body = fc.Arguments.OfType<PrayerTeamAddRequest>().FirstOrDefault();
-        return body is not null && myIds.Contains(body.VolunteerId) ? await next(fc) : Results.Forbid();
+        var match = body is not null ? mine.FirstOrDefault(v => v.Id == body.VolunteerId) : null;
+        return match is not null && match.HasRole(VolunteerRole.PrayerAmbassador) ? await next(fc) : Results.Forbid();
     }
     if (pattern == "/api/v1/requests/{id:int}/prayer-team/{volunteerId:int}" && HttpMethods.IsDelete(http.Request.Method))
     {
         var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
         return int.TryParse(http.Request.RouteValues["volunteerId"]?.ToString(), out var volId) && myIds.Contains(volId)
             ? await next(fc) : Results.Forbid();
+    }
+    if ((pattern == "/api/v1/requests/my-prayer-list" || pattern == "/api/v1/requests/prayer-candidates") && HttpMethods.IsGet(http.Request.Method))
+    {
+        var mine = await FindMyVolunteersAsync(db, ctx, userMgr);
+        if (!mine.Any(v => v.HasRole(VolunteerRole.PrayerAmbassador))) return Results.Forbid();
     }
 
     var allowed = await AccessRules.VolunteerCanUse(http, async id =>
@@ -1591,8 +1647,12 @@ app.MapGet("/api/v1/volunteers/me", async (LotvDbContext db, IChapterContextServ
     return mine is null ? Results.NotFound() : Results.Ok(mine);
 }).WithTags("Volunteers").RequireAuthorization("Volunteer");
 
-// Creates the signed-in person's own volunteer record (so cases can be assigned to them and show in My Work Queue).
-volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
+// Creates the signed-in person's own volunteer record (so cases can be assigned to them and show in My Work
+// Queue, or they can join a prayer team from the Prayer Dashboard). Role defaults to Package Assembler — the
+// button on My Work Queue creates one that way — but the Prayer Dashboard's own "create my record" button
+// passes PrayerAmbassador, since most volunteers who reach that page are prayer-only and would otherwise have
+// no self-service way to become one (only staff could add the role afterward).
+volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr, CreateMyVolunteerRequest? body) =>
 {
     var existing = (await FindMyVolunteersAsync(db, ctx, userMgr)).FirstOrDefault();
     if (existing is not null) return Results.Ok(existing);
@@ -1601,7 +1661,7 @@ volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, U
     var v = new Volunteer
     {
         FirstName = user.FirstName, LastName = user.LastName, Email = user.Email ?? "",
-        Role = VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active,
+        Role = body?.Role ?? VolunteerRole.PackageAssembler, Status = VolunteerStatus.Active,
         ChapterId = ctx.ChapterId ?? user.ChapterId ?? 1, JoinedDate = DateTime.UtcNow,
     };
     db.Volunteers.Add(v);
@@ -2402,6 +2462,28 @@ users.MapPut("/{id}/role", async (string id, RoleChangeRequest body, UserManager
     user.Role = body.Role; user.ChapterId = body.ChapterId;
     await userMgr.UpdateAsync(user);
     return Results.Ok();
+}).RequireAuthorization("ChapterAdmin");
+
+// Gives someone who's locked out (or never finished being provisioned) a way back in without anyone
+// ever knowing or setting their real password — same idea as StaffAccountProvisioning's initial-password
+// handoff, generalized to any account. The generated password is returned here ONCE, in this response
+// only: never logged, never stored anywhere but its (irreversible) Identity hash. MustChangePassword
+// forces them through /change-password on their very next login, so this never becomes a standing
+// password the admin (or anyone reading a chat/ticket it got relayed through) still knows afterward.
+users.MapPost("/{id}/set-temp-password", async (string id, UserManager<LotvIdentityUser> userMgr) =>
+{
+    var user = await userMgr.FindByIdAsync(id);
+    if (user is null) return Results.NotFound(new { error = "User not found." });
+
+    var temp = GenerateTempPassword();
+    var token = await userMgr.GeneratePasswordResetTokenAsync(user);
+    var result = await userMgr.ResetPasswordAsync(user, token, temp);
+    if (!result.Succeeded)
+        return Results.BadRequest(new { error = result.Errors.FirstOrDefault()?.Description ?? "Could not set a temporary password." });
+
+    user.MustChangePassword = true;
+    await userMgr.UpdateAsync(user);
+    return Results.Ok(new { tempPassword = temp });
 }).RequireAuthorization("ChapterAdmin");
 
 users.MapPost("/onboarding/staff", async (StaffOnboardingRequest body,
@@ -3205,11 +3287,29 @@ publicApi.MapGet("/families/{id:int}/requests", async (int id, LotvDbContext db)
     return Results.Ok(requests);
 }).AllowAnonymous();
 
-// PATCH /api/public/v1/families/{id}/profile — family self-service contact update
-publicApi.MapPatch("/families/{id:int}/profile", async (int id, FamilyProfileUpdateRequest body, LotvDbContext db) =>
+// PATCH /api/public/v1/families/{id}/profile — family self-service contact update.
+// This route has no login of its own (families never get an account) — the one thing
+// standing between "anyone who knows or guesses this family's numeric id" and rewriting
+// their contact info is ConfirmEmail: it must match the email already on file. Not real
+// authentication, but it means an attacker needs to already know the family's email
+// address, which nothing else in the public API discloses. A real token-based session
+// (like the donor/volunteer magic-link flow already has) would be a stronger fix if this
+// self-service page ever gets a working link sent to families in an email or confirmation
+// screen — right now nothing in the app actually hands a family this URL.
+publicApi.MapPatch("/families/{id:int}/profile", async (int id, FamilyProfileUpdateRequest body, LotvDbContext db, HttpContext http) =>
 {
     var family = await db.Families.FindAsync(id);
     if (family is null) return Results.NotFound(new { error = "Family not found." });
+
+    // A signed-in staff member (sent a valid Bearer token, even though this route allows anonymous
+    // callers too) is already authorized by the admin UI they're editing from — only an anonymous
+    // caller has to prove they know the email already on file.
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (string.IsNullOrWhiteSpace(body.ConfirmEmail) ||
+        !string.Equals(body.ConfirmEmail.Trim(), family.Email?.Trim(), StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new { error = "That doesn't match the email address we have on file." }, statusCode: 403);
+    }
 
     if (!string.IsNullOrWhiteSpace(body.FirstName)) family.Parent1FirstName = body.FirstName;
     if (!string.IsNullOrWhiteSpace(body.LastName))  family.Parent1LastName  = body.LastName;
@@ -3223,6 +3323,13 @@ publicApi.MapPatch("/families/{id:int}/profile", async (int id, FamilyProfileUpd
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
+
+// A live (unexpired) magic-link session for this exact donor. Unlike verify-link, this doesn't
+// check UsedAt — the token stays valid for ongoing calls after the one-time verify that first
+// established the session (refresh-session already extends ExpiresAt on activity the same way).
+static async Task<bool> HasLiveDonorSessionAsync(LotvDbContext db, int donorId, string? token) =>
+    !string.IsNullOrWhiteSpace(token) &&
+    await db.DonorMagicLinks.AnyAsync(l => l.Token == token && l.DonorId == donorId && l.ExpiresAt > DateTime.UtcNow);
 
 // ── Public Recurring Donations (donor self-service) ───────────────────────────
 publicApi.MapGet("/donors/{donorId:int}/recurring", async (int donorId, LotvDbContext db) =>
@@ -3243,9 +3350,11 @@ publicApi.MapGet("/donors/{donorId:int}/recurring", async (int donorId, LotvDbCo
     return Results.Ok(items);
 }).AllowAnonymous();
 
-publicApi.MapPost("/donors/{donorId:int}/recurring", async (int donorId, PublicCreateRecurringRequest body, LotvDbContext db) =>
+publicApi.MapPost("/donors/{donorId:int}/recurring", async (int donorId, PublicCreateRecurringRequest body, LotvDbContext db, HttpContext http) =>
 {
     if (body.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than zero." });
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && !await HasLiveDonorSessionAsync(db, donorId, body.Token)) return Results.Forbid();
     var donor = await db.Donors.FindAsync(donorId);
     if (donor is null) return Results.NotFound(new { error = "Donor not found." });
     var r = new RecurringDonation
@@ -3266,37 +3375,45 @@ publicApi.MapPost("/donors/{donorId:int}/recurring", async (int donorId, PublicC
         new { r.Id });
 }).AllowAnonymous();
 
-publicApi.MapPost("/recurring/{id:int}/pause", async (int id, LotvDbContext db) =>
+publicApi.MapPost("/recurring/{id:int}/pause", async (int id, PublicRecurringAuthRequest body, LotvDbContext db, HttpContext http) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (r.DonorId != body.DonorId || !await HasLiveDonorSessionAsync(db, body.DonorId, body.Token))) return Results.Forbid();
     r.Status = RecurringStatus.Paused;
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
-publicApi.MapPost("/recurring/{id:int}/resume", async (int id, LotvDbContext db) =>
+publicApi.MapPost("/recurring/{id:int}/resume", async (int id, PublicRecurringAuthRequest body, LotvDbContext db, HttpContext http) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (r.DonorId != body.DonorId || !await HasLiveDonorSessionAsync(db, body.DonorId, body.Token))) return Results.Forbid();
     r.Status = RecurringStatus.Active;
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
-publicApi.MapPost("/recurring/{id:int}/cancel", async (int id, LotvDbContext db) =>
+publicApi.MapPost("/recurring/{id:int}/cancel", async (int id, PublicRecurringAuthRequest body, LotvDbContext db, HttpContext http) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (r.DonorId != body.DonorId || !await HasLiveDonorSessionAsync(db, body.DonorId, body.Token))) return Results.Forbid();
     r.Status = RecurringStatus.Cancelled;
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = true });
 }).AllowAnonymous();
 
-publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRequest body, LotvDbContext db) =>
+publicApi.MapPatch("/recurring/{id:int}", async (int id, PublicUpdateRecurringRequest body, LotvDbContext db, HttpContext http) =>
 {
     var r = await db.RecurringDonations.FindAsync(id);
     if (r is null) return Results.NotFound();
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && (r.DonorId != body.DonorId || !await HasLiveDonorSessionAsync(db, body.DonorId, body.Token))) return Results.Forbid();
     if (body.Amount.HasValue && body.Amount.Value > 0) r.Amount    = body.Amount.Value;
     if (body.Frequency.HasValue)                       r.Frequency = body.Frequency.Value;
     await db.SaveChangesAsync();
@@ -3313,9 +3430,11 @@ publicApi.MapGet("/donors/{id:int}/portal-status", async (int id, LotvDbContext 
     return Results.Ok(new { hasActiveRecurring = hasRecurring });
 }).AllowAnonymous();
 
-// Donor avatar update (self-service via magic-link query param)
-publicApi.MapPut("/donors/{donorId:int}/avatar", async (int donorId, AvatarUpdateRequest body, LotvDbContext db) =>
+// Donor avatar update (self-service via magic-link session)
+publicApi.MapPut("/donors/{donorId:int}/avatar", async (int donorId, AvatarUpdateRequest body, LotvDbContext db, HttpContext http) =>
 {
+    var callerIsStaff = http.User.Identity?.IsAuthenticated == true;
+    if (!callerIsStaff && !await HasLiveDonorSessionAsync(db, donorId, body.Token)) return Results.Forbid();
     var d = await db.Donors.FindAsync(donorId);
     if (d is null) return Results.NotFound();
     if (body.AvatarUrl is not null && body.AvatarUrl.Length > 1_500_000)
@@ -3366,6 +3485,104 @@ publicApi.MapGet("/volunteers/{id:int}/summary", async (int id, LotvDbContext db
         v.FirstName, Level = v.Level.ToString(), Role = v.Role.ToString(),
         v.TotalCasesFulfilled, v.JoinedDate
     });
+}).AllowAnonymous();
+
+// ── Volunteer self-service assignments (magic-link portal: /volunteer/my-assignments,
+// /volunteer/available, /volunteer/history). Same trust model as the rest of this file's
+// magic-link self-service — the caller is trusted to be volunteer {id} because they hold
+// the session that got them a link with that id in it, not because of a re-checked token
+// on every call (see the family-profile PATCH above for the one place that got a stronger
+// check). Good enough for "which of MY OWN cases", not a substitute for real auth. ──────
+publicApi.MapGet("/volunteers/{id:int}/assignments", async (int id, LotvDbContext db) =>
+{
+    if (!await db.Volunteers.AnyAsync(v => v.Id == id)) return Results.NotFound();
+    var mine = await db.Requests.Include(r => r.Family)
+        .Where(r => r.AssignedToId == id)
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+    return Results.Ok(mine.Select(r => new VolunteerAssignmentDto(
+        r.Id, r.Family?.FullName, r.Category.ToString(), r.Reason.ToString(), r.Status.ToString(),
+        r.IsOverdue, r.CreatedAt, r.DueDate, r.UpdatedAt,
+        r.Family?.StreetAddress, r.Family?.City, r.Family?.State, r.Family?.Zip, r.ChildrenInitials)));
+}).AllowAnonymous();
+
+// Unassigned package requests in the volunteer's own chapter — enough to decide whether to pick one up
+// (no address; that only shows once it's actually theirs, via /assignments above).
+publicApi.MapGet("/volunteers/{id:int}/available", async (int id, LotvDbContext db) =>
+{
+    var vol = await db.Volunteers.FindAsync(id);
+    if (vol is null) return Results.NotFound();
+    var candidates = await db.Requests.Include(r => r.Family)
+        .Where(r => r.AssignedToId == null && r.Status == CaseStatus.New
+                 && r.WantsPackage && r.ChapterId == vol.ChapterId)
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+    return Results.Ok(candidates.Select(r => new
+    {
+        r.Id, Category = r.Category.ToString(), Reason = r.Reason.ToString(), r.CreatedAt,
+        City = r.Family?.City, State = r.Family?.State,
+    }));
+}).AllowAnonymous();
+
+// Self-assign an available request — first come, first served; refused if someone beat them to it.
+publicApi.MapPost("/volunteers/{id:int}/assignments/{requestId:int}/claim", async (int id, int requestId, LotvDbContext db) =>
+{
+    var vol = await db.Volunteers.FindAsync(id);
+    if (vol is null) return Results.NotFound(new { error = "Volunteer not found." });
+    var r = await db.Requests.FindAsync(requestId);
+    if (r is null) return Results.NotFound(new { error = "Request not found." });
+    if (r.AssignedToId is not null)
+        return Results.Conflict(new { error = "Someone already picked this one up." });
+
+    r.AssignedToId = id;
+    r.AssignedTo   = vol.FullName;
+    r.Status       = CaseStatus.InProgress;
+    r.ProcessStage = ProcessStage.Assigned;
+    r.UpdatedAt    = DateTime.UtcNow;
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = requestId, ActorId = "", ActorName = vol.FullName,
+        ActivityType = ActivityType.Assigned, Details = "Self-assigned via the volunteer portal", Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+    await VolunteerWorkload.RecomputeAsync(db, id);
+    return Results.Ok(new { r.Id, r.Status });
+}).AllowAnonymous();
+
+// The volunteer-portal equivalent of the staff status-update endpoint — same transition rules,
+// but scoped so a volunteer can only ever move a case that's actually assigned to them.
+publicApi.MapPost("/volunteers/{id:int}/assignments/{requestId:int}/status",
+    async (int id, int requestId, VolunteerStatusUpdateRequest body, LotvDbContext db,
+        IHubContext<RequestsHub> hub, INotificationService notify, IConfiguration cfg) =>
+{
+    var r = await db.Requests.Include(x => x.Family).FirstOrDefaultAsync(x => x.Id == requestId);
+    if (r is null) return Results.NotFound();
+    if (r.AssignedToId != id)
+        return Results.Json(new { error = "This case isn't assigned to you." }, statusCode: 403);
+
+    var old = r.Status;
+    if (!CaseStatusTransitions.IsValid(old, body.Status))
+        return Results.BadRequest(new { error = $"Can't move a case from {old} directly to {body.Status}." });
+
+    r.Status = body.Status;
+    r.UpdatedAt = DateTime.UtcNow;
+    if (body.Status == CaseStatus.Shipped && r.ShippedDate is null) r.ShippedDate = DateTime.UtcNow;
+    if (body.Status == CaseStatus.Fulfilled && old != CaseStatus.Fulfilled)
+    {
+        var vol = await db.Volunteers.FindAsync(id);
+        if (vol is not null) vol.TotalCasesFulfilled++;
+    }
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = requestId, ActorId = "", ActorName = r.AssignedTo ?? "Volunteer",
+        ActivityType = ActivityType.StatusChanged, OldValue = old.ToString(), NewValue = body.Status.ToString(), Timestamp = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+    await VolunteerWorkload.RecomputeAsync(db, id);
+    try { await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseStatusChanged", requestId, body.Status.ToString(), (string?)null); } catch { }
+    if (old != body.Status && body.Status == CaseStatus.Shipped)   RequestNotifier.Shipped(notify, cfg, r);
+    if (old != body.Status && body.Status == CaseStatus.Fulfilled) RequestNotifier.Completed(notify, cfg, r);
+    return Results.Ok(new { r.Id, r.Status });
 }).AllowAnonymous();
 
 // ── Volunteer magic-link self-service auth ───────────────────────────────────
@@ -5284,6 +5501,7 @@ record LoginRequest(string Username, string Password);
 record RefreshRequest(string RefreshToken);
 record ForgotPasswordRequest(string Username);
 record ResetPasswordRequest(string Username, string Token, string NewPassword);
+record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 record UpdateEmailRequest(string? Email);
 record FlagMailingRequest(bool Flagged, string? Note);
 record ImportMailingRequest(string Csv, int? Year = null, bool DryRun = false, MailingKind Kind = MailingKind.MothersDay);
@@ -5310,7 +5528,13 @@ record ApproveAllocationRequest(string ApprovedBy);
 record RejectAllocationRequest(string Reason);
 record DonorPrivacyRequest(bool IsAnonymous);
 record FamilyProfileUpdateRequest(string? FirstName, string? LastName,
-    string? Email, string? Phone, string? Street, string? City, string? State, string? Zip);
+    string? Email, string? Phone, string? Street, string? City, string? State, string? Zip,
+    string? ConfirmEmail);
+record VolunteerAssignmentDto(int Id, string? FamilyName, string Category, string Reason, string Status,
+    bool IsOverdue, DateTime CreatedAt, DateTime? DueDate, DateTime UpdatedAt,
+    string? Street, string? City, string? State, string? Zip, string? ChildrenInitials);
+record VolunteerStatusUpdateRequest(CaseStatus Status);
+record CreateMyVolunteerRequest(VolunteerRole? Role);
 record InventoryAdjustRequest(int QuantityDelta, string? Reason);
 record ResourceAllocationRequest(int RequestId, int Quantity, string? Notes);
 record ApplyPledgePaymentRequest(decimal Amount);
@@ -5362,13 +5586,14 @@ record MarketingEmailRequest(string? CampaignName, string Audience, string Subje
 record PublicEventRsvpRequest(string Name, string Email, int GuestCount = 1);
 record PublicResourceDonationRequest(string DonorName, string? Email, string? Phone,
     string ResourceType, int Quantity, string? Unit, string? Description, string? Preference);
-record PublicCreateRecurringRequest(decimal Amount, RecurringFrequency Frequency, DateTime? StartDate, string? Campaign);
-record PublicUpdateRecurringRequest(decimal? Amount, RecurringFrequency? Frequency);
+record PublicCreateRecurringRequest(decimal Amount, RecurringFrequency Frequency, DateTime? StartDate, string? Campaign, string? Token);
+record PublicUpdateRecurringRequest(decimal? Amount, RecurringFrequency? Frequency, int DonorId, string? Token);
+record PublicRecurringAuthRequest(int DonorId, string? Token);
 record PublicIntakeRequest(string FamilyLastName, int ChapterId, PackageReason Reason,
     string? City, string? State, string? Notes);
 record PublicDonationRequest(decimal Amount, string DonorEmail, int ChapterId,
     string? DonorFirstName, string? DonorLastName, string? StripePaymentIntentId);
-record AvatarUpdateRequest(string? AvatarUrl);
+record AvatarUpdateRequest(string? AvatarUrl, string? Token);
 record BulkAllocateRequest(int[] Ids, string Status);
 record BulkChannelRequest(int[] Ids, string Channel);
 record PushSubscriptionRequest(string Endpoint, string P256dh, string Auth);
