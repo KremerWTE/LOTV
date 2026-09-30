@@ -7,8 +7,8 @@
 <div class="page-hd">
   <div><h2>Sponsors by Tier</h2><p>Corporate and organizational sponsor breakdown</p></div>
   <div class="page-hd-actions">
-    <a href="/admin/sponsors" class="btn btn-sm">← All Sponsors</a>
-    <a href="/admin/sponsors/new" class="btn btn-sm btn-primary">+ Add Sponsor</a>
+    <a href="/admin/sponsorships" class="btn btn-sm">← All Sponsors</a>
+    <a href="/admin/sponsorships/new" class="btn btn-sm btn-primary">+ Add Sponsor</a>
   </div>
 </div>
 
@@ -65,7 +65,7 @@ else
             {
               <tr style="border-top:1px solid var(--border);@(s.Status != "Active" ? "opacity:0.6;" : "")">
                 <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
-                  <a href="/admin/sponsors/@s.Id" style="color:var(--navy);">@s.CompanyName</a>
+                  <a href="/admin/sponsorships/@s.Id" style="color:var(--navy);">@s.CompanyName</a>
                 </td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@s.ContactName</td>
                 <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@s.CommittedAmount.ToString("C0")</td>
@@ -81,7 +81,7 @@ else
                   }
                 </td>
                 <td style="padding:10px 16px;text-align:center;">
-                  <a href="/admin/sponsors/@s.Id" style="font-size:.78rem;color:var(--navy);">View</a>
+                  <a href="/admin/sponsorships/@s.Id" style="font-size:.78rem;color:var(--navy);">View</a>
                 </td>
               </tr>
             }

@@ -2,6 +2,7 @@
 @layout PublicLayout
 @inject ApiService Api
 @inject LocalizationService Loc
+@implements IDisposable
 
 <PageTitle>@Loc["nav.volunteer"] — Lily of the Valley Ministry</PageTitle>
 
@@ -9,16 +10,16 @@
 {
   <div style="max-width:580px;margin:80px auto;padding:0 24px;text-align:center;">
     <div style="font-size:3rem;margin-bottom:16px;">🤝</div>
-    <h2 style="font-family:var(--ff-head);font-size:1.8rem;color:var(--navy);margin:0 0 14px;">Welcome to the LOTV family.</h2>
+    <h2 style="font-family:var(--ff-head);font-size:1.8rem;color:var(--navy);margin:0 0 14px;">@Loc["vol.thanksTitle"]</h2>
     <p style="color:var(--text-mid);font-size:.96rem;line-height:1.7;margin:0 0 24px;">
-      Thank you for your desire to serve. Our volunteer coordinator will be in touch soon to complete your onboarding.
+      @Loc["vol.thanksBody"]
     </p>
     <div style="background:var(--green-pale);border-radius:12px;padding:20px 24px;margin-bottom:28px;text-align:left;font-size:.88rem;color:var(--text-mid);line-height:1.8;">
-      <strong style="color:var(--navy);">You signed up as:</strong><br />
+      <strong style="color:var(--navy);">@Loc["vol.signedUpAs"]</strong><br />
       @_confirmedName &bull; @_confirmedRole<br />
-      <span style="color:var(--text-light);">Status: Onboarding — we'll be in touch shortly</span>
+      <span style="color:var(--text-light);">@Loc["vol.statusOnboarding"]</span>
     </div>
-    <a href="/" style="padding:12px 28px;background:var(--navy);color:white;border-radius:9px;font-weight:700;font-size:.9rem;text-decoration:none;">Return Home</a>
+    <a href="/" style="padding:12px 28px;background:var(--navy);color:white;border-radius:9px;font-weight:700;font-size:.9rem;text-decoration:none;">@Loc["vol.returnHome"]</a>
   </div>
 }
 else
@@ -26,10 +27,9 @@ else
   <!-- HERO -->
   <div style="background:linear-gradient(135deg,#2d6a2d 0%,#487336 100%);color:white;padding:52px 24px 44px;text-align:center;">
     <div style="max-width:540px;margin:0 auto;">
-      <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 12px;">Join Our Mission</h1>
+      <h1 style="font-family:var(--ff-head);font-size:2rem;margin:0 0 12px;">@Loc["vol.heroTitle"]</h1>
       <p style="color:rgba(255,255,255,.85);font-size:.94rem;line-height:1.7;margin:0;">
-        Volunteers are the heart of LOTV Ministry. From assembling packages to praying for families,
-        every role makes a direct difference in someone's grief journey.
+        @Loc["vol.heroBlurb"]
       </p>
     </div>
   </div>
@@ -37,15 +37,21 @@ else
   <!-- ROLE CARDS -->
   <div style="max-width:900px;margin:40px auto 0;padding:0 24px;">
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:40px;">
-      @foreach (var (role, icon, desc) in _roles)
+      @foreach (var (roleValue, roleKey, icon) in _roles)
       {
-        <div style="background:white;border-radius:10px;padding:18px;border:1px solid var(--border);font-size:.84rem;">
-          <div style="font-size:1.4rem;margin-bottom:6px;color:var(--green);"><Icon Name="@icon" /></div>
-          <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">@role</div>
-          <div style="color:var(--text-mid);line-height:1.5;">@desc</div>
+        <div role="button" tabindex="0" @onclick="() => SelectRole(roleValue)" @onkeydown="e => OnRoleCardKey(e, roleValue)"
+             style="cursor:pointer;text-align:left;background:white;border-radius:10px;padding:18px;font-size:.84rem;border:2px solid @(_role == roleValue ? "var(--green)" : "var(--border)");@(_role == roleValue ? "box-shadow:0 0 0 3px rgba(45,106,45,.12);" : "")">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="font-size:1.4rem;margin-bottom:6px;color:var(--green);"><Icon Name="@icon" /></div>
+            @if (_role == roleValue)
+            { <span style="color:var(--green);font-weight:700;font-size:.78rem;">✓ Selected</span> }
+          </div>
+          <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">@Loc[$"vol.role.{roleKey}.title"]</div>
+          <div style="color:var(--text-mid);line-height:1.5;">@Loc[$"vol.role.{roleKey}.desc"]</div>
         </div>
       }
     </div>
+    <p style="text-align:center;font-size:.8rem;color:var(--text-light);margin:-28px 0 40px;">@Loc["vol.roleHint"]</p>
   </div>
 
   <!-- FORM -->
@@ -53,57 +59,57 @@ else
     <div style="background:white;border-radius:14px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(0,0,0,.06);padding:36px 40px;">
 
       <div style="margin-bottom:28px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Your Information</div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">@Loc["vol.sectionYourInfo"]</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;">
           <div class="form-group">
-            <label class="form-label" for="vol-first-name">First Name *</label>
-            <input id="vol-first-name" class="form-input" @bind="_firstName" placeholder="First" aria-required="true" autocomplete="given-name" />
+            <label class="form-label" for="vol-first-name">@Loc["form.firstName"] *</label>
+            <input id="vol-first-name" class="form-input" @bind="_firstName" placeholder="@Loc["form.firstName"]" aria-required="true" autocomplete="given-name" />
           </div>
           <div class="form-group">
-            <label class="form-label" for="vol-last-name">Last Name *</label>
-            <input id="vol-last-name" class="form-input" @bind="_lastName" placeholder="Last" aria-required="true" autocomplete="family-name" />
+            <label class="form-label" for="vol-last-name">@Loc["form.lastName"] *</label>
+            <input id="vol-last-name" class="form-input" @bind="_lastName" placeholder="@Loc["form.lastName"]" aria-required="true" autocomplete="family-name" />
           </div>
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label" for="vol-email">Email *</label>
+          <label class="form-label" for="vol-email">@Loc["form.email"] *</label>
           <input id="vol-email" class="form-input" type="email" @bind="_email" placeholder="you@example.com" aria-required="true" autocomplete="email" />
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label" for="vol-phone">Phone (optional)</label>
+          <label class="form-label" for="vol-phone">@Loc["form.phone"] @Loc["common.optional"]</label>
           <input id="vol-phone" class="form-input" @bind="_phone" placeholder="(555) 000-0000" autocomplete="tel" />
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-top:12px;">
           <div class="form-group">
-            <label class="form-label" for="vol-city">City</label>
-            <input id="vol-city" class="form-input" @bind="_city" placeholder="City" autocomplete="address-level2" />
+            <label class="form-label" for="vol-city">@Loc["form.city"]</label>
+            <input id="vol-city" class="form-input" @bind="_city" placeholder="@Loc["form.city"]" autocomplete="address-level2" />
           </div>
           <div class="form-group">
-            <label class="form-label" for="vol-state">State</label>
+            <label class="form-label" for="vol-state">@Loc["form.state"]</label>
             <input id="vol-state" class="form-input" @bind="_state" placeholder="IL" autocomplete="address-level1" />
           </div>
         </div>
       </div>
 
       <div style="margin-bottom:28px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">Parish &amp; Role</div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">@Loc["vol.sectionParishRole"]</div>
         <div class="form-group">
-          <label class="form-label" for="vol-parish">Parish Name (optional)</label>
+          <label class="form-label" for="vol-parish">@Loc["vol.parishName"] @Loc["common.optional"]</label>
           <input id="vol-parish" class="form-input" @bind="_parish" placeholder="St. Mary's, Chicago" />
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label" for="vol-role">Area of Interest *</label>
-          <select id="vol-role" class="form-input" @bind="_role" aria-required="true">
-            @foreach (var r in Enum.GetValues<VolunteerRole>())
-            { <option value="@r">@FormatRole(r)</option> }
+          <label class="form-label" for="vol-role">@Loc["vol.areaOfInterest"] *</label>
+          <select id="vol-role" class="form-input" value="@_role" @onchange="e => _role = Enum.Parse<VolunteerRole>(e.Value!.ToString()!)" aria-required="true">
+            @foreach (var (roleValue, roleKey, _) in _roles)
+            { <option value="@roleValue">@Loc[$"vol.role.{roleKey}.title"]</option> }
           </select>
         </div>
       </div>
 
       <div style="margin-bottom:28px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">About You</div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);">@Loc["vol.sectionAboutYou"]</div>
         <div class="form-group">
-          <label class="form-label" for="vol-bio">Why do you want to volunteer? (optional)</label>
-          <textarea id="vol-bio" class="form-textarea" @bind="_bio" placeholder="Share your motivation or connection to this mission..." rows="4"></textarea>
+          <label class="form-label" for="vol-bio">@Loc["vol.whyVolunteer"] @Loc["common.optional"]</label>
+          <textarea id="vol-bio" class="form-textarea" @bind="_bio" placeholder="@Loc["vol.bioPlaceholder"]" rows="4"></textarea>
         </div>
       </div>
 
@@ -113,7 +119,7 @@ else
       }
 
       <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.96rem;" @onclick="SubmitAsync">
-        Submit Volunteer Application
+        @Loc["vol.submitBtn"]
       </button>
     </div>
   </div>
@@ -134,22 +140,32 @@ else
   private string _confirmedName = "";
   private string _confirmedRole = "";
 
-  private static readonly (string role, string icon, string desc)[] _roles =
+  protected override void OnInitialized() => Loc.OnCultureChanged += Refresh;
+  private void Refresh() => InvokeAsync(StateHasChanged);
+  public void Dispose() => Loc.OnCultureChanged -= Refresh;
+
+  private void SelectRole(VolunteerRole r) => _role = r;
+  private void OnRoleCardKey(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, VolunteerRole r)
+  {
+    if (e.Key == "Enter" || e.Key == " ") SelectRole(r);
+  }
+
+  private static readonly (VolunteerRole roleValue, string roleKey, string icon)[] _roles =
   [
-    ("Package Assembler", "box-open", "Assemble and pack comfort boxes with love and care."),
-    ("Prayer Ambassador", "hands-praying", "Commit to praying daily for assigned families by name."),
-    ("Parish Liaison",    "church",   "Coordinate between LOTV and your local parish community."),
-    ("Event Helper",      "calendar-days", "Support galas, prayer nights, and community gatherings."),
-    ("Driver",            "truck-fast", "Deliver packages locally when families cannot receive by mail."),
-    ("Admin Support",     "pen-to-square",   "Help with case coordination, data entry, and communications."),
+    (VolunteerRole.PackageAssembler, "packageAssembler", "box-open"),
+    (VolunteerRole.PrayerAmbassador, "prayerAmbassador", "hands-praying"),
+    (VolunteerRole.ParishLiaison,    "parishLiaison",    "church"),
+    (VolunteerRole.EventHelper,      "eventHelper",      "calendar-days"),
+    (VolunteerRole.Driver,           "driver",           "truck-fast"),
+    (VolunteerRole.Admin,            "admin",            "pen-to-square"),
   ];
 
   private async Task SubmitAsync()
   {
     if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
-    { _error = "Please enter your first and last name."; return; }
+    { _error = Loc["vol.errFirstLast"]; return; }
     if (string.IsNullOrWhiteSpace(_email))
-    { _error = "Please enter your email address."; return; }
+    { _error = Loc["vol.errEmail"]; return; }
 
     var vol = new Volunteer
     {
@@ -164,12 +180,10 @@ else
       Notes      = string.IsNullOrEmpty(_bio) ? null : _bio
     };
     var ok = await Api.PublicVolunteerSignupAsync(vol);
-    if (!ok) { _error = "Unable to submit your application. Please try again."; return; }
+    if (!ok) { _error = Loc["vol.errSubmit"]; return; }
 
     _confirmedName = vol.FullName;
-    _confirmedRole = FormatRole(_role);
+    _confirmedRole = Loc[$"vol.role.{_roles.First(x => x.roleValue == _role).roleKey}.title"];
     _submitted = true;
   }
-
-  private static string FormatRole(VolunteerRole r) => r.ToDisplayName();
 }

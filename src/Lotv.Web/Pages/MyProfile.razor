@@ -1,5 +1,6 @@
 @page "/my-profile"
 @inject ApiService Api
+@inject AuthService Auth
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -15,7 +16,8 @@
     </div>
   </div>
   <div style="display:flex;gap:12px;align-items:center;">
-    <a href="/my-requests" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Requests</a>
+    @if (_mode == Mode.Family)
+    { <a href="@($"/my-requests?FamilyId={FamilyId}")" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Requests</a> }
     <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
   </div>
 </div>
@@ -23,123 +25,139 @@
 <div style="max-width:720px;margin:0 auto;padding:32px 24px;">
   <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 20px;">My Profile</h2>
 
-  @if (_saved)
+  @if (_mode == Mode.None)
   {
-    <div style="background:var(--green-pale);border-radius:10px;padding:12px 18px;margin-bottom:20px;font-size:.84rem;color:var(--green-dark);">
-      ✓ Profile updated successfully.
-    </div>
+    <div class="panel"><div class="panel-body" style="padding:32px;text-align:center;color:var(--text-mid);">
+      <p style="margin:0 0 8px;">We couldn't tell which account this link belongs to.</p>
+      <p style="margin:0;font-size:.86rem;">Please use the link from your original confirmation email, or <a href="/help" style="color:var(--navy);">contact us</a> for help.</p>
+    </div></div>
   }
-  @if (!string.IsNullOrEmpty(_error))
+  else if (_mode == Mode.Volunteer)
   {
-    <div style="background:#fff3cd;border-radius:10px;padding:12px 18px;margin-bottom:20px;font-size:.84rem;color:#856404;">
-      ⚠ @_error
-    </div>
+    <div class="panel"><div class="panel-body" style="padding:32px;text-align:center;color:var(--text-mid);">
+      <p style="margin:0 0 8px;">Volunteer profile editing isn't available here yet.</p>
+      <p style="margin:0;font-size:.86rem;">To update your contact information, please <a href="/help" style="color:var(--navy);">contact us</a> directly.</p>
+    </div></div>
   }
-
-  <!-- AVATAR -->
-  <div class="panel" style="margin-bottom:20px;">
-    <div class="panel-header">Profile Photo</div>
-    <div class="panel-body" style="display:flex;align-items:center;gap:18px;">
-      <div style="width:84px;height:84px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid var(--border);">
-        @if (!string.IsNullOrEmpty(_avatarUrl))
-        {
-          <img src="@_avatarUrl" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;" />
-        }
-        else
-        {
-          <span style="font-size:2rem;color:var(--text-light);">👤</span>
-        }
+  else
+  {
+    @if (_saved)
+    {
+      <div style="background:var(--green-pale);border-radius:10px;padding:12px 18px;margin-bottom:20px;font-size:.84rem;color:var(--green-dark);">
+        ✓ Profile updated successfully.
       </div>
-      <div style="flex:1;">
-        <input type="file" @ref="_fileInput" accept="image/*" style="display:none;" @onchange="OnAvatarSelected" />
-        <button class="btn" type="button" @onclick="PickAvatar">Change Photo</button>
-        @if (!string.IsNullOrEmpty(_avatarUrl))
-        {
-          <button class="btn" type="button" @onclick="RemoveAvatar" style="margin-left:8px;">Remove</button>
-        }
-        <div style="font-size:.74rem;color:var(--text-light);margin-top:6px;">PNG/JPG, ~1MB max.</div>
+    }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+      <div style="background:#fff3cd;border-radius:10px;padding:12px 18px;margin-bottom:20px;font-size:.84rem;color:#856404;">
+        ⚠ @_error
       </div>
-    </div>
-  </div>
+    }
 
-  <!-- PERSONAL INFO -->
-  <div class="panel" style="margin-bottom:20px;">
-    <div class="panel-header">Personal Information</div>
-    <div class="panel-body">
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label class="form-label">First Name *</label>
-          <input class="form-input" @bind="_firstName" placeholder="Jane" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Last Name *</label>
-          <input class="form-input" @bind="_lastName" placeholder="Smith" />
+    @if (_mode == Mode.Donor)
+    {
+      <!-- AVATAR — the only donor field with a working self-service endpoint today -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">Profile Photo</div>
+        <div class="panel-body" style="display:flex;align-items:center;gap:18px;">
+          <div style="width:84px;height:84px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid var(--border);">
+            @if (!string.IsNullOrEmpty(_avatarUrl))
+            { <img src="@_avatarUrl" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;" /> }
+            else
+            { <span style="font-size:2rem;color:var(--text-light);">👤</span> }
+          </div>
+          <div style="flex:1;">
+            <input type="file" @ref="_fileInput" accept="image/*" style="display:none;" @onchange="OnAvatarSelected" />
+            <button class="btn" type="button" @onclick="PickAvatar">Change Photo</button>
+            @if (!string.IsNullOrEmpty(_avatarUrl))
+            { <button class="btn" type="button" @onclick="RemoveAvatar" style="margin-left:8px;">Remove</button> }
+            <div style="font-size:.74rem;color:var(--text-light);margin-top:6px;">PNG/JPG, ~1MB max.</div>
+          </div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Email Address</label>
-        <input class="form-input" type="email" @bind="_email" placeholder="jane@example.com" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Phone Number</label>
-        <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 000-0000" />
-      </div>
-    </div>
-  </div>
-
-  <!-- MAILING ADDRESS -->
-  <div class="panel" style="margin-bottom:20px;">
-    <div class="panel-header">Mailing Address</div>
-    <div class="panel-body">
-      <div class="form-group">
-        <label class="form-label">Street Address</label>
-        <input class="form-input" @bind="_street" placeholder="123 Main Street" />
-      </div>
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label class="form-label">City</label>
-          <input class="form-input" @bind="_city" placeholder="Springfield" />
+      <div class="panel"><div class="panel-body" style="padding:20px;color:var(--text-mid);font-size:.86rem;">
+        To update your name, email, or mailing address, please <a href="/help" style="color:var(--navy);">contact us</a> directly.
+      </div></div>
+    }
+    else if (_mode == Mode.Family)
+    {
+      <!-- PERSONAL INFO -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">Personal Information</div>
+        <div class="panel-body">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input class="form-input" @bind="_firstName" placeholder="Jane" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name *</label>
+              <input class="form-input" @bind="_lastName" placeholder="Smith" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input class="form-input" type="email" @bind="_email" placeholder="jane@example.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 000-0000" />
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">State</label>
-          <input class="form-input" @bind="_state" placeholder="IL" maxlength="2" />
+      </div>
+
+      <!-- MAILING ADDRESS -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">Mailing Address</div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Street Address</label>
+            <input class="form-input" @bind="_street" placeholder="123 Main Street" />
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">City</label>
+              <input class="form-input" @bind="_city" placeholder="Springfield" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">State</label>
+              <input class="form-input" @bind="_state" placeholder="IL" maxlength="2" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ZIP Code</label>
+            <input class="form-input" @bind="_zip" placeholder="62701" maxlength="10" style="max-width:160px;" />
+          </div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">ZIP Code</label>
-        <input class="form-input" @bind="_zip" placeholder="62701" maxlength="10" style="max-width:160px;" />
-      </div>
-    </div>
-  </div>
 
-  <!-- COMMUNICATION PREFERENCES -->
-  <div class="panel" style="margin-bottom:24px;">
-    <div class="panel-header">Communication Preferences</div>
-    <div class="panel-body">
-      <div class="form-group">
-        <label class="form-label">How would you like us to contact you?</label>
-        <select class="form-input" @bind="_preferredContact">
-          <option value="Email">Email</option>
-          <option value="Phone">Phone Call</option>
-          <option value="Text">Text Message</option>
-          <option value="Mail">Physical Mail</option>
-        </select>
+      <!-- VERIFY -->
+      <div class="panel" style="margin-bottom:24px;">
+        <div class="panel-header">Verify It's You</div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Confirm the email address currently on file *</label>
+            <input class="form-input" type="email" @bind="_confirmEmail" placeholder="The email you originally gave us" />
+            <div style="font-size:.74rem;color:var(--text-light);margin-top:4px;">This is how we make sure it's really you making the change — it isn't shown anywhere on this page.</div>
+          </div>
+        </div>
       </div>
-      <label style="display:flex;align-items:center;gap:10px;font-size:.88rem;cursor:pointer;">
-        <input type="checkbox" @bind="_requestUpdates" style="width:16px;height:16px;" />
-        Send me updates about my assistance requests by email
-      </label>
-    </div>
-  </div>
 
-  <div style="display:flex;gap:10px;">
-    <button class="btn btn-primary" @onclick="SaveAsync">Save Changes</button>
-    <a href="/my-requests" class="btn">Cancel</a>
-  </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" @onclick="SaveAsync">Save Changes</button>
+        <a href="@($"/my-requests?FamilyId={FamilyId}")" class="btn">Cancel</a>
+      </div>
+    }
+  }
 </div>
 
 @code {
   [Parameter, SupplyParameterFromQuery] public int? FamilyId { get; set; }
+  [Parameter, SupplyParameterFromQuery] public int? VolunteerId { get; set; }
+  [Parameter, SupplyParameterFromQuery] public int? DonorId { get; set; }
+
+  private enum Mode { None, Family, Donor, Volunteer }
+  private Mode _mode;
 
   private string _firstName = "";
   private string _lastName = "";
@@ -149,51 +167,74 @@
   private string _city = "";
   private string _state = "";
   private string _zip = "";
-  private string _preferredContact = "Email";
-  private bool _requestUpdates = true;
+  private string _confirmEmail = "";
   private bool _saved;
   private string _error = "";
   private string? _avatarUrl;
   private ElementReference _fileInput;
 
+  protected override void OnInitialized()
+  {
+    // Staff have their own account editor (admin/users); this page is the anonymous
+    // self-service one for families/donors/volunteers, who never get a staff login.
+    // A signed-in staff session landing here (e.g. an old bookmark) gets sent back
+    // to the portal instead of seeing a form with no connection to their account.
+    if (Auth.IsAuthenticated) { Nav.NavigateTo("/admin/dashboard", replace: true); return; }
+
+    _mode = FamilyId is > 0 ? Mode.Family
+          : DonorId  is > 0 ? Mode.Donor
+          : VolunteerId is > 0 ? Mode.Volunteer
+          : Mode.None;
+  }
+
   private async Task PickAvatar() => await JS.InvokeVoidAsync("lotvUpload.click", _fileInput);
+
+  private async Task<string?> DonorTokenAsync()
+  {
+    try { return await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorToken"); }
+    catch { return null; }
+  }
 
   private async Task OnAvatarSelected()
   {
     try
     {
       var dataUrl = await JS.InvokeAsync<string?>("lotvUpload.readDataUrl", _fileInput);
-      if (string.IsNullOrEmpty(dataUrl)) return;
-      var saved = await Api.UpdateAvatarAsync(dataUrl);
-      if (saved is not null) _avatarUrl = saved;
+      if (string.IsNullOrEmpty(dataUrl) || DonorId is not > 0) return;
+      var ok = await Api.UpdateDonorAvatarAsync(DonorId.Value, dataUrl, await DonorTokenAsync());
+      if (ok) _avatarUrl = dataUrl;
+      else _error = "Could not upload avatar.";
     }
     catch { _error = "Could not upload avatar."; }
   }
 
   private async Task RemoveAvatar()
   {
-    await Api.UpdateAvatarAsync(null);
+    if (DonorId is not > 0) return;
+    await Api.UpdateDonorAvatarAsync(DonorId.Value, null, await DonorTokenAsync());
     _avatarUrl = null;
   }
 
   private async Task SaveAsync()
   {
-    _error = "";
+    _error = ""; _saved = false;
     if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))
     {
       _error = "First and last name are required.";
       return;
     }
-
-    if (FamilyId.HasValue && FamilyId.Value > 0)
+    if (string.IsNullOrWhiteSpace(_confirmEmail))
     {
-      var ok = await Api.UpdateFamilyProfileAsync(
-        FamilyId.Value,
-        _firstName, _lastName, _email, _phone,
-        _street, _city, _state, _zip);
-      if (!ok) { _error = "Unable to save profile. Please try again."; return; }
+      _error = "Please confirm the email address on file so we know it's you.";
+      return;
     }
+    if (FamilyId is not > 0) { _error = "We couldn't identify your account."; return; }
 
+    var (ok, apiError) = await Api.UpdateFamilyProfileAsync(
+      FamilyId.Value, _firstName, _lastName, _email, _phone,
+      _street, _city, _state, _zip, _confirmEmail);
+
+    if (!ok) { _error = apiError ?? "Unable to save profile. Please try again."; return; }
     _saved = true;
   }
 }

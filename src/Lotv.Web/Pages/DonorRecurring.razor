@@ -1,6 +1,7 @@
 @page "/donor/recurring"
 @inject ApiService Api
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>My Recurring Gifts — LOTV Ministry</PageTitle>
 
@@ -14,7 +15,7 @@
     </div>
   </div>
   <div style="display:flex;gap:16px;align-items:center;">
-    <a href="/donor/impact" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Impact</a>
+    <a href="@($"/my-impact?DonorId={DonorId}")" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Impact</a>
     <a href="/" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">Home</a>
   </div>
 </div>
@@ -195,7 +196,7 @@
   <div style="background:#fff8e6;border:1px solid #ffe08a;border-radius:10px;padding:16px 20px;font-size:.82rem;color:#7a5c00;line-height:1.7;">
     <strong>Tax information:</strong> You will receive a tax receipt for each recurring gift by email.
     A full year-end giving statement is available each January from your
-    <a href="/donor/impact" style="color:#7a5c00;font-weight:600;">giving history page</a>.
+    <a href="@($"/my-impact?DonorId={DonorId}")" style="color:#7a5c00;font-weight:600;">giving history page</a>.
     Lily of the Valley Ministry is a 501(c)(3) organization (EIN: XX-XXXXXXX).
   </div>
 
@@ -309,8 +310,12 @@
   private decimal _editAmount = 0;
   private string  _editFreq   = "Monthly";
 
+  private string? _donorToken;
+
   protected override async Task OnInitializedAsync()
   {
+    try { _donorToken = await JS.InvokeAsync<string?>("sessionStorage.getItem", "lotv.donorToken"); } catch { }
+
     if (DonorId.HasValue && DonorId.Value > 0)
     {
       var items = await Api.GetDonorRecurringAsync(DonorId.Value);
@@ -355,7 +360,7 @@
     _saving = true;
     StateHasChanged();
     var newId = await Api.CreateDonorRecurringAsync(DonorId.Value, _newAmount, _newFreq, _newStart,
-        string.IsNullOrWhiteSpace(_newCampaign) ? null : _newCampaign);
+        string.IsNullOrWhiteSpace(_newCampaign) ? null : _newCampaign, _donorToken);
     if (newId.HasValue)
     {
       _schedules.Add(new ScheduleRow(
@@ -372,7 +377,8 @@
 
   private async Task PauseAsync(int id)
   {
-    var ok = await Api.PauseDonorRecurringAsync(id);
+    if (DonorId is not > 0) return;
+    var ok = await Api.PauseDonorRecurringAsync(id, DonorId.Value, _donorToken);
     if (ok)
     {
       var s = _schedules.First(s => s.Id == id);
@@ -382,7 +388,8 @@
 
   private async Task ResumeAsync(int id)
   {
-    var ok = await Api.ResumeDonorRecurringAsync(id);
+    if (DonorId is not > 0) return;
+    var ok = await Api.ResumeDonorRecurringAsync(id, DonorId.Value, _donorToken);
     if (ok)
     {
       var s = _schedules.First(s => s.Id == id);
@@ -392,7 +399,8 @@
 
   private async Task SaveEditAsync(int id)
   {
-    var ok = await Api.UpdateDonorRecurringAsync(id, _editAmount, _editFreq);
+    if (DonorId is not > 0) return;
+    var ok = await Api.UpdateDonorRecurringAsync(id, _editAmount, _editFreq, DonorId.Value, _donorToken);
     if (ok)
     {
       var s = _schedules.First(s => s.Id == id);
@@ -403,7 +411,8 @@
 
   private async Task ConfirmCancelAsync()
   {
-    var ok = await Api.CancelDonorRecurringAsync(_cancelId);
+    if (DonorId is not > 0) { _cancelId = 0; return; }
+    var ok = await Api.CancelDonorRecurringAsync(_cancelId, DonorId.Value, _donorToken);
     if (ok)
     {
       var s = _schedules.First(s => s.Id == _cancelId);

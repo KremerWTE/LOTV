@@ -26,6 +26,7 @@ public class JwtTokenService
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new("role", user.Role.ToString()),
             new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Name, user.UserName ?? ""),
             new(ClaimTypes.GivenName, user.FirstName),
             new(ClaimTypes.Surname, user.LastName),
         };
@@ -59,6 +60,7 @@ public class JwtTokenService
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new("role", target.Role.ToString()),
             new(ClaimTypes.NameIdentifier, target.Id),
+            new(ClaimTypes.Name, target.UserName ?? ""),
             new(ClaimTypes.GivenName, target.FirstName),
             new(ClaimTypes.Surname, target.LastName),
             new("impersonated_by", admin.Id),

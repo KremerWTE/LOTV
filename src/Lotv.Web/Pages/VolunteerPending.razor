@@ -1,3 +1,8 @@
+@* Lives under /volunteer/* for historical reasons, but this page is reached from the assignment-notification
+   email (see RequestNotifier/OperationsEmails, "/volunteer/pending/{id}") sent only to a UserRole.Volunteer
+   staff login — never through the anonymous magic-link portal, which has no concept of "assignments" to
+   accept/decline. Its API calls (GetMyAssignmentAsync etc., the "Volunteer" policy's /my-assignments group)
+   are staff-JWT only, and its nav links point at the /admin/* staff pages, not the magic-link ones, on purpose. *@
 @page "/volunteer/pending/{Id:int}"
 @layout EmptyLayout
 @inject ApiService Api
@@ -11,7 +16,7 @@
     <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;">🌻</div>
     <strong style="font-family:var(--ff-head);">LOTV Volunteer Portal</strong>
   </a>
-  <a href="/volunteer/dashboard" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Dashboard</a>
+  <a href="/admin/my-queue" style="color:white;font-size:.84rem;text-decoration:none;opacity:.85;">My Dashboard</a>
 </div>
 
 <div style="max-width:640px;margin:48px auto;padding:0 24px;">
@@ -28,7 +33,7 @@
       <p style="color:var(--text-mid);">This assignment may have already been declined or reassigned, or it may belong to someone else. If you followed a link from an email, make sure you are signed in to the staff portal with the login the ministry created for you.</p>
       <div style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
         <a href="/login" class="btn btn-primary">Sign in</a>
-        <a href="/volunteer/dashboard" class="btn btn-sm">My Dashboard</a>
+        <a href="/admin/my-queue" class="btn btn-sm">My Dashboard</a>
       </div>
     </div>
   }
@@ -39,8 +44,8 @@
       <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">@(_accepted ? "Assignment Accepted!" : "You've already accepted this")</h2>
       <p style="color:var(--text-mid);margin:0 0 24px;">You're assigned to help <strong>@(_assignment.FamilyName ?? $"request #{_assignment.RequestId}")</strong>. Thank you for stepping up.</p>
       <div style="display:flex;gap:12px;justify-content:center;">
-        <a href="/volunteer/my-assignments" class="btn btn-primary">View My Assignments</a>
-        <a href="/volunteer/dashboard" class="btn btn-sm">Back to Dashboard</a>
+        <a href="/admin/my-queue" class="btn btn-primary">View My Assignments</a>
+        <a href="/admin/my-queue" class="btn btn-sm">Back to Dashboard</a>
       </div>
     </div>
   }
@@ -51,8 +56,8 @@
       <h2 style="font-family:var(--ff-head);color:var(--navy);margin:0 0 8px;">Assignment Declined</h2>
       <p style="color:var(--text-mid);margin:0 0 24px;">No worries — this request has been returned to the unassigned queue, and our team will find another volunteer.</p>
       <div style="display:flex;gap:12px;justify-content:center;">
-        <a href="/volunteer/available" class="btn btn-sm">Browse Available Requests</a>
-        <a href="/volunteer/dashboard" class="btn btn-sm">Back to Dashboard</a>
+        <a href="/admin/queue" class="btn btn-sm">Browse Available Requests</a>
+        <a href="/admin/my-queue" class="btn btn-sm">Back to Dashboard</a>
       </div>
     </div>
   }

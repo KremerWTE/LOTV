@@ -1,34 +1,44 @@
 # Next Steps — LOTV
 
-**Updated:** 2026-09-24 | **Branch:** kremer-dev | **Phase:** Phase 6 — Deployment & Launch (QA readiness)
+**Updated:** 2026-09-30 | **Branch:** kremer-dev | **Phase:** Phase 6 — Deployment & Launch (QA readiness)
 
 ---
 
-## 🎯 Current Focus: Prayer Request process QA on production
+## 🎯 Current Focus: fix production's WebSocket connectivity, get code changes deployed, two questions waiting on ministry/client answers
 
-**Status:** Workflow, email, security and QA-data code is built and pushed. 615 unit/integration + 132 browser tests pass, 0 build warnings. Production has everything up to `bb4d3f9`; `e4d9124` + `545f46d` + the missing-column fix + docs still need a PR (kremer-dev → stage → main).
+**Status:** Code complete and pushed to `kremer-dev` through `636cc4f`. 779 unit/integration tests pass, 0 build warnings. Nothing from 2026-09-28 onward has reached production yet.
 
 **Next Tasks (Priority Order):**
-1. **PR kremer-dev → stage → main** to deploy the load diagnostics (`545f46d`), the 39-family sample data and `MissingColumnBootstrap`
-2. **Production QA sample Load** — cause found: `Invalid column name 'Level'` (production DB predates `Volunteers.Level` / `Requests.ProcessStage`). `MissingColumnBootstrap` adds missing model columns at startup; after deploy check the API log for "Added missing column …" warnings, then click Load (System Admin → QA Sample Data)
-3. **Set GitHub secrets:** `APP_SOCKETLABS_SERVER_ID`/`_API_KEY`, `APP_EMAIL_FROM`, `APP_TEAM_EMAILS`, `APP_SUSAN_INITIAL_PASSWORD`; then "Send test" on Request Emails
-4. **Review production Users list** — registration was public until the security fix deployed
-5. **Group training** — still undefined; get the requirement, then scope
-6. Walk each request type through the pipeline with Susan using the sample data; log enhancements
+1. **Fix production's WebSocket/sticky-sessions config (R-40)** — found live during a QA review: `https://lotv.wte.net/` took anywhere from ~3 seconds to over 3 minutes to show any content on repeated fresh loads, every time. Browser console explicitly says why: `Failed to start the transport 'WebSockets' ... If you have multiple servers check that sticky sessions are enabled`. This affects the ENTIRE site (public + staff portal) on every fresh page load, right now, independent of any deploy — likely explains some of the "flakiness" chalked up to browser-automation tooling in earlier QA sessions. Needs whoever has `wte_apps3` IIS access to check: (1) LOTV_WEB app pool isn't a multi-worker-process "web garden", (2) if there's a load balancer/ARR in front, enable sticky sessions, (3) WebSocket Protocol Windows feature is enabled. Full detail in `docs/LOTV-PM-Plan.md` R-40.
+2. **PR kremer-dev → stage → main** — production is several sessions behind on code (separate from #1, which is a hosting config issue, not code)
+3. **Send these two questions** (drafted this session, need your answers before any related build):
 
-**Completed This Session (2026-09-24):**
-- ✅ Kanban/queue/case workflow, assignment rules, accurate workloads, Confirmed on accept
-- ✅ Data-quality alerts, grief support list, one bereavement tracker per family, reminders
-- ✅ Mother's/Father's Day lists (all submissions since last holiday), SocketLabs email, 15 email previews
-- ✅ Registration security hole closed; Susan Harper provisioned (HQAdmin + volunteer)
+   **WW-In Kind workflow** — for Whitney/ministry staff:
+   > The Excel workbook has a "WW-In Kind" sheet tracking requests you process directly and hand-deliver (bracelet + items), separate from the normal online request form. A few questions so we know whether this needs its own place in the app: (1) How does a WW-In Kind request usually reach you — phone, in person, email? (2) Does it skip the normal intake form on purpose, or is that just how it's happened so far? (3) Does it need to show up anywhere in the staff dashboard (so other staff can see it), or is it fine staying off-system? (4) Roughly how often does this happen — a few times a year, monthly, weekly?
+
+   **Group training** — for the client:
+   > "Group training" has been on the list without a definition for a while. To scope it: (1) Training *of* whom — new volunteers, staff, chapter leads? (2) What kind — a live session/webinar, a certification volunteers complete, or something else? (3) Does it need to be scheduled/tracked in the app (e.g., "completed onboarding training: yes/no" on a volunteer's record), or is it handled entirely outside the app and this is just a note-taking need? (4) Is there an existing process today (even an informal one) we should match, or is this net-new?
+
+4. Static `/apply` intake form's actual question text (title, field labels, options) is still staff-authored-English-only — the form's own chrome now translates, but making the questions themselves editable in Spanish would need a real content feature (a way for staff to author and maintain a Spanish version)
+5. Domain/DNS/SSL, uptime monitoring, automated DB backups — all still require actual cloud/infra setup no AI session has access to
+6. Cosmetic polish from the same QA review: ~11 admin list pages flash empty content before data loads (no `_loading` guard); an unused `NavMenu.razor` scaffold leftover could be deleted
+
+**Completed This Session (2026-09-30):**
+- ✅ Full page translation (Give/Volunteer/Events/Transparency) + real currency conversion on Transparency
+- ✅ Whitney sign-in review, mapped against the ministry's Excel workbook — app already replaces nearly all of it
+- ✅ Security: closed anonymous IDORs on both the family-profile AND donor-recurring/avatar self-service endpoints
+- ✅ Volunteer dashboards scoped by actual VolunteerRole (Prayer Dashboard vs. My Work Queue), server-side role check, magic-link portal wired up, new-volunteer default fixed
+- ✅ Fixed VolunteerPending.razor's nav links (pointed at the wrong identity system)
+- ✅ Localized the static intake form's own chrome (loading/error/bracelet/validation)
+- ✅ Full QA review: found + fixed 9 broken nav links and a silent avatar-upload failure; found (can't fix — needs IIS access) production's WebSocket/sticky-sessions issue, now R-40
 
 ---
 
 ## 🔗 Quick Links
 
-- Full TODO: `MASTER_TODO.md` | Last session: `sessions/2026-09-24-prayer-request-workflow-email-security-and-qa-data.md`
+- Full TODO: `MASTER_TODO.md` | Last session: `sessions/2026-09-30-localization-security-and-volunteer-role-scoping.md`
 - Directives: `.claude/CRITICAL_RULES_CONSOLIDATED.md`, `.claude/SESSION_STARTUP_DIRECTIVE.md`
-- PM plan / risks: `docs/LOTV-PM-Plan.md` (R-32 to R-37)
+- PM plan / risks: `docs/LOTV-PM-Plan.md` (R-32 to R-39)
 
 ---
 

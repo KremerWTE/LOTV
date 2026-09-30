@@ -35,7 +35,7 @@
             "options": [
                 {
                     "value": "Package",
-                    "label": "A comfort package mailed to us"
+                    "label": "A comfort package mailed to you"
                 },
                 {
                     "value": "PrayerOnly",
@@ -460,7 +460,15 @@
             "labelMe": "Children for Bracelet: We would like to include a personalized bracelet in your Prayer Care Package. Please share the initials of all your children in birth order, including those in heaven. If your child was not named or if you're experiencing infertility, we will place special Heart beads on your bracelet.",
             "labelSomeone": "Children for Bracelet: We would like to include a personalized bracelet in your recipient's Prayer Care Package. Please share the initials of all your recipient's children in birth order, including those in heaven. If your recipient's child was not named or if they are experiencing infertility, we will place special Heart beads on their bracelet.",
             "buttonLabel": "+ Add Another Child",
-            "buttonLabelSomeone": "+ Add New"
+            "buttonLabelSomeone": "+ Add New",
+            "showWhen": [
+                {
+                    "field": "wantsPackage",
+                    "in": [
+                        "Package"
+                    ]
+                }
+            ]
         },
         {
             "id": "requester-heading",
