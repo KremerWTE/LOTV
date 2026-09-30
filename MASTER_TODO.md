@@ -109,12 +109,16 @@ Pulled from `origin/kremer-dev` into `pateep_dev_branch`:
 - [x] **Fixed `VolunteerPending.razor`'s nav links** — pointed at the anonymous magic-link portal (needing a session a staff volunteer never has) instead of the staff `/admin/*` equivalents; now fixed, with a comment explaining why this page's own staff-JWT calls are correct despite the shared `/volunteer/*` prefix
 - [x] **Localized the static `/apply` intake form's own chrome** — loading/error states, bracelet builder, validation messages now translate (reads the same `lotv.culture` key the Blazor site sets); the staff-authored question text itself stays English on purpose (content-authoring problem, not a code fix — documented in a comment). Caught and fixed a real bug in the process: untranslated bracelet bead/status `<select>` values would have broken submission validation once translated
 - [x] Drafted a question for ministry staff about the "WW-In Kind" workflow, and clarifying questions for the client about "Group training" scope (see NEXT_STEPS.md) instead of guessing
+- [x] **Full QA review of the public site + dashboards** (background code scan + live browser pass against production). Found and fixed 9 broken nav links (wrong routes: staff login, dashboard onboarding links x2, new-request, sponsors-vs-sponsorships x4, donor impact x2 + missing DonorId param, cross-app /health link, announcements create x2) and a silent donor-avatar-upload failure with no error feedback. **Biggest finding, not a code bug**: production's WebSocket transport to the Blazor Server circuit fails intermittently (3 sec–3+ min blank page on fresh load; console explicitly names "sticky sessions" as the likely fix) — recorded as R-40, needs IIS/hosting access nobody in these sessions has
 - 779/779 tests pass.
 
 ### Open
 - [ ] **PR kremer-dev → stage → main** — nothing from 2026-09-28 through 2026-09-30 is deployed yet; production is still on `770127c`'s predecessor at best
+- [ ] **R-40: production WebSocket/sticky-sessions config on `wte_apps3`** — likely IIS app-pool web-garden or missing load-balancer session affinity; see risk register for exact settings to check. Affects every page load of the entire site, live right now, independent of any deploy
 - [ ] "WW-In Kind" informal-request workflow — question drafted, awaiting ministry-staff answer
 - [ ] "Group training" — clarifying questions drafted, awaiting client answer
+- [ ] Normalize missing `_loading` states across ~11 admin list pages (cosmetic polish, low priority)
+- [ ] Delete unused `NavMenu.razor` scaffold leftover
 
 ---
 

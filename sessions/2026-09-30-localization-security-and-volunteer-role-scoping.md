@@ -71,10 +71,35 @@ User picked "let's work on these" for the security decision, the VolunteerPendin
 - **WW-In Kind workflow** — drafted a question for the user to send to Whitney/ministry staff (see below).
 - **Group training** — drafted clarifying questions for the client (see below).
 
+## Full QA review: public site + dashboards ("do a review... like you are doing a QA review")
+
+Two tracks run together: a background agent grepping the whole codebase for dead links/TODOs/silent failures/etc., and a live browser pass against production.
+
+### The standout finding: production WebSocket connectivity (R-40, new)
+- Loading `https://lotv.wte.net/` fresh, repeatedly, took anywhere from ~3 seconds to **over 3 minutes** to show any content — completely blank the whole time (no static prerender; nothing renders until the SignalR circuit connects, a deliberate choice from R-22).
+- Console showed the actual cause every time: `Failed to start the transport 'WebSockets' ... If you have multiple servers check that sticky sessions are enabled`, falling back to long-polling, sometimes followed by a hard disconnect (`No Connection with that ID: Status code '404'`) before a retry finally worked.
+- **This affects every Blazor Server page — the entire public site and the entire staff portal** — on every fresh circuit connect. Confirmed the static intake form (plain HTML/JS, no SignalR) is unaffected. Also saw a raw browser network-error interstitial once on a nonexistent URL instead of the app's own 404 — could not reliably reproduce a second time, noted but not confirmed as a distinct bug.
+- **This is an IIS/hosting configuration issue, not a code bug** — no AI session has access to `wte_apps3`'s IIS config to fix it directly. Likely cause and fix, in order of likely effort: (1) confirm the LOTV_WEB app pool isn't a multi-process "web garden"; (2) if there's a load balancer/ARR in front, enable sticky sessions/session affinity; (3) confirm the WebSocket Protocol Windows feature is enabled. Full detail in the risk register (R-40).
+- **This likely explains** several "intermittent click/render flakiness" observations chalked up to browser-automation tooling in earlier QA sessions on this same site — worth re-reading those with this in mind once R-40 is fixed.
+
+### Code-scan findings (background agent, verified before fixing)
+- **9 broken nav links fixed** — real 404s on primary buttons: staff-login link, two "Go to dashboard" onboarding links, "+ New Request", four Sponsors-by-Tier links (wrong URL segment, `/admin/sponsors/*` vs. the real `/admin/sponsorships/*`), two donor "My Impact" links (also missing the `DonorId` query param, which would've landed on a blank/sign-in page even with the right route), the admin Health page's `/health` link (relative, hit the Web app instead of the API — fixed via `Api.BaseUrl`), and two Announcement-board create links.
+- **1 silent-failure fix** — `DonorPortal.razor`'s avatar upload swallowed any failure with an empty `catch {}` and zero feedback; now shows an inline error.
+- **Confirmed clean**: no TODO/FIXME/HACK comments, no console.log/debugger leftovers, no lorem-ipsum/placeholder content, no hardcoded secrets, no duplicate routes anywhere in project-authored code.
+- All fixes verified: full build 0 warnings/errors, 779/779 tests pass.
+
+### Suggested future work (not built this round — sizing/judgment calls, not bugs)
+- **Inconsistent loading states**: ~11 of 15 spot-checked admin list pages (Donors, Events, Campaigns, Grants, Pledges, Volunteers, Sponsorships, Inventory, Chapters, Cases, AuditLog) fetch data in `OnInitializedAsync` with no `_loading` guard, so they flash empty/zero content before the real data arrives — inconsistent with the pattern already established on Dashboard/FinancialOverview/FamilyRequests. Cosmetic, not a crash, but a real polish item given how deliberately the pattern is used elsewhere.
+- **`NavMenu.razor`** (default Blazor scaffold template, `href=""` links) appears to be leftover dead scaffolding from the project template — the app uses `PublicLayout`/`AdminLayout` instead. Harmless but worth deleting for a cleaner tree.
+- The static `/apply` intake form's actual question text still can't be authored in Spanish (see earlier this session's entry) — a real content-authoring feature, not a quick fix, if that's ever wanted.
+
 ## Open Items
 
-- [ ] PR kremer-dev → stage → main — none of this session's work is deployed to production yet.
+- [ ] **PR kremer-dev → stage → main** — none of this session's work is deployed to production yet.
+- [ ] **R-40: fix IIS sticky-sessions/WebSocket config on `wte_apps3`** — needs someone with server access; see risk register for the specific settings to check.
 - [ ] WW-In Kind and Group training — awaiting answers from ministry staff/client.
+- [ ] Normalize the missing `_loading` state across the ~11 admin pages listed above (cosmetic, low priority).
+- [ ] Delete the unused `NavMenu.razor` scaffold leftover.
 
 ---
 
