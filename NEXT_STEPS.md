@@ -1,32 +1,32 @@
 # Next Steps — LOTV
 
-**Updated:** 2026-09-24 | **Branch:** kremer-dev | **Phase:** Phase 6 — Deployment & Launch (QA readiness)
+**Updated:** 2026-09-30 | **Branch:** kremer-dev | **Phase:** Phase 6 — Deployment & Launch (QA readiness)
 
 ---
 
-## 🎯 Current Focus: Prayer Request process QA on production
+## 🎯 Current Focus: get everything since `770127c` deployed, then decide on the money-adjacent security follow-up
 
-**Status:** Workflow, email, security and QA-data code is built and pushed. 615 unit/integration + 132 browser tests pass, 0 build warnings. Production has everything up to `bb4d3f9`; `e4d9124` + `545f46d` + the missing-column fix + docs still need a PR (kremer-dev → stage → main).
+**Status:** Code complete and pushed to `kremer-dev` through `38bf752`. 773 unit/integration tests pass, 0 build warnings. Nothing from 2026-09-28 onward (Build Day planner, two volunteer roles, prayer-only requests, the UX audit fixes, full-site localization/currency, the family-profile IDOR fix, volunteer role-scoped dashboards) has reached production yet.
 
 **Next Tasks (Priority Order):**
-1. **PR kremer-dev → stage → main** to deploy the load diagnostics (`545f46d`), the 39-family sample data and `MissingColumnBootstrap`
-2. **Production QA sample Load** — cause found: `Invalid column name 'Level'` (production DB predates `Volunteers.Level` / `Requests.ProcessStage`). `MissingColumnBootstrap` adds missing model columns at startup; after deploy check the API log for "Added missing column …" warnings, then click Load (System Admin → QA Sample Data)
-3. **Set GitHub secrets:** `APP_SOCKETLABS_SERVER_ID`/`_API_KEY`, `APP_EMAIL_FROM`, `APP_TEAM_EMAILS`, `APP_SUSAN_INITIAL_PASSWORD`; then "Send test" on Request Emails
-4. **Review production Users list** — registration was public until the security fix deployed
-5. **Group training** — still undefined; get the requirement, then scope
-6. Walk each request type through the pipeline with Susan using the sample data; log enhancements
+1. **PR kremer-dev → stage → main** — the single biggest blocker; production is several sessions behind
+2. **Decide on the sibling anonymous-no-ownership-check endpoints** (`/recurring/{id}` PATCH, pause/resume/cancel, donor avatar PUT) — same pattern just closed on the family-profile endpoint, but these are money-adjacent; needs a go/no-go before touching auth on them
+3. **`VolunteerPending.razor`** mixes the staff-JWT and magic-link identity systems under one `/volunteer/*` URL prefix — decide whether to fix or document as-is
+4. **"WW-In Kind" informal-request workflow** (from the ministry's Excel workbook) has no equivalent in the app — needs a decision from ministry staff, not code
+5. Static `/apply` intake form (`prayer-care-intake.html`) still has zero localization — separate, larger job (plain JS off an API-served schema)
+6. Group training — requirement still undefined (sessions? co-assigned volunteers? certifications?)
 
-**Completed This Session (2026-09-24):**
-- ✅ Kanban/queue/case workflow, assignment rules, accurate workloads, Confirmed on accept
-- ✅ Data-quality alerts, grief support list, one bereavement tracker per family, reminders
-- ✅ Mother's/Father's Day lists (all submissions since last holiday), SocketLabs email, 15 email previews
-- ✅ Registration security hole closed; Susan Harper provisioned (HQAdmin + volunteer)
+**Completed This Session (2026-09-30):**
+- ✅ Full page translation (Give/Volunteer/Events/Transparency) + real currency conversion on Transparency
+- ✅ Whitney sign-in review, mapped against the ministry's Excel workbook — app already replaces nearly all of it
+- ✅ Security: closed an anonymous IDOR on the family-profile self-service endpoint; fixed `/my-profile`'s blank-form/false-success bugs
+- ✅ Volunteer dashboards scoped by actual VolunteerRole (Prayer Dashboard vs. My Work Queue), server-side role check added, magic-link portal pages wired up, new-volunteer default fixed to Prayer Dashboard
 
 ---
 
 ## 🔗 Quick Links
 
-- Full TODO: `MASTER_TODO.md` | Last session: `sessions/2026-09-24-prayer-request-workflow-email-security-and-qa-data.md`
+- Full TODO: `MASTER_TODO.md` | Last session: `sessions/2026-09-30-localization-security-and-volunteer-role-scoping.md`
 - Directives: `.claude/CRITICAL_RULES_CONSOLIDATED.md`, `.claude/SESSION_STARTUP_DIRECTIVE.md`
 - PM plan / risks: `docs/LOTV-PM-Plan.md` (R-32 to R-37)
 
