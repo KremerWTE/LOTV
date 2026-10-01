@@ -9,10 +9,11 @@ namespace Lotv.Api.Services;
 public record ImpersonateRequest(string? UserId);
 
 /// <summary>
-/// "Login As": an HQ administrator can open the portal as another person to see exactly what they see. It is deliberately narrow:
-/// HQ admins only; never another administrator or yourself; never nested; the token lasts 30 minutes and has no refresh token, so it
-/// ends on its own; every start and end is written to the audit log; and everything done during it is recorded under both names
-/// ("Priya Nair (signed in by Eric Admin)"). While it is active, account, email and profile changes are refused.
+/// "Login As": an HQ administrator can open the portal as anyone else — including another HQAdmin or a
+/// deactivated account — to see exactly what they see. Never yourself, never nested; the token lasts 30 minutes and
+/// has no refresh token, so it ends on its own; every start and end is written to the audit log; and everything
+/// done during it is recorded under both names ("Priya Nair (signed in by Eric Admin)"). While it is active,
+/// account, email and profile changes are refused.
 /// </summary>
 public static class ImpersonationEndpoints
 {
@@ -35,8 +36,6 @@ public static class ImpersonationEndpoints
             var target = await userMgr.FindByIdAsync(body.UserId);
             if (target is null) return Results.NotFound(new { error = "That user does not exist." });
             if (target.Id == admin.Id) return Results.BadRequest(new { error = "That is you." });
-            if (target.Role == UserRole.HQAdmin) return Results.BadRequest(new { error = "You cannot sign in as another administrator." });
-            if (!target.IsActive) return Results.BadRequest(new { error = "That account is turned off." });
 
             db.AuditEntries.Add(new AuditEntry
             {
