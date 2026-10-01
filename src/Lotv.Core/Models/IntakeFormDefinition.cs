@@ -106,6 +106,7 @@ public class IntakeFormDefinition
             if (string.IsNullOrWhiteSpace(f.Label) && f.Type != "bracelet") errors.Add($"Every item needs a label or text (id '{f.Id}').");
             Max($"'{name}' label", f.Label, 2000);   Max($"'{name}' text for 'me'", f.LabelMe, 2000);
             Max($"'{name}' text for 'someone else'", f.LabelSomeone, 2000);
+            Max($"'{name}' text for 'prayer only'", f.LabelPrayerOnly, 2000);
             Max($"'{name}' placeholder", f.Placeholder, 200);   Max($"'{name}' help text", f.Help, 500);
             Max($"'{name}' button label", f.ButtonLabel, 80);
 
@@ -125,6 +126,7 @@ public class IntakeFormDefinition
                     if (string.IsNullOrWhiteSpace(o.Value) || o.Value.Length > 100) errors.Add($"'{name}' has a choice with an empty or too-long value.");
                     else if (!vals.Add(o.Value)) errors.Add($"'{name}' has the choice '{o.Value}' twice.");
                     if (string.IsNullOrWhiteSpace(o.Label) || o.Label.Length > 200) errors.Add($"'{name}' has a choice with an empty or too-long label.");
+                    if (o.LabelSomeone is { Length: > 200 }) errors.Add($"'{name}' has a choice whose 'someone else' text is too long.");
                 }
                 if (f.Key == "reason" && allowedReasonValues is not null)
                     foreach (var o in f.Options.Where(o => !allowedReasonValues.Contains(o.Value)))
@@ -191,6 +193,9 @@ public class IntakeFormField
     public string? LabelMe        { get; set; }
     /// <summary>Overrides <see cref="Label"/> when the visitor picks "for someone else".</summary>
     public string? LabelSomeone   { get; set; }
+    /// <summary>Overrides <see cref="Label"/> (and any <see cref="LabelMe"/>/<see cref="LabelSomeone"/> branch) when the
+    /// visitor chose "Prayer only" on the standard wantsPackage question — e.g. "this package" → "this prayer request".</summary>
+    public string? LabelPrayerOnly { get; set; }
     public string? Placeholder { get; set; }
     public string? Help        { get; set; }
     public bool    Required    { get; set; }
@@ -214,6 +219,8 @@ public class FormOption
 {
     public string Value { get; set; } = "";
     public string Label { get; set; } = "";
+    /// <summary>Overrides <see cref="Label"/> when the visitor picks "for someone else" — e.g. "...mailed to you" vs. "...mailed to the family".</summary>
+    public string? LabelSomeone { get; set; }
 }
 
 /// <summary>One show/hide rule. Set either <see cref="Branch"/> or <see cref="Field"/>; all rules on a field must hold.</summary>

@@ -33,6 +33,29 @@ public class FormDefinitionApiTests
         Assert.Contains(def.Fields, f => f.Key == "reason");
     }
 
+    // Regression guard: these two text variants (option text by branch, field label by package-vs-prayer-
+    // only) are easy to lose silently — either by a typo in the default JSON's property names not matching
+    // the C# model (System.Text.Json drops anything it doesn't recognize with no error), or by a future
+    // edit through the staff editor round-tripping through IntakeFormDefinition and dropping them again.
+    [Fact]
+    public async Task PublicGet_DefaultDefinition_CarriesTheBranchAndPrayerOnlyLabelVariants()
+    {
+        var resp = await _factory.CreateClient().GetAsync($"/api/v1/public/forms/{Key}");
+        var def = await resp.Content.ReadFromJsonAsync<IntakeFormDefinition>(FormDefinitions.Json);
+
+        var wantsPackage = def!.Fields.Single(f => f.Key == "wantsPackage");
+        var packageOption = wantsPackage.Options.Single(o => o.Value == "Package");
+        Assert.Equal("A comfort package mailed to you", packageOption.Label);
+        Assert.Equal("A comfort package mailed to the family", packageOption.LabelSomeone);
+
+        var mention = def.Fields.Single(f => f.Key == "mentionPreference");
+        Assert.Contains("package", mention.Label);
+        Assert.Contains("prayer request", mention.LabelPrayerOnly);
+
+        var reason = def.Fields.Single(f => f.Key == "reason");
+        Assert.Equal("Reason for Prayer Request", reason.Label);
+    }
+
     [Fact]
     public async Task PublicGet_UnknownForm_Returns404()
     {
