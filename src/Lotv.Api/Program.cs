@@ -463,6 +463,8 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         noteLines.Add("Prayer only — no package requested.");
     else if (!string.IsNullOrEmpty(packageType))
         noteLines.Add($"Package requested: {packageType}");
+    if (body.WantsPackage && body.ExcludeFromPrayerQueue)
+        noteLines.Add("Package only — requester did not ask for the prayer team.");
     var referrerNote = noteLines.Count > 0 ? string.Join("\n", noteLines) : null;
 
     var req = new PackageRequest
@@ -470,6 +472,7 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         FamilyId       = body.Family.Id,
         ChapterId      = body.Family.ChapterId,
         WantsPackage   = body.WantsPackage,
+        ExcludeFromPrayerQueue = body.ExcludeFromPrayerQueue,
         Reason         = body.Family.Reason,
         Category       = category,
         IsForSelf      = body.ForSelf,
@@ -888,7 +891,8 @@ cases.MapGet("/prayer-candidates", async (LotvDbContext db, IChapterContextServi
 {
     var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
     var alreadyOn = await db.PrayerTeamMembers.Where(m => myIds.Contains(m.VolunteerId)).Select(m => m.RequestId).ToListAsync();
-    var q = db.Requests.Include(r => r.Family).Where(r => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled);
+    var q = db.Requests.Include(r => r.Family)
+        .Where(r => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled && !r.ExcludeFromPrayerQueue);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     var candidates = await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
     return Results.Ok(candidates.Select(r => new
@@ -5490,6 +5494,7 @@ record PublicApplyRequest(
     bool ForSelf = true,
     string? PackageType = null,
     bool WantsPackage = true,
+    bool ExcludeFromPrayerQueue = false,
     string? ReferrerFirstName = null,
     string? ReferrerLastName = null,
     string? ReferrerEmail = null
