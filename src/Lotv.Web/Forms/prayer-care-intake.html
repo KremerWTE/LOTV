@@ -37,6 +37,8 @@
   #lotv-intake .lotv-sub { color: #5a6b85; font-size: .92rem; margin: 0 0 24px; line-height: 1.5; }
   #lotv-intake .lotv-section { margin-bottom: 24px; }
   #lotv-intake .lotv-section-label { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7a8aa3; margin: 10px 0 0; padding-bottom: 6px; border-bottom: 1px solid #e3e8f0; }
+  /* "Who is this for?" doesn't need the separator line the other section labels use — it sits right above its own toggle buttons with nothing else to separate it from. */
+  #lotv-intake .lotv-no-rule { border-bottom: none; padding-bottom: 0; margin-bottom: 10px; }
   #lotv-intake .lotv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
   #lotv-intake .lotv-full { grid-column: 1 / -1; }
   #lotv-intake label { display: block; font-size: .84rem; font-weight: 600; margin-bottom: 5px; color: #33415c; }
@@ -228,7 +230,8 @@
 
   // ── build the form from the definition ──────────────────────────────────
   function build() {
-    form.appendChild(el("h2", null, def.title));
+    // No <h2> title here on purpose — the page this form is embedded on already has its own
+    // stylized heading directly above it; a second plain one was redundant.
     form.appendChild(el("p", "lotv-sub", def.intro));
 
     errorBox = el("div", "lotv-error"); errorBox.id = "lotv-error"; errorBox.hidden = true;
@@ -239,7 +242,7 @@
 
     // For me / for someone else
     var who = el("div", "lotv-section");
-    who.appendChild(labelWithStar("lotv-section-label", def.whoIsThisForLabel, true));
+    who.appendChild(labelWithStar("lotv-section-label lotv-no-rule", def.whoIsThisForLabel, true));
     var tg = el("div", "lotv-toggle-group");
     [["me", def.toggleLabelMe], ["someone", def.toggleLabelSomeone]].forEach(function (p) {
       var t = el("div", "lotv-toggle", p[1]);
@@ -267,6 +270,7 @@
       wrap.id = "lotv-item-" + f.id;
       if ((f.showWhen || []).some(function (c) { return c.branch === "someone"; })) wrap.setAttribute("data-someone-only", "");
       var labelEl = null;
+      var optEls = null;   // select only: {el, def} pairs so refresh() can re-text them per branch
 
       if (f.type === "heading") {
         labelEl = el("div", "lotv-section-label"); labelEl.id = "lotv-" + f.id; wrap.appendChild(labelEl);
@@ -285,7 +289,11 @@
         if (f.type === "select") {
           c = document.createElement("select");
           var blank = el("option", null, t("selectPlaceholder")); blank.value = ""; c.appendChild(blank);
-          (f.options || []).forEach(function (o) { var op = el("option", null, o.label); op.value = o.value; c.appendChild(op); });
+          optEls = [];
+          (f.options || []).forEach(function (o) {
+            var op = el("option", null, o.label); op.value = o.value; c.appendChild(op);
+            optEls.push({ el: op, def: o });
+          });
         } else if (f.type === "textarea") {
           c = document.createElement("textarea"); c.rows = 4;
         } else {
@@ -297,7 +305,7 @@
         if (f.help) wrap.appendChild(el("div", "lotv-hint", f.help));
       }
       grid.appendChild(wrap);
-      items.push({ f: f, wrap: wrap, labelEl: labelEl });
+      items.push({ f: f, wrap: wrap, labelEl: labelEl, optEls: optEls });
     });
     rest.appendChild(grid);
 
@@ -338,7 +346,11 @@
       if (c.branch) return c.branch === forWho;
       if (c.field) {
         var src = byKey[c.field];
-        if (!src || !isActive(src, depth + 1)) return false;
+        // The referenced question isn't part of THIS form definition at all — most likely an older
+        // saved custom form that predates a newer standard question (e.g. wantsPackage). Don't let a
+        // rule about something that doesn't exist hide the field that depends on it; fail open, not closed.
+        if (!src) return true;
+        if (!isActive(src, depth + 1)) return false;
         var v = rawValue(c.field);
         if (c.notEmpty && !v) return false;
         if (c.in && c.in.length && c.in.indexOf(v) < 0) return false;
@@ -350,16 +362,29 @@
 
   function value(key) { var f = byKey[key]; return f && isActive(f) ? rawValue(key) : ""; }
 
+  // A field's label can vary two independent ways: by who it's for (byBranch, "Me"/"Someone" — set at
+  // the field level), and by whether this is a package or prayer-only request (labelPrayerOnly — the
+  // wording "this package" vs. "this prayer request" has nothing to do with who it's for). The latter
+  // takes precedence when both could apply, since it's the more specific override.
+  function resolveLabel(f) {
+    if (f.labelPrayerOnly && value("wantsPackage") === "PrayerOnly") return f.labelPrayerOnly;
+    return byBranch(f, "label");
+  }
+
   function refresh() {
     items.forEach(function (it) {
       it.wrap.hidden = !isActive(it.f);
       if (it.labelEl) {
-        var t = byBranch(it.f, "label");
-        it.labelEl.textContent = t;
+        it.labelEl.textContent = resolveLabel(it.f);
         if (it.f.required && it.f.type !== "heading" && it.f.type !== "hint" && it.f.type !== "checkbox") {
           it.labelEl.appendChild(document.createTextNode(" "));
           it.labelEl.appendChild(el("span", "lotv-required", "*"));
         }
+      }
+      if (it.optEls) {
+        it.optEls.forEach(function (oi) {
+          oi.el.textContent = (forWho === "someone" && oi.def.labelSomeone) ? oi.def.labelSomeone : oi.def.label;
+        });
       }
     });
     if (braceletField) {
@@ -439,7 +464,7 @@
     if (window.parent !== window) window.parent.postMessage({ lotvScrollToError: true }, "*");
   }
   function clearError() { errorBox.hidden = true; }
-  function plainLabel(f) { return byBranch(f, "label").replace(/[:\s]+$/, ""); }
+  function plainLabel(f) { return resolveLabel(f).replace(/[:\s]+$/, ""); }
   function nameParts(full) {
     var parts = (full || "").trim().split(/\s+/);
     return { first: parts.shift() || "", last: parts.join(" ") };

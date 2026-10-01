@@ -1,7 +1,7 @@
 {
     "version": 1,
     "title": "Request a Prayer Care Package",
-    "intro": "Free, always - no eligibility requirements. Fill this out for yourself, or on behalf of a family you know who needs support.",
+    "intro": "To request a Prayer Care Package be mailed to you or a family who needs support, please complete the form below.",
     "submitLabel": "Submit Request",
     "footerNote": "Your information is kept strictly confidential and used only to fulfill your request. There is never any cost or obligation.",
     "packageType": "Comfort",
@@ -35,7 +35,8 @@
             "options": [
                 {
                     "value": "Package",
-                    "label": "A comfort package mailed to you"
+                    "label": "A comfort package mailed to you",
+                    "labelSomeone": "A comfort package mailed to the family"
                 },
                 {
                     "value": "PrayerOnly",
@@ -175,6 +176,7 @@
             "key": "mentionPreference",
             "type": "select",
             "label": "Would you like us to mention this package is from you, or remain anonymous?",
+            "labelPrayerOnly": "Would you like us to mention this prayer request is from you, or remain anonymous?",
             "visible": true,
             "width": "full",
             "standard": true,
@@ -198,7 +200,7 @@
             "id": "reason",
             "key": "reason",
             "type": "select",
-            "label": "Reason for Prayer Package Request",
+            "label": "Reason for Prayer Request",
             "required": true,
             "visible": true,
             "width": "full",
