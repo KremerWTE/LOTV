@@ -153,6 +153,7 @@ builder.Services.AddScoped<IChapterContextService, ChapterContextService>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<IAutoAssignmentService, AutoAssignmentService>();
 builder.Services.AddScoped<IDuplicateFamilyDetectionService, DuplicateFamilyDetectionService>();
+builder.Services.AddScoped<IShippingLabelGenerator, PlaceholderShippingLabelGenerator>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IScheduledReportService, ScheduledReportService>();
 builder.Services.AddScoped<IFinancialAuditService, FinancialAuditService>();
@@ -343,6 +344,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the PrayerTeamMembers table; the prayer team will be unavailable."); }
     try { PackageRecipeTableBootstrap.EnsureTable(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the PackageRecipeItems table; the Build Day planner will be unavailable."); }
+    try { ShippingLabelTableBootstrap.EnsureTable(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not create the ShippingLabels table; shipping labels will be unavailable."); }
 
     // Volunteer case counts drifted because assigning never incremented them; make them match reality.
     try
@@ -1151,7 +1154,7 @@ cases.MapPut("/{id:int}/priority", async (int id, PriorityRequest body, LotvDbCo
     return Results.Ok(r);
 });
 
-cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body, LotvDbContext db, IChapterContextService ctx) =>
+cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body, LotvDbContext db, IChapterContextService ctx, IShippingLabelGenerator labelGenerator) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
@@ -1161,6 +1164,20 @@ cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body,
         RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.ProcessStageChanged, NewValue = body.ProcessStage.ToString(), Timestamp = DateTime.UtcNow
     });
+
+    // Per the project owner's decision: a label generates automatically the first time a package case
+    // reaches Packing. Prayer-only requests (WantsPackage false) never get one. Carrier/service/label
+    // file stay placeholders until a real carrier platform is chosen (see IShippingLabelGenerator).
+    if (body.ProcessStage == ProcessStage.Packing && r.WantsPackage && !await db.ShippingLabels.AnyAsync(l => l.PackageRequestId == id))
+    {
+        db.ShippingLabels.Add(await labelGenerator.GenerateAsync(r));
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
+            ActivityType = ActivityType.ShippingLabelGenerated, Timestamp = DateTime.UtcNow
+        });
+    }
+
     await db.SaveChangesAsync();
     return Results.Ok(r);
 });

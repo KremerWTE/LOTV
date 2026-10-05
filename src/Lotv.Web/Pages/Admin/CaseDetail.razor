@@ -961,6 +961,7 @@ else
     ActivityType.Cancelled      => "✖",
     ActivityType.Viewed         => "👁",
     ActivityType.ProcessStageChanged => "➜",
+    ActivityType.ShippingLabelGenerated => "📦",
     _ => "•"
   };
 
@@ -979,6 +980,7 @@ else
     ActivityType.Cancelled      => "cancelled this case",
     ActivityType.Viewed         => "viewed this case",
     ActivityType.ProcessStageChanged => $"moved the case from {StageName(ev.OldValue)} to {StageName(ev.NewValue)}",
+    ActivityType.ShippingLabelGenerated => "generated a shipping label (placeholder — no carrier integrated yet)",
     _ => ev.ActivityType.ToString()
   };
 }
