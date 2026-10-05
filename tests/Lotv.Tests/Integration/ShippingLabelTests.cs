@@ -98,4 +98,25 @@ public class ShippingLabelTests
         var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
         Assert.False(await db.ShippingLabels.AsNoTracking().AnyAsync(l => l.PackageRequestId == requestId));
     }
+
+    [Fact]
+    public async Task ShippoExport_ListsPackingCasesOnly_WithShippingEssentialsAndNoSensitiveFields()
+    {
+        var client = await HqAdminClientAsync();
+        var packing = await NewRequestAsync(wantsPackage: true);
+        var notPacking = await NewRequestAsync(wantsPackage: true);
+        var prayerOnly = await NewRequestAsync(wantsPackage: false);
+        await MoveToStageAsync(client, packing, ProcessStage.Packing);
+        await MoveToStageAsync(client, prayerOnly, ProcessStage.Packing);
+
+        var resp = await client.GetAsync("/api/v1/requests/shippo-export");
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var csv = await resp.Content.ReadAsStringAsync();
+
+        Assert.StartsWith("Order Number,Order Date,Recipient Name", csv);
+        Assert.Contains($"LOTV-{packing},", csv);
+        Assert.DoesNotContain($"LOTV-{notPacking},", csv);
+        Assert.DoesNotContain($"LOTV-{prayerOnly},", csv);
+        Assert.DoesNotContain("Reason", csv);
+    }
 }

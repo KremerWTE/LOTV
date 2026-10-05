@@ -11,7 +11,7 @@
 **Next Tasks (Priority Order):**
 1. **Enable WebSocket Protocol on `wte_apps3` + check for ARR/load-balancer affinity (R-40)** — the deploy workflow now pins the LOTV_WEB pool to one worker process and warns if the feature is off, but only someone with IIS access can enable it. Takes effect on the next deploy.
 2. **PR kremer-dev → stage → main** — production is several sessions behind on code
-3. **Name the shipping-label carrier** — user said it is *not* Shippo but hasn't said which. Phase one (trigger + placeholder) is built; phase two = a new `IShippingLabelGenerator` implementation, key via GitHub secrets.
+3. **Shipping labels = hand-off to the ministry's existing Shippo account (no carrier API).** Built: "Export for Shippo" button on Package Pipeline → CSV of package cases at Packing with no tracking number (`GET /api/v1/requests/shippo-export`). Needs a real-account check: import the CSV into Shippo once and confirm the column mapping; then staff enter tracking numbers back on the case. Optional later: push via Shippo Orders API instead of CSV.
 4. ~~Sidebar scope~~ confirmed. ~~Volunteer landing~~ done: everyone lands on My Work Queue.
 5. (see 6 below)
 6. **Send these two questions** (drafted an earlier session, need your answers before any related build):

@@ -1198,6 +1198,18 @@ public class ApiService
         catch { return null; }
     }
 
+    /// <summary>CSV of package cases at Packing with no tracking number yet, for import into the ministry's Shippo account.</summary>
+    public async Task<string?> GetShippoExportCsvAsync()
+    {
+        SetAuthHeader();
+        try
+        {
+            var resp = await _http.GetAsync("/api/v1/requests/shippo-export");
+            return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync() : null;
+        }
+        catch { return null; }
+    }
+
     // ─── Staff-editable public forms ─────────────────────────────────────────
     public async Task<IntakeFormEnvelope?> GetFormAsync(string key) =>
         await GetAsync<IntakeFormEnvelope>($"/api/v1/forms/{key}");

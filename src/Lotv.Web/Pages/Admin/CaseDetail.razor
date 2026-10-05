@@ -980,7 +980,7 @@ else
     ActivityType.Cancelled      => "cancelled this case",
     ActivityType.Viewed         => "viewed this case",
     ActivityType.ProcessStageChanged => $"moved the case from {StageName(ev.OldValue)} to {StageName(ev.NewValue)}",
-    ActivityType.ShippingLabelGenerated => "generated a shipping label (placeholder — no carrier integrated yet)",
+    ActivityType.ShippingLabelGenerated => "queued this case for shipping (label is bought in Shippo — use Export for Shippo on the Package Pipeline)",
     _ => ev.ActivityType.ToString()
   };
 }

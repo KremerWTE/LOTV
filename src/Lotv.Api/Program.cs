@@ -1182,7 +1182,39 @@ cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body,
     return Results.Ok(r);
 });
 
-cases.MapPut("/{id:int}/due-date", async (int id, DueDateRequest body, LotvDbContext db, IChapterContextService ctx) =>
+// Hand-off to the ministry's Shippo account: labels are bought there, not here. One row per package
+// case sitting at Packing with no tracking number yet, in Shippo's order-import column layout (its
+// importer also lets the columns be re-mapped). Deliberately only shipping essentials — no reason,
+// loss type, story or notes. QA sample families (.invalid email) are never exported.
+cases.MapGet("/shippo-export", async (LotvDbContext db) =>
+{
+    var rows = await db.Requests.AsNoTracking().Include(r => r.Family)
+        .Where(r => r.WantsPackage && r.ProcessStage == ProcessStage.Packing
+                    && r.TrackingNumber == null && r.Family != null && !r.Family.Email.EndsWith(".invalid"))
+        .OrderBy(r => r.Id).ToListAsync();
+
+    var sb = new System.Text.StringBuilder();
+    sb.Append("Order Number,Order Date,Recipient Name,Company,Street Line 1,Street Line 2,City,State/Province,Zip/Postal Code,Country,Phone Number,Email,Item Title,SKU,Quantity,Order Note\r\n");
+    foreach (var r in rows)
+    {
+        var f = r.Family!;
+        sb.Append(string.Join(",", new[]
+        {
+            CsvExport.Cell($"LOTV-{r.Id}"), CsvExport.Cell(r.CreatedAt.ToString("yyyy-MM-dd")),
+            CsvExport.Cell(f.FullName), CsvExport.Cell(""),
+            CsvExport.Cell(f.StreetAddress), CsvExport.Cell(f.Apt), CsvExport.Cell(f.City), CsvExport.Cell(f.State), CsvExport.Cell(f.Zip),
+            CsvExport.Cell("US"), CsvExport.Cell(f.Phone), CsvExport.Cell(f.Email),
+            CsvExport.Cell("Prayer Care Package"), CsvExport.Cell("PCP"), CsvExport.Cell("1"),
+            CsvExport.Cell($"LOTV case #{r.Id}"),
+        })).Append("\r\n");
+    }
+
+    app.Logger.LogInformation("Shippo hand-off export: {Count} rows.", rows.Count);
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv; charset=utf-8",
+        $"lotv-shippo-orders-{DateTime.UtcNow:yyyyMMdd}.csv");
+});
+
+cases.MapPut("/{id:int}/due-date",async (int id, DueDateRequest body, LotvDbContext db, IChapterContextService ctx) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
