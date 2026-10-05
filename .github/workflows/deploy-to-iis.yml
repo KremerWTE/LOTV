@@ -409,6 +409,26 @@ jobs:
         $old = Get-ChildItem -Path $logsPath -File | Where-Object { $_.LastWriteTime -lt $cutoff }
         if ($old) { $old | Remove-Item -Force; Write-Host "Removed $($old.Count) old log file(s)." }
 
+    # Blazor Server keeps per-user circuit state in memory, so it needs a single worker process
+    # (a "web garden" breaks the WebSocket circuit — R-40) and the IIS WebSocket Protocol feature.
+    # Pin the pool to one process and warn loudly if the feature is missing, so a regression shows
+    # up in the deploy log instead of as a 3-minute page load.
+    - name: Enforce single worker process + check WebSocket feature (Web)
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Continue"
+        Import-Module WebAdministration
+        $pool = "IIS:\AppPools\$env:APP_POOL_NAME"
+        $procs = (Get-ItemProperty $pool -Name processModel.maxProcesses).Value
+        if ($procs -ne 1) {
+          Set-ItemProperty $pool -Name processModel.maxProcesses -Value 1
+          Write-Host "[FIXED] $env:APP_POOL_NAME maxProcesses was $procs, set to 1."
+        } else { Write-Host "[OK] maxProcesses = 1" }
+        $ws = Get-WindowsOptionalFeature -Online -FeatureName IIS-WebSockets -ErrorAction SilentlyContinue
+        if ($ws -and $ws.State -ne "Enabled") {
+          Write-Warning "IIS-WebSockets is NOT enabled on this server — enable it (Server Manager > Web Server > Application Development > WebSocket Protocol)."
+        } else { Write-Host "[OK] WebSocket Protocol feature enabled (or not queryable)." }
+
     - name: Start app pool (always — even on deploy failure)
       if: always()
       shell: pwsh
