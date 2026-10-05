@@ -4,16 +4,16 @@
 
 ---
 
-## 🎯 Current Focus: get a yes/no on the sidebar scope, fix production's WebSocket connectivity, get code changes deployed, two questions waiting on ministry/client answers
+## 🎯 Current Focus: IIS WebSocket fix, deploy, carrier name, two questions waiting on ministry/client answers
 
 **Status:** Code complete and pushed to `kremer-dev` through `8eb07d4`. 787 unit/integration tests pass, 0 build warnings. Nothing from 2026-09-28 onward has reached production yet.
 
 **Next Tasks (Priority Order):**
-1. **Confirm the sidebar scope** — restricting the sidebar to Prayer Request Package + System Admin for everyone except `chris.kremer` also hides Chapter/HQ Dashboard, Donations, Volunteers, and Reports entirely from every other staff member. Flagged twice with no answer yet — worth a direct yes/no before another staff member is surprised by missing nav items.
-2. **Fix production's WebSocket/sticky-sessions config (R-40)** — found live during a QA review: `https://lotv.wte.net/` took anywhere from ~3 seconds to over 3 minutes to show any content on repeated fresh loads, every time. Browser console explicitly says why: `Failed to start the transport 'WebSockets' ... If you have multiple servers check that sticky sessions are enabled`. This affects the ENTIRE site (public + staff portal) on every fresh page load, right now, independent of any deploy — likely explains some of the "flakiness" chalked up to browser-automation tooling in earlier QA sessions. Needs whoever has `wte_apps3` IIS access to check: (1) LOTV_WEB app pool isn't a multi-worker-process "web garden", (2) if there's a load balancer/ARR in front, enable sticky sessions, (3) WebSocket Protocol Windows feature is enabled. Full detail in `docs/LOTV-PM-Plan.md` R-40.
-3. **PR kremer-dev → stage → main** — production is several sessions behind on code (separate from #2, which is a hosting config issue, not code)
-4. **Confirm the shipping-label carrier platform** before phase two — a "Shippo" lead from Chris is unverified, not a decision. Phase one (trigger + placeholder label, no carrier) is already built and merged.
-5. **Decide the volunteer landing-page inconsistency** — a brand-new volunteer lands on My Work Queue after a direct login, but on the Prayer Dashboard if signed in via Login As (or redirected there by the lane-enforcement guard), unless they're a Package Assembler. Found while building the staff manuals; documented there, not yet fixed either way.
+1. **Enable WebSocket Protocol on `wte_apps3` + check for ARR/load-balancer affinity (R-40)** — the deploy workflow now pins the LOTV_WEB pool to one worker process and warns if the feature is off, but only someone with IIS access can enable it. Takes effect on the next deploy.
+2. **PR kremer-dev → stage → main** — production is several sessions behind on code
+3. **Name the shipping-label carrier** — user said it is *not* Shippo but hasn't said which. Phase one (trigger + placeholder) is built; phase two = a new `IShippingLabelGenerator` implementation, key via GitHub secrets.
+4. ~~Sidebar scope~~ confirmed. ~~Volunteer landing~~ done: everyone lands on My Work Queue.
+5. (see 6 below)
 6. **Send these two questions** (drafted an earlier session, need your answers before any related build):
 
    **WW-In Kind workflow** — for Whitney/ministry staff:
@@ -24,9 +24,12 @@
 
 7. Static `/apply` intake form's actual question text (title, field labels, options) is still staff-authored-English-only — the form's own chrome now translates, but making the questions themselves editable in Spanish would need a real content feature (a way for staff to author and maintain a Spanish version)
 8. Domain/DNS/SSL, uptime monitoring, automated DB backups — all still require actual cloud/infra setup no AI session has access to
-9. Cosmetic polish from an earlier QA review: ~11 admin list pages flash empty content before data loads (no `_loading` guard); an unused `NavMenu.razor` scaffold leftover could be deleted
+9. Cosmetic polish from an earlier QA review: ~11 admin list pages flash empty content before data loads (no `_loading` guard)
 
-**Completed This Session (2026-10-01 to 2026-10-05):**
+**Completed 2026-10-05 (later):**
+- ✅ Sidebar scope confirmed; volunteers all land on My Work Queue; deploy guard for R-40; NavMenu scaffold deleted (`sessions/2026-10-05-volunteer-landing-and-websocket-deploy-guard.md`)
+
+**Completed Earlier (2026-10-01 to 2026-10-05):**
 - ✅ Fixed 3 functional + 3 cosmetic PCP intake-form bugs; root-caused and fixed the missing-bracelet regression (a fail-closed conditional-field bug), with a new regression test
 - ✅ Sidebar restricted to Prayer Request Package + System Admin for everyone except `chris.kremer` (scope still unconfirmed — see #1 above); built a real temp-password capability after refusing two requests to handle a colleague's actual password directly
 - ✅ Added a "Package only" intake option that opts a case out of the passive Prayer Ambassador queue
