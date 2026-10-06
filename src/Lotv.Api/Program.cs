@@ -154,6 +154,9 @@ builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<IAutoAssignmentService, AutoAssignmentService>();
 builder.Services.AddScoped<IDuplicateFamilyDetectionService, DuplicateFamilyDetectionService>();
 builder.Services.AddScoped<IShippingLabelGenerator, PlaceholderShippingLabelGenerator>();
+// Shippo hand-off: settings under "Shippo" (token via secrets/env). Inert until a token + ship-from address are set.
+builder.Services.Configure<ShippoOptions>(builder.Configuration.GetSection("Shippo"));
+builder.Services.AddHttpClient<IShippoOrderClient, ShippoOrderClient>(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IScheduledReportService, ScheduledReportService>();
 builder.Services.AddScoped<IFinancialAuditService, FinancialAuditService>();
@@ -1154,7 +1157,7 @@ cases.MapPut("/{id:int}/priority", async (int id, PriorityRequest body, LotvDbCo
     return Results.Ok(r);
 });
 
-cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body, LotvDbContext db, IChapterContextService ctx, IShippingLabelGenerator labelGenerator) =>
+cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body, LotvDbContext db, IChapterContextService ctx, IShippingLabelGenerator labelGenerator, IShippoOrderClient shippo) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
@@ -1170,7 +1173,11 @@ cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body,
     // file stay placeholders until a real carrier platform is chosen (see IShippingLabelGenerator).
     if (body.ProcessStage == ProcessStage.Packing && r.WantsPackage && !await db.ShippingLabels.AnyAsync(l => l.PackageRequestId == id))
     {
-        db.ShippingLabels.Add(await labelGenerator.GenerateAsync(r));
+        var label = await labelGenerator.GenerateAsync(r);
+        // If Shippo is configured the order goes straight into the ministry's account; a failure is
+        // recorded on the label (retry from the case page) and never blocks the stage change.
+        await ShippoHandoff.PushAsync(db, shippo, r, label);
+        db.ShippingLabels.Add(label);
         db.RequestActivities.Add(new RequestActivity
         {
             RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
@@ -1180,6 +1187,28 @@ cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body,
 
     await db.SaveChangesAsync();
     return Results.Ok(r);
+});
+
+// Shippo status for the case page, and a manual (re)send when the automatic push failed or Shippo
+// was configured after the case reached Packing.
+cases.MapGet("/{id:int}/shippo", async (int id, LotvDbContext db, IShippoOrderClient shippo) =>
+{
+    if (await db.Requests.FindAsync(id) is null) return Results.NotFound();
+    var l = await db.ShippingLabels.AsNoTracking().FirstOrDefaultAsync(x => x.PackageRequestId == id);
+    return Results.Ok(new { configured = shippo.IsConfigured, hasRecord = l is not null, orderId = l?.ShippoOrderId, syncedAt = l?.ShippoSyncedAt, error = l?.ShippoSyncError });
+});
+
+cases.MapPost("/{id:int}/shippo/send", async (int id, LotvDbContext db, IShippoOrderClient shippo) =>
+{
+    var r = await db.Requests.Include(x => x.Family).FirstOrDefaultAsync(x => x.Id == id);
+    if (r is null) return Results.NotFound();
+    if (!shippo.IsConfigured) return Results.BadRequest(new { error = "Shippo isn't configured yet." });
+    var label = await db.ShippingLabels.FirstOrDefaultAsync(x => x.PackageRequestId == id);
+    if (label is null) return Results.BadRequest(new { error = "This case hasn't reached Packing yet." });
+    if (label.ShippoOrderId is not null) return Results.Ok(new { orderId = label.ShippoOrderId, alreadySent = true });
+    var ok = await ShippoHandoff.PushAsync(db, shippo, r, label);
+    await db.SaveChangesAsync();
+    return ok ? Results.Ok(new { orderId = label.ShippoOrderId }) : Results.Json(new { error = label.ShippoSyncError }, statusCode: 502);
 });
 
 // Hand-off to the ministry's Shippo account: labels are bought there, not here. One row per package

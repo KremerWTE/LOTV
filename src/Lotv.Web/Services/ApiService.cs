@@ -1210,6 +1210,19 @@ public class ApiService
         catch { return null; }
     }
 
+    public Task<ShippoStatusDto?> GetShippoStatusAsync(int requestId) =>
+        GetAsync<ShippoStatusDto>($"/api/v1/requests/{requestId}/shippo");
+
+    /// <summary>Sends the case to Shippo. Returns null on success, otherwise a message to show staff.</summary>
+    public async Task<string?> SendToShippoAsync(int requestId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/requests/{requestId}/shippo/send", new { });
+        if (resp is null) return "Couldn't reach the server.";
+        if (resp.IsSuccessStatusCode) return null;
+        try { return (await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("error").GetString() ?? "Shippo send failed."; }
+        catch { return "Shippo send failed."; }
+    }
+
     // ─── Staff-editable public forms ─────────────────────────────────────────
     public async Task<IntakeFormEnvelope?> GetFormAsync(string key) =>
         await GetAsync<IntakeFormEnvelope>($"/api/v1/forms/{key}");
@@ -1921,6 +1934,8 @@ public class ApiService
 }
 
 // ── Response DTOs (API-specific shapes) ──────────────────────────────────────
+public record ShippoStatusDto(bool Configured, bool HasRecord, string? OrderId, DateTime? SyncedAt, string? Error);
+
 public record ReportRunLogDto(
     int Id, string ReportType, int? ChapterId, string ChapterName,
     DateTime SentAt, string RecipientEmail, bool Success,

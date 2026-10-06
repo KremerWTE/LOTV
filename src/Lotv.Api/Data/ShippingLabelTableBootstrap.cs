@@ -24,11 +24,16 @@ public static class ShippingLabelTableBootstrap
                         [Carrier]          NVARCHAR(MAX) NULL,
                         [ServiceLevel]     NVARCHAR(MAX) NULL,
                         [LabelFileUrl]     NVARCHAR(MAX) NULL,
+                        [ShippoOrderId]    NVARCHAR(MAX) NULL,
+                        [ShippoSyncedAt]   DATETIME2 NULL,
+                        [ShippoSyncError]  NVARCHAR(MAX) NULL,
                         [GeneratedAt]      DATETIME2 NOT NULL,
                         CONSTRAINT [PK_ShippingLabels] PRIMARY KEY ([Id])
                     );
                     CREATE UNIQUE INDEX [IX_ShippingLabels_PackageRequestId] ON [dbo].[ShippingLabels] ([PackageRequestId]);
                 END
+                IF COL_LENGTH(N'dbo.ShippingLabels', N'ShippoOrderId') IS NULL
+                    ALTER TABLE [dbo].[ShippingLabels] ADD [ShippoOrderId] NVARCHAR(MAX) NULL, [ShippoSyncedAt] DATETIME2 NULL, [ShippoSyncError] NVARCHAR(MAX) NULL;
                 """);
         }
         else if (db.Database.IsSqlite())
@@ -42,10 +47,18 @@ public static class ShippingLabelTableBootstrap
                     "Carrier"          TEXT NULL,
                     "ServiceLevel"     TEXT NULL,
                     "LabelFileUrl"     TEXT NULL,
+                    "ShippoOrderId"    TEXT NULL,
+                    "ShippoSyncedAt"   TEXT NULL,
+                    "ShippoSyncError"  TEXT NULL,
                     "GeneratedAt"      TEXT NOT NULL
                 );
                 """);
             db.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_ShippingLabels_PackageRequestId" ON "ShippingLabels" ("PackageRequestId");""");
+            // A table created before the Shippo columns existed needs them added; SQLite has no ADD COLUMN IF NOT EXISTS.
+            bool Has(string col) => db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS \"Value\" FROM pragma_table_info('ShippingLabels') WHERE name = {0}", col).AsEnumerable().First() > 0;
+            if (!Has("ShippoOrderId"))   db.Database.ExecuteSqlRaw("""ALTER TABLE "ShippingLabels" ADD COLUMN "ShippoOrderId" TEXT NULL;""");
+            if (!Has("ShippoSyncedAt"))  db.Database.ExecuteSqlRaw("""ALTER TABLE "ShippingLabels" ADD COLUMN "ShippoSyncedAt" TEXT NULL;""");
+            if (!Has("ShippoSyncError")) db.Database.ExecuteSqlRaw("""ALTER TABLE "ShippingLabels" ADD COLUMN "ShippoSyncError" TEXT NULL;""");
         }
     }
 }

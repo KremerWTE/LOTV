@@ -22,3 +22,11 @@
 - Try the CSV in the real Shippo account; staff enter tracking numbers back on the case.
 - IIS: enable WebSocket Protocol; check for ARR/load balancer affinity.
 - PR kremer-dev -> stage -> main.
+
+## Addendum 2026-10-06 — Shippo direct push
+- New `IShippoOrderClient` (Core) / `ShippoOrderClient` + `ShippoOptions` (Api, config section `Shippo`) POST an Order to `https://api.goshippo.com/orders/` with `Authorization: ShippoToken <token>`; shipping essentials only. Inert unless token + ship-from street/city/state/zip are set.
+- `ShippoHandoff.PushAsync` runs when a package case first reaches Packing; stores `ShippoOrderId/SyncedAt/SyncError` on `ShippingLabel` (bootstrap adds the columns to existing tables). Failure never blocks the stage change; no duplicate orders on retry.
+- Endpoints: `GET /api/v1/requests/{id}/shippo` (status), `POST /api/v1/requests/{id}/shippo/send` (retry). CaseDetail has a "Shipping — Shippo" panel.
+- Deploy workflow injects optional `SHIPPO_*` secrets into the API's appsettings.Production.json.
+- Tests: 7 in ShippingLabelTests (incl. fake-client flows), 3 in ShippoOrderClientTests (request shape, no sensitive fields). 794/794 pass.
+- Not verified against a real Shippo account (no token available); endpoint/field names follow Shippo's documented Orders API.

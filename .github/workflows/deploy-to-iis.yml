@@ -245,6 +245,19 @@ jobs:
         APP_NICOLAS_INITIAL_PASSWORD: ${{ secrets.APP_NICOLAS_INITIAL_PASSWORD }}
         # Set to true to load the clearly marked QA sample data on startup (leave unset to load it from the admin page instead).
         APP_QA_SAMPLE_AUTOLOAD:    ${{ secrets.APP_QA_SAMPLE_AUTOLOAD }}
+        # Shippo hand-off (orders only, no label purchase). All optional: the app skips Shippo until the token AND
+        # the ship-from street/city/state/zip are set. Use a shippo_test_ token first.
+        SHIPPO_API_TOKEN:          ${{ secrets.SHIPPO_API_TOKEN }}
+        SHIPPO_FROM_NAME:          ${{ secrets.SHIPPO_FROM_NAME }}
+        SHIPPO_FROM_COMPANY:       ${{ secrets.SHIPPO_FROM_COMPANY }}
+        SHIPPO_FROM_STREET1:       ${{ secrets.SHIPPO_FROM_STREET1 }}
+        SHIPPO_FROM_STREET2:       ${{ secrets.SHIPPO_FROM_STREET2 }}
+        SHIPPO_FROM_CITY:          ${{ secrets.SHIPPO_FROM_CITY }}
+        SHIPPO_FROM_STATE:         ${{ secrets.SHIPPO_FROM_STATE }}
+        SHIPPO_FROM_ZIP:           ${{ secrets.SHIPPO_FROM_ZIP }}
+        SHIPPO_FROM_PHONE:         ${{ secrets.SHIPPO_FROM_PHONE }}
+        SHIPPO_FROM_EMAIL:         ${{ secrets.SHIPPO_FROM_EMAIL }}
+        SHIPPO_DEFAULT_WEIGHT_LB:  ${{ secrets.SHIPPO_DEFAULT_WEIGHT_LB }}
       run: |
         $ErrorActionPreference = "Stop"
 
@@ -287,6 +300,17 @@ jobs:
         Set-IfSet -root $cfg -path @("Twilio","FromNumber")                   -envVal $env:TWILIO_FROM_NUMBER
         Set-IfSet -root $cfg -path @("Push","VapidPublicKey")                 -envVal $env:VAPID_PUBLIC_KEY
         Set-IfSet -root $cfg -path @("Push","VapidPrivateKey")                -envVal $env:VAPID_PRIVATE_KEY
+        Set-IfSet -root $cfg -path @("Shippo","ApiToken")                     -envVal $env:SHIPPO_API_TOKEN
+        Set-IfSet -root $cfg -path @("Shippo","FromName")                     -envVal $env:SHIPPO_FROM_NAME
+        Set-IfSet -root $cfg -path @("Shippo","FromCompany")                  -envVal $env:SHIPPO_FROM_COMPANY
+        Set-IfSet -root $cfg -path @("Shippo","FromStreet1")                  -envVal $env:SHIPPO_FROM_STREET1
+        Set-IfSet -root $cfg -path @("Shippo","FromStreet2")                  -envVal $env:SHIPPO_FROM_STREET2
+        Set-IfSet -root $cfg -path @("Shippo","FromCity")                     -envVal $env:SHIPPO_FROM_CITY
+        Set-IfSet -root $cfg -path @("Shippo","FromState")                    -envVal $env:SHIPPO_FROM_STATE
+        Set-IfSet -root $cfg -path @("Shippo","FromZip")                      -envVal $env:SHIPPO_FROM_ZIP
+        Set-IfSet -root $cfg -path @("Shippo","FromPhone")                    -envVal $env:SHIPPO_FROM_PHONE
+        Set-IfSet -root $cfg -path @("Shippo","FromEmail")                    -envVal $env:SHIPPO_FROM_EMAIL
+        Set-IfSet -root $cfg -path @("Shippo","DefaultWeightLb")              -envVal $env:SHIPPO_DEFAULT_WEIGHT_LB
         Set-IfSet -root $cfg -path @("SocketLabs","ServerId")                 -envVal $env:APP_SOCKETLABS_SERVER_ID
         Set-IfSet -root $cfg -path @("SocketLabs","ApiKey")                   -envVal $env:APP_SOCKETLABS_API_KEY
         Set-IfSet -root $cfg -path @("SocketLabs","FromEmail")                -envVal $env:APP_EMAIL_FROM

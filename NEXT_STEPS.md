@@ -11,7 +11,7 @@
 **Next Tasks (Priority Order):**
 1. **Enable WebSocket Protocol on `wte_apps3` + check for ARR/load-balancer affinity (R-40)** — the deploy workflow now pins the LOTV_WEB pool to one worker process and warns if the feature is off, but only someone with IIS access can enable it. Takes effect on the next deploy.
 2. **PR kremer-dev → stage → main** — production is several sessions behind on code
-3. **Shipping labels = hand-off to the ministry's existing Shippo account (no carrier API).** Built: "Export for Shippo" button on Package Pipeline → CSV of package cases at Packing with no tracking number (`GET /api/v1/requests/shippo-export`). Needs a real-account check: import the CSV into Shippo once and confirm the column mapping; then staff enter tracking numbers back on the case. Optional later: push via Shippo Orders API instead of CSV.
+3. **Shippo direct push — built, waiting on credentials.** Reaching Packing now sends the order to the ministry's Shippo account via API (orders only; staff buy labels in Shippo). Inert until GitHub secrets are set: `SHIPPO_API_TOKEN` (start with a `shippo_test_` token) + `SHIPPO_FROM_STREET1/CITY/STATE/ZIP` (+ optional `SHIPPO_FROM_NAME/COMPANY/STREET2/PHONE/EMAIL`, `SHIPPO_DEFAULT_WEIGHT_LB`). Failures never block a case; case page shows status + "Send to Shippo" retry. CSV export stays as fallback. Verify once against a real Shippo test account; also confirm the ministry's HIPAA/BAA coverage for Shippo.
 4. ~~Sidebar scope~~ confirmed. ~~Volunteer landing~~ done: everyone lands on My Work Queue.
 5. (see 6 below)
 6. **Send these two questions** (drafted an earlier session, need your answers before any related build):

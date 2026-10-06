@@ -17,5 +17,10 @@ public class ShippingLabel
     public string? Carrier { get; set; }
     public string? ServiceLevel { get; set; }
     public string? LabelFileUrl { get; set; }
+    /// <summary>Shippo Order id once the case has been pushed to the ministry's Shippo account.</summary>
+    public string? ShippoOrderId { get; set; }
+    public DateTime? ShippoSyncedAt { get; set; }
+    /// <summary>Last Shippo failure message, cleared on success; null when never attempted or fine.</summary>
+    public string? ShippoSyncError { get; set; }
     public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
 }
