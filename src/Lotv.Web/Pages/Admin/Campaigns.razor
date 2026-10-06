@@ -76,7 +76,11 @@
       </div>
     </div>
   }
-  @if (!Filtered.Any())
+  @if (_loading)
+  {
+    <Loading Message="Loading campaigns…" />
+  }
+  else if (!Filtered.Any())
   {
     <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-light);">No campaigns found.</div>
   }
@@ -158,7 +162,13 @@
     (string.IsNullOrEmpty(_search) || c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) || (c.Description?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
   ).OrderByDescending(c => c.StartDate);
 
-  protected override async Task OnInitializedAsync() => _campaigns = await Api.GetCampaignsAsync();
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _campaigns = await Api.GetCampaignsAsync();
+    _loading = false;
+  }
 
   private void OpenDrawer(CampaignDto? c)
   {

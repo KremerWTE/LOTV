@@ -49,7 +49,11 @@
 
 <div class="panel">
   <div class="panel-body" style="padding:0;">
-    @if (!Filtered.Any())
+    @if (_loading)
+    {
+      <Loading Message="Loading expenses…" />
+    }
+    else if (!Filtered.Any())
     {
       <div style="padding:40px;text-align:center;color:var(--text-light);">No expenses logged.</div>
     }
@@ -164,10 +168,13 @@
      e.Description.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
      (e.Notes?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
 
+  private bool _loading = true;
+
   protected override async Task OnInitializedAsync()
   {
     _expenses = await Api.GetExpensesAsync();
     _allCategories = _expenses.Select(e => e.Category).Distinct().OrderBy(c => c).ToList();
+    _loading = false;
   }
 
   private void OpenDrawer(Expense? e)

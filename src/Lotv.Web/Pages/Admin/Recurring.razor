@@ -48,7 +48,11 @@
 
 <div class="panel">
   <div class="panel-body" style="padding:0;">
-    @if (!Filtered.Any())
+    @if (_loading)
+    {
+      <Loading Message="Loading recurring schedules…" />
+    }
+    else if (!Filtered.Any())
     {
       <div style="padding:40px;text-align:center;color:var(--text-light);">No recurring schedules found.</div>
     }
@@ -113,7 +117,13 @@
      (r.Campaign?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
   ).OrderBy(r => r.Status == RecurringStatus.Active ? 0 : 1).ThenBy(r => r.NextChargeDate);
 
-  protected override async Task OnInitializedAsync() => _schedules = await Api.GetAllRecurringAsync();
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _schedules = await Api.GetAllRecurringAsync();
+    _loading = false;
+  }
 
   private async Task PauseAsync(int id)
   {

@@ -24,7 +24,7 @@
 
 7. Static `/apply` intake form's actual question text (title, field labels, options) is still staff-authored-English-only — the form's own chrome now translates, but making the questions themselves editable in Spanish would need a real content feature (a way for staff to author and maintain a Spanish version)
 8. Domain/DNS/SSL, uptime monitoring, automated DB backups — all still require actual cloud/infra setup no AI session has access to
-9. Cosmetic polish from an earlier QA review: ~11 admin list pages flash empty content before data loads (no `_loading` guard)
+9. Loading guard added to 11 admin list pages (Events, Campaigns, Grants, Inventory, Pledges, Chapters, Staff Tasks, Recurring, Expenses, Families, Cases). Not yet: Donors, Volunteers, Donations, and ~50 other admin pages that were scanned but not individually checked
 
 **Completed 2026-10-05 (later):**
 - ✅ Sidebar scope confirmed; volunteers all land on My Work Queue; deploy guard for R-40; NavMenu scaffold deleted (`sessions/2026-10-05-volunteer-landing-and-websocket-deploy-guard.md`)

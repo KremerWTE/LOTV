@@ -78,7 +78,11 @@
         </tr>
       </thead>
       <tbody>
-        @if (!_filtered.Any())
+        @if (_loading)
+        {
+          <Loading Message="Loading cases…" />
+        }
+        else if (!_filtered.Any())
         {
           <tr><td colspan="9"><div class="empty-state"><div class="icon">💕</div><p>No cases match this filter.</p></div></td></tr>
         }
@@ -376,6 +380,8 @@
   // blocking an intentional override.
   private bool IsAtCapacity(Volunteer v) => v.ActiveCases >= _capacityById.GetValueOrDefault(v.Id, 6);
 
+  private bool _loading = true;
+
   protected override async Task OnInitializedAsync()
   {
     _volunteers = await Api.GetVolunteersAsync("Active");
@@ -392,6 +398,7 @@
     {
       OpenNew();
     }
+    _loading = false;
   }
 
   private async Task LoadAsync()
