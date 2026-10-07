@@ -56,7 +56,11 @@
 
 <div class="panel">
   <div class="panel-body" style="padding:0;">
-    @if (!Filtered.Any())
+    @if (_loading)
+    {
+      <Loading Message="Loading tasks…" />
+    }
+    else if (!Filtered.Any())
     {
       <div style="padding:40px;text-align:center;color:var(--text-light);">No tasks found.</div>
     }
@@ -186,7 +190,13 @@
 
   private static int PriorityOrder(string p) => p switch { "Urgent" => 4, "High" => 3, "Normal" => 2, _ => 1 };
 
-  protected override async Task OnInitializedAsync() => _tasks = await Api.GetStaffTasksAsync();
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _tasks = await Api.GetStaffTasksAsync();
+    _loading = false;
+  }
 
   private void OpenDrawer(StaffTaskDto? t)
   {

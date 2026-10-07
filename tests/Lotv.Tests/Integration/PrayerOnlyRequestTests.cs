@@ -42,7 +42,7 @@ public class PrayerOnlyRequestTests
         return _factory.CreateClient();
     }
 
-    private async Task<(int FamilyId, int RequestId)> ApplyAsync(int chapterId, bool wantsPackage)
+    private async Task<(int FamilyId, int RequestId)> ApplyAsync(int chapterId, bool wantsPackage, bool excludeFromPrayerQueue = false)
     {
         var tag = Guid.NewGuid().ToString("N")[..8];
         var resp = await _factory.CreateClient().PostAsJsonAsync("/api/v1/public/apply", new
@@ -53,7 +53,7 @@ public class PrayerOnlyRequestTests
                 Email = $"flow-{tag}@test.example.com", StreetAddress = "1 Test St",
                 City = "Testville", State = "IL", Zip = "60000", Reason = "Infertility", ChapterId = chapterId,
             },
-            ForSelf = true, WantsPackage = wantsPackage,
+            ForSelf = true, WantsPackage = wantsPackage, ExcludeFromPrayerQueue = excludeFromPrayerQueue,
         });
         Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -113,5 +113,30 @@ public class PrayerOnlyRequestTests
         var mine = await client.GetFromJsonAsync<List<JsonElement>>("/api/v1/requests/my-prayer-list", Json);
         Assert.Single(mine!);
         Assert.Equal(prayerOnlyRequest, mine![0].GetProperty("id").GetInt32());
+    }
+
+    [Fact]
+    public async Task APackageOnlyRequest_IsStoredAsSuch_AndNeverAppearsInThePrayerCandidatesQueue()
+    {
+        var chapter = await NewChapterAsync();
+        var (_, packageOnlyRequest) = await ApplyAsync(chapter, wantsPackage: true, excludeFromPrayerQueue: true);
+        var (_, ordinaryRequest) = await ApplyAsync(chapter, wantsPackage: true);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var saved = await db.Requests.AsNoTracking().SingleAsync(r => r.Id == packageOnlyRequest);
+        Assert.True(saved.WantsPackage);
+        Assert.True(saved.ExcludeFromPrayerQueue);
+
+        var client = _factory.CreateClient();
+        var email = $"hq-{Guid.NewGuid():N}@test.com";
+        await client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password = "TestPass1PrayOnly!", FirstName = "H", LastName = "Q", Role = "HQAdmin", ChapterId = (int?)null });
+        var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { Username = email, Password = "TestPass1PrayOnly!" });
+        client.DefaultRequestHeaders.Authorization = new("Bearer", (await login.Content.ReadFromJsonAsync<LoginResponseDto>())!.AccessToken);
+
+        var candidates = await client.GetFromJsonAsync<List<JsonElement>>("/api/v1/requests/prayer-candidates", Json);
+        Assert.NotNull(candidates);
+        Assert.DoesNotContain(candidates!, c => c.GetProperty("id").GetInt32() == packageOnlyRequest);
+        Assert.Contains(candidates!, c => c.GetProperty("id").GetInt32() == ordinaryRequest);
     }
 }

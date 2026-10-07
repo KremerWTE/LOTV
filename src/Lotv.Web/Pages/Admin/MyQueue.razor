@@ -285,7 +285,12 @@ else
 
     // Patch tracking BEFORE status — the backend requires a tracking number to
     // already be saved before it will allow a transition into Shipped.
-    await Api.PatchRequestAsync(_selected.Id, _editTracking, _editShippedDate, null);
+    if (!await Api.PatchRequestAsync(_selected.Id, _editTracking, _editShippedDate, null))
+    {
+      _saveError = "Couldn't save the tracking number or shipped date. Please try again, or ask your coordinator.";
+      _saving = false;
+      return;
+    }
 
     if (_editStatus != _selected.Status)
     {

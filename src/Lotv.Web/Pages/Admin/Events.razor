@@ -117,7 +117,11 @@
   }
 </div>
 
-@if (!Filtered.Any())
+@if (_loading)
+{
+  <Loading Message="Loading events…" />
+}
+else if (!Filtered.Any())
 {
   <div class="panel" style="text-align:center;padding:40px;color:var(--text-light);">No events match the current filter.</div>
 }
@@ -218,7 +222,13 @@
     _           => true
   }).OrderBy(e => e.Date);
 
-  protected override async Task OnInitializedAsync() => _events = await Api.GetEventsAsync();
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _events = await Api.GetEventsAsync();
+    _loading = false;
+  }
 
   private void OpenAdd()
   {

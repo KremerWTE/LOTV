@@ -23,20 +23,20 @@ public class AccessRuleTests
 
     private record Account(string Email, HttpClient Client);
 
-    private async Task<Account> AccountAsync(string role, string first = "Test", string last = "Person")
+    private async Task<Account> AccountAsync(string role, string first = "Test", string last = "Person", int? chapterId = null)
     {
         var client = _factory.CreateClient();
         var email = $"access-{Guid.NewGuid():N}@test.com";
-        await client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password, FirstName = first, LastName = last, Role = role, ChapterId = (int?)null });
+        await client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password, FirstName = first, LastName = last, Role = role, ChapterId = chapterId });
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { Username = email, Password });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await login.Content.ReadFromJsonAsync<LoginResponseDto>())!.AccessToken);
         return new Account(email, client);
     }
 
     /// <summary>A volunteer login with a matching volunteer record, one case assigned to them and one to someone else.</summary>
-    private async Task<(Account Volunteer, int Mine, int NotMine)> VolunteerWithCasesAsync()
+    private async Task<(Account Volunteer, int Mine, int NotMine)> VolunteerWithCasesAsync(int? accountChapterId = null)
     {
-        var acct = await AccountAsync("Volunteer", "Vera", "Volunteer");
+        var acct = await AccountAsync("Volunteer", "Vera", "Volunteer", accountChapterId);
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
         var me = new Volunteer { FirstName = "Vera", LastName = "Volunteer", Email = acct.Email, Role = VolunteerRole.PackageAssembler, Status = VolunteerStatus.Inactive, ChapterId = 1 };
@@ -74,6 +74,24 @@ public class AccessRuleTests
         Assert.Equal(HttpStatusCode.Forbidden, (await v.Client.GetAsync($"/api/v1/requests/{notMine}")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await v.Client.GetAsync($"/api/v1/requests/{notMine}/notes")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await v.Client.PutAsJsonAsync($"/api/v1/requests/{notMine}/process-stage", new { Stage = "Packing" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task AVolunteer_CanRecordTrackingOnTheirOwnCase_ButNotInternalNotes_AndNotOnSomeoneElses()
+    {
+        var (v, mine, notMine) = await VolunteerWithCasesAsync(accountChapterId: 1);   // a real volunteer belongs to a chapter, and the endpoint checks it
+
+        var ok = await v.Client.PatchAsJsonAsync($"/api/v1/requests/{mine}", new { TrackingNumber = "1Z999AA10123456784", ShippedDate = new DateTime(2026, 10, 8), InternalNotes = "volunteer must not write this" });
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var saved = await v.Client.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/v1/requests/{mine}");
+        Assert.Equal("1Z999AA10123456784", saved.GetProperty("trackingNumber").GetString());
+        Assert.DoesNotContain("volunteer must not write this", saved.GetProperty("internalNotes").GetString() ?? "");
+
+        // with the tracking number saved, the volunteer can now move the case to Shipped
+        var shipped = await v.Client.PutAsJsonAsync($"/api/v1/requests/{mine}/status", new { Status = "AwaitingShipment" });
+        Assert.Equal(HttpStatusCode.OK, shipped.StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await v.Client.PatchAsJsonAsync($"/api/v1/requests/{notMine}", new { TrackingNumber = "X" })).StatusCode);
     }
 
     [Fact]
