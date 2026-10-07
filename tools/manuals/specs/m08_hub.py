@@ -11,7 +11,7 @@ USER = "claire.hoffman"
 
 TABS = [
     ("All Cases", "Every request, with four count boxes (Open Cases, Overdue, Fulfilled, Avg Age), status buttons, filters and a search box. This is the tab you will use most."),
-    ("Package Pipeline", "The drag-and-drop board of every active case. It is the same page described in **Staff Guide: The Package Pipeline Board**."),
+    ("Package Workflow", "The drag-and-drop board of every active case. It is the same page described in **Staff Guide: The Package Workflow Board**."),
     ("Historical", "A read-only archive of closed cases from prior years. It is not part of the active pipeline; use its year, reason and search boxes to look something up."),
     ("Mother's Day Mailing", "One Mother's Day card per mother, for the year shown. Each row has **Mark Sent** and **Unflag** buttons; *Flagged* rows need a check before mailing."),
     ("Father's Day Mailing", "The same as the Mother's Day tab, for fathers."),
@@ -127,7 +127,7 @@ def build(page):
     r.step("Click Confirm Assignment",
            "Click **Confirm Assignment**.",
            target=conf, action=lambda: (conf.click(), page.wait_for_timeout(2500)), after=True,
-           expect="The panel closes and the case leaves the queue. It now appears in that volunteer's **My Work Queue** and on the Package Pipeline in **Assigned**.")
+           expect="The panel closes and the case leaves the queue. It now appears in that volunteer's **My Work Queue** and on the Package Workflow in **Assigned**.")
     r.check(["The case is no longer in the Unassigned Queue."])
     r.note("New package requests may also be assigned **automatically** to a Package Assembler in the same chapter (when auto-assign is on), within each volunteer's case limit (6 by default). A volunteer who does not accept within 24 hours (4 hours if Urgent) loses it to the next person. Use this queue to assign or reassign by hand at any time.", "Automatic assignment")
 

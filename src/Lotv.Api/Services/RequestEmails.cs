@@ -183,6 +183,10 @@ public static class RequestEmails
     internal static string Button(string label, string url) =>
         $"<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"background:#1a4a6b;border-radius:6px\"><a href=\"{E(url)}\" style=\"display:inline-block;padding:12px 26px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px\">{E(label)}</a></td></tr></table>";
 
+    /// <summary>Absolute URL of the lily mark shown at the top of every email (an email cannot use a relative path, and clients block SVG, so it is a PNG).
+    /// Set once at startup from App:WebBaseUrl (see Program.cs).</summary>
+    public static string LogoUrl { get; set; } = "https://lotv.wte.net/images/lily-email.png";
+
     internal static string Wrap(string preheader, string heading, string bodyHtml, string footer) =>
         "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
         $"<title>{E(heading)}</title></head>" +
@@ -191,7 +195,7 @@ public static class RequestEmails
         "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f7fb;padding:32px 0\"><tr><td align=\"center\">" +
         "<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)\">" +
         "<tr><td style=\"background:#1a4a6b;padding:28px 40px;text-align:center\">" +
-        "<div style=\"font-size:28px;line-height:1\">&#127803;</div>" +
+        $"<img src=\"{E(LogoUrl)}\" width=\"56\" height=\"56\" alt=\"\" style=\"display:block;margin:0 auto;border:0\">" +
         "<h1 style=\"color:#ffffff;margin:8px 0 0;font-size:24px;letter-spacing:.5px\">Lily of the Valley Ministry</h1>" +
         "<p style=\"color:#a8c8e8;margin:6px 0 0;font-size:14px\">Bringing comfort to grieving families</p></td></tr>" +
         $"<tr><td style=\"padding:36px 40px 28px\"><h2 style=\"color:#1a4a6b;margin:0 0 18px;font-size:22px\">{E(heading)}</h2>{bodyHtml}</td></tr>" +

@@ -83,12 +83,16 @@ public class FormEditorTests : E2ETestBase
     }
 
     [Fact]
-    public async Task Sidebar_HasLinksToTheEditorAndTheLivePublicForm()
+    public async Task EditorIsATabOnSystemAdmin_AndTheSidebarLinksToTheLivePublicForm()
     {
         await LoginAsAdminAsync();
         await WaitForBlazorAsync();
 
-        await AssertVisibleAsync("a.sidebar-link[href='/admin/forms/prayer-care-intake']");
+        // The editor lives under System Admin now, no longer in the sidebar.
+        await Page.Locator("a.sidebar-link[href='/admin/system-admin-hub']").ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Edit Request Form" }).ClickAsync();
+        await Page.GetByText("Prayer Care Intake Form").WaitForAsync();
+        Assert.Equal(0, await Page.Locator("a.sidebar-link[href='/admin/forms/prayer-care-intake']").CountAsync());
         await AssertVisibleAsync("a.sidebar-link[href='/request-prayer-care-package']");
     }
 

@@ -20,7 +20,7 @@ def build(page):
 
     # ---------------------------------------------------------------- 1
     r.process("Sign in", "Get into the portal.", who="Board members", need="The username and password an administrator gave you.", time="1 minute")
-    r.signin(EMAIL, "You land on the staff area. The left menu is short: **Package Pipeline**, **Possible Duplicates**, **Cases**, **Unassigned Queue**, **My Work Queue** and **Request Form**.",
+    r.signin(EMAIL, "You land on the staff area. The left menu is short: **Package Workflow**, **Possible Duplicates**, **Cases**, **Unassigned Queue**, **My Work Queue** and **Request Form**.",
              who="the username you were given")
     r.note("You land in the staff area, but the summary page made for the Board is separate and is not in this menu. Process 2 shows how to reach it. Bookmark it once you have.", "Where is the Board Portal?")
     r.check(["Your name and the word **Board** are in the top-right corner."])

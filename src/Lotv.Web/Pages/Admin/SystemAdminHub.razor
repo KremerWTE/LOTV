@@ -1,5 +1,6 @@
 @page "/admin/system-admin-hub"
 @layout AdminLayout
+@inject AuthService Auth
 
 <PageTitle>System Admin — LOTV Staff Portal</PageTitle>
 
@@ -11,7 +12,7 @@
 </div>
 
 <div class="tab-bar" style="display:flex;gap:4px;margin-bottom:20px;background:white;border:1px solid var(--border);border-radius:var(--radius, 10px);padding:4px;width:fit-content;flex-wrap:wrap;">
-  @foreach (var t in _tabs)
+  @foreach (var t in VisibleTabs)
   {
     <button class="tab-btn @(_active == t.Key ? "active" : "")"
             style="padding:8px 16px;border-radius:7px;border:none;background:@(_active == t.Key ? "var(--green)" : "none");color:@(_active == t.Key ? "white" : "var(--text-mid)");font-size:.85rem;font-weight:500;cursor:pointer;"
@@ -53,6 +54,9 @@
   case "api-keys":
     <ApiKeys />
     break;
+  case "request-form":
+    <FormEditor />
+    break;
 }
 
 @code {
@@ -71,7 +75,10 @@
     new("webhooks", "Webhook Events"),
     new("chapters", "Chapters"),
     new("api-keys", "API Keys"),
+    new("request-form", "Edit Request Form"),   // moved here from the sidebar; HQAdmin only (see VisibleTabs)
   ];
+
+  private IEnumerable<TabDef> VisibleTabs => _tabs.Where(t => t.Key != "request-form" || Auth.IsHqAdmin);
 
   private string _active = "diocese";
 }
