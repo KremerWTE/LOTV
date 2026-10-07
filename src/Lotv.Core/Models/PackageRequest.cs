@@ -16,6 +16,13 @@ public class PackageRequest
     /// Defaults true so every existing request (all of them were packages before this existed) is unaffected.
     /// </summary>
     public bool WantsPackage { get; set; } = true;
+
+    /// <summary>
+    /// True when the requester explicitly picked "package only" at intake — keeps the request out of
+    /// the Prayer Ambassadors' /prayer-candidates queue, since every other request (package-and-prayer or
+    /// prayer-only) shows up there by default for a volunteer to join.
+    /// </summary>
+    public bool ExcludeFromPrayerQueue { get; set; }
     public PackageReason Reason { get; set; }
     public RequestCategory Category { get; set; } = RequestCategory.Other;
     public CaseStatus Status { get; set; } = CaseStatus.New;

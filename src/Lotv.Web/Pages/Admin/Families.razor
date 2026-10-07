@@ -115,7 +115,11 @@
             </td>
           </tr>
         }
-        @if (!Filtered.Any())
+        @if (_loading)
+        {
+          <Loading Message="Loading families…" />
+        }
+        else if (!Filtered.Any())
         {
           <tr><td colspan="8"><div class="empty-state"><div class="icon">💕</div><p>No families match the current filter.</p></div></td></tr>
         }
@@ -252,6 +256,8 @@
     return matchStatus && matchReason && matchSearch;
   }).OrderByDescending(f => f.CreatedAt);
 
+  private bool _loading = true;
+
   protected override async Task OnInitializedAsync()
   {
     _families = await Api.GetFamiliesAsync();
@@ -265,6 +271,7 @@
       var target = _families.FirstOrDefault(f => f.Id == FamilyId);
       if (target is not null) OpenFamily(target);
     }
+    _loading = false;
   }
 
   private void OpenFamily(Family f) { _selected = f; _drawerSaved = false; }

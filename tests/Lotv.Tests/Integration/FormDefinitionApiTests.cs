@@ -45,8 +45,9 @@ public class FormDefinitionApiTests
 
         var wantsPackage = def!.Fields.Single(f => f.Key == "wantsPackage");
         var packageOption = wantsPackage.Options.Single(o => o.Value == "Package");
-        Assert.Equal("A comfort package mailed to you", packageOption.Label);
-        Assert.Equal("A comfort package mailed to the family", packageOption.LabelSomeone);
+        Assert.Equal("A comfort package mailed to you, plus ongoing prayer", packageOption.Label);
+        Assert.Equal("A comfort package mailed to the family, plus ongoing prayer", packageOption.LabelSomeone);
+        Assert.Contains(wantsPackage.Options, o => o.Value == "PackageOnly");
 
         var mention = def.Fields.Single(f => f.Key == "mentionPreference");
         Assert.Contains("package", mention.Label);

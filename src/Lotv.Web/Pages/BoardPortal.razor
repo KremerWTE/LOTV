@@ -157,9 +157,11 @@ else
     _loading   = false;
   }
 
-  private void SignOut()
+  private async Task SignOut()
   {
-    Auth.Logout();
+    // Wait for the logout to finish (it clears the saved session token) before the full reload below,
+    // otherwise the reload signs the person straight back in.
+    await Auth.LogoutAsync();
     Nav.NavigateTo("/login", forceLoad: true);
   }
 }

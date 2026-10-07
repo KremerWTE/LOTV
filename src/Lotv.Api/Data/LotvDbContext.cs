@@ -22,6 +22,7 @@ public class LotvDbContext : IdentityDbContext<LotvIdentityUser>
     public DbSet<PrayerTeamMember> PrayerTeamMembers => Set<PrayerTeamMember>();
     public DbSet<PackageRecipeItem> PackageRecipeItems => Set<PackageRecipeItem>();
     public DbSet<AssignmentRule> AssignmentRules => Set<AssignmentRule>();
+    public DbSet<ShippingLabel> ShippingLabels => Set<ShippingLabel>();
 
     // ─── People ──────────────────────────────────────────────────────────────
     public DbSet<Volunteer> Volunteers => Set<Volunteer>();

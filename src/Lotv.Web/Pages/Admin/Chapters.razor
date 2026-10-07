@@ -76,7 +76,11 @@
         }
       </tbody>
     </table>
-    @if (!Filtered.Any())
+    @if (_loading)
+    {
+      <Loading Message="Loading chapters…" />
+    }
+    else if (!Filtered.Any())
     {
       <div style="text-align:center;padding:32px;color:var(--text-light);font-size:.88rem;">No chapters found.</div>
     }
@@ -181,7 +185,13 @@
                  c.State.Contains(_search, StringComparison.OrdinalIgnoreCase)))
     .OrderBy(c => c.Name);
 
-  protected override async Task OnInitializedAsync() => _chapters = await Api.GetChaptersAdminAsync();
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _chapters = await Api.GetChaptersAdminAsync();
+    _loading = false;
+  }
 
   private void OpenDrawer(Chapter? ch)
   {

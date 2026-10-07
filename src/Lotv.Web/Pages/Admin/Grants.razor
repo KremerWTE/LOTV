@@ -81,7 +81,11 @@
         }
       </tbody>
     </table>
-    @if (!Filtered.Any())
+    @if (_loading)
+    {
+      <Loading Message="Loading grants…" />
+    }
+    else if (!Filtered.Any())
     {
       <div style="text-align:center;padding:32px;color:var(--text-light);font-size:.88rem;">No grants found.</div>
     }
@@ -167,7 +171,13 @@
     (string.IsNullOrEmpty(_search) || g.GrantorName.Contains(_search, StringComparison.OrdinalIgnoreCase) || g.Purpose.Contains(_search, StringComparison.OrdinalIgnoreCase))
   ).OrderByDescending(g => g.AwardedDate);
 
-  protected override async Task OnInitializedAsync() => _grants = await Api.GetGrantsAsync();
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _grants = await Api.GetGrantsAsync();
+    _loading = false;
+  }
 
   private void OpenDrawer(GrantDto? g)
   {

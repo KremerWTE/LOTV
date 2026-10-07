@@ -33,5 +33,7 @@ public enum ActivityType
     // Appended last so stored integer values above don't shift.
     Unassigned,
     /// <summary>Someone opened the case. Kept so it is always possible to say who looked at it.</summary>
-    Viewed
+    Viewed,
+    /// <summary>A ShippingLabel record was auto-generated when the case reached the Packing stage.</summary>
+    ShippingLabelGenerated
 }

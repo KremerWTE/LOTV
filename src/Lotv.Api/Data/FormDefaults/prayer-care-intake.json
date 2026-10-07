@@ -35,12 +35,17 @@
             "options": [
                 {
                     "value": "Package",
-                    "label": "A comfort package mailed to you",
-                    "labelSomeone": "A comfort package mailed to the family"
+                    "label": "A comfort package mailed to you, plus ongoing prayer",
+                    "labelSomeone": "A comfort package mailed to the family, plus ongoing prayer"
                 },
                 {
                     "value": "PrayerOnly",
                     "label": "Prayer only — no package needed"
+                },
+                {
+                    "value": "PackageOnly",
+                    "label": "A comfort package only — no prayer team needed",
+                    "labelSomeone": "A comfort package only for the family — no prayer team needed"
                 }
             ]
         },
@@ -467,7 +472,8 @@
                 {
                     "field": "wantsPackage",
                     "in": [
-                        "Package"
+                        "Package",
+                        "PackageOnly"
                     ]
                 }
             ]

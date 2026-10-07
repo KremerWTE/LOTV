@@ -823,9 +823,11 @@
   private bool _hasNoRecordYet     => _myVolunteer is null;
   private bool _isPrayerAmbassador => _myVolunteer?.HasRole(VolunteerRole.PrayerAmbassador) ?? false;
   private bool _isPackageAssembler => _myVolunteer?.HasRole(VolunteerRole.PackageAssembler) ?? false;
-  private bool _showMyQueueLink    => _isPackageAssembler || _hasNoRecordYet;
+  // My Work Queue (the package dashboard) is every volunteer's home, however they arrive — direct
+  // login, Login As, or the lane guard — so it is always reachable and never bounced away from.
+  private bool _showMyQueueLink    => true;
   private bool _showPrayerLink     => _isPrayerAmbassador || _hasNoRecordYet;
-  private string _volunteerHomeLane => _showPrayerLink && !_isPackageAssembler ? "/admin/prayer-list" : "/admin/my-queue";
+  private string _volunteerHomeLane => "/admin/my-queue";
 
   // A volunteer who types or follows any other staff address is sent back to whichever of their
   // own dashboards applies — same rule as which sidebar links they see.

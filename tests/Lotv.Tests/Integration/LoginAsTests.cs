@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lotv.Tests.Integration;
 
-/// <summary>"Login As": narrow, time-limited, audited, and it changes nothing about the account being viewed.</summary>
+/// <summary>"Login As": HQAdmin-only, time-limited, audited, and it changes nothing about the account being viewed.</summary>
 [Collection("Integration")]
 public class LoginAsTests
 {
@@ -89,7 +89,7 @@ public class LoginAsTests
     }
 
     [Fact]
-    public async Task ItCannotBeUsedOnYourself_AnotherAdmin_ATurnedOffAccount_OrAPersonWhoDoesNotExist()
+    public async Task ItCannotBeUsedOnYourself_ButAnotherAdmin_ATurnedOffAccount_AreBothFine()
     {
         var admin = await AccountAsync("HQAdmin", "Ada", "Admin");
         var otherAdmin = await AccountAsync("HQAdmin", "Bea", "Boss");
@@ -103,8 +103,8 @@ public class LoginAsTests
         }
 
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.Client.PostAsJsonAsync("/api/v1/auth/impersonate", new { userId = admin.Id })).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await admin.Client.PostAsJsonAsync("/api/v1/auth/impersonate", new { userId = otherAdmin.Id })).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await admin.Client.PostAsJsonAsync("/api/v1/auth/impersonate", new { userId = off.Id })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.Client.PostAsJsonAsync("/api/v1/auth/impersonate", new { userId = otherAdmin.Id })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.Client.PostAsJsonAsync("/api/v1/auth/impersonate", new { userId = off.Id })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.Client.PostAsJsonAsync("/api/v1/auth/impersonate", new { userId = "no-such-user" })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.Client.PostAsJsonAsync("/api/v1/auth/impersonate", new { userId = "" })).StatusCode);
     }

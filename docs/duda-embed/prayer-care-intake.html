@@ -556,6 +556,8 @@
       packageType: def.packageType || "Comfort",
       // Defaults to a package when the form has no "wantsPackage" question (an older saved form definition).
       wantsPackage: value("wantsPackage") !== "PrayerOnly",
+      // "Package only" opts out of the passive Prayer Ambassador queue every other request lands in.
+      excludeFromPrayerQueue: value("wantsPackage") === "PackageOnly",
       referrerFirstName: value("requesterFirst"),
       referrerLastName: value("requesterLast"),
       referrerEmail: value("requesterEmail")

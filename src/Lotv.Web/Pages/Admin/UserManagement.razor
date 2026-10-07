@@ -191,7 +191,7 @@
   private StaffUserDto? _loginAsUser;
   private string? _loginAsError;
   private bool _loginAsBusy;
-  private bool CanLoginAs(StaffUserDto u) => Auth.IsHqAdmin && !Auth.IsImpersonating && u.IsActive && u.Role != UserRole.HQAdmin && u.Id != _myId;
+  private bool CanLoginAs(StaffUserDto u) => Auth.IsHqAdmin && !Auth.IsImpersonating && u.Id != _myId;
   private void AskLoginAs(StaffUserDto u) { _loginAsUser = u; _loginAsError = null; }
   private void CancelLoginAs() => _loginAsUser = null;
 

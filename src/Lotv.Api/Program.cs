@@ -153,6 +153,10 @@ builder.Services.AddScoped<IChapterContextService, ChapterContextService>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<IAutoAssignmentService, AutoAssignmentService>();
 builder.Services.AddScoped<IDuplicateFamilyDetectionService, DuplicateFamilyDetectionService>();
+builder.Services.AddScoped<IShippingLabelGenerator, PlaceholderShippingLabelGenerator>();
+// Shippo hand-off: settings under "Shippo" (token via secrets/env). Inert until a token + ship-from address are set.
+builder.Services.Configure<ShippoOptions>(builder.Configuration.GetSection("Shippo"));
+builder.Services.AddHttpClient<IShippoOrderClient, ShippoOrderClient>(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IScheduledReportService, ScheduledReportService>();
 builder.Services.AddScoped<IFinancialAuditService, FinancialAuditService>();
@@ -343,6 +347,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the PrayerTeamMembers table; the prayer team will be unavailable."); }
     try { PackageRecipeTableBootstrap.EnsureTable(db); }
     catch (Exception ex) { app.Logger.LogError(ex, "Could not create the PackageRecipeItems table; the Build Day planner will be unavailable."); }
+    try { ShippingLabelTableBootstrap.EnsureTable(db); }
+    catch (Exception ex) { app.Logger.LogError(ex, "Could not create the ShippingLabels table; shipping labels will be unavailable."); }
 
     // Volunteer case counts drifted because assigning never incremented them; make them match reality.
     try
@@ -463,6 +469,8 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         noteLines.Add("Prayer only — no package requested.");
     else if (!string.IsNullOrEmpty(packageType))
         noteLines.Add($"Package requested: {packageType}");
+    if (body.WantsPackage && body.ExcludeFromPrayerQueue)
+        noteLines.Add("Package only — requester did not ask for the prayer team.");
     var referrerNote = noteLines.Count > 0 ? string.Join("\n", noteLines) : null;
 
     var req = new PackageRequest
@@ -470,6 +478,7 @@ publicIntake.MapPost("/apply", async (PublicApplyRequest body, LotvDbContext db,
         FamilyId       = body.Family.Id,
         ChapterId      = body.Family.ChapterId,
         WantsPackage   = body.WantsPackage,
+        ExcludeFromPrayerQueue = body.ExcludeFromPrayerQueue,
         Reason         = body.Family.Reason,
         Category       = category,
         IsForSelf      = body.ForSelf,
@@ -888,7 +897,8 @@ cases.MapGet("/prayer-candidates", async (LotvDbContext db, IChapterContextServi
 {
     var myIds = (await FindMyVolunteersAsync(db, ctx, userMgr)).Select(v => v.Id).ToHashSet();
     var alreadyOn = await db.PrayerTeamMembers.Where(m => myIds.Contains(m.VolunteerId)).Select(m => m.RequestId).ToListAsync();
-    var q = db.Requests.Include(r => r.Family).Where(r => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled);
+    var q = db.Requests.Include(r => r.Family)
+        .Where(r => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled && !r.ExcludeFromPrayerQueue);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     var candidates = await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
     return Results.Ok(candidates.Select(r => new
@@ -1147,7 +1157,7 @@ cases.MapPut("/{id:int}/priority", async (int id, PriorityRequest body, LotvDbCo
     return Results.Ok(r);
 });
 
-cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body, LotvDbContext db, IChapterContextService ctx) =>
+cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body, LotvDbContext db, IChapterContextService ctx, IShippingLabelGenerator labelGenerator, IShippoOrderClient shippo) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
@@ -1157,11 +1167,83 @@ cases.MapPut("/{id:int}/process-stage", async (int id, ProcessStageRequest body,
         RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
         ActivityType = ActivityType.ProcessStageChanged, NewValue = body.ProcessStage.ToString(), Timestamp = DateTime.UtcNow
     });
+
+    // Per the project owner's decision: a label generates automatically the first time a package case
+    // reaches Packing. Prayer-only requests (WantsPackage false) never get one. Carrier/service/label
+    // file stay placeholders until a real carrier platform is chosen (see IShippingLabelGenerator).
+    if (body.ProcessStage == ProcessStage.Packing && r.WantsPackage && !await db.ShippingLabels.AnyAsync(l => l.PackageRequestId == id))
+    {
+        var label = await labelGenerator.GenerateAsync(r);
+        // If Shippo is configured the order goes straight into the ministry's account; a failure is
+        // recorded on the label (retry from the case page) and never blocks the stage change.
+        await ShippoHandoff.PushAsync(db, shippo, r, label);
+        db.ShippingLabels.Add(label);
+        db.RequestActivities.Add(new RequestActivity
+        {
+            RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName,
+            ActivityType = ActivityType.ShippingLabelGenerated, Timestamp = DateTime.UtcNow
+        });
+    }
+
     await db.SaveChangesAsync();
     return Results.Ok(r);
 });
 
-cases.MapPut("/{id:int}/due-date", async (int id, DueDateRequest body, LotvDbContext db, IChapterContextService ctx) =>
+// Shippo status for the case page, and a manual (re)send when the automatic push failed or Shippo
+// was configured after the case reached Packing.
+cases.MapGet("/{id:int}/shippo", async (int id, LotvDbContext db, IShippoOrderClient shippo) =>
+{
+    if (await db.Requests.FindAsync(id) is null) return Results.NotFound();
+    var l = await db.ShippingLabels.AsNoTracking().FirstOrDefaultAsync(x => x.PackageRequestId == id);
+    return Results.Ok(new { configured = shippo.IsConfigured, hasRecord = l is not null, orderId = l?.ShippoOrderId, syncedAt = l?.ShippoSyncedAt, error = l?.ShippoSyncError });
+});
+
+cases.MapPost("/{id:int}/shippo/send", async (int id, LotvDbContext db, IShippoOrderClient shippo) =>
+{
+    var r = await db.Requests.Include(x => x.Family).FirstOrDefaultAsync(x => x.Id == id);
+    if (r is null) return Results.NotFound();
+    if (!shippo.IsConfigured) return Results.BadRequest(new { error = "Shippo isn't configured yet." });
+    var label = await db.ShippingLabels.FirstOrDefaultAsync(x => x.PackageRequestId == id);
+    if (label is null) return Results.BadRequest(new { error = "This case hasn't reached Packing yet." });
+    if (label.ShippoOrderId is not null) return Results.Ok(new { orderId = label.ShippoOrderId, alreadySent = true });
+    var ok = await ShippoHandoff.PushAsync(db, shippo, r, label);
+    await db.SaveChangesAsync();
+    return ok ? Results.Ok(new { orderId = label.ShippoOrderId }) : Results.Json(new { error = label.ShippoSyncError }, statusCode: 502);
+});
+
+// Hand-off to the ministry's Shippo account: labels are bought there, not here. One row per package
+// case sitting at Packing with no tracking number yet, in Shippo's order-import column layout (its
+// importer also lets the columns be re-mapped). Deliberately only shipping essentials — no reason,
+// loss type, story or notes. QA sample families (.invalid email) are never exported.
+cases.MapGet("/shippo-export", async (LotvDbContext db) =>
+{
+    var rows = await db.Requests.AsNoTracking().Include(r => r.Family)
+        .Where(r => r.WantsPackage && r.ProcessStage == ProcessStage.Packing
+                    && r.TrackingNumber == null && r.Family != null && !r.Family.Email.EndsWith(".invalid"))
+        .OrderBy(r => r.Id).ToListAsync();
+
+    var sb = new System.Text.StringBuilder();
+    sb.Append("Order Number,Order Date,Recipient Name,Company,Street Line 1,Street Line 2,City,State/Province,Zip/Postal Code,Country,Phone Number,Email,Item Title,SKU,Quantity,Order Note\r\n");
+    foreach (var r in rows)
+    {
+        var f = r.Family!;
+        sb.Append(string.Join(",", new[]
+        {
+            CsvExport.Cell($"LOTV-{r.Id}"), CsvExport.Cell(r.CreatedAt.ToString("yyyy-MM-dd")),
+            CsvExport.Cell(f.FullName), CsvExport.Cell(""),
+            CsvExport.Cell(f.StreetAddress), CsvExport.Cell(f.Apt), CsvExport.Cell(f.City), CsvExport.Cell(f.State), CsvExport.Cell(f.Zip),
+            CsvExport.Cell("US"), CsvExport.Cell(f.Phone), CsvExport.Cell(f.Email),
+            CsvExport.Cell("Prayer Care Package"), CsvExport.Cell("PCP"), CsvExport.Cell("1"),
+            CsvExport.Cell($"LOTV case #{r.Id}"),
+        })).Append("\r\n");
+    }
+
+    app.Logger.LogInformation("Shippo hand-off export: {Count} rows.", rows.Count);
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv; charset=utf-8",
+        $"lotv-shippo-orders-{DateTime.UtcNow:yyyyMMdd}.csv");
+});
+
+cases.MapPut("/{id:int}/due-date",async (int id, DueDateRequest body, LotvDbContext db, IChapterContextService ctx) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
@@ -1175,18 +1257,20 @@ cases.MapPut("/{id:int}/due-date", async (int id, DueDateRequest body, LotvDbCon
     return Results.Ok(r);
 });
 
-cases.MapPatch("/{id:int}", async (int id, RequestPatchRequest body, LotvDbContext db, IChapterContextService ctx) =>
+cases.MapPatch("/{id:int}", async (int id, RequestPatchRequest body, LotvDbContext db, IChapterContextService ctx, HttpContext http) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
     if (!ctx.IsHqAdmin && r.ChapterId != ctx.ChapterId) return Results.Forbid();
     if (body.TrackingNumber is not null) r.TrackingNumber = body.TrackingNumber;
     if (body.ShippedDate.HasValue) r.ShippedDate = body.ShippedDate;
-    if (body.InternalNotes is not null) r.InternalNotes = body.InternalNotes;
+    // A volunteer (let in by CaseWork, and held to their own cases by the group filter) records the tracking number and
+    // shipped date — the very fields My Work Queue's Quick Update shows them — but never the staff-only internal notes.
+    if (body.InternalNotes is not null && http.User.FindFirst("role")?.Value != nameof(UserRole.Volunteer)) r.InternalNotes = body.InternalNotes;
     r.UpdatedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
     return Results.Ok(r);
-}).RequireAuthorization("Staff");
+}).RequireAuthorization("CaseWork");
 
 // ── Packing list — what's physically going into this family's package ─────────
 cases.MapGet("/{id:int}/items", async (int id, LotvDbContext db) =>
@@ -1652,7 +1736,7 @@ app.MapGet("/api/v1/volunteers/me", async (LotvDbContext db, IChapterContextServ
 // button on My Work Queue creates one that way — but the Prayer Dashboard's own "create my record" button
 // passes PrayerAmbassador, since most volunteers who reach that page are prayer-only and would otherwise have
 // no self-service way to become one (only staff could add the role afterward).
-volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr, CreateMyVolunteerRequest? body) =>
+app.MapPost("/api/v1/volunteers/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr, CreateMyVolunteerRequest? body) =>
 {
     var existing = (await FindMyVolunteersAsync(db, ctx, userMgr)).FirstOrDefault();
     if (existing is not null) return Results.Ok(existing);
@@ -1667,7 +1751,7 @@ volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, U
     db.Volunteers.Add(v);
     await db.SaveChangesAsync();
     return Results.Created($"/api/v1/volunteers/{v.Id}", v);
-});
+}).WithTags("Volunteers").RequireAuthorization("Volunteer");   // mapped on app, not the staff-only group: a plain Volunteer must be able to create their own record
 
 volunteers.MapPost("/", async (Volunteer v, LotvDbContext db, IChapterContextService ctx) =>
 {
@@ -5490,6 +5574,7 @@ record PublicApplyRequest(
     bool ForSelf = true,
     string? PackageType = null,
     bool WantsPackage = true,
+    bool ExcludeFromPrayerQueue = false,
     string? ReferrerFirstName = null,
     string? ReferrerLastName = null,
     string? ReferrerEmail = null
