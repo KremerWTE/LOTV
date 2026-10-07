@@ -85,6 +85,27 @@ public class VolunteerRoleAndSelfServiceTests
     }
 
     [Fact]
+    public async Task CreateMyVolunteer_WorksForAPlainVolunteerRoleAccount()
+    {
+        // The two tests around this one use ChapterStaff, which is why a Volunteer-role account getting a silent 403 went unnoticed.
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var chapter = new Chapter { Name = $"PlainVol {Guid.NewGuid():N}", IsActive = true, CreatedAt = DateTime.UtcNow };
+        db.Chapters.Add(chapter);
+        await db.SaveChangesAsync();
+
+        var email = $"plainvol-{Guid.NewGuid():N}@test.com";
+        var client = _factory.CreateClient();
+        await client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password = "TestPass1PlainVol!", FirstName = "Plain", LastName = "Volunteer", Role = "Volunteer", ChapterId = chapter.Id });
+        var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { Username = email, Password = "TestPass1PlainVol!" });
+        client.DefaultRequestHeaders.Authorization = new("Bearer", (await login.Content.ReadFromJsonAsync<LoginResponseDto>())!.AccessToken);
+
+        var created = await client.PostAsJsonAsync("/api/v1/volunteers/me", new { Role = "PrayerAmbassador" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/volunteers/me")).StatusCode);
+    }
+
+    [Fact]
     public async Task CreateMyVolunteer_DefaultsToPackageAssembler_ButAcceptsAnExplicitRole()
     {
         using var scope = _factory.Services.CreateScope();

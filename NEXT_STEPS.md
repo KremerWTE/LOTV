@@ -26,6 +26,9 @@
 8. Domain/DNS/SSL, uptime monitoring, automated DB backups — all still require actual cloud/infra setup no AI session has access to
 9. Loading guard added to 11 admin list pages (Events, Campaigns, Grants, Inventory, Pledges, Chapters, Staff Tasks, Recurring, Expenses, Families, Cases). Not yet: Donors, Volunteers, Donations, and ~50 other admin pages that were scanned but not individually checked
 
+**Completed 2026-10-07:**
+- ✅ All 8 manuals rebuilt as click-by-click guides with 261 live screenshots (`docs/manuals/`, generator in `tools/manuals/`; re-run `run_all.py` after UI changes). Following them literally exposed and fixed 3 bugs: volunteers could not create their own record, volunteer tracking numbers were silently dropped (blocking "Shipped"), Board Portal Sign Out did not sign out. 796/796 tests. Manuals themselves kept uncommitted by choice; app fixes committed — see `sessions/2026-10-07-step-by-step-manuals-and-volunteer-flow-fixes.md` (also lists 2 open findings: Board can view /admin/users; volunteers see Unassign/Cancel buttons).
+
 **Completed 2026-10-05 (later):**
 - ✅ Sidebar scope confirmed; volunteers all land on My Work Queue; deploy guard for R-40; NavMenu scaffold deleted (`sessions/2026-10-05-volunteer-landing-and-websocket-deploy-guard.md`)
 

@@ -1257,18 +1257,20 @@ cases.MapPut("/{id:int}/due-date",async (int id, DueDateRequest body, LotvDbCont
     return Results.Ok(r);
 });
 
-cases.MapPatch("/{id:int}", async (int id, RequestPatchRequest body, LotvDbContext db, IChapterContextService ctx) =>
+cases.MapPatch("/{id:int}", async (int id, RequestPatchRequest body, LotvDbContext db, IChapterContextService ctx, HttpContext http) =>
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
     if (!ctx.IsHqAdmin && r.ChapterId != ctx.ChapterId) return Results.Forbid();
     if (body.TrackingNumber is not null) r.TrackingNumber = body.TrackingNumber;
     if (body.ShippedDate.HasValue) r.ShippedDate = body.ShippedDate;
-    if (body.InternalNotes is not null) r.InternalNotes = body.InternalNotes;
+    // A volunteer (let in by CaseWork, and held to their own cases by the group filter) records the tracking number and
+    // shipped date — the very fields My Work Queue's Quick Update shows them — but never the staff-only internal notes.
+    if (body.InternalNotes is not null && http.User.FindFirst("role")?.Value != nameof(UserRole.Volunteer)) r.InternalNotes = body.InternalNotes;
     r.UpdatedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
     return Results.Ok(r);
-}).RequireAuthorization("Staff");
+}).RequireAuthorization("CaseWork");
 
 // ── Packing list — what's physically going into this family's package ─────────
 cases.MapGet("/{id:int}/items", async (int id, LotvDbContext db) =>
@@ -1734,7 +1736,7 @@ app.MapGet("/api/v1/volunteers/me", async (LotvDbContext db, IChapterContextServ
 // button on My Work Queue creates one that way — but the Prayer Dashboard's own "create my record" button
 // passes PrayerAmbassador, since most volunteers who reach that page are prayer-only and would otherwise have
 // no self-service way to become one (only staff could add the role afterward).
-volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr, CreateMyVolunteerRequest? body) =>
+app.MapPost("/api/v1/volunteers/me", async (LotvDbContext db, IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr, CreateMyVolunteerRequest? body) =>
 {
     var existing = (await FindMyVolunteersAsync(db, ctx, userMgr)).FirstOrDefault();
     if (existing is not null) return Results.Ok(existing);
@@ -1749,7 +1751,7 @@ volunteers.MapPost("/me", async (LotvDbContext db, IChapterContextService ctx, U
     db.Volunteers.Add(v);
     await db.SaveChangesAsync();
     return Results.Created($"/api/v1/volunteers/{v.Id}", v);
-});
+}).WithTags("Volunteers").RequireAuthorization("Volunteer");   // mapped on app, not the staff-only group: a plain Volunteer must be able to create their own record
 
 volunteers.MapPost("/", async (Volunteer v, LotvDbContext db, IChapterContextService ctx) =>
 {
