@@ -1,4 +1,4 @@
-"""Manual 07 — Staff Guide: The Package Pipeline Board. Persona: Claire Hoffman (ChapterStaff, Chicago Metro)."""
+"""Manual 07 — Staff Guide: The Package Workflow Board. Persona: Claire Hoffman (ChapterStaff, Chicago Metro)."""
 import re
 import sys
 from pathlib import Path
@@ -41,8 +41,8 @@ def drag(page, card, target_col, hold_shot=None):
 
 
 def build(page):
-    r = Recorder(SLUG, "Staff Guide: The Package Pipeline Board", page)
-    r.h1("Staff Guide: The Package Pipeline Board")
+    r = Recorder(SLUG, "Staff Guide: The Package Workflow Board", page)
+    r.h1("Staff Guide: The Package Workflow Board")
     r.p("**Who this is for:** staff (HQAdmin, ChapterAdmin, ChapterStaff, Director). Board members can look at the board but cannot change it.")
     r.p("**When you finish you will be able to:** open the board, read every column and card, assign a case to a volunteer, move a case to its next stage by dragging, "
         "understand why a move is refused, find cases with missing family information, and open a case's full page.")
@@ -50,17 +50,17 @@ def build(page):
     r.note("Cards marked **SAMPLE** are practice data used for these pictures. Real cases do not have that badge.", "Practice data")
 
     # ---------------------------------------------------------------- 1
-    r.process("Sign in and open the board", "Get to the Package Pipeline.", who="Staff", time="1 minute")
+    r.process("Sign in and open the board", "Get to the Package Workflow.", who="Staff", time="1 minute")
     r.signin(USER, "You land on the **Chapter Dashboard**.", who="your staff username")
-    pp = page.locator('a.sidebar-link:has-text("Package Pipeline")').first
-    r.step("Click Package Pipeline in the left menu",
-           "In the green menu on the left, under **Prayer Request Package**, click **Package Pipeline**.",
+    pp = page.locator('a.sidebar-link:has-text("Package Workflow")').first
+    r.step("Click Package Workflow in the left menu",
+           "In the green menu on the left, under **Prayer Request Package**, click **Package Workflow**.",
            target=pp, action=lambda: (pp.click(), page.wait_for_selector(".kanban-col", timeout=20000), page.wait_for_timeout(1500)), after=True,
-           expect="A page titled **Package Pipeline** with columns of cards side by side.")
-    r.check(["You can see the heading **Package Pipeline** and columns of cards."])
+           expect="A page titled **Package Workflow** with columns of cards side by side.")
+    r.check(["You can see the heading **Package Workflow** and columns of cards."])
 
     # ---------------------------------------------------------------- 2
-    r.process("Read the columns", "Know what each column means and how a case moves across them.", who="Staff", need="You are on the Package Pipeline.", time="3 minutes")
+    r.process("Read the columns", "Know what each column means and how a case moves across them.", who="Staff", need="You are on the Package Workflow.", time="3 minutes")
     wide(page)
     r.step("See the whole board",
            "This picture is zoomed out so you can see every column at once. Cases move **left to right** as work happens. The small number in each column's header is how many cards it holds. On your own screen, scroll sideways to see columns that do not fit.",

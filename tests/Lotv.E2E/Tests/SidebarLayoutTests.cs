@@ -48,11 +48,11 @@ public class SidebarLayoutTests : E2ETestBase
     }
 
     [Fact]
-    public async Task Overview_HasOnlyTheTwoDashboards()
+    public async Task Overview_HasOnlyTheHqDashboard()   // no per-chapter dashboard link while there are no chapters
     {
         var sidebar = await OpenSidebarAsync();
 
-        Assert.Equal(new[] { "Chapter Dashboard", "HQ Dashboard" }, await GroupLinksAsync(sidebar, "Overview"));
+        Assert.Equal(new[] { "HQ Dashboard" }, await GroupLinksAsync(sidebar, "Overview"));
     }
 
     [Fact]
@@ -62,8 +62,8 @@ public class SidebarLayoutTests : E2ETestBase
 
         Assert.Equal(new[]
         {
-            "Package Pipeline", "Possible Duplicates", "Cases", "Unassigned Queue",
-            "My Work Queue", "Request Form", "Edit Request Form",
+            "Package Workflow", "Possible Duplicates", "Cases", "Unassigned Queue",
+            "My Work Queue", "Request Form",
         }, await GroupLinksAsync(sidebar, "Prayer Request Package"));
     }
 

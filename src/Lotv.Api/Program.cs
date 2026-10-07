@@ -249,6 +249,7 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<LotvDbContext>("database");
 
 var app = builder.Build();
+RequestEmails.LogoUrl = RequestNotifier.WebUrl(app.Configuration, "/images/lily-email.png");   // the lily at the top of every email
 
 // ── Dev seed data (MOCK DATA — Development only, skipped when Testing:SkipSeed=true) ──
 if (app.Environment.IsDevelopment() && !app.Configuration.GetValue<bool>("Testing:SkipSeed"))

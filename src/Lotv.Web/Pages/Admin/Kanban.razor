@@ -7,26 +7,15 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
-<PageTitle>Package Pipeline — LOTV Staff Portal</PageTitle>
+<PageTitle>Package Workflow — LOTV Staff Portal</PageTitle>
 
 <div class="page-hd">
   <div>
-    <h2>Package Pipeline</h2>
+    <h2>Package Workflow</h2>
     <p>Visual pipeline view of all active cases</p>
   </div>
-  <div class="page-hd-actions">
-    <button class="btn btn-sm @(_needsInfoOnly ? "btn-primary" : "")" id="needs-info-filter" aria-pressed="@_needsInfoOnly" @onclick="ToggleNeedsInfo">⚠ Needs info (@NeedsInfoCount)</button>
-    <button class="btn btn-sm" id="shippo-export" title="Download cases at Packing as a CSV to import into Shippo" disabled="@_shippoBusy" @onclick="ExportForShippo">📦 @(_shippoBusy ? "Preparing…" : "Export for Shippo")</button>
-    <a href="/admin/cases" class="btn btn-sm">List View</a>
-    <a href="/admin/queue" class="btn btn-sm">🔚 Unassigned Queue</a>
-    <a href="/admin/my-queue" class="btn btn-sm">📋 My Work Queue</a>
-  </div>
+  <CaseToolbar Active="pipeline" NeedsInfoCount="NeedsInfoCount" NeedsInfoOnly="_needsInfoOnly" OnToggleNeedsInfo="ToggleNeedsInfo" />
 </div>
-
-@if (!string.IsNullOrEmpty(_shippoMsg))
-{
-  <div style="background:#e8f4ec;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#1e5b34;margin-bottom:14px;">@_shippoMsg</div>
-}
 
 @if (!string.IsNullOrEmpty(_dropError))
 {
@@ -125,21 +114,6 @@
 }
 
 @code {
-  private bool _shippoBusy;
-  private string? _shippoMsg;
-
-  private async Task ExportForShippo()
-  {
-    _shippoBusy = true; _shippoMsg = null;
-    var csv = await Api.GetShippoExportCsvAsync();
-    _shippoBusy = false;
-    if (csv is null) { _shippoMsg = "Couldn't build the Shippo export — check you're signed in as staff."; return; }
-    var rows = Math.Max(0, csv.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length - 1);
-    if (rows == 0) { _shippoMsg = "Nothing to export — no package cases are at Packing without a tracking number."; return; }
-    await JS.InvokeVoidAsync("downloadCsv", $"lotv-shippo-orders-{DateTime.Now:yyyyMMdd}.csv", csv);
-    _shippoMsg = $"Downloaded {rows} order{(rows == 1 ? "" : "s")}. In Shippo: Orders → Import → upload this file, buy the labels there, then enter each tracking number on the case.";
-  }
-
   private record Column(string Key, string Label, string Color);
 
   // Kanban-only column layout — a display remapping of the underlying Status +

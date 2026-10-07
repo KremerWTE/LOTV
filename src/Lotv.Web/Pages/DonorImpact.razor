@@ -7,7 +7,7 @@
 <!-- PUBLIC NAV -->
 <div style="background:var(--navy);color:white;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🌻</div>
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1.1rem;"><img src="images/lily-white.svg" alt="" style="width:68%;height:68%;" /></div>
     <div style="font-family:var(--ff-head);font-size:1rem;font-weight:700;">LOTV Ministry</div>
   </div>
   <div style="display:flex;gap:12px;">
@@ -56,7 +56,7 @@
         <div class="kpi-value" style="color:var(--green)">@_familiesHelped</div>
       </div>
       <div class="kpi-card kpi-amber">
-        <div class="kpi-icon">🌻</div>
+        <div class="kpi-icon"><img src="images/lily.svg" alt="" style="height:1.15em;width:auto;vertical-align:middle;" /></div>
         <div class="kpi-label">Avg Gift</div>
         <div class="kpi-value" style="color:var(--amber)">@if (_giftCount > 0) { <Money Amount="@(_totalGiven / _giftCount)" /> } else { <text>$0</text> }</div>
       </div>

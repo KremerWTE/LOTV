@@ -10,13 +10,9 @@
     <h2>Unassigned Queue</h2>
     <p>Cases awaiting volunteer assignment — oldest first</p>
   </div>
-  <div class="page-hd-actions">
-    <button class="btn btn-sm @(_needsInfoOnly ? "btn-primary" : "")" id="needs-info-filter" aria-pressed="@_needsInfoOnly" @onclick="() => _needsInfoOnly = !_needsInfoOnly">⚠ Needs info (@_queue.Count(HasInfoProblems))</button>
+  <CaseToolbar Active="queue" NeedsInfoCount="_queue.Count(HasInfoProblems)" NeedsInfoOnly="_needsInfoOnly" OnToggleNeedsInfo="() => _needsInfoOnly = !_needsInfoOnly">
     <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
-    <a href="/admin/cases" class="btn btn-sm">All Cases</a>
-    <a href="/admin/kanban" class="btn btn-sm">☷ Package Pipeline</a>
-    <a href="/admin/my-queue" class="btn btn-sm">📋 My Work Queue</a>
-  </div>
+  </CaseToolbar>
 </div>
 
 <!-- KPI STRIP -->

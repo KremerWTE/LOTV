@@ -6,7 +6,7 @@
 @inject AuthService Auth
 @implements IDisposable
 
-<PageTitle>Chapter Dashboard — LOTV Staff Portal</PageTitle>
+<PageTitle>HQ Chapter Dashboard — LOTV Staff Portal</PageTitle>
 
 <!-- ST. GIANNA BANNER -->
 <div class="gianna-banner">
@@ -15,7 +15,7 @@
     <div class="gianna-banner-quote">&ldquo;Love and sacrifice are as intimately connected as the sun and light.&rdquo; &mdash; St. Gianna Beretta Molla</div>
     <div class="gianna-banner-sub">April 28 &bull; Feast Day of St. Gianna &bull; Monthly Prayer Night: 28th of each month at 8PM ET &bull; info@LOTVministry.org</div>
   </div>
-  <div style="font-size:1.6rem;opacity:.35;margin-left:auto;flex-shrink:0;">🌻</div>
+  <div style="font-size:1.6rem;opacity:.35;margin-left:auto;flex-shrink:0;"><img src="images/lily.svg" alt="" style="height:1.15em;width:auto;vertical-align:middle;" /></div>
 </div>
 
 <!-- QUICK ACTIONS -->
@@ -23,7 +23,7 @@
   <button class="btn btn-primary btn-sm" @onclick='() => Nav.NavigateTo("/admin/cases?new=1")'>+ New Request</button>
   <button class="btn btn-sm btn-navy" @onclick='() => Nav.NavigateTo("/admin/donations")'>+ Record Donation</button>
   <button class="btn btn-sm" @onclick='() => Nav.NavigateTo("/admin/volunteers")'>+ Add Volunteer</button>
-  <a href="/admin/kanban" class="btn btn-sm">View Package Pipeline &rarr;</a>
+  <a href="/admin/kanban" class="btn btn-sm">View Package Workflow &rarr;</a>
   <a href="/admin/impact" class="btn btn-sm">Impact Report &rarr;</a>
 </div>
 

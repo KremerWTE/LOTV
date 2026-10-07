@@ -1,0 +1,60 @@
+@* The one button row shared by the main case pages (Package Workflow, Unassigned Queue, My Work Queue, Family Cases).
+   Keeping it in one place means the pages cannot drift apart: same buttons, same order, same behaviour.
+   Needs info is a filter the host page applies to its own list; Export for Shippo is self-contained here. *@
+@inject ApiService Api
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<div class="page-hd-actions">
+  @ChildContent
+  <button class="btn btn-sm @(NeedsInfoOnly ? "btn-primary" : "")" id="needs-info-filter" aria-pressed="@NeedsInfoOnly"
+          title="Show only cases with missing or inconsistent family information" @onclick="OnToggleNeedsInfo">⚠ Needs info (@NeedsInfoCount)</button>
+  <button class="btn btn-sm" id="shippo-export" title="Download cases at Packing as a CSV to import into Shippo" disabled="@_shippoBusy" @onclick="ExportForShippo">📦 @(_shippoBusy ? "Preparing…" : "Export for Shippo")</button>
+  <a href="/admin/cases" class="btn btn-sm @Current("all")" aria-current="@(Active == "all" ? "page" : null)">List View</a>
+  <a href="/admin/queue" class="btn btn-sm @Current("queue")" aria-current="@(Active == "queue" ? "page" : null)">🔚 Unassigned Queue</a>
+  <a href="/admin/my-queue" class="btn btn-sm @Current("mine")" aria-current="@(Active == "mine" ? "page" : null)">📋 My Work Queue</a>
+  <button class="btn btn-sm" id="new-request" @onclick="NewRequest">+ New Request</button>
+</div>
+
+@if (!string.IsNullOrEmpty(_shippoMsg))
+{
+  <div role="status" style="position:fixed;top:72px;right:24px;z-index:700;max-width:420px;background:#e8f4ec;border-radius:8px;padding:10px 34px 10px 14px;font-size:.84rem;color:#1e5b34;box-shadow:0 4px 16px rgba(0,0,0,.15);">
+    @_shippoMsg
+    <button aria-label="Dismiss" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:#1e5b34;" @onclick="() => _shippoMsg = null">✕</button>
+  </div>
+}
+
+@code {
+  /// <summary>Which page this is, so its own button is marked: "pipeline", "queue", "mine" or "all".</summary>
+  [Parameter] public string Active { get; set; } = "";
+  [Parameter] public int NeedsInfoCount { get; set; }
+  [Parameter] public bool NeedsInfoOnly { get; set; }
+  [Parameter] public EventCallback OnToggleNeedsInfo { get; set; }
+  /// <summary>Optional: the host page opens its own New Request panel. Without it the button goes to the Family Cases page, which does.</summary>
+  [Parameter] public EventCallback OnNewRequest { get; set; }
+  /// <summary>Page-specific buttons (for example Refresh), shown first.</summary>
+  [Parameter] public RenderFragment? ChildContent { get; set; }
+
+  private bool _shippoBusy;
+  private string? _shippoMsg;
+
+  private string Current(string key) => Active == key ? "btn-current" : "";
+
+  private async Task NewRequest()
+  {
+    if (OnNewRequest.HasDelegate) await OnNewRequest.InvokeAsync();
+    else Nav.NavigateTo("/admin/cases?new=1");
+  }
+
+  private async Task ExportForShippo()
+  {
+    _shippoBusy = true; _shippoMsg = null;
+    var csv = await Api.GetShippoExportCsvAsync();
+    _shippoBusy = false;
+    if (csv is null) { _shippoMsg = "Couldn't build the Shippo export — check you're signed in as staff."; return; }
+    var rows = Math.Max(0, csv.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length - 1);
+    if (rows == 0) { _shippoMsg = "Nothing to export — no package cases are at Packing without a tracking number."; return; }
+    await JS.InvokeVoidAsync("downloadCsv", $"lotv-shippo-orders-{DateTime.Now:yyyyMMdd}.csv", csv);
+    _shippoMsg = $"Downloaded {rows} order{(rows == 1 ? "" : "s")}. In Shippo: Orders → Import → upload this file, buy the labels there, then enter each tracking number on the case.";
+  }
+}

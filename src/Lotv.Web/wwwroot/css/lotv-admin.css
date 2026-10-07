@@ -148,6 +148,11 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 .btn-navy:hover { background: var(--navy-dark); }
 .btn-danger  { background: var(--red); border-color: var(--red); color: white; }
 .btn-sm      { padding: 5px 12px; font-size: .77rem; }
+.kpi-click { cursor: pointer; transition: box-shadow .15s, transform .15s; }
+.kpi-click:hover { box-shadow: 0 4px 14px rgba(0,0,0,.12); transform: translateY(-1px); }
+.kpi-click:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+.kpi-active { box-shadow: 0 0 0 2px var(--green); }   /* the card whose filter is on */
+.btn-current { border-color: var(--green); box-shadow: inset 0 -2px 0 var(--green); font-weight: 700; }   /* the page you are on, in the shared case toolbar */
 
 /* ── FORMS ── */
 .form-group  { display: flex; flex-direction: column; gap: 5px; }
@@ -418,7 +423,7 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 .pub-mobile-nav a:hover { background: var(--bg); }
 .pub-mobile-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 199; }
 
-@media (max-width: 720px) {
+@media (max-width: 1000px) {   /* the full menu needs ~980px; below that, use the hamburger */
   .pub-hamburger { display: inline-flex; }
   .pub-desktop-nav { display: none !important; }
 }
@@ -579,4 +584,38 @@ h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none; }
   margin-top: 2px;
   color: #0d6efd;
   animation: lotv-spin 1s linear infinite;
+}
+
+/* ───────────────────────────────────────────────────────────
+   RESPONSIVE HARDENING — the layout follows the window instead of overflowing it
+────────────────────────────────────────────────────────────*/
+/* Top bar: wrap onto a second row rather than push the user menu / currency off-screen */
+.topbar { height: auto; min-height: var(--header-h); flex-wrap: wrap; row-gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+.topbar-left  { min-width: 0; flex: 1 1 auto; }
+.topbar-right { flex-wrap: wrap; justify-content: flex-end; min-width: 0; row-gap: 6px; }
+.topbar-right > * { flex-shrink: 0; }
+@media (max-width: 1280px) { .topbar-right { gap: 8px; } .topbar-search { width: 150px; } }
+@media (max-width: 900px)  { .topbar-kbd, .topbar-collapse { display: none !important; } }   /* keyboard / desktop-only controls */
+@media (max-width: 600px)  { .user-pill > div:not(.user-avatar) { display: none; } .topbar-title { font-size: .88rem; } }
+
+/* Long values (emails, addresses, tracking numbers) wrap instead of widening their panel */
+.panel-body, .panel-header, .page-hd h2 { overflow-wrap: break-word; }
+[style*="grid-template-columns"] > * { min-width: 0; }
+
+/* Inline two-column layouts with a fixed side column (e.g. the case page: main + 360px) stack on narrow windows */
+@media (max-width: 1100px) {
+  .lotv-content [style*="grid-template-columns"][style*="px"]:not([style*="auto-fill"]):not([style*="auto-fit"]) { grid-template-columns: 1fr !important; }
+}
+/* On phones every inline multi-column grid becomes one column */
+@media (max-width: 600px) {
+  .lotv-content [style*="grid-template-columns"]:not([style*="auto-fill"]):not([style*="auto-fit"]) { grid-template-columns: 1fr !important; }
+}
+
+/* Wide tables keep readable columns and scroll sideways inside their panel, instead of crushing the text */
+.data-table td:first-child, .data-table th:first-child { white-space: nowrap; }
+@media (max-width: 1100px) {
+  .panel-body:has(> .data-table), .panel-body:has(> div > .data-table), .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { min-width: 640px; }
+  .data-table:has(th:nth-child(6)) { min-width: 820px; }
+  .data-table:has(th:nth-child(8)) { min-width: 980px; }
 }

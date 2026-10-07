@@ -16,7 +16,7 @@
   <!-- SIDEBAR -->
   <aside class="sidebar @(_sidebarOpen ? "open" : "")" role="navigation" aria-label="Main navigation" @onclick:stopPropagation="true">
     <div class="sidebar-logo">
-      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">🌻</div>
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;"><img src="images/lily-white.svg" alt="" style="width:68%;height:68%;" /></div>
       <div class="sidebar-logo-text">
         <strong>LOTV Ministry</strong>
         <span>Staff Portal &bull; Catholic Apostolate</span>
@@ -27,9 +27,6 @@
     {
     <div class="sidebar-section">
       <div class="sidebar-section-label">Overview</div>
-      <NavLink class="sidebar-link" href="/admin/dashboard" Match="NavLinkMatch.All">
-        <span class="icon">☰</span> Chapter Dashboard
-      </NavLink>
       @if (Auth.IsHqAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/hq">
@@ -66,7 +63,7 @@
       @if (_canSeeCases)
       {
         <NavLink class="sidebar-link" href="/admin/kanban">
-          <span class="icon">☷</span> Package Pipeline
+          <span class="icon">☷</span> Package Workflow
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/families/duplicate-review">
           <span class="icon">🔍</span> Possible Duplicates
@@ -87,12 +84,6 @@
         <a class="sidebar-link" href="/request-prayer-care-package" target="_blank" rel="noopener">
           <span class="icon">📝</span> Request Form <span style="opacity:.6;font-size:.7rem;">↗</span>
         </a>
-        @if (Auth.IsHqAdmin)
-        {
-          <NavLink class="sidebar-link" href="/admin/forms/prayer-care-intake">
-            <span class="icon">✏</span> Edit Request Form
-          </NavLink>
-        }
         @if (_showLegacyLinks)
         {
           <NavLink class="sidebar-link" href="/admin/cases">
@@ -706,12 +697,12 @@
           }
         </div>
 
-        <button type="button" @onclick="OpenCmdK" aria-label="Open command palette"
+        <button type="button" class="topbar-kbd" @onclick="OpenCmdK" aria-label="Open command palette"
                 title="Open command palette (Ctrl+K)"
                 style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:.74rem;color:var(--text-mid);margin-right:8px;font-family:monospace;">
           ⌘K
         </button>
-        <button type="button" @onclick="ToggleSidebarCollapse"
+        <button type="button" class="topbar-collapse" @onclick="ToggleSidebarCollapse"
                 aria-label="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
                 style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:.95rem;color:var(--text-mid);margin-right:8px;">
           @(_sidebarCollapsed ? "»" : "«")
@@ -776,7 +767,7 @@
   private int _unassignedCount;
   private int _pendingAlloc;
   private int _pendingDupReview;
-  private string _pageTitle = "Chapter Dashboard";
+  private string _pageTitle = "HQ Chapter Dashboard";
   private bool _dark;
   private bool _sidebarCollapsed;
   private int _pendingMigrations;
@@ -1007,7 +998,7 @@
   {
     _pageTitle = Nav.Uri switch
     {
-      var u when u.EndsWith("/admin/dashboard")  => "Chapter Dashboard",
+      var u when u.EndsWith("/admin/dashboard")  => "HQ Chapter Dashboard",
       var u when u.EndsWith("/admin/hq")              => "HQ Dashboard",
       var u when u.EndsWith("/admin/hq-board")        => "HQ Operations Board",
       var u when u.EndsWith("/admin/families")    => "Family Directory",
@@ -1030,7 +1021,7 @@
       var u when u.EndsWith("/admin/email-previews") => "Request Emails",
       var u when u.Contains("/admin/cases/")       => "Case Detail",
       var u when u.Contains("/admin/cases")       => "Family Cases",
-      var u when u.EndsWith("/admin/kanban")      => "Package Pipeline",
+      var u when u.EndsWith("/admin/kanban")      => "Package Workflow",
       var u when u.EndsWith("/admin/historical")  => "Historical Cases",
       var u when u.EndsWith("/admin/assignment-rules") => "Assignment Rules",
       var u when u.EndsWith("/admin/qa-sample-data") => "QA Sample Data",

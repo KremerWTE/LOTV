@@ -169,7 +169,7 @@ else
             }
             else if (!_shippo.Configured)
             {
-              <div style="color:var(--text-light);">Shippo isn't connected yet — use <strong>Export for Shippo</strong> on the Package Pipeline to download this case as a CSV.</div>
+              <div style="color:var(--text-light);">Shippo isn't connected yet — use <strong>Export for Shippo</strong> on the Package Workflow to download this case as a CSV.</div>
             }
             else
             {
@@ -624,8 +624,8 @@ else
           {
             <div style="font-size:.76rem;color:var(--amber);margin-bottom:10px;">⚠ Not everything is packed yet.</div>
           }
-          <div style="display:flex;gap:6px;">
-            <select class="form-input" style="font-size:.8rem;" @bind="_newItemResourceId">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <select class="form-input" style="font-size:.8rem;flex:1 1 140px;min-width:0;" @bind="_newItemResourceId">
               <option value="0">— Select item —</option>
               @foreach (var inv in _inventory.Where(i => i.QuantityAvailable > 0))
               { <option value="@inv.Id">@inv.Name (@inv.QuantityAvailable available)</option> }
@@ -1024,7 +1024,7 @@ else
     ActivityType.Cancelled      => "cancelled this case",
     ActivityType.Viewed         => "viewed this case",
     ActivityType.ProcessStageChanged => $"moved the case from {StageName(ev.OldValue)} to {StageName(ev.NewValue)}",
-    ActivityType.ShippingLabelGenerated => "queued this case for shipping (label is bought in Shippo — use Export for Shippo on the Package Pipeline)",
+    ActivityType.ShippingLabelGenerated => "queued this case for shipping (label is bought in Shippo — use Export for Shippo on the Package Workflow)",
     _ => ev.ActivityType.ToString()
   };
 }
