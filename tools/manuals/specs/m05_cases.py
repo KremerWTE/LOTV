@@ -67,7 +67,7 @@ def build(page):
     r.step("Click Details", "Click **Details** at the right end of the row.",
            target=det, action=lambda: (det.click(), page.wait_for_url(re.compile(r".*/admin/cases/\d+"), timeout=20000), page.wait_for_timeout(2000)), after=True,
            expect="The case's page, headed **Case #37 — Oliver & Vivian Delgado**, with coloured badges for status and priority.")
-    r.note("You can also open a case from the Package Pipeline (click the card's name) or from any list's **Details** button.", "Tip")
+    r.note("You can also open a case from the Package Workflow (click the card's name) or from any list's **Details** button.", "Tip")
     r.check(["The heading shows the case number and family name."])
 
     # ---------------------------------------------------------------- 2

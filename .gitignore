@@ -101,3 +101,7 @@ scripts/*.log
 /*.png
 src/Lotv.Api/lotv-dev.db-shm
 src/Lotv.Api/lotv-dev.db-wal
+
+# Generated manuals are kept local, never committed (rebuild with tools/manuals/run_all.py)
+docs/manuals/src/
+docs/manuals/images/

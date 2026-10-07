@@ -11,15 +11,18 @@
     <h2>My Work Queue</h2>
     <p>Cases assigned to you — @Auth.UserName</p>
   </div>
-  <div class="page-hd-actions">
-    <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
-    @if (Auth.UserRole != "Volunteer")
-    {
-      <a href="/admin/cases" class="btn btn-sm">All Cases</a>
-      <a href="/admin/kanban" class="btn btn-sm">☷ Package Pipeline</a>
-      <a href="/admin/queue" class="btn btn-sm">🔚 Unassigned Queue</a>
-    }
-  </div>
+  @if (Auth.UserRole == "Volunteer")
+  {
+    <div class="page-hd-actions">
+      <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+    </div>
+  }
+  else
+  {
+    <CaseToolbar Active="mine" NeedsInfoCount="_mine.Count(HasInfoProblems)" NeedsInfoOnly="_needsInfoOnly" OnToggleNeedsInfo="ToggleNeedsInfo">
+      <button class="btn btn-sm" @onclick="LoadAsync">↻ Refresh</button>
+    </CaseToolbar>
+  }
 </div>
 
 @if (_loaded && _myVolunteer is null)
@@ -209,6 +212,9 @@ else
   private bool _loaded, _creating;
   private string _avgAge = "—";
   private string _activeFilter = "All";
+  private bool _needsInfoOnly;
+  private static bool HasInfoProblems(PackageRequest r) => r.Family is not null && FamilyDataQuality.Check(r.Family).NeedsAttention;
+  private void ToggleNeedsInfo() { _needsInfoOnly = !_needsInfoOnly; ApplyFilter(); }
   private string _saveError = "";
 
   // Drawer edit state
@@ -253,6 +259,12 @@ else
   private void SetFilter(string f) { _activeFilter = f; ApplyFilter(); }
 
   private void ApplyFilter()
+  {
+    ApplyStatusFilter();
+    if (_needsInfoOnly) _filtered = _filtered.Where(HasInfoProblems).ToList();
+  }
+
+  private void ApplyStatusFilter()
   {
     _filtered = _activeFilter switch
     {

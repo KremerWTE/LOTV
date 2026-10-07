@@ -11,20 +11,19 @@
     <h2>Family Cases</h2>
     <p>All active, pending, and fulfilled service requests</p>
   </div>
-  <div class="page-hd-actions">
-    <button class="btn btn-sm" @onclick="OpenNew">+ New Request</button>
-    <a href="/admin/kanban" class="btn btn-sm">Package Pipeline</a>
-  </div>
+  <CaseToolbar Active="all" NeedsInfoCount="_all.Count(HasInfoProblems)" NeedsInfoOnly="_needsInfoOnly" OnToggleNeedsInfo="ToggleNeedsInfo" OnNewRequest="OpenNew" />
 </div>
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
-  <div class="kpi-card kpi-navy">
+  <div class="kpi-card kpi-navy kpi-click @(_activeFilter == "Open" ? "kpi-active" : "")" id="kpi-open" role="button" tabindex="0" aria-pressed="@(_activeFilter == "Open")"
+       title="Click to show only open cases" @onclick='() => SetFilter("Open")' @onkeydown='e => KpiKey(e, "Open")'>
     <div class="kpi-icon">📦</div>
     <div class="kpi-label">Open Cases</div>
-    <div class="kpi-value" style="color:var(--navy)">@_all.Count(r => r.Status is CaseStatus.New or CaseStatus.InProgress or CaseStatus.AwaitingShipment)</div>
+    <div class="kpi-value" style="color:var(--navy)">@_all.Count(IsOpen)</div>
   </div>
-  <div class="kpi-card kpi-amber">
+  <div class="kpi-card kpi-amber kpi-click @(_activeFilter == "Overdue" ? "kpi-active" : "")" id="kpi-overdue" role="button" tabindex="0" aria-pressed="@(_activeFilter == "Overdue")"
+       title="Click to show only overdue cases" @onclick='() => SetFilter("Overdue")' @onkeydown='e => KpiKey(e, "Overdue")'>
     <div class="kpi-icon">⚠</div>
     <div class="kpi-label">Overdue</div>
     <div class="kpi-value" style="color:var(--amber)">@_all.Count(r => r.IsOverdue)</div>
@@ -342,6 +341,9 @@
 
   private List<PackageRequest> _all = [];
   private List<PackageRequest> _filtered = [];
+  private bool _needsInfoOnly;
+  private static bool HasInfoProblems(PackageRequest r) => r.Family is not null && FamilyDataQuality.Check(r.Family).NeedsAttention;
+  private void ToggleNeedsInfo() { _needsInfoOnly = !_needsInfoOnly; ApplyFilter(); }
   private List<Volunteer> _volunteers = [];
   private PackageRequest? _selected;
 
@@ -414,6 +416,9 @@
   }
 
   private void SetFilter(string f) { _activeFilter = f; ApplyFilter(); }
+  // "Open" means the same thing in the Open Cases box and the Open filter button: not finished (Fulfilled) and not Cancelled.
+  private static bool IsOpen(PackageRequest r) => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled;
+  private void KpiKey(KeyboardEventArgs e, string filter) { if (e.Key is "Enter" or " ") SetFilter(filter); }
   private bool HiddenCompleted => _activeFilter == "Open" && string.IsNullOrEmpty(_search);
 
   private void ApplyFilter()
@@ -423,7 +428,7 @@
       var matchFilter = _activeFilter switch
       {
         // Open = not Fulfilled or Cancelled. Typing a search looks at every case, so a completed family can still be found.
-        "Open"              => !string.IsNullOrEmpty(_search) || (r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled),
+        "Open"              => !string.IsNullOrEmpty(_search) || IsOpen(r),
         "New"               => r.Status == CaseStatus.New,
         "In Progress"       => r.Status == CaseStatus.InProgress,
         "Awaiting Shipment" => r.Status == CaseStatus.AwaitingShipment,
@@ -439,7 +444,7 @@
         r.Reason.ToString().Contains(_search, StringComparison.OrdinalIgnoreCase);
       var matchPriority = string.IsNullOrEmpty(_priorityFilter) || r.Priority.ToString() == _priorityFilter;
       var matchCategory = string.IsNullOrEmpty(_categoryFilter) || r.Category.ToString() == _categoryFilter;
-      return matchFilter && matchSearch && matchPriority && matchCategory;
+      return matchFilter && matchSearch && matchPriority && matchCategory && (!_needsInfoOnly || HasInfoProblems(r));
     }).ToList();
     _shown = PageSize;
   }

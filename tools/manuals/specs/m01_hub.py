@@ -36,7 +36,7 @@ def build(page, browser):
         "| An administrator | Reset a password, sign in as someone | Guide 04 — Users, Temporary Passwords & Login As |",
         "| Staff | Work one case in detail | Guide 05 — Managing Cases |",
         "| A Board member | Read the ministry's numbers | Guide 06 — Board Member Guide |",
-        "| Staff | See all cases as a board; drag between stages | Guide 07 — The Package Pipeline Board |",
+        "| Staff | See all cases as a board; drag between stages | Guide 07 — The Package Workflow Board |",
         "| Staff | Use the Cases Hub, duplicates and the Unassigned Queue | Guide 08 — Cases Hub, Duplicates & Queues |",
         "",
     ]
@@ -191,7 +191,7 @@ def build(page, browser):
     settle(page, 1500)
     sb = page.locator("aside, .sidebar").first
     r.step("Staff menu",
-           "Staff see the green menu on the left. Under **Prayer Request Package** are: **Package Pipeline**, **Possible Duplicates**, **Cases**, **Unassigned Queue**, **My Work Queue**, **Request Form**. Further down are the other areas your role may use (families, donations, volunteers, reports…).",
+           "Staff see the green menu on the left. Under **Prayer Request Package** are: **Package Workflow**, **Possible Duplicates**, **Cases**, **Unassigned Queue**, **My Work Queue**, **Request Form**. Further down are the other areas your role may use (families, donations, volunteers, reports…).",
            target=sb, expect="A long green menu.")
     vctx = browser.new_context(viewport=VIEWPORT, device_scale_factor=1)
     vp = vctx.new_page()
