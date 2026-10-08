@@ -1,4 +1,5 @@
 using Lotv.Api.Data;
+using Lotv.Api.Auth;
 using Lotv.Api.Hubs;
 using Lotv.Core.Common;
 using Lotv.Core.Models;
@@ -100,7 +101,7 @@ public class AutoAssignmentService : IAutoAssignmentService
             request.AssignedTo = null;
             await _db.SaveChangesAsync();
             await VolunteerWorkload.RecomputeAsync(_db, volunteerId);
-            await _hub.Clients.Group($"chapter-{request.ChapterId}")
+            await _hub.Clients.Group(ChapterMode.GroupFor(request.ChapterId))
                 .SendAsync("CaseEscalated", request.Id, "No volunteer accepted after maximum reassignment attempts");
             return Result.Ok();
         }
@@ -141,7 +142,7 @@ public class AutoAssignmentService : IAutoAssignmentService
         // A prayer-only volunteer (or any other role) never gets a package to assemble; someone who also
         // holds the Package Assembler or Admin role is eligible whatever their primary role is.
         return (await _db.Volunteers
-            .Where(v => v.ChapterId == request.ChapterId && v.Status == VolunteerStatus.Active && v.ActiveCases < maxCases)
+            .Where(v => (!ChapterMode.Enabled || v.ChapterId == request.ChapterId) && v.Status == VolunteerStatus.Active && v.ActiveCases < maxCases)
             .ToListAsync())
             .Where(v => v.HasRole(VolunteerRole.PackageAssembler) || v.HasRole(VolunteerRole.Admin))
             .ToList();
@@ -227,7 +228,7 @@ public class AutoAssignmentService : IAutoAssignmentService
             OperationsNotifier.VolunteerAssigned(_notify, _cfg, volunteer, request,
                 request.Family ?? await _db.Families.FindAsync(request.FamilyId), DateTime.UtcNow.AddHours(windowHours));
 
-        await _hub.Clients.Group($"chapter-{request.ChapterId}")
+        await _hub.Clients.Group(ChapterMode.GroupFor(request.ChapterId))
             .SendAsync("CaseAssigned", request.Id, volunteer.Id, volunteer.FullName);
 
         return Result.Ok();

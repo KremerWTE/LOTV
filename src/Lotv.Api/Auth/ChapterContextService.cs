@@ -32,6 +32,8 @@ public class ChapterContextService : IChapterContextService
     {
         get
         {
+            // One-organization mode: nobody has a chapter scope, so every chapter filter is skipped.
+            if (!ChapterMode.Enabled) return null;
             var claim = User?.FindFirstValue("chapterId");
             return int.TryParse(claim, out var id) ? id : null;
         }

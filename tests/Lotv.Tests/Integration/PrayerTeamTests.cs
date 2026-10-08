@@ -105,13 +105,13 @@ public class PrayerTeamTests
     }
 
     [Fact]
-    public async Task ANonPrayerAmbassador_CannotBeAddedToAPrayerTeam()
+    public async Task APackageAssembler_CanBeAddedToAPrayerTeam()
     {
         var (_, request, packer, _, _) = await SetupAsync();
         var admin = await AdminClientAsync();
 
         var resp = await admin.PostAsJsonAsync($"/api/v1/requests/{request}/prayer-team", new { volunteerId = packer });
-        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
     }
 
     [Fact]

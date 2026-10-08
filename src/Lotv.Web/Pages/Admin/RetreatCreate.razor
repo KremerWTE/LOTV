@@ -1,5 +1,6 @@
 @page "/admin/retreats/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -93,6 +94,8 @@
           <label class="form-label">Revenue Goal ($)</label>
           <input class="form-input" type="number" step="100" min="0" @bind="_goalAmount" />
         </div>
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -103,6 +106,7 @@
             }
           </select>
         </div>
+        }
       </div>
     </div>
   </div>

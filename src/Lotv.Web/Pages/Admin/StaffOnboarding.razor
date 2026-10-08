@@ -1,5 +1,6 @@
 @page "/admin/staff/onboarding"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -63,6 +64,8 @@ else
             <input class="form-input" type="tel" @bind="_phone" placeholder="(555) 555-5555" />
           </div>
 
+          @if (ChapterUi.Enabled)
+          {
           <div class="form-group" style="margin-top:12px;">
             <label class="form-label">Chapter *</label>
             <select class="form-input" @bind="_chapterId">
@@ -73,6 +76,7 @@ else
               }
             </select>
           </div>
+          }
 
           <div class="form-group" style="margin-top:12px;">
             <label class="form-label">Notification Preference</label>
@@ -96,7 +100,7 @@ else
 @code {
   private List<Chapter> _chapters = [];
   private string _firstName = "", _lastName = "", _title = "", _phone = "", _notifyPref = "Email";
-  private int _chapterId;
+  private int _chapterId = ChapterUi.DefaultChapterId;
   private bool _loading = true, _busy, _done;
   private string _error = "";
 

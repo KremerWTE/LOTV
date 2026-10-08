@@ -52,6 +52,9 @@ public class LotvApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 // Production leaves new requests in the Unassigned Queue; the assignment suites exercise automatic
                 // assignment on submit, so it is switched on here (IntakeQueueTests turns it off to check the default).
                 ["Intake:AutoAssign"] = "true",
+                // The app now defaults to ONE organization (no chapters). This suite was written for per-chapter scoping,
+                // so it runs with chapters on; one-organization behaviour is checked in OneOrganizationTests.
+                ["Chapters:Enabled"] = "true",
                 // Force SQLite branch in Program.cs so the DbContext override below works
                 ["Database:Provider"] = "Sqlite",
                 ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}"

@@ -1,5 +1,6 @@
 @page "/admin/pledges/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -81,6 +82,8 @@
     <div class="panel" style="margin-bottom:16px;">
       <div class="panel-head"><h3>Assignment</h3></div>
       <div class="panel-body">
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -91,6 +94,7 @@
             }
           </select>
         </div>
+        }
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Status</label>
           <select class="form-input" @bind="_status">
@@ -120,7 +124,7 @@
   private PledgeStatus _status = PledgeStatus.Active;
   private decimal _pledgedAmount;
   private DateTime _targetDate = DateTime.Today.AddMonths(12);
-  private int _chapterId;
+  private int _chapterId = ChapterUi.DefaultChapterId;
   private int? _selectedDonorId;
   private bool _busy, _saved;
   private string _error = "";

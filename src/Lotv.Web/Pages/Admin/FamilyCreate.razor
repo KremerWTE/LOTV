@@ -1,5 +1,6 @@
 @page "/admin/families/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -155,6 +156,8 @@
               <option value="@PrivacyPreference.Private">Private — prayers only, not listed</option>
             </InputSelect>
           </div>
+          @if (ChapterUi.Enabled)
+          {
           <div class="form-group" style="margin-top:10px;">
             <label class="form-label">Chapter *</label>
             <InputSelect class="form-input" @bind-Value="_f.ChapterId">
@@ -165,6 +168,7 @@
               }
             </InputSelect>
           </div>
+          }
           <div class="form-group" style="margin-top:10px;">
             <label class="form-label">Contact Notes</label>
             <InputTextArea class="form-input" @bind-Value="_f.ContactNotes" rows="3" placeholder="Internal notes about this family…" />
@@ -192,7 +196,7 @@
 </EditForm>
 
 @code {
-  private FamilyForm _f = new();
+  private FamilyForm _f = new() { ChapterId = ChapterUi.DefaultChapterId };
   private List<Chapter> _chapters = [];
   private bool _busy, _saved;
   private string _error = "";
