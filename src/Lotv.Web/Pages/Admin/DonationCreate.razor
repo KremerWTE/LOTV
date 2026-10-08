@@ -1,5 +1,6 @@
 @page "/admin/donations/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -122,6 +123,8 @@
     <div class="panel">
       <div class="panel-head"><h3>Assignment</h3></div>
       <div class="panel-body">
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -132,6 +135,7 @@
             }
           </select>
         </div>
+        }
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Allocation Status</label>
           <select class="form-input" @bind="_allocStatus">
@@ -165,7 +169,7 @@
   private AllocationStatus _allocStatus = AllocationStatus.Unallocated;
   private decimal _amount;
   private DateTime _date = DateTime.Today;
-  private int _chapterId;
+  private int _chapterId = ChapterUi.DefaultChapterId;
   private int? _selectedDonorId;
   private bool _isRecurring, _busy, _saved;
   private string _error = "";

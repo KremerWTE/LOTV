@@ -1,5 +1,6 @@
 @page "/admin/volunteers/{Id:int}/edit"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -107,6 +108,8 @@ else
               <option value="@VolunteerStatus.Onboarding">Onboarding</option>
             </select>
           </div>
+          @if (ChapterUi.Enabled)
+          {
           <div class="form-group" style="margin-top:10px;">
             <label class="form-label">Chapter</label>
             <select class="form-input" @bind="_f.ChapterId">
@@ -116,6 +119,7 @@ else
               }
             </select>
           </div>
+          }
         </div>
       </div>
 

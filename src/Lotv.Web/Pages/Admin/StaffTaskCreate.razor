@@ -1,5 +1,6 @@
 @page "/admin/staff-tasks/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 
@@ -70,6 +71,8 @@
           <label class="form-label">Created By *</label>
           <input class="form-input" @bind="_createdByName" placeholder="Your name" />
         </div>
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -80,6 +83,7 @@
             }
           </select>
         </div>
+        }
       </div>
     </div>
 
@@ -112,7 +116,7 @@
 @code {
   private string _title = "", _description = "", _assignedToName = "", _createdByName = "";
   private string _priority = "Normal";
-  private int _chapterId;
+  private int _chapterId = ChapterUi.DefaultChapterId;
   private DateTime? _dueDate;
   private int? _linkedCaseId, _linkedDonorId;
   private bool _busy, _saved;

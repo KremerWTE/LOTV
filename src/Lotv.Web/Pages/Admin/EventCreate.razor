@@ -1,5 +1,6 @@
 @page "/admin/events/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -106,6 +107,8 @@
           <label class="form-label">Fundraising Goal</label>
           <input class="form-input" type="number" step="100" min="0" @bind="_goalAmount" placeholder="0.00 = no goal" />
         </div>
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -116,6 +119,7 @@
             }
           </select>
         </div>
+        }
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Status</label>
           <select class="form-input" @bind="_status">
@@ -143,7 +147,7 @@
   private int? _capacity;
   private decimal? _ticketPrice, _goalAmount;
   private bool _isVirtual, _busy, _saved;
-  private int _chapterId;
+  private int _chapterId = ChapterUi.DefaultChapterId;
   private string _error = "";
   private List<Chapter> _chapters = [];
 

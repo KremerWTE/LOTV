@@ -1,3 +1,4 @@
+using Lotv.Api.Auth;
 using Lotv.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -18,7 +19,12 @@ public class RequestsHub : Hub
         var role = user?.FindFirstValue("role");
         var chapterIdClaim = user?.FindFirstValue("chapterId");
 
-        if (role == nameof(UserRole.HQAdmin))
+        if (!ChapterMode.Enabled)
+        {
+            // One organization: everyone hears about every case.
+            await Groups.AddToGroupAsync(Context.ConnectionId, ChapterMode.GroupFor(0));
+        }
+        else if (role == nameof(UserRole.HQAdmin))
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, "hq");
         }
@@ -36,7 +42,11 @@ public class RequestsHub : Hub
         var role = user?.FindFirstValue("role");
         var chapterIdClaim = user?.FindFirstValue("chapterId");
 
-        if (role == nameof(UserRole.HQAdmin))
+        if (!ChapterMode.Enabled)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, ChapterMode.GroupFor(0));
+        }
+        else if (role == nameof(UserRole.HQAdmin))
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, "hq");
         }

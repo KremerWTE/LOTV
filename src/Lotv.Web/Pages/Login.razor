@@ -98,7 +98,7 @@
   // anything else is reachable, so it never becomes a standing password. Otherwise: volunteers land on
   // their own work; everyone else (Board too, read-only) on the dashboard.
   private string PostLoginUrl() => Auth.MustChangePassword ? "/change-password"
-    : Auth.UserRole == "Volunteer" ? "/admin/my-queue" : "/admin/dashboard";
+    : Auth.UserRole == "Volunteer" ? "/admin/prayer-list" : "/admin/dashboard";
 
   private async Task OnKeyDown(KeyboardEventArgs e)
   {

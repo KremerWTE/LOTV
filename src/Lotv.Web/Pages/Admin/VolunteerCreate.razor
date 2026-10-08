@@ -1,5 +1,6 @@
 @page "/admin/volunteers/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -87,6 +88,8 @@
             }
           </select>
         </div>
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -97,6 +100,7 @@
             }
           </select>
         </div>
+        }
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Status</label>
           <select class="form-input" @bind="_status">
@@ -143,7 +147,7 @@
                  _parishName = "", _dioceseName = "", _notes = "";
   private VolunteerRole _role;
   private VolunteerStatus _status = VolunteerStatus.Onboarding;
-  private int _chapterId;
+  private int _chapterId = ChapterUi.DefaultChapterId;
   private double? _latitude, _longitude;
   private double _radiusMiles = 25;
   private bool _busy, _saved;

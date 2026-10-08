@@ -42,7 +42,6 @@
         <div style="display:flex;justify-content:space-between;margin-top:6px;">
           <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Profile</span>
           <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Availability</span>
-          <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Chapter</span>
           <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Your Role</span>
           <span style="font-size:.7rem;color:#2d6a2d;font-weight:600;">Ready!</span>
         </div>
@@ -156,38 +155,8 @@
           </div>
         }
 
-        <!-- Step 3: Chapter -->
+        <!-- Step 3: Role explanation -->
         @if (_step == 3)
-        {
-          <h2 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 6px;font-size:1.25rem;">Select your chapter</h2>
-          <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">You will serve families in your chapter. Choose the one closest to you.</p>
-
-          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
-            @foreach (var ch in _chapters)
-            {
-              bool sel = _selectedChapterId == ch.Id;
-              <label style="display:flex;align-items:flex-start;gap:14px;cursor:pointer;
-                             background:@(sel ? "#f0faf0" : "white");
-                             border:2px solid @(sel ? "#2d6a2d" : "var(--border)");
-                             border-radius:10px;padding:16px;transition:border .15s;">
-                <input type="radio" name="chapter" checked="@sel"
-                       @onchange="() => _selectedChapterId = ch.Id"
-                       style="margin-top:2px;accent-color:#2d6a2d;" />
-                <div>
-                  <div style="font-weight:600;color:var(--navy);font-size:.9rem;">@ch.Name</div>
-                  <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@ch.City, @ch.State</div>
-                </div>
-              </label>
-            }
-          </div>
-
-          <p style="font-size:.78rem;color:var(--text-light);margin:0;">
-            Don't see your area? Contact <a href="mailto:support@lotvministry.org" style="color:#2d6a2d;">support@lotvministry.org</a> and we'll help you find the right fit.
-          </p>
-        }
-
-        <!-- Step 4: Role explanation -->
-        @if (_step == 4)
         {
           <h2 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 6px;font-size:1.25rem;">Your role as a Volunteer</h2>
           <p style="color:var(--text-light);font-size:.85rem;margin:0 0 24px;line-height:1.6;">Here's what you'll do once you start receiving assignments.</p>
@@ -208,14 +177,14 @@
           </div>
         }
 
-        <!-- Step 5: Done -->
-        @if (_step == 5)
+        <!-- Step 4: Done -->
+        @if (_step == 4)
         {
           <div style="text-align:center;padding:16px 0 8px;">
             <div style="width:72px;height:72px;border-radius:50%;background:#f0faf0;border:3px solid #2d6a2d;display:flex;align-items:center;justify-content:center;font-size:2.2rem;margin:0 auto 20px;">✓</div>
             <h2 style="font-family:var(--ff-head);color:#2d6a2d;margin:0 0 10px;font-size:1.4rem;">You're all set, @_firstName!</h2>
             <p style="color:var(--text-mid);line-height:1.7;margin:0 0 28px;font-size:.9rem;">
-              Your volunteer profile is ready. Watch your email for your first assignment — we'll notify you as soon as a family in your chapter needs support.
+              Your volunteer profile is ready. Watch your email for your first assignment — we'll notify you as soon as a family needs support.
             </p>
 
             <div style="background:#f0faf0;border-radius:10px;padding:20px;margin-bottom:28px;text-align:left;">
@@ -236,7 +205,7 @@
         }
 
         <!-- Navigation -->
-        @if (_step < 5)
+        @if (_step < 4)
         {
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--border);">
             @if (_step > 1)
@@ -250,7 +219,7 @@
             <button class="btn btn-primary" @onclick="NextStep"
                     style="min-width:120px;background:#2d6a2d;border-color:#2d6a2d;"
                     disabled="@_saving">
-              @(_step == 4 ? (_saving ? "Saving…" : "Finish Setup") : "Continue →")
+              @(_step == 3 ? (_saving ? "Saving…" : "Finish Setup") : "Continue →")
             </button>
           </div>
         }
@@ -267,13 +236,9 @@
 </div>
 
 @code {
-  private const int TotalSteps = 5;
+  private const int TotalSteps = 4;
   private int _step = 1;
 
-  protected override async Task OnInitializedAsync()
-  {
-    _chapters = await Api.GetPublicChaptersAsync();
-  }
   private bool _saving;
   private string _error = "";
 
@@ -294,20 +259,20 @@
   private string _maxRequestsPerMonth = "4";
 
   // Step 3
-  private int _selectedChapterId = 0;
-  private List<PublicChapterDto> _chapters = [];
+  // No chapters for now: everyone belongs to the single default one.
+  private int _selectedChapterId = ChapterUi.DefaultChapterId;
 
   // Step 4
   private readonly (string Icon, string Title, string Body)[] _rolePanels =
   {
     ("📦", "Assemble care packages",
-     "We provide a packing guide and supply list. You pick up items from your chapter's supply hub or purchase from our approved list — we reimburse promptly."),
+     "We provide a packing guide and supply list. You pick up items from our supply hub or purchase from our approved list — we reimburse promptly."),
     ("🚗", "Deliver to families",
      "Deliveries are typically doorstep drop-offs. You will receive the family's first name and address via the app. No need to ring — leave the package with a note."),
     ("✅", "Mark fulfilled in the app",
      "Once delivered, log the completion in your volunteer dashboard. The family is automatically notified and a receipt is generated for our records."),
     ("💬", "Stay in touch with your coordinator",
-     "Your chapter coordinator is your first point of contact for questions. Use the in-app messaging or reply to any assignment email."),
+     "Your coordinator is your first point of contact for questions. Use the in-app messaging or reply to any assignment email."),
   };
 
   private void ToggleDay(string day, bool on)
@@ -333,13 +298,8 @@
       if (string.IsNullOrWhiteSpace(_city) || string.IsNullOrWhiteSpace(_state) || string.IsNullOrWhiteSpace(_zip))
       { _error = "City, state, and ZIP are required so we can match you with nearby families."; return; }
     }
-    else if (_step == 3)
-    {
-      if (_selectedChapterId == 0)
-      { _error = "Please select a chapter to continue."; return; }
-    }
 
-    if (_step == 4)
+    if (_step == 3)
     {
       _ = FinishAsync();
       return;
@@ -358,7 +318,7 @@
     await Api.CompleteVolunteerOnboardingAsync(
         _firstName, _lastName, _phone, _street, _city, _state, _zip,
         _selectedDays, _selectedSkills, max, _selectedChapterId);
-    _step = 5;
+    _step = 4;
     _saving = false;
   }
 

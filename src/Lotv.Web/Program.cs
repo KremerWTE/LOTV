@@ -60,6 +60,8 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthService>();
 
 // ── API + real-time ───────────────────────────────────────────────────────────
+// One organization for now (no chapters). Set Chapters:Enabled=true to show chapter pickers and pages again.
+Lotv.Web.Services.ChapterUi.Enabled = builder.Configuration.GetValue<bool>("Chapters:Enabled");
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<SignalRService>();
 builder.Services.AddScoped<AuctionSignalRService>();
