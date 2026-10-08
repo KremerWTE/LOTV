@@ -249,6 +249,9 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<LotvDbContext>("database");
 
 var app = builder.Build();
+// One organization for now (no chapters). Set Chapters:Enabled=true to bring per-chapter scoping back.
+// Read from app.Configuration (after the build) so test hosts and deployment overrides are honored.
+ChapterMode.Enabled = app.Configuration.GetValue<bool>("Chapters:Enabled");
 RequestEmails.LogoUrl = RequestNotifier.WebUrl(app.Configuration, "/images/lily-email.png");   // the lily at the top of every email
 
 // ── Dev seed data (MOCK DATA — Development only, skipped when Testing:SkipSeed=true) ──
@@ -846,7 +849,7 @@ cases.AddEndpointFilter(async (fc, next) =>
         var mine = await FindMyVolunteersAsync(db, ctx, userMgr);
         var body = fc.Arguments.OfType<PrayerTeamAddRequest>().FirstOrDefault();
         var match = body is not null ? mine.FirstOrDefault(v => v.Id == body.VolunteerId) : null;
-        return match is not null && match.HasRole(VolunteerRole.PrayerAmbassador) ? await next(fc) : Results.Forbid();
+        return match is not null && (match.HasRole(VolunteerRole.PrayerAmbassador) || match.HasRole(VolunteerRole.PackageAssembler)) ? await next(fc) : Results.Forbid();
     }
     if (pattern == "/api/v1/requests/{id:int}/prayer-team/{volunteerId:int}" && HttpMethods.IsDelete(http.Request.Method))
     {
@@ -854,11 +857,9 @@ cases.AddEndpointFilter(async (fc, next) =>
         return int.TryParse(http.Request.RouteValues["volunteerId"]?.ToString(), out var volId) && myIds.Contains(volId)
             ? await next(fc) : Results.Forbid();
     }
+    // Viewing the prayer lists needs no role and no volunteer record — everyone may look; only joining is gated.
     if ((pattern == "/api/v1/requests/my-prayer-list" || pattern == "/api/v1/requests/prayer-candidates") && HttpMethods.IsGet(http.Request.Method))
-    {
-        var mine = await FindMyVolunteersAsync(db, ctx, userMgr);
-        if (!mine.Any(v => v.HasRole(VolunteerRole.PrayerAmbassador))) return Results.Forbid();
-    }
+        return await next(fc);
 
     var allowed = await AccessRules.VolunteerCanUse(http, async id =>
     {
@@ -902,10 +903,14 @@ cases.MapGet("/prayer-candidates", async (LotvDbContext db, IChapterContextServi
         .Where(r => r.Status != CaseStatus.Fulfilled && r.Status != CaseStatus.Cancelled && !r.ExcludeFromPrayerQueue);
     if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue) q = q.Where(r => r.ChapterId == ctx.ChapterId.Value);
     var candidates = await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
+    // Everyone praying for each family (a family can have many), so the page can name them and count them.
+    var ids = candidates.Select(r => r.Id).ToList();
+    var team = await db.PrayerTeamMembers.Where(m => ids.Contains(m.RequestId)).Include(m => m.Volunteer).OrderBy(m => m.AddedAt).ToListAsync();
     return Results.Ok(candidates.Select(r => new
     {
         r.Id, FamilyName = r.Family?.FullName, Story = r.Family?.Story, r.Reason, r.CreatedAt, r.WantsPackage,
         AlreadyPraying = alreadyOn.Contains(r.Id),
+        PrayingNames = team.Where(m => m.RequestId == r.Id).Select(m => m.Volunteer?.FullName ?? "A volunteer").ToList(),
     }));
 });
 
@@ -918,8 +923,8 @@ cases.MapPost("/{id:int}/prayer-team", async (int id, PrayerTeamAddRequest body,
     if (!await db.Requests.AnyAsync(r => r.Id == id)) return Results.NotFound();
     var vol = await db.Volunteers.FindAsync(body.VolunteerId);
     if (vol is null) return Results.NotFound(new { error = "That volunteer doesn't exist." });
-    if (!vol.HasRole(VolunteerRole.PrayerAmbassador))
-        return Results.BadRequest(new { error = $"{vol.FullName} isn't a Prayer Ambassador — add that role to their profile first." });
+    if (!vol.HasRole(VolunteerRole.PrayerAmbassador) && !vol.HasRole(VolunteerRole.PackageAssembler))
+        return Results.BadRequest(new { error = $"{vol.FullName} isn't a Prayer Ambassador or Package Assembler — add one of those roles to their profile first." });
     if (await db.PrayerTeamMembers.AnyAsync(m => m.RequestId == id && m.VolunteerId == body.VolunteerId))
         return Results.BadRequest(new { error = $"{vol.FullName} is already on this family's prayer team." });
 
@@ -983,7 +988,7 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
     });
     await db.SaveChangesAsync();
 
-    await hub.Clients.Group($"chapter-{req.ChapterId}")
+    await hub.Clients.Group(ChapterMode.GroupFor(req.ChapterId))
         .SendAsync("CaseCreated", req.Id, req.Family?.FullName ?? "Unknown", req.Reason.ToString());
 
     // Stays in the Unassigned Queue unless Intake:AutoAssign is on (see the public form's /apply).
@@ -1023,7 +1028,7 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
     });
     await db.SaveChangesAsync();
     await VolunteerWorkload.RecomputeAsync(db, r.AssignedToId);
-    await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseStatusChanged", id, body.Status.ToString(), ctx.UserId);
+    await hub.Clients.Group(ChapterMode.GroupFor(r.ChapterId)).SendAsync("CaseStatusChanged", id, body.Status.ToString(), ctx.UserId);
 
     // Let the family know their package is on its way, and let the assigned
     // volunteer know once it's shipped or the case is fully wrapped up — neither
@@ -1098,7 +1103,7 @@ cases.MapPut("/{id:int}/assign", async (int id, AssignRequest body, LotvDbContex
     OperationsNotifier.VolunteerAssigned(notify, cfg, vol, r, assignedFamily, acceptBy);
     if (previousVolunteerId is int prevId && prevId != vol.Id && await db.Volunteers.FindAsync(prevId) is { } prevVol)
         OperationsNotifier.VolunteerUnassigned(notify, prevVol, assignedFamily);
-    await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, vol.Id, vol.FullName);
+    await hub.Clients.Group(ChapterMode.GroupFor(r.ChapterId)).SendAsync("CaseAssigned", id, vol.Id, vol.FullName);
     if (!string.IsNullOrEmpty(vol.Email))
     {
         var ident = await userMgr.FindByEmailAsync(vol.Email);
@@ -1140,7 +1145,7 @@ cases.MapPut("/{id:int}/unassign", async (int id, LotvDbContext db,
     await VolunteerWorkload.RecomputeAsync(db, previousVolunteerId);
     if (previousVolunteerId is int unassignedId && await db.Volunteers.FindAsync(unassignedId) is { } unassignedVol)
         OperationsNotifier.VolunteerUnassigned(notify, unassignedVol, await db.Families.FindAsync(r.FamilyId));
-    await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseAssigned", id, 0, "");
+    await hub.Clients.Group(ChapterMode.GroupFor(r.ChapterId)).SendAsync("CaseAssigned", id, 0, "");
     return Results.Ok(r);
 });
 
@@ -1455,7 +1460,7 @@ cases.MapPost("/{id:int}/escalate", async (int id, EscalateRequest body, LotvDbC
         ActivityType = ActivityType.Escalated, Details = body.Reason, Timestamp = DateTime.UtcNow
     });
     await db.SaveChangesAsync();
-    await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseEscalated", id, body.Reason);
+    await hub.Clients.Group(ChapterMode.GroupFor(r.ChapterId)).SendAsync("CaseEscalated", id, body.Reason);
     _ = pushSvc.SendToAllAsync("Request escalated",
         $"Request #{id} was escalated: {body.Reason}", $"/admin/cases/{id}");
     return Results.Ok(r);
@@ -1840,7 +1845,7 @@ donations.MapPost("/", async (Donation donation, LotvDbContext db, IChapterConte
     db.Donations.Add(donation);
     await db.SaveChangesAsync();
     await CreatePendingAllocationAsync(db, donation);
-    await hub.Clients.Group($"chapter-{donation.ChapterId}").SendAsync("DonationReceived", donation.Id, donation.Amount, donation.Channel.ToString());
+    await hub.Clients.Group(ChapterMode.GroupFor(donation.ChapterId)).SendAsync("DonationReceived", donation.Id, donation.Amount, donation.Channel.ToString());
     return Results.Created($"/api/v1/donations/{donation.Id}", donation);
 });
 
@@ -3664,7 +3669,7 @@ publicApi.MapPost("/volunteers/{id:int}/assignments/{requestId:int}/status",
     });
     await db.SaveChangesAsync();
     await VolunteerWorkload.RecomputeAsync(db, id);
-    try { await hub.Clients.Group($"chapter-{r.ChapterId}").SendAsync("CaseStatusChanged", requestId, body.Status.ToString(), (string?)null); } catch { }
+    try { await hub.Clients.Group(ChapterMode.GroupFor(r.ChapterId)).SendAsync("CaseStatusChanged", requestId, body.Status.ToString(), (string?)null); } catch { }
     if (old != body.Status && body.Status == CaseStatus.Shipped)   RequestNotifier.Shipped(notify, cfg, r);
     if (old != body.Status && body.Status == CaseStatus.Fulfilled) RequestNotifier.Completed(notify, cfg, r);
     return Results.Ok(new { r.Id, r.Status });
@@ -3960,7 +3965,7 @@ app.MapPost("/api/v1/donors/send-portal-link/bulk-diocese", async (string dioces
 app.MapPost("/api/v1/donors/send-portal-link/bulk", async (LotvDbContext db, INotificationService notify, IChapterContextService ctx) =>
 {
     var donors = await db.Donors
-        .Where(d => d.ChapterId == ctx.ChapterId && !string.IsNullOrEmpty(d.Email) && !d.IsAnonymous)
+        .Where(d => (!ctx.ChapterId.HasValue || d.ChapterId == ctx.ChapterId) && !string.IsNullOrEmpty(d.Email) && !d.IsAnonymous)
         .ToListAsync();
 
     var recent = (await db.DonorMagicLinks
@@ -4028,7 +4033,7 @@ app.MapPost("/api/v1/donations/bulk-allocate", async (BulkAllocateRequest body, 
 {
     if (body.Ids is null || body.Ids.Length == 0) return Results.BadRequest();
     if (!Enum.TryParse<AllocationStatus>(body.Status, true, out var status)) return Results.BadRequest(new { error = "Invalid status." });
-    var donations = await db.Donations.Where(d => body.Ids.Contains(d.Id) && (ctx.IsHqAdmin || d.ChapterId == ctx.ChapterId)).ToListAsync();
+    var donations = await db.Donations.Where(d => body.Ids.Contains(d.Id) && (ctx.IsHqAdmin || !ctx.ChapterId.HasValue || d.ChapterId == ctx.ChapterId)).ToListAsync();
     foreach (var d in donations) d.AllocationStatus = status;
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = donations.Count });
@@ -4038,7 +4043,7 @@ app.MapPost("/api/v1/donations/bulk-channel", async (BulkChannelRequest body, Lo
 {
     if (body.Ids is null || body.Ids.Length == 0) return Results.BadRequest();
     if (!Enum.TryParse<DonationChannel>(body.Channel, true, out var channel)) return Results.BadRequest(new { error = "Invalid channel." });
-    var donations = await db.Donations.Where(d => body.Ids.Contains(d.Id) && (ctx.IsHqAdmin || d.ChapterId == ctx.ChapterId)).ToListAsync();
+    var donations = await db.Donations.Where(d => body.Ids.Contains(d.Id) && (ctx.IsHqAdmin || !ctx.ChapterId.HasValue || d.ChapterId == ctx.ChapterId)).ToListAsync();
     foreach (var d in donations) d.Channel = channel;
     await db.SaveChangesAsync();
     return Results.Ok(new { updated = donations.Count });

@@ -1,5 +1,6 @@
 @page "/admin/expenses/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -73,6 +74,8 @@
     <div class="panel" style="margin-bottom:16px;">
       <div class="panel-head"><h3>Assignment</h3></div>
       <div class="panel-body">
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -83,6 +86,7 @@
             }
           </select>
         </div>
+        }
       </div>
     </div>
 
@@ -104,7 +108,7 @@
   private string _description = "", _category = "Supplies", _paidBy = "", _notes = "";
   private decimal _amount;
   private DateTime _paidAt = DateTime.Today;
-  private int _chapterId;
+  private int _chapterId = ChapterUi.DefaultChapterId;
   private bool _busy, _saved;
   private string _error = "";
   private List<Chapter> _chapters = [];

@@ -30,7 +30,7 @@
       @if (Auth.IsHqAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/hq">
-          <span class="icon">🏠</span> HQ Dashboard
+          <span class="icon">🏠</span> Dashboard
         </NavLink>
       }
     </div>
@@ -38,6 +38,12 @@
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Prayer Request Package</div>
+      @if (SectionAccess.CanSee(Section.Prayer, Auth.UserRole, _isChrisKremer))
+      {
+        <NavLink class="sidebar-link" href="/admin/prayer-list">
+          <span class="icon"><Icon Name="hands-praying" /></span> Prayer Dashboard
+        </NavLink>
+      }
       @if (_isVolunteer)
       {
         @* Volunteers see only the prayer request package: their own cases (see AccessRules on the API).
@@ -50,15 +56,6 @@
             <span class="icon">📋</span> My Work Queue
           </NavLink>
         }
-        @if (_showPrayerLink)
-        {
-          <NavLink class="sidebar-link" href="/admin/prayer-list">
-            <span class="icon"><Icon Name="hands-praying" /></span> Prayer Dashboard
-          </NavLink>
-        }
-        <a class="sidebar-link" href="/request-prayer-care-package" target="_blank" rel="noopener">
-          <span class="icon">📝</span> Request Form <span style="opacity:.6;font-size:.7rem;">↗</span>
-        </a>
       }
       @if (_canSeeCases)
       {
@@ -136,7 +133,7 @@
       }
     </div>
 
-    @if (!_isVolunteer)
+    @if (!_isVolunteer && (SectionAccess.CanSee(Section.Admin, Auth.UserRole, _isChrisKremer) || _isAdmin))
     {
     <div class="sidebar-section">
       <div class="sidebar-section-label">System Admin</div>
@@ -172,9 +169,12 @@
           <NavLink class="sidebar-link" href="/admin/webhooks">
             <span class="icon">📧</span> Webhook Events <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
           </NavLink>
+          @if (ChapterUi.Enabled)
+          {
           <NavLink class="sidebar-link" href="/admin/chapters">
             <span class="icon">🏠</span> Chapters <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
           </NavLink>
+          }
           <NavLink class="sidebar-link" href="/admin/api-keys">
             <span class="icon">🔐</span> API Keys <span style="opacity:.5;font-size:.68rem;">(in System Admin)</span>
           </NavLink>
@@ -430,9 +430,12 @@
           <NavLink class="sidebar-link" href="/admin/audit">
             <span class="icon">🔍</span> Audit Log <span style="opacity:.5;font-size:.68rem;">(in Reports)</span>
           </NavLink>
+          @if (ChapterUi.Enabled)
+          {
           <NavLink class="sidebar-link" href="/admin/chapter-analytics">
             <span class="icon">📊</span> Chapter Analytics <span style="opacity:.5;font-size:.68rem;">(in Reports)</span>
           </NavLink>
+          }
           <NavLink class="sidebar-link" href="/admin/reports/goals">
             <span class="icon">🎯</span> Goal Tracker <span style="opacity:.5;font-size:.68rem;">(in Reports)</span>
           </NavLink>
@@ -463,9 +466,12 @@
         </NavLink>
         @if (_showLegacyLinks)
         {
+          @if (ChapterUi.Enabled)
+          {
           <NavLink class="sidebar-link" href="/admin/chapters/health">
             <span class="icon">📈</span> Chapter Health <span style="opacity:.5;font-size:.68rem;">(merged above)</span>
           </NavLink>
+          }
           <NavLink class="sidebar-link" href="/admin/staff/performance">
             <span class="icon">📈</span> Staff Performance <span style="opacity:.5;font-size:.68rem;">(in Workload View)</span>
           </NavLink>
@@ -767,7 +773,7 @@
   private int _unassignedCount;
   private int _pendingAlloc;
   private int _pendingDupReview;
-  private string _pageTitle = "HQ Chapter Dashboard";
+  private string _pageTitle = "Dashboard";
   private bool _dark;
   private bool _sidebarCollapsed;
   private int _pendingMigrations;
@@ -799,7 +805,7 @@
   // request package, i.e. their own cases in My Work Queue.
   private bool _isVolunteer      => Auth.UserRole == "Volunteer";
   private bool _seesAdminAreas   => _isAdmin || Auth.UserRole == "Board";
-  private bool _canSeeCases      => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Director" or "Board";
+  private bool _canSeeCases      => SectionAccess.CanSee(Section.Cases, Auth.UserRole, _isChrisKremer);
   private bool _canSeeDonations  => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "Director" or "Board";
   private bool _canSeeVolunteers => Auth.UserRole is "HQAdmin" or "ChapterAdmin" or "ChapterStaff" or "Director" or "Board";
 
@@ -816,9 +822,10 @@
   private bool _isPackageAssembler => _myVolunteer?.HasRole(VolunteerRole.PackageAssembler) ?? false;
   // My Work Queue (the package dashboard) is every volunteer's home, however they arrive — direct
   // login, Login As, or the lane guard — so it is always reachable and never bounced away from.
-  private bool _showMyQueueLink    => true;
-  private bool _showPrayerLink     => _isPrayerAmbassador || _hasNoRecordYet;
-  private string _volunteerHomeLane => "/admin/my-queue";
+  private bool _showMyQueueLink    => _isPackageAssembler;
+  // The Prayer Dashboard is never hidden — every role sees the link and may open the page.
+  private bool _showPrayerLink     => true;
+  private string _volunteerHomeLane => _showMyQueueLink ? "/admin/my-queue" : "/admin/prayer-list";
 
   // A volunteer who types or follows any other staff address is sent back to whichever of their
   // own dashboards applies — same rule as which sidebar links they see.
@@ -998,8 +1005,8 @@
   {
     _pageTitle = Nav.Uri switch
     {
-      var u when u.EndsWith("/admin/dashboard")  => "HQ Chapter Dashboard",
-      var u when u.EndsWith("/admin/hq")              => "HQ Dashboard",
+      var u when u.EndsWith("/admin/dashboard")  => "Dashboard",
+      var u when u.EndsWith("/admin/hq")              => "Dashboard",
       var u when u.EndsWith("/admin/hq-board")        => "HQ Operations Board",
       var u when u.EndsWith("/admin/families")    => "Family Directory",
       var u when u.EndsWith("/admin/cases/analytics") => "Case Analytics",

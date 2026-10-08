@@ -1,5 +1,6 @@
 @page "/admin/wishlist/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -64,6 +65,8 @@
     <div class="panel" style="margin-bottom:16px;">
       <div class="panel-head"><h3>Assignment</h3></div>
       <div class="panel-body">
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -74,6 +77,7 @@
             }
           </select>
         </div>
+        }
 
         <div class="form-group" style="margin-top:14px;">
           <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">

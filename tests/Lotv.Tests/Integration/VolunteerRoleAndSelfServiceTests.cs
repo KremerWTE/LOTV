@@ -50,12 +50,13 @@ public class VolunteerRoleAndSelfServiceTests
     // ── Server-side VolunteerRole gate on the prayer-only routes ──────────────────────────────
 
     [Fact]
-    public async Task PackageAssemblerOnly_IsForbidden_FromPrayerRoutes()
+    public async Task PackageAssemblerOnly_CanViewThePrayerRoutes()
     {
+        // Everyone may look at the prayer list; nobody has to hold the Prayer Ambassador role to see it.
         var (_, _, client) = await SeedVolunteerLoginAsync(VolunteerRole.PackageAssembler);
 
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/requests/my-prayer-list")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/requests/prayer-candidates")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/requests/my-prayer-list")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/requests/prayer-candidates")).StatusCode);
     }
 
     [Fact]
@@ -68,9 +69,26 @@ public class VolunteerRoleAndSelfServiceTests
     }
 
     [Fact]
-    public async Task PackageAssemblerOnly_CannotJoinAPrayerTeam_EvenNamingThemselves()
+    public async Task PackageAssemblerOnly_CanJoinAPrayerTeam()
     {
         var (chapterId, vol, client) = await SeedVolunteerLoginAsync(VolunteerRole.PackageAssembler);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var family = new Family { Parent1FirstName = "Fam", Parent1LastName = "Ily", ChapterId = chapterId };
+        db.Families.Add(family);
+        await db.SaveChangesAsync();
+        var req = new PackageRequest { FamilyId = family.Id, ChapterId = chapterId, Status = CaseStatus.New };
+        db.Requests.Add(req);
+        await db.SaveChangesAsync();
+
+        var resp = await client.PostAsJsonAsync($"/api/v1/requests/{req.Id}/prayer-team", new { VolunteerId = vol.Id });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task VolunteerWithNeitherRole_CannotJoinAPrayerTeam()
+    {
+        var (chapterId, vol, client) = await SeedVolunteerLoginAsync(VolunteerRole.Driver);
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
         var family = new Family { Parent1FirstName = "Fam", Parent1LastName = "Ily", ChapterId = chapterId };

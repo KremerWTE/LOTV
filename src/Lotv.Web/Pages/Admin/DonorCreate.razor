@@ -1,5 +1,6 @@
 @page "/admin/donors/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 @using Lotv.Core.Models
@@ -95,6 +96,8 @@
           <label class="form-label">Diocese</label>
           <input class="form-input" @bind="_dioceseName" placeholder="Diocese of Chicago" />
         </div>
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Chapter *</label>
           <select class="form-input" @bind="_chapterId">
@@ -105,6 +108,7 @@
             }
           </select>
         </div>
+        }
       </div>
     </div>
 
@@ -147,7 +151,7 @@
   private string _parishName = "", _dioceseName = "", _notes = "";
   private bool _isAnonymous, _isRecurring, _busy, _saved;
   private decimal _recurringAmount;
-  private int _chapterId;
+  private int _chapterId = ChapterUi.DefaultChapterId;
   private string _error = "";
   private List<Chapter> _chapters = [];
 

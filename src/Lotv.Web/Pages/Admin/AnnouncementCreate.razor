@@ -1,5 +1,6 @@
 @page "/admin/announcements/new"
 @layout AdminLayout
+@using Lotv.Web.Services
 @inject ApiService Api
 @inject NavigationManager Nav
 
@@ -60,6 +61,8 @@
           </select>
         </div>
 
+        @if (ChapterUi.Enabled)
+        {
         <div class="form-group" style="margin-top:10px;">
           <label class="form-label">Chapter</label>
           <select class="form-input" @bind="_chapterId">
@@ -70,6 +73,7 @@
             }
           </select>
         </div>
+        }
 
         <div class="form-group" style="margin-top:12px;">
           <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
