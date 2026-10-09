@@ -248,6 +248,7 @@ jobs:
         # Shippo hand-off (orders only, no label purchase). All optional: the app skips Shippo until the token AND
         # the ship-from street/city/state/zip are set. Use a shippo_test_ token first.
         SHIPPO_API_TOKEN:          ${{ secrets.SHIPPO_API_TOKEN }}
+        SHIPPO_RETURN_ADDRESS_NAME: ${{ secrets.SHIPPO_RETURN_ADDRESS_NAME }}
         SHIPPO_FROM_NAME:          ${{ secrets.SHIPPO_FROM_NAME }}
         SHIPPO_FROM_COMPANY:       ${{ secrets.SHIPPO_FROM_COMPANY }}
         SHIPPO_FROM_STREET1:       ${{ secrets.SHIPPO_FROM_STREET1 }}
@@ -301,6 +302,7 @@ jobs:
         Set-IfSet -root $cfg -path @("Push","VapidPublicKey")                 -envVal $env:VAPID_PUBLIC_KEY
         Set-IfSet -root $cfg -path @("Push","VapidPrivateKey")                -envVal $env:VAPID_PRIVATE_KEY
         Set-IfSet -root $cfg -path @("Shippo","ApiToken")                     -envVal $env:SHIPPO_API_TOKEN
+        Set-IfSet -root $cfg -path @("Shippo","ReturnAddressName")            -envVal $env:SHIPPO_RETURN_ADDRESS_NAME
         Set-IfSet -root $cfg -path @("Shippo","FromName")                     -envVal $env:SHIPPO_FROM_NAME
         Set-IfSet -root $cfg -path @("Shippo","FromCompany")                  -envVal $env:SHIPPO_FROM_COMPANY
         Set-IfSet -root $cfg -path @("Shippo","FromStreet1")                  -envVal $env:SHIPPO_FROM_STREET1
