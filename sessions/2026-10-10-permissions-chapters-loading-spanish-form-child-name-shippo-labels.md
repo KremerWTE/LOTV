@@ -32,3 +32,11 @@ Labels are still **bought in Shippo by staff** (the portal never spends money). 
 - Spanish: the bracelet column headers etc. were already translated; the "Opt-in" notes labels stay English by design.
 - The prayer log (types of prayer) still needs the ministry's list.
 - Production: nothing deployed from this session. The Spanish and child-name changes reach production on deploy, on top of whatever form staff saved.
+
+## 7. Follow-up found while regenerating the manuals — a production-affecting bug, fixed
+Regenerating manual 03 (a volunteer saving a tracking number) failed with the chapters-off setting, which exposed two API checks that compared the case's chapter with the user's chapter **without** first asking whether the user has one: `PUT /requests/{id}/status` and `PATCH /requests/{id}`. In one-organization mode nobody has a chapter, so every **non-HQ** user (staff, directors, volunteers) was refused (403) when changing a case's status or saving case edits; an HQ admin was unaffected. The earlier suite could not see it because it runs with chapters ON. Both checks now skip when the user has no chapter (like every other chapter check), and `OneOrganizationApiTests` runs the API with chapters off — verified to fail without the fix and pass with it. Production has had one-organization mode since the 2026-10-09 deploy, so this needs to be deployed.
+
+## 8. Other follow-ups
+- **Form copy guard:** `Lotv.Web.csproj` now stops the build, with a message naming the real source, if `src/Lotv.Web/Forms/prayer-care-intake.html` was edited by hand and differs from `docs/duda-embed/prayer-care-intake.html` (the build otherwise silently overwrites it). Tested clean / hand-edited / restored / real source edit.
+- **Prayer Dashboard:** the praying icon is now the single-colour line icon instead of an emoji.
+- **Manuals tooling:** specs 02 and 03 rewritten for the new Prayer Dashboard (no setup step) and for volunteers needing the Package Assembler role to see My Work Queue. The generated manuals themselves are not committed.

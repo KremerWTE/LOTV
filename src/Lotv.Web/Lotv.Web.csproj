@@ -22,10 +22,31 @@
   <!-- The public intake form has one source of truth: docs/duda-embed/prayer-care-intake.html
        (what gets pasted into Duda). It is copied to Forms/ - deliberately NOT wwwroot, so it is never
        served as a static .html file - and Program.cs serves it at /request-prayer-care-package.
-       The copy is committed so publish picks it up even on a fresh checkout. -->
+       The copy is committed so publish picks it up even on a fresh checkout, but it is GENERATED:
+       never edit it (the guard below stops the build if someone does). -->
   <ItemGroup>
     <None Update="Forms\**\*.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- Guard: the copy in Forms/ is generated. Editing it by hand used to be silently undone by the next build, so a change
+       made there looked like it had been lost. If Forms/prayer-care-intake.html was edited after the source and no longer matches,
+       stop the build and say where the edit belongs. (A normal source edit is fine: the source is newer, so it just gets copied.) -->
+  <PropertyGroup>
+    <IntakeFormSource>$(MSBuildThisFileDirectory)..\..\docs\duda-embed\prayer-care-intake.html</IntakeFormSource>
+    <IntakeFormCopy>$(MSBuildThisFileDirectory)Forms\prayer-care-intake.html</IntakeFormCopy>
+  </PropertyGroup>
+  <Target Name="GuardIntakeFormCopy" BeforeTargets="SyncIntakeFormPage">
+    <PropertyGroup Condition="Exists('$(IntakeFormSource)') And Exists('$(IntakeFormCopy)')">
+      <IntakeFormSourceTicks>$([System.IO.File]::GetLastWriteTime('$(IntakeFormSource)').Ticks)</IntakeFormSourceTicks>
+      <IntakeFormCopyTicks>$([System.IO.File]::GetLastWriteTime('$(IntakeFormCopy)').Ticks)</IntakeFormCopyTicks>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(IntakeFormCopyTicks)' != '' And $(IntakeFormCopyTicks) &gt; $(IntakeFormSourceTicks)">
+      <IntakeFormSourceText>$([System.IO.File]::ReadAllText('$(IntakeFormSource)'))</IntakeFormSourceText>
+      <IntakeFormCopyText>$([System.IO.File]::ReadAllText('$(IntakeFormCopy)'))</IntakeFormCopyText>
+    </PropertyGroup>
+    <Error Condition="'$(IntakeFormCopyText)' != '' And '$(IntakeFormCopyText)' != '$(IntakeFormSourceText)'"
+           Text="src/Lotv.Web/Forms/prayer-care-intake.html was edited by hand, but it is generated: the build copies docs/duda-embed/prayer-care-intake.html over it. Make the change in docs/duda-embed/prayer-care-intake.html (or copy your edit there), then build again." />
+  </Target>
 
   <Target Name="SyncIntakeFormPage" BeforeTargets="BeforeBuild">
     <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\docs\duda-embed\prayer-care-intake.html"

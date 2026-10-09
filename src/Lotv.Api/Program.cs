@@ -1015,7 +1015,7 @@ cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDb
         return Results.Forbid();
     var r = await db.Requests.Include(r => r.Family).FirstOrDefaultAsync(r => r.Id == id);
     if (r is null) return Results.NotFound();
-    if (!ctx.IsHqAdmin && r.ChapterId != ctx.ChapterId) return Results.Forbid();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue && r.ChapterId != ctx.ChapterId.Value) return Results.Forbid();
     var old = r.Status;
 
     if (!CaseStatusTransitions.IsValid(old, body.Status))
@@ -1308,7 +1308,7 @@ cases.MapPatch("/{id:int}", async (int id, RequestPatchRequest body, LotvDbConte
 {
     var r = await db.Requests.FindAsync(id);
     if (r is null) return Results.NotFound();
-    if (!ctx.IsHqAdmin && r.ChapterId != ctx.ChapterId) return Results.Forbid();
+    if (!ctx.IsHqAdmin && ctx.ChapterId.HasValue && r.ChapterId != ctx.ChapterId.Value) return Results.Forbid();
     if (body.TrackingNumber is not null) r.TrackingNumber = body.TrackingNumber;
     if (body.ShippedDate.HasValue) r.ShippedDate = body.ShippedDate;
     // A volunteer (let in by CaseWork, and held to their own cases by the group filter) records the tracking number and

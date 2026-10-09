@@ -43,13 +43,13 @@ else
               @if (!string.IsNullOrWhiteSpace(c.Story))
               { <div style="font-size:.85rem;line-height:1.6;margin-top:8px;max-width:640px;white-space:pre-wrap;">@c.Story</div> }
               <div style="font-size:.8rem;color:var(--text-mid);margin-top:8px;">
-                🙏 <strong>@(c.PrayingNames?.Count ?? 0)</strong> praying@(c.PrayingNames is { Count: > 0 } ? ": " + string.Join(", ", c.PrayingNames) : " — be the first")
+                <Icon Name="hands-praying" /> <strong>@(c.PrayingNames?.Count ?? 0)</strong> praying@(c.PrayingNames is { Count: > 0 } ? ": " + string.Join(", ", c.PrayingNames) : " — be the first")
               </div>
             </div>
             @if (Auth.UserRole == "Board")
             { }
             else if (c.AlreadyPraying)
-            { <button class="btn btn-sm" @onclick="() => LeaveAsync(c.Id)">🙏 Praying — stop</button> }
+            { <button class="btn btn-sm" @onclick="() => LeaveAsync(c.Id)"><Icon Name="hands-praying" /> Praying — stop</button> }
             else
             { <button class="btn btn-sm btn-primary" @onclick="() => JoinAsync(c.Id)">I'll pray for this family</button> }
           </div>

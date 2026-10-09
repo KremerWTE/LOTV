@@ -1,4 +1,4 @@
-"""Manual 03 — Volunteer Guide: Packing & Shipping a Package. Persona: Pat Packer (Volunteer, no volunteer record yet)."""
+"""Manual 03 — Volunteer Guide: Packing & Shipping a Package. Persona: Pat Packer (Volunteer with the Package Assembler role, set up by a coordinator)."""
 import re
 import sys
 from pathlib import Path
@@ -21,30 +21,34 @@ def build(page):
     r.p("**Who this is for:** Package Assemblers — volunteers who pack a comfort package and send it to a family. "
         "No computer skill is needed beyond using a web browser. Every click is shown with a picture; the thing to click "
         "is circled in red and numbered to match the step.")
-    r.p("**When you finish you will be able to:** sign in, set up your volunteer record, read your queue of cases, find the "
+    r.p("**When you finish you will be able to:** sign in, open your work queue, read your queue of cases, find the "
         "shipping address, tick off the packing list, record a tracking number, and mark a case Shipped and then Fulfilled.")
     r.note("The families in the pictures are practice (sample) data, not real people. Your screen will show your own cases.", "Practice data")
 
+    # off-screen: a coordinator sets Pat up as a Package Assembler (staff add the role to the volunteer record). Until then a
+    # volunteer sees only the Prayer Dashboard.
+    stok0 = api_token("chris.kremer")
+    api("POST", "/api/v1/volunteers", stok0, json={
+        "firstName": "Pat", "lastName": "Packer", "email": EMAIL, "role": "PackageAssembler", "status": "Active",
+        "chapterId": 1, "joinedDate": "2026-01-05T00:00:00Z"}).raise_for_status()
+
     # ------------------------------------------------------------------ 1
     r.process("Sign in", "Get into the LOTV portal.", who="Any volunteer with an account",
-              need="The username and password your coordinator gave you.", time="1 minute")
-    r.signin(EMAIL, "You land on **My Work Queue** — a page with the heading *My Work Queue*.",
+              need="The username and password your coordinator gave you. Your coordinator must also have made you a **Package Assembler** — until they do, you only see the Prayer Dashboard.", time="1 minute")
+    r.signin(EMAIL, "You land on the **Prayer Dashboard** — a list of families who need prayer. Your packing work is one click away, in the left menu.",
              who="the username your coordinator gave you")
-    r.check(["Your name is in the top-right corner.", "The page heading says **My Work Queue**."])
+    r.check(["Your name is in the top-right corner.", "The left menu shows **Prayer Dashboard** and **My Work Queue**."])
 
     # ------------------------------------------------------------------ 2
-    r.process("Set up your volunteer record (first time only)",
-              "Create the record that lets coordinators assign cases to you.",
-              who="Any signed-in volunteer", need="You are on My Work Queue (Process 1).", time="1 minute")
-    btn = page.locator('button:has-text("Create my volunteer record")')
-    r.step("Read the message at the top",
-           "If this is your first time, a box says **You aren't set up as a volunteer yet.** Cases can only be given to people who have a volunteer record, so nothing can appear below until you make one.",
-           target=btn, expect="A message box with a green **Create my volunteer record** button.")
-    r.step("Click “Create my volunteer record”",
-           "Click the green button. You only do this once, ever.",
-           target=btn, action=lambda: (btn.click(), page.wait_for_selector("text=No cases assigned to you", timeout=20000)),
-           expect="The message disappears. Under your four count boxes you see **No cases assigned to you.** That is correct: a coordinator now needs to give you a case.",
-           trouble="If the message is still there after a few seconds, press **↻ Refresh**. If it stays, tell your coordinator.")
+    r.process("Open your work queue",
+              "Go to the page that lists the boxes you are packing.",
+              who="Package Assemblers", need="You are signed in (Process 1).", time="1 minute")
+    wq = page.locator('a:has-text("My Work Queue")').first
+    r.step("Click “My Work Queue”",
+           "In the menu on the left, click **My Work Queue**.",
+           target=wq, action=lambda: (wq.click(), page.wait_for_selector("text=No cases assigned to you", timeout=20000)), after=True,
+           expect="A page headed **My Work Queue** with four count boxes. Under them it says **No cases assigned to you.** That is correct if a coordinator has not given you a case yet.",
+           trouble="If **My Work Queue** is not in your menu, your coordinator has not made you a Package Assembler yet. Tell them — they add the role to your volunteer record.")
     r.note("Your coordinator assigns cases to you. When they do, the case appears here by itself, or after you press **↻ Refresh** (top right). Keep this page open and carry on with Process 3 once a case arrives.", "Waiting for a case")
     ids = give_cases(EMAIL, 3)   # off-screen: staff assigns cases to Pat
     assert 37 in ids, ids
@@ -200,7 +204,7 @@ def build(page):
 
     r.h2("If something looks wrong")
     r.bullets([
-        "**Nothing is in my queue.** A coordinator has not assigned you a case yet, or you have not created your volunteer record (Process 2). Press **↻ Refresh**.",
+        "**Nothing is in my queue.** A coordinator has not assigned you a case yet, or has not made you a Package Assembler. Press **↻ Refresh**; if it is still empty, tell your coordinator.",
         "**I cannot take a new case.** Each chapter limits how many active cases one volunteer can carry (6 unless your chapter changed it). Finish and mark an existing case first.",
         "**The Status box does not offer the status I want.** Only the next allowed step is offered. For example, a case must be **AwaitingShipment** before it can be **Shipped**.",
         "**The shipping address is missing or looks wrong.** Do not ship. Write a note on the case (Notes Thread → type → **Add Note**) and tell your coordinator.",
