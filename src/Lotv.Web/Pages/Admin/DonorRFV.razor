@@ -195,7 +195,7 @@ else
     _segments =
     [
       new("champions",  "Champions",   "🏆", "#16a34a", "High R+F+V — top donors",    _scored.Count(d => d.R >= 4 && d.F >= 4 && d.V >= 4), d => d.R >= 4 && d.F >= 4 && d.V >= 4),
-      new("loyal",      "Loyal",       "💚", "#324694", "High F, gave recently",      _scored.Count(d => d.F >= 4 && d.R >= 3 && d.V < 4),   d => d.F >= 4 && d.R >= 3 && d.V < 4),
+      new("loyal",      "Loyal",       "💚", "#2d469d", "High F, gave recently",      _scored.Count(d => d.F >= 4 && d.R >= 3 && d.V < 4),   d => d.F >= 4 && d.R >= 3 && d.V < 4),
       new("promising",  "Promising",   "⭐", "#d97706", "Recent, haven't given much", _scored.Count(d => d.R >= 4 && d.F <= 2),             d => d.R >= 4 && d.F <= 2),
       new("atrisk",     "At Risk",     "⚠️", "#f59e0b", "Used to give, not recently", _scored.Count(d => d.R <= 2 && d.F >= 3),             d => d.R <= 2 && d.F >= 3),
       new("lost",       "Lost",        "💤", "#dc2626", "Low R, F, V — minimal engagement", _scored.Count(d => d.Composite < 2.0),          d => d.Composite < 2.0),

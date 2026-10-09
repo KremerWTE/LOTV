@@ -210,7 +210,7 @@ else
       .Select(s =>
       {
         var val   = _mapMode == "Open" ? s.Open : _mapMode == "Fulfilled" ? s.Fulfilled : s.Total;
-        var color = _mapMode == "Open" ? "#f59e0b" : _mapMode == "Fulfilled" ? "#16a34a" : "#324694";
+        var color = _mapMode == "Open" ? "#f59e0b" : _mapMode == "Fulfilled" ? "#16a34a" : "#2d469d";
         var (lat, lng) = StateCentroids[s.State];
         return new MapMarker(s.State, s.State, val, color, $"{s.State}: {val} {_mapMode.ToLower()} cases");
       })

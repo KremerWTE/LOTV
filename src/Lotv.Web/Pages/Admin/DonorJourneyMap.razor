@@ -166,7 +166,7 @@ else
           "Made their first gift in the last 90 days. Welcome them warmly!",
           "Outreach Queue", "/admin/donors/outreach"),
 
-      new("growing",   "Growing",      "📈", "#324694", "#eff6ff",
+      new("growing",   "Growing",      "📈", "#2d469d", "#eff6ff",
           _donors.Count(d => d.GiftCount is >= 2 and <= 4 && (now - d.LastGiftDate).TotalDays <= 180),
           "Given 2–4 times, still active. Nurture toward recurring giving.",
           "Upgrade Path", "/admin/donors/upgrade-path"),

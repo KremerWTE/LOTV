@@ -8,16 +8,16 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --green:        #a9ba99;   /* "dark green" elements: nav rail, buttons, counts in cards */
-  --green-dark:   #94a884;   /* hover shade of the above */
-  --green-text:   #324694;   /* what used to be dark-green TEXT: headers, page instructions, card text */
+  --green:        #487336;
+  --green-dark:   #2d4e1e;
+  --green-text:   #487336;   /* green TEXT; same value as --green, kept separate so text can be restyled on its own */
   --green-light:  #6a9e52;
   --green-pale:   #eaf2e5;
-  --navy:         #324694;
+  --navy:         #2d469d;
   --navy-dark:    #1e3070;
   --navy-pale:    #e8ecf8;
   --cream:        #faf7f2;
-  --blush:        #dfcfba;   /* alert badges / counts (was pink) */
+  --blush:        #c4938b;
   --blush-pale:   #f5ede9;
   --gold:         #c8a45a;
   --gold-pale:    #faf0dd;
@@ -49,7 +49,7 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 
 /* ── SIDEBAR ── */
 .sidebar {
-  width: var(--sidebar-w); background: var(--green); color: white;
+  width: var(--sidebar-w); background: var(--green-dark); color: white;
   display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto;
 }
 .sidebar-logo {
@@ -74,7 +74,7 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 /* Every nav icon is plain white (the old emoji were multi-coloured): emoji are forced to white, SVG icons already follow the text colour. */
 .sidebar-link .icon { color: #fff; filter: brightness(0) invert(1); }
 .sidebar-link .icon svg { width: 16px; height: 16px; }
-.sidebar-badge { margin-left: auto; background: var(--blush); color: var(--navy); font-size: .65rem; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
+.sidebar-badge { margin-left: auto; background: var(--blush); color: white; font-size: .65rem; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
 .sidebar-footer { margin-top: auto; padding: 14px 16px; border-top: 1px solid rgba(255,255,255,.1); font-size: .68rem; opacity: .35; }
 
 /* ── TOPBAR ── */
@@ -114,6 +114,7 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 .kpi-gold::before   { background: var(--gold); }
 .kpi-navy::before   { background: var(--navy); }
 .kpi-icon    { font-size: 20px; margin-bottom: 10px; }
+.kpi-icon, .empty-state .icon, .page-hd .icon { filter: grayscale(1) brightness(0); }
 /* Icons inside page content (white background) are plain black; nav-rail icons are white (see .sidebar-link .icon). */
 .kpi-icon, .kpi-icon svg, .btn svg, .kanban-assignee svg { color: #000; }
 .btn-primary svg { color: #fff; }
@@ -195,7 +196,7 @@ html, body { height: 100%; font-family: var(--ff-body); background: var(--bg); c
 .kanban-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.1); }
 .kanban-card-urgent { border-left-color: #c0392b; }
 .kanban-card-high   { border-left-color: #e67e22; }
-.kanban-card-normal { border-left-color: #324694; }
+.kanban-card-normal { border-left-color: #2d469d; }
 .kanban-card-low    { border-left-color: #6c757d; }
 .kanban-card-unassigned { border-left-color: var(--amber); }
 .kanban-card-id   { font-size: .68rem; color: var(--text-light); margin-bottom: 3px; }
