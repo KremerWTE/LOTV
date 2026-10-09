@@ -24,7 +24,7 @@ else
   <div class="page-hd">
     <div>
       <div style="font-size:.76rem;color:var(--text-light);margin-bottom:4px;">
-        <a href="/admin/events" style="color:var(--green);text-decoration:none;">Events</a> &rsaquo; #@_event.Id
+        <a href="/admin/events" style="color:var(--green-text);text-decoration:none;">Events</a> &rsaquo; #@_event.Id
       </div>
       <h2>@_event.Title</h2>
       <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -55,7 +55,7 @@ else
   </div>
 
   @if (!string.IsNullOrEmpty(_msg))
-  { <div style="background:var(--green-pale);border-radius:8px;padding:10px 16px;font-size:.84rem;color:var(--green-dark);margin-bottom:16px;">✓ @_msg</div> }
+  { <div style="background:var(--green-pale);border-radius:8px;padding:10px 16px;font-size:.84rem;color:var(--green-text);margin-bottom:16px;">✓ @_msg</div> }
   @if (!string.IsNullOrEmpty(_err))
   { <div style="background:#fff3cd;border-radius:8px;padding:10px 16px;font-size:.84rem;color:#856404;margin-bottom:16px;">⚠ @_err</div> }
 
@@ -204,7 +204,7 @@ else
                   <td>
                     @if (a.CheckedIn)
                     {
-                      <span style="color:var(--green);font-size:.8rem;font-weight:600;">✓ In (@a.CheckedInAt?.ToString("h:mm tt"))</span>
+                      <span style="color:var(--green-text);font-size:.8rem;font-weight:600;">✓ In (@a.CheckedInAt?.ToString("h:mm tt"))</span>
                     }
                     else
                     {
@@ -297,7 +297,7 @@ else
           @foreach (var item in _auctionItems)
           {
             var topBid = item.Bids.MaxBy(b => b.BidAmount);
-            <div class="panel" style="@(item.Status == AuctionItemStatus.Sold ? "border-color:var(--green);" : item.Status == AuctionItemStatus.Unsold ? "opacity:.65;" : "")">
+            <div class="panel" style="@(item.Status == AuctionItemStatus.Sold ? "border-color:var(--green-text);" : item.Status == AuctionItemStatus.Unsold ? "opacity:.65;" : "")">
               <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
                 <span>@item.Name</span>
                 <span class="badge @GetAuctionBadge(item.Status)">@item.Status</span>
@@ -313,7 +313,7 @@ else
                 </div>
                 @if (item.WinningBid.HasValue)
                 {
-                  <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--green);">
+                  <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--green-text);">
                     <span>Winning Bid</span><span>@item.WinningBid.Value.ToString("C")</span>
                   </div>
                 }
@@ -428,7 +428,7 @@ else
             <span>🏆 Silent Auction</span>
             <strong>@(_revenue?.Auction.ToString("C") ?? "—")</strong>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:14px 0;font-size:.96rem;font-weight:700;color:var(--green);">
+          <div style="display:flex;justify-content:space-between;padding:14px 0;font-size:.96rem;font-weight:700;color:var(--green-text);">
             <span>Total Revenue</span>
             <span>@(_revenue?.Total.ToString("C") ?? "—")</span>
           </div>

@@ -130,7 +130,7 @@ else
           }
           @if (!string.IsNullOrEmpty(_actionResult))
           {
-            <div style="font-size:.82rem;color:var(--green);font-weight:600;">@_actionResult</div>
+            <div style="font-size:.82rem;color:var(--green-text);font-weight:600;">@_actionResult</div>
           }
         </div>
       </div>
@@ -149,7 +149,7 @@ else
               _                            => _rec.Amount * 12,
             };
           }
-          <div style="font-size:1.6rem;font-weight:800;color:var(--green);">@annualEst.ToString("C0")</div>
+          <div style="font-size:1.6rem;font-weight:800;color:var(--green-text);">@annualEst.ToString("C0")</div>
           <div style="font-size:.78rem;color:var(--text-light);margin-top:4px;">Projected per year at @_rec.Frequency.ToDisplayName() cadence</div>
         </div>
       </div>

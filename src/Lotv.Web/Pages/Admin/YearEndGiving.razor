@@ -50,7 +50,7 @@
         </div>
         <div style="text-align:right;">
           <div style="font-size:.78rem;color:var(--text-light);margin-bottom:4px;">Total Charitable Giving</div>
-          <div style="font-size:1.8rem;font-weight:800;color:var(--green);">@_summary.TotalGiven.ToString("C2")</div>
+          <div style="font-size:1.8rem;font-weight:800;color:var(--green-text);">@_summary.TotalGiven.ToString("C2")</div>
           <div style="font-size:.78rem;color:var(--text-light);margin-top:2px;">@_summary.GiftCount gift@(_summary.GiftCount == 1 ? "" : "s")</div>
         </div>
       </div>
@@ -76,7 +76,7 @@
           {
             <tr>
               <td style="font-size:.82rem;">@g.Date.ToString("MMM d, yyyy")</td>
-              <td style="font-size:.84rem;font-weight:600;color:var(--green);">@g.Amount.ToString("C2")</td>
+              <td style="font-size:.84rem;font-weight:600;color:var(--green-text);">@g.Amount.ToString("C2")</td>
               <td style="font-size:.78rem;color:var(--text-mid);">@g.Channel</td>
               <td style="font-size:.78rem;color:var(--text-light);">@(g.Campaign ?? "General")</td>
             </tr>
@@ -85,7 +85,7 @@
         <tfoot>
           <tr style="background:var(--bg);font-weight:700;">
             <td style="padding:10px 14px;font-size:.82rem;">Total</td>
-            <td style="padding:10px 14px;font-size:.84rem;color:var(--green);">@_summary.TotalGiven.ToString("C2")</td>
+            <td style="padding:10px 14px;font-size:.84rem;color:var(--green-text);">@_summary.TotalGiven.ToString("C2")</td>
             <td colspan="2"></td>
           </tr>
         </tfoot>

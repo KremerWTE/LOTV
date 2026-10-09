@@ -42,9 +42,9 @@ else
         <div role="button" tabindex="0" @onclick="() => SelectRole(roleValue)" @onkeydown="e => OnRoleCardKey(e, roleValue)"
              style="cursor:pointer;text-align:left;background:white;border-radius:10px;padding:18px;font-size:.84rem;border:2px solid @(_role == roleValue ? "var(--green)" : "var(--border)");@(_role == roleValue ? "box-shadow:0 0 0 3px rgba(45,106,45,.12);" : "")">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-            <div style="font-size:1.4rem;margin-bottom:6px;color:var(--green);"><Icon Name="@icon" /></div>
+            <div style="font-size:1.4rem;margin-bottom:6px;color:var(--green-text);"><Icon Name="@icon" /></div>
             @if (_role == roleValue)
-            { <span style="color:var(--green);font-weight:700;font-size:.78rem;">✓ Selected</span> }
+            { <span style="color:var(--green-text);font-weight:700;font-size:.78rem;">✓ Selected</span> }
           </div>
           <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">@Loc[$"vol.role.{roleKey}.title"]</div>
           <div style="color:var(--text-mid);line-height:1.5;">@Loc[$"vol.role.{roleKey}.desc"]</div>

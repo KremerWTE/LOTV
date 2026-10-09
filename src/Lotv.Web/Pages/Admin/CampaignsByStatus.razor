@@ -73,7 +73,7 @@ else
                 </td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);white-space:nowrap;">@c.StartDate.ToString("MMM d, yyyy")</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);white-space:nowrap;">@(c.EndDate?.ToString("MMM d, yyyy") ?? "—")</td>
-                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@c.Raised.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green-text);">@c.Raised.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@(c.GoalAmount > 0 ? c.GoalAmount.ToString("C0") : "—")</td>
                 <td style="padding:10px 16px;min-width:120px;">
                   @if (c.GoalAmount > 0)
@@ -99,7 +99,7 @@ else
             <tfoot>
               <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
                 <td colspan="3" style="padding:10px 16px;font-size:.84rem;">Subtotal</td>
-                <td style="padding:10px 16px;font-size:.88rem;text-align:right;color:var(--green);">@grpRaised.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.88rem;text-align:right;color:var(--green-text);">@grpRaised.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@(grpGoal > 0 ? grpGoal.ToString("C0") : "—")</td>
                 <td colspan="3"></td>
               </tr>

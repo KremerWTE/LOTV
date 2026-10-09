@@ -76,4 +76,88 @@ public class ShippoOrderClientTests
         Assert.False(result.Success);
         Assert.Contains("400", result.Error);
     }
+
+    // ── Return address read from the Shippo account on every order ──────────────────────────────────────────────────
+    private sealed class RoutingHandler(string addressesJson) : HttpMessageHandler
+    {
+        public List<string> Calls { get; } = [];
+        public string? OrderBody { get; private set; }
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls.Add($"{request.Method} {request.RequestUri!.AbsolutePath}");
+            if (request.Method == HttpMethod.Get)
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(addressesJson, Encoding.UTF8, "application/json") };
+            OrderBody = await request.Content!.ReadAsStringAsync(ct);
+            return new HttpResponseMessage(HttpStatusCode.Created) { Content = new StringContent("{\"object_id\":\"ord_9\"}", Encoding.UTF8, "application/json") };
+        }
+    }
+
+    private static string Addr(string name, string zip, string company = "", bool isDefault = false) =>
+        $"{{\"name\":\"{name}\",\"company\":\"{company}\",\"street1\":\"5 Lily Ln\",\"city\":\"Chicago\",\"state\":\"IL\",\"zip\":\"{zip}\",\"country\":\"US\"{(isDefault ? ",\"is_default_sender\":true" : "")}}}";
+    private static string Results(params string[] items) => "{\"results\":[" + string.Join(",", items) + "]}";
+    private static ShippoOrderClient Routed(RoutingHandler h, ShippoOptions o) =>
+        new(new HttpClient(h), Options.Create(o), NullLogger<ShippoOrderClient>.Instance);
+
+    [Fact]
+    public async Task ReturnAddress_IsReadFromShippo_EvenWhenSettingsHaveOne()
+    {
+        var h = new RoutingHandler(Results(Addr("Ministry", "60601")));
+        var (r, f) = Case();
+        var result = await Routed(h, Configured()).CreateOrderAsync(r, f);   // Configured() has zip 62701 as a fallback
+
+        Assert.True(result.Success);
+        Assert.Equal(["GET /addresses/", "POST /orders/"], h.Calls);
+        using var doc = JsonDocument.Parse(h.OrderBody!);
+        Assert.Equal("60601", doc.RootElement.GetProperty("from_address").GetProperty("zip").GetString());
+    }
+
+    [Fact]
+    public async Task OnlyTheTokenIsNeeded_WhenShippoHasOneSavedAddress()
+    {
+        var h = new RoutingHandler(Results(Addr("Ministry", "60601")));
+        var c = Routed(h, new ShippoOptions { ApiToken = "shippo_test_abc" });
+        Assert.True(c.IsConfigured);
+        var (r, f) = Case();
+        Assert.True((await c.CreateOrderAsync(r, f)).Success);
+    }
+
+    [Fact]
+    public async Task SeveralSavedAddresses_FailWithoutGuessing_AndSendNoOrder()
+    {
+        var h = new RoutingHandler(Results(Addr("Home", "11111"), Addr("Ministry", "60601")));
+        var (r, f) = Case();
+        var result = await Routed(h, new ShippoOptions { ApiToken = "shippo_test_abc" }).CreateOrderAsync(r, f);
+
+        Assert.False(result.Success);
+        Assert.Contains("SHIPPO_RETURN_ADDRESS_NAME", result.Error);
+        Assert.DoesNotContain("POST /orders/", h.Calls);
+    }
+
+    [Fact]
+    public async Task NameHint_PicksTheRightAddress_AndADefaultFlagCanDecide()
+    {
+        var (r, f) = Case();
+        var hinted = new RoutingHandler(Results(Addr("Home", "11111"), Addr("Ministry", "60601", company: "Lily of the Valley")));
+        Assert.True((await Routed(hinted, new ShippoOptions { ApiToken = "t", ReturnAddressName = "lily" }).CreateOrderAsync(r, f)).Success);
+        Assert.Equal("60601", JsonDocument.Parse(hinted.OrderBody!).RootElement.GetProperty("from_address").GetProperty("zip").GetString());
+
+        var flagged = new RoutingHandler(Results(Addr("Home", "11111"), Addr("Ministry", "60601", isDefault: true)));
+        Assert.True((await Routed(flagged, new ShippoOptions { ApiToken = "t" }).CreateOrderAsync(r, f)).Success);
+        Assert.Equal("60601", JsonDocument.Parse(flagged.OrderBody!).RootElement.GetProperty("from_address").GetProperty("zip").GetString());
+    }
+
+    [Fact]
+    public async Task NoSavedAddress_FallsBackToSettings_OrFailsClearly()
+    {
+        var (r, f) = Case();
+        var withSettings = new RoutingHandler(Results());
+        Assert.True((await Routed(withSettings, Configured()).CreateOrderAsync(r, f)).Success);
+        Assert.Equal("62701", JsonDocument.Parse(withSettings.OrderBody!).RootElement.GetProperty("from_address").GetProperty("zip").GetString());
+
+        var none = new RoutingHandler(Results());
+        var result = await Routed(none, new ShippoOptions { ApiToken = "t" }).CreateOrderAsync(r, f);
+        Assert.False(result.Success);
+        Assert.Contains("No return address found", result.Error);
+        Assert.DoesNotContain("POST /orders/", none.Calls);
+    }
 }

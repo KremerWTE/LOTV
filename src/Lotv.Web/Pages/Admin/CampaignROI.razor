@@ -75,7 +75,7 @@ else
             </div>
             @if (r.Goal > 0 && goalPct > 100)
             {
-              <div style="position:absolute;right:0;top:-4px;font-size:.62rem;color:var(--green);font-weight:700;">+@(goalPct - 100)% over goal</div>
+              <div style="position:absolute;right:0;top:-4px;font-size:.62rem;color:var(--green-text);font-weight:700;">+@(goalPct - 100)% over goal</div>
             }
           </div>
         </div>
@@ -109,7 +109,7 @@ else
               <td style="font-weight:600;">@r.Name</td>
               <td><span class="badge badge-@StatusBadge(r.Status)" style="font-size:.62rem;">@r.Status</span></td>
               <td style="text-align:right;"><Money Amount="@r.Goal" /></td>
-              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@r.Raised" /></td>
+              <td style="text-align:right;font-weight:700;color:var(--green-text);"><Money Amount="@r.Raised" /></td>
               <td style="text-align:right;color:var(--text-mid);">@r.GiftCount</td>
               <td style="text-align:right;color:var(--text-mid);"><Money Amount="@r.AvgGift" /></td>
               <td style="text-align:right;">
@@ -124,7 +124,7 @@ else
             <td>Total</td>
             <td></td>
             <td style="text-align:right;"><Money Amount="@_rows.Sum(r => r.Goal)" /></td>
-            <td style="text-align:right;color:var(--green);"><Money Amount="@_rows.Sum(r => r.Raised)" /></td>
+            <td style="text-align:right;color:var(--green-text);"><Money Amount="@_rows.Sum(r => r.Raised)" /></td>
             <td style="text-align:right;">@_rows.Sum(r => r.GiftCount)</td>
             <td></td>
             <td></td>

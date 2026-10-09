@@ -113,7 +113,7 @@ else
               <td style="font-weight:@(m.Month == _nowMonth ? "700" : "400");">
                 @m.Label @(m.Month == _nowMonth ? "← now" : "")
               </td>
-              <td style="text-align:right;font-weight:700;color:var(--green);">
+              <td style="text-align:right;font-weight:700;color:var(--green-text);">
                 @(isFuture ? "—" : m.Donations.ToString("C0"))
               </td>
               <td style="text-align:right;color:var(--text-light);">@m.DonTarget.ToString("C0")</td>
@@ -144,7 +144,7 @@ else
         <tfoot>
           <tr style="font-weight:700;background:var(--bg);">
             <td>YTD Total</td>
-            <td style="text-align:right;color:var(--green);"><Money Amount="@_ytdDonations" /></td>
+            <td style="text-align:right;color:var(--green-text);"><Money Amount="@_ytdDonations" /></td>
             <td style="text-align:right;color:var(--text-light);">@((_annualDonGoal / 12 * DateTime.UtcNow.Month).ToString("C0"))</td>
             <td></td>
             <td style="text-align:right;color:var(--navy);">@_ytdFulfilled</td>
@@ -169,7 +169,7 @@ else
         var caseShortfall    = _annualCaseGoal - projFulfilled;
       }
       <div style="flex:1;min-width:180px;text-align:center;padding:16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
-        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:6px;">Projected Donations</div>
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green-text);margin-bottom:6px;">Projected Donations</div>
         <div style="font-size:1.6rem;font-weight:700;color:var(--text-dark);"><Money Amount="@projDonations" /></div>
         <div style="font-size:.76rem;color:@(donShortfall <= 0 ? "var(--green)" : "var(--red)");margin-top:4px;">
           @(donShortfall <= 0 ? $"▲ {Math.Abs(donShortfall).ToString("C0")} over goal" : $"▼ {donShortfall.ToString("C0")} short of goal")

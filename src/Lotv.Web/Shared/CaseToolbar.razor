@@ -8,19 +8,19 @@
 <div class="page-hd-actions">
   @ChildContent
   <button class="btn btn-sm @(NeedsInfoOnly ? "btn-primary" : "")" id="needs-info-filter" aria-pressed="@NeedsInfoOnly"
-          title="Show only cases with missing or inconsistent family information" @onclick="OnToggleNeedsInfo">⚠ Needs info (@NeedsInfoCount)</button>
-  <button class="btn btn-sm" id="shippo-export" title="Download cases at Packing as a CSV to import into Shippo" disabled="@_shippoBusy" @onclick="ExportForShippo">📦 @(_shippoBusy ? "Preparing…" : "Export for Shippo")</button>
+          title="Show only cases with missing or inconsistent family information" @onclick="OnToggleNeedsInfo"><Icon Name="diamond-exclamation" /> Needs info (@NeedsInfoCount)</button>
+  <button class="btn btn-sm" id="shippo-export" title="Download cases at Packing as a CSV to import into Shippo" disabled="@_shippoBusy" @onclick="ExportForShippo"><Icon Name="truck-fast" /> @(_shippoBusy ? "Preparing…" : "Export for Shippo")</button>
   @* The view switch always offers the other view: on the list it is Package Workflow, everywhere else it is List View. *@
   @if (Active == "all")
   {
-    <a href="/admin/kanban" class="btn btn-sm" id="view-switch">☷ Package Workflow</a>
+    <a href="/admin/kanban" class="btn btn-sm" id="view-switch"><Icon Name="grid-2" /> Package Workflow</a>
   }
   else
   {
-    <a href="/admin/cases" class="btn btn-sm" id="view-switch">List View</a>
+    <a href="/admin/cases" class="btn btn-sm" id="view-switch"><Icon Name="list" /> List View</a>
   }
-  <a href="/admin/queue" class="btn btn-sm @Current("queue")" aria-current="@(Active == "queue" ? "page" : null)">🔚 Unassigned Queue</a>
-  <a href="/admin/my-queue" class="btn btn-sm @Current("mine")" aria-current="@(Active == "mine" ? "page" : null)">📋 My Work Queue</a>
+  <a href="/admin/queue" class="btn btn-sm @Current("queue")" aria-current="@(Active == "queue" ? "page" : null)"><Icon Name="spinner" /> Unassigned Queue</a>
+  <a href="/admin/my-queue" class="btn btn-sm @Current("mine")" aria-current="@(Active == "mine" ? "page" : null)"><Icon Name="clipboard-list-check" /> My Work Queue</a>
   <button class="btn btn-sm" id="new-request" @onclick="NewRequest">+ New Request</button>
 </div>
 

@@ -89,7 +89,7 @@ else
     <div class="panel">
       <div class="panel-head">
         <h3>Intake by Reason (YTD)</h3>
-        <a href="/admin/cases/by-reason" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Detail &rarr;</a>
+        <a href="/admin/cases/by-reason" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Detail &rarr;</a>
       </div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
         @{ var maxR = _byReason.Any() ? _byReason.Max(r => r.Count) : 1; }
@@ -143,7 +143,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Most Recent Intakes</h3>
-      <a href="/admin/cases?status=New" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All New Cases &rarr;</a>
+      <a href="/admin/cases?status=New" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">All New Cases &rarr;</a>
     </div>
     <div class="panel-body" style="padding:0;">
       <table class="data-table">

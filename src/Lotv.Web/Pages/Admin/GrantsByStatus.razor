@@ -70,7 +70,7 @@ else
               <tr style="border-top:1px solid var(--border);@(dueSoon ? "background:#fffbeb;" : "")">
                 <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@g.Purpose</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@g.GrantorName</td>
-                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@g.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green-text);">@g.Amount.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">
                   <div>Awarded: @g.AwardedDate.ToString("MMM d, yyyy")</div>
                   @if (g.ReportDueDate.HasValue)

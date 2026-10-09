@@ -79,7 +79,7 @@ else
                     @(r.Donor?.FullName ?? $"Donor #{r.DonorId}")
                   </a>
                 </td>
-                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green-text);">@r.Amount.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.Frequency</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:@(nextDue ? "var(--red)" : "var(--text-light)");">
                   @r.NextChargeDate.ToString("MMM d, yyyy")

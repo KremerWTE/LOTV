@@ -14,7 +14,7 @@
 </div>
 @if (_toast is not null)
 {
-  <div role="status" style="background:var(--green-pale);border:1px solid var(--green);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.84rem;color:var(--green-dark);">@_toast</div>
+  <div role="status" style="background:var(--green-pale);border:1px solid var(--green);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.84rem;color:var(--green-text);">@_toast</div>
 }
 
 <!-- KPI STRIP -->
@@ -89,10 +89,10 @@
             </td>
             <td><span class="badge @TierBadge(d.Donor.Tier)">@d.Donor.Tier</span></td>
             <td style="font-weight:600;">@d.GiftCount</td>
-            <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Total" /></td>
+            <td style="font-weight:700;color:var(--green-text);"><Money Amount="@d.Total" /></td>
             <td style="font-size:.8rem;">
               @if (d.Donor.IsRecurring)
-              { <span style="color:var(--green);font-weight:700;">✓ <Money Amount="@(d.Donor.RecurringAmount ?? 0m)" />/mo</span> }
+              { <span style="color:var(--green-text);font-weight:700;">✓ <Money Amount="@(d.Donor.RecurringAmount ?? 0m)" />/mo</span> }
               else
               { <span style="color:var(--text-light);">One-time</span> }
             </td>
@@ -127,7 +127,7 @@
                   {
                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;padding:6px 10px;background:white;border-radius:7px;border:1px solid var(--border);">
                       <div>
-                        <span style="font-weight:700;color:var(--green);"><Money Amount="@g.Amount" /></span>
+                        <span style="font-weight:700;color:var(--green-text);"><Money Amount="@g.Amount" /></span>
                         <span style="color:var(--text-light);margin-left:8px;">@g.Date.ToString("MMM d, yyyy")</span>
                         @if (!string.IsNullOrEmpty(g.Campaign))
                         { <span style="color:var(--text-mid);margin-left:6px;">&bull; @g.Campaign</span> }

@@ -72,7 +72,7 @@ else
             <tr style="border-top:1px solid var(--border);@(r.Total == 0 ? "opacity:0.4;" : "")">
               <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">@r.MonthLabel</td>
               <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@r.Count</td>
-              <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.Total.ToString("C0")</td>
+              <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green-text);">@r.Total.ToString("C0")</td>
               <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@(r.Count > 0 ? (r.Total / r.Count).ToString("C0") : "—")</td>
               <td style="padding:10px 16px;min-width:160px;">
                 <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
@@ -86,7 +86,7 @@ else
           <tr style="border-top:2px solid var(--border);background:var(--bg);font-weight:700;">
             <td style="padding:10px 16px;font-size:.84rem;">Total</td>
             <td style="padding:10px 16px;font-size:.84rem;text-align:right;">@_rows.Sum(r => r.Count)</td>
-            <td style="padding:10px 16px;font-size:.92rem;text-align:right;color:var(--green);">@_rows.Sum(r => r.Total).ToString("C0")</td>
+            <td style="padding:10px 16px;font-size:.92rem;text-align:right;color:var(--green-text);">@_rows.Sum(r => r.Total).ToString("C0")</td>
             <td colspan="2"></td>
           </tr>
         </tfoot>

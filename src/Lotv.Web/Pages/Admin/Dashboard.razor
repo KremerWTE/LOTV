@@ -125,7 +125,7 @@ else
 <div class="panel" style="margin-bottom:20px;">
   <div class="panel-head">
     <h3>Case Pipeline</h3>
-    <a href="/admin/kanban" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Open Full Board &rarr;</a>
+    <a href="/admin/kanban" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Open Full Board &rarr;</a>
   </div>
   <div class="panel-body">
     <div class="kanban">
@@ -162,7 +162,7 @@ else
           }
           @if (cases.Count > 6)
           {
-            <a href="/admin/kanban" style="display:block;text-align:center;font-size:.72rem;color:var(--green);text-decoration:none;font-weight:600;padding:6px;">+@(cases.Count - 6) more &rarr;</a>
+            <a href="/admin/kanban" style="display:block;text-align:center;font-size:.72rem;color:var(--green-text);text-decoration:none;font-weight:600;padding:6px;">+@(cases.Count - 6) more &rarr;</a>
           }
           @if (!cases.Any())
           {
@@ -180,14 +180,14 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Donation Trend — 12 Months</h3>
-      <a href="/admin/donations" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Donations &rarr;</a>
+      <a href="/admin/donations" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">All Donations &rarr;</a>
     </div>
     <div class="panel-body">
       @if (_timeline.Any())
       {
         <div style="font-size:.75rem;color:var(--text-light);margin-bottom:6px;display:flex;justify-content:space-between;">
           <span>Monthly giving — last 12 months</span>
-          <span style="font-weight:600;color:var(--green);">Peak: <Money Amount="@_timeline.Max(p => p.Donations)" /></span>
+          <span style="font-weight:600;color:var(--green-text);">Peak: <Money Amount="@_timeline.Max(p => p.Donations)" /></span>
         </div>
       }
       <LineChart Items="_timeline"
@@ -203,7 +203,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Cases Fulfilled — 12 Months</h3>
-      <a href="/admin/cases" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">View Cases &rarr;</a>
+      <a href="/admin/cases" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">View Cases &rarr;</a>
     </div>
     <div class="panel-body">
       @if (_timeline.Any())
@@ -230,7 +230,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Recent Cases</h3>
-      <a href="/admin/cases" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">View All &rarr;</a>
+      <a href="/admin/cases" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">View All &rarr;</a>
     </div>
     <div class="panel-body" style="padding:0;">
       <table class="data-table">
@@ -260,7 +260,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Volunteer Workload</h3>
-      <a href="/admin/workload" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full View &rarr;</a>
+      <a href="/admin/workload" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Full View &rarr;</a>
     </div>
     <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
       @foreach (var row in _workloadRows)
@@ -297,15 +297,15 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Upcoming Events</h3>
-      <a href="/admin/events" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">View All &rarr;</a>
+      <a href="/admin/events" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">View All &rarr;</a>
     </div>
     <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
       @foreach (var ev in _upcomingEvents)
       {
         <a href="/admin/events/@ev.Id" style="display:flex;gap:14px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--border);text-decoration:none;cursor:pointer;">
           <div style="min-width:44px;text-align:center;background:var(--green-pale);border-radius:8px;padding:6px 4px;">
-            <div style="font-size:.65rem;font-weight:700;color:var(--green);text-transform:uppercase;">@ev.Date.ToString("MMM")</div>
-            <div style="font-size:1.2rem;font-weight:700;color:var(--green-dark);line-height:1;">@ev.Date.Day</div>
+            <div style="font-size:.65rem;font-weight:700;color:var(--green-text);text-transform:uppercase;">@ev.Date.ToString("MMM")</div>
+            <div style="font-size:1.2rem;font-weight:700;color:var(--green-text);line-height:1;">@ev.Date.Day</div>
           </div>
           <div>
             <div style="font-weight:600;font-size:.88rem;margin-bottom:2px;color:var(--text-dark);">@ev.Title</div>
@@ -325,7 +325,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Recent Activity</h3>
-      <a href="/admin/audit" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Log &rarr;</a>
+      <a href="/admin/audit" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Full Log &rarr;</a>
     </div>
     <div class="panel-body" style="display:flex;flex-direction:column;gap:0;">
       @foreach (var entry in _recentActivity)
@@ -351,7 +351,7 @@ else
 <div class="panel" style="margin-bottom:20px;">
   <div class="panel-head">
     <h3>Event Revenue</h3>
-    <a href="/admin/events" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Manage Events &rarr;</a>
+    <a href="/admin/events" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Manage Events &rarr;</a>
   </div>
   <div class="panel-body">
     @if (!_upcomingEvents.Any() && _eventRevenue == 0)
@@ -366,8 +366,8 @@ else
           <div style="font-size:1.4rem;font-weight:700;color:var(--gold);"><Money Amount="@_eventRevenue" /></div>
         </div>
         <div style="background:var(--green-pale);border:1px solid var(--green);border-radius:10px;padding:14px 16px;text-align:center;">
-          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:4px;">Ticket Revenue</div>
-          <div style="font-size:1.4rem;font-weight:700;color:var(--green);"><Money Amount="@_ticketRevenue" /></div>
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green-text);margin-bottom:4px;">Ticket Revenue</div>
+          <div style="font-size:1.4rem;font-weight:700;color:var(--green-text);"><Money Amount="@_ticketRevenue" /></div>
         </div>
         <div style="background:#f0f0ff;border:1px solid var(--navy);border-radius:10px;padding:14px 16px;text-align:center;">
           <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--navy);margin-bottom:4px;">Auction Revenue</div>
@@ -412,7 +412,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Donation Channels — This Month</h3>
-      <a href="/admin/by-channel" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Report &rarr;</a>
+      <a href="/admin/by-channel" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Full Report &rarr;</a>
     </div>
     <div class="panel-body">
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:16px;">
@@ -435,7 +435,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Fund Allocation Status</h3>
-      <a href="/admin/allocations" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Manage &rarr;</a>
+      <a href="/admin/allocations" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Manage &rarr;</a>
     </div>
     <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
       @foreach (var row in _allocStatus)
@@ -467,7 +467,7 @@ else
 <div class="panel" style="margin-bottom:24px;">
   <div class="panel-head">
     <h3>Donations by Gift Size — YTD</h3>
-    <a href="/admin/by-amount" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Report &rarr;</a>
+    <a href="/admin/by-amount" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Full Report &rarr;</a>
   </div>
   <div class="panel-body">
     @if (!_giftBands.Any())
@@ -497,7 +497,7 @@ else
   <div class="panel-head">
     <h3>Donation Ledger</h3>
     <div style="display:flex;gap:8px;">
-      <a href="/admin/export" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Export CSV &rarr;</a>
+      <a href="/admin/export" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Export CSV &rarr;</a>
       <a href="/admin/donations" class="btn btn-sm btn-primary">+ Record Donation</a>
     </div>
   </div>
@@ -527,7 +527,7 @@ else
           <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/admin/donations")'>
             <td style="font-size:.74rem;color:var(--text-light);">#@d.Id</td>
             <td><strong>@(d.Donor?.FullName ?? "—")</strong></td>
-            <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Amount" /></td>
+            <td style="font-weight:700;color:var(--green-text);"><Money Amount="@d.Amount" /></td>
             <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
             <td><span class="badge badge-new" style="font-size:.68rem;">@d.Channel</span></td>
             <td style="font-size:.78rem;color:var(--text-mid);">@(d.Campaign ?? "—")</td>

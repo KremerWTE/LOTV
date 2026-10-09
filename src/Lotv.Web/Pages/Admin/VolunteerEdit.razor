@@ -27,7 +27,7 @@ else
   @if (_saved)
   {
     <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
-      <div class="panel-body" style="color:var(--green);font-weight:600;">Changes saved successfully.</div>
+      <div class="panel-body" style="color:var(--green-text);font-weight:600;">Changes saved successfully.</div>
     </div>
   }
   @if (!string.IsNullOrEmpty(_error))
@@ -154,7 +154,7 @@ else
             </div>
             <div>
               <div style="font-size:.74rem;color:var(--text-light);">Total Fulfilled</div>
-              <div style="font-size:1.1rem;font-weight:700;color:var(--green);">@_vol.TotalCasesFulfilled</div>
+              <div style="font-size:1.1rem;font-weight:700;color:var(--green-text);">@_vol.TotalCasesFulfilled</div>
             </div>
             <div>
               <div style="font-size:.74rem;color:var(--text-light);">Joined</div>

@@ -103,7 +103,7 @@ else
               <td style="text-align:center;">
                 <span class="badge @(d.OverdueCases > 0 ? "badge-cancelled" : "badge-fulfilled")" style="font-size:.72rem;">@d.OverdueCases</span>
               </td>
-              <td style="text-align:center;font-weight:600;color:var(--green);">@d.FulfilledMtd</td>
+              <td style="text-align:center;font-weight:600;color:var(--green-text);">@d.FulfilledMtd</td>
               <td style="text-align:right;font-weight:700;color:var(--gold);">@d.TotalDonations.ToString("C0")</td>
               <td style="text-align:center;">@d.ActiveVols</td>
               <td style="text-align:center;">@d.ActivePledges</td>
@@ -185,7 +185,7 @@ else
             <div style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden;">
               <div style="width:@(maxFul > 0 ? (d.FulfilledMtd * 100 / maxFul) : 0)%;background:var(--green);height:100%;border-radius:4px;transition:width .4s;"></div>
             </div>
-            <div style="width:30px;text-align:right;font-weight:600;color:var(--green);">@d.FulfilledMtd</div>
+            <div style="width:30px;text-align:right;font-weight:600;color:var(--green-text);">@d.FulfilledMtd</div>
           </div>
         }
       </div>

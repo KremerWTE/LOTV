@@ -128,7 +128,7 @@ else
             </div>
             @if (!string.IsNullOrEmpty(_payResult))
             {
-              <div style="margin-top:8px;font-size:.82rem;color:var(--green);font-weight:600;">@_payResult</div>
+              <div style="margin-top:8px;font-size:.82rem;color:var(--green-text);font-weight:600;">@_payResult</div>
             }
             <div style="margin-top:12px;">
               <button class="btn btn-primary btn-sm" @onclick="RecordPayment" disabled="@(_payBusy || _payAmount <= 0)">
@@ -156,7 +156,7 @@ else
           }
           @if (!string.IsNullOrEmpty(_statusResult))
           {
-            <div style="font-size:.82rem;color:var(--green);font-weight:600;">@_statusResult</div>
+            <div style="font-size:.82rem;color:var(--green-text);font-weight:600;">@_statusResult</div>
           }
         </div>
       </div>

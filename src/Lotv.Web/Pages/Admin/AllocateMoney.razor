@@ -37,7 +37,7 @@
         }
         else
         {
-          <div style="font-size:.84rem;color:var(--text-light);padding:10px 0;">No unallocated donations found. <a href="/admin/donations" style="color:var(--green);">View all donations</a></div>
+          <div style="font-size:.84rem;color:var(--text-light);padding:10px 0;">No unallocated donations found. <a href="/admin/donations" style="color:var(--green-text);">View all donations</a></div>
         }
       </div>
 
@@ -48,7 +48,7 @@
           <div style="color:var(--text-mid);">
             Date: @_selectedDonation.Date.ToString("MMM d, yyyy") &bull;
             Channel: @_selectedDonation.Channel.ToDisplayName() &bull;
-            Available: <strong style="color:var(--green);">@_availableAmount.ToString("C2")</strong>
+            Available: <strong style="color:var(--green-text);">@_availableAmount.ToString("C2")</strong>
           </div>
         </div>
       }
@@ -109,7 +109,7 @@
       }
       @if (_success)
       {
-        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ Allocation recorded successfully. <a href="/admin/allocations" style="color:var(--green);">View allocation ledger &rarr;</a></div>
+        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-text);">✓ Allocation recorded successfully. <a href="/admin/allocations" style="color:var(--green-text);">View allocation ledger &rarr;</a></div>
       }
 
       <div style="display:flex;gap:10px;">
@@ -141,7 +141,7 @@
             </div>
           }
           <div style="padding:10px 14px;text-align:center;">
-            <a href="/admin/allocations" style="font-size:.78rem;color:var(--green);font-weight:600;text-decoration:none;">View Full Ledger &rarr;</a>
+            <a href="/admin/allocations" style="font-size:.78rem;color:var(--green-text);font-weight:600;text-decoration:none;">View Full Ledger &rarr;</a>
           </div>
         }
       </div>

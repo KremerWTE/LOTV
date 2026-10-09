@@ -109,7 +109,7 @@ else
           <div style="font-size:1.5rem;font-weight:800;color:var(--navy);margin-bottom:12px;">@_sponsor.CommittedAmount.ToString("C0")</div>
 
           <div style="font-size:.78rem;color:var(--text-light);">Paid to Date</div>
-          <div style="font-size:1.2rem;font-weight:700;color:var(--green);margin-bottom:12px;">@_sponsor.PaidToDate.ToString("C0")</div>
+          <div style="font-size:1.2rem;font-weight:700;color:var(--green-text);margin-bottom:12px;">@_sponsor.PaidToDate.ToString("C0")</div>
 
           @{
             var pct = _sponsor.CommittedAmount == 0 ? 0 : (int)(_sponsor.PaidToDate / _sponsor.CommittedAmount * 100);
