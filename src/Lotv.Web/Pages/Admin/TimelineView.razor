@@ -143,7 +143,7 @@ else
             var net    = p.RequestsFulfilled - p.NewRequests;
             <tr>
               <td style="font-weight:600;">@p.Period</td>
-              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@p.Donations" /></td>
+              <td style="text-align:right;font-weight:700;color:var(--green-text);"><Money Amount="@p.Donations" /></td>
               <td style="text-align:right;color:var(--amber);">@p.NewRequests</td>
               <td style="text-align:right;color:var(--navy);">@p.RequestsFulfilled</td>
               <td style="text-align:right;font-size:.78rem;color:@(net >= 0 ? "var(--green)" : "var(--red)");">@(net >= 0 ? $"+{net}" : net.ToString())</td>
@@ -158,7 +158,7 @@ else
         <tfoot>
           <tr style="font-weight:700;background:var(--bg);">
             <td>Total</td>
-            <td style="text-align:right;color:var(--green);"><Money Amount="@totalDonations" /></td>
+            <td style="text-align:right;color:var(--green-text);"><Money Amount="@totalDonations" /></td>
             <td style="text-align:right;color:var(--amber);">@totalNew</td>
             <td style="text-align:right;color:var(--navy);">@totalFulfilled</td>
             <td style="text-align:right;">@(totalFulfilled - totalNew >= 0 ? $"+{totalFulfilled - totalNew}" : (totalFulfilled - totalNew).ToString())</td>

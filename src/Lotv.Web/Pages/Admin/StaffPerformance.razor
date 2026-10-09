@@ -115,7 +115,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Task Breakdown by Staff</h3>
-      <a href="/admin/staff-tasks" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Tasks &rarr;</a>
+      <a href="/admin/staff-tasks" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">All Tasks &rarr;</a>
     </div>
     <div class="panel-body" style="padding:0;">
       <table class="data-table">
@@ -137,7 +137,7 @@ else
             <tr style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/admin/staff/{row.Id}/summary")'>
               <td style="font-weight:600;">@row.Name</td>
               <td style="text-align:right;color:var(--text-mid);">@row.TotalTasks</td>
-              <td style="text-align:right;color:var(--green);font-weight:600;">@row.TasksDone</td>
+              <td style="text-align:right;color:var(--green-text);font-weight:600;">@row.TasksDone</td>
               <td style="text-align:right;color:var(--text-mid);">@row.TasksOpen</td>
               <td style="text-align:right;font-weight:@(row.OverdueTasks > 0 ? "700" : "400");color:@(row.OverdueTasks > 0 ? "var(--red)" : "var(--text-light)");">@row.OverdueTasks</td>
               <td style="text-align:right;color:var(--navy);">@row.ActiveCases</td>

@@ -70,7 +70,7 @@
             <tr @onclick="() => OpenDrawer(p)" style="cursor:pointer;">
               <td style="font-weight:600;font-size:.84rem;">@(p.Donor?.FullName ?? $"Donor #{p.DonorId}")</td>
               <td style="font-size:.84rem;color:var(--navy);font-weight:600;">@p.PledgedAmount.ToString("C0")</td>
-              <td style="font-size:.84rem;color:var(--green);">@p.FulfilledAmount.ToString("C0")</td>
+              <td style="font-size:.84rem;color:var(--green-text);">@p.FulfilledAmount.ToString("C0")</td>
               <td style="min-width:120px;">
                 <div style="background:var(--bg);border-radius:4px;height:8px;overflow:hidden;">
                   <div style="width:@pct%;background:@(pct >= 100 ? "var(--green)" : "var(--navy)");height:100%;border-radius:4px;transition:width .4s;"></div>

@@ -11,7 +11,7 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">⛩</div>
+    <div class="kpi-icon"><Icon Name="sitemap" /></div>
     <div class="kpi-label">Dioceses Tracked</div>
     <div class="kpi-value" style="color:var(--navy)">@_dioceses.Count</div>
   </div>
@@ -26,7 +26,7 @@
     <div class="kpi-value" style="color:var(--amber)">@_dioceses.Sum(d => d.TotalCasesFulfilled)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">👥</div>
+    <div class="kpi-icon"><Icon Name="church" /></div>
     <div class="kpi-label">Active Parishes</div>
     <div class="kpi-value" style="color:var(--gold)">@_dioceses.Sum(d => d.ActiveParishes)</div>
   </div>
@@ -43,7 +43,7 @@
       <div class="panel-body">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
           <div style="text-align:center;background:var(--green-pale);border-radius:8px;padding:10px;">
-            <div style="font-family:var(--ff-head);font-size:1.4rem;font-weight:700;color:var(--green);"><Money Amount="@d.TotalDonations" /></div>
+            <div style="font-family:var(--ff-head);font-size:1.4rem;font-weight:700;color:var(--green-text);"><Money Amount="@d.TotalDonations" /></div>
             <div style="font-size:.68rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;">Total Donations</div>
           </div>
           <div style="text-align:center;background:var(--navy-pale);border-radius:8px;padding:10px;">
@@ -78,7 +78,7 @@
             <td><a href="@($"/admin/by-donor?diocese={Uri.EscapeDataString(d.Name)}")" style="color:var(--navy);text-decoration:none;font-weight:700;">@d.Name</a></td>
             <td style="font-size:.78rem;color:var(--text-mid);">@d.State</td>
             <td style="font-size:.8rem;">@(d.CoordinatorName ?? "—")</td>
-            <td style="font-weight:700;color:var(--green);"><Money Amount="@d.TotalDonations" /></td>
+            <td style="font-weight:700;color:var(--green-text);"><Money Amount="@d.TotalDonations" /></td>
             <td style="font-weight:600;">@d.TotalCasesFulfilled</td>
             <td>
               <div style="display:flex;align-items:center;gap:8px;">
@@ -97,7 +97,7 @@
 
 @if (_toast is not null)
 {
-  <div role="status" style="position:fixed;bottom:20px;right:20px;background:var(--green-pale);border:1px solid var(--green);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);z-index:1000;">@_toast</div>
+  <div role="status" style="position:fixed;bottom:20px;right:20px;background:var(--green-pale);border:1px solid var(--green);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-text);z-index:1000;">@_toast</div>
 }
 
 @code {

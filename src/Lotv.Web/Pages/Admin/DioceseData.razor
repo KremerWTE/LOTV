@@ -11,22 +11,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:24px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">⛳</div>
+    <div class="kpi-icon"><Icon Name="sitemap" /></div>
     <div class="kpi-label">Dioceses Tracked</div>
     <div class="kpi-value" style="color:var(--navy)">@_dioceses.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">🏠</div>
+    <div class="kpi-icon"><Icon Name="cross" /></div>
     <div class="kpi-label">Total Parishes</div>
     <div class="kpi-value" style="color:var(--green)">@_parishTotal</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">✅</div>
+    <div class="kpi-icon"><Icon Name="church" /></div>
     <div class="kpi-label">Active Parishes</div>
     <div class="kpi-value" style="color:var(--amber)">@_activeParishTotal</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">📈</div>
+    <div class="kpi-icon"><Icon Name="thumbs-up" /></div>
     <div class="kpi-label">Engagement Rate</div>
     <div class="kpi-value" style="color:var(--gold)">@(_parishTotal > 0 ? $"{_activeParishTotal * 100 / _parishTotal}%" : "—")</div>
   </div>
@@ -60,7 +60,7 @@
       <div class="panel-body">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
           <div style="text-align:center;background:var(--green-pale);border-radius:6px;padding:8px;">
-            <div style="font-size:1.2rem;font-weight:700;color:var(--green);">@d.TotalDonations.ToString("C0")</div>
+            <div style="font-size:1.2rem;font-weight:700;color:var(--green-text);">@d.TotalDonations.ToString("C0")</div>
             <div style="font-size:.66rem;color:var(--text-light);text-transform:uppercase;">Donations</div>
           </div>
           <div style="text-align:center;background:var(--navy-pale);border-radius:6px;padding:8px;">

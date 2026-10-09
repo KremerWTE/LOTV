@@ -108,12 +108,12 @@ else
                 </span>
               </td>
               <td style="font-size:.76rem;color:var(--text-mid);">@donor.Tier</td>
-              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@donor.TotalGiven" /></td>
+              <td style="text-align:right;font-weight:700;color:var(--green-text);"><Money Amount="@donor.TotalGiven" /></td>
               <td style="text-align:right;color:var(--text-mid);">@donor.GiftCount</td>
               <td style="font-size:.74rem;color:var(--text-light);">@donor.FirstGiftDate.ToString("MMM d, yyyy")</td>
               <td style="font-size:.74rem;color:@((DateTime.UtcNow - donor.LastGiftDate).TotalDays > 365 ? "var(--red)" : "var(--text-light)");">@donor.LastGiftDate.ToString("MMM d, yyyy")</td>
               <td style="text-align:center;">@(donor.IsRecurring ? "✅" : "—")</td>
-              <td><a href="/admin/donors/@donor.Id" style="font-size:.7rem;color:var(--green);" @onclick:stopPropagation>View</a></td>
+              <td><a href="/admin/donors/@donor.Id" style="font-size:.7rem;color:var(--green-text);" @onclick:stopPropagation>View</a></td>
             </tr>
           }
         </tbody>

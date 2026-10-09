@@ -81,7 +81,7 @@ else
     <div class="panel">
       <div class="panel-head">
         <h3>Open Cases (@_openCases.Count)</h3>
-        <a href="/admin/cases" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Cases &rarr;</a>
+        <a href="/admin/cases" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">All Cases &rarr;</a>
       </div>
       <div class="panel-body" style="padding:0;">
         @if (!_openCases.Any())
@@ -118,7 +118,7 @@ else
     <div class="panel">
       <div class="panel-head">
         <h3>My Tasks (@_tasks.Count(t => t.Status != "Completed"))</h3>
-        <a href="/admin/staff-tasks" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">All Tasks &rarr;</a>
+        <a href="/admin/staff-tasks" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">All Tasks &rarr;</a>
       </div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
         @if (!_tasks.Any())
@@ -144,7 +144,7 @@ else
                   <span class="badge badge-@PriorityBadge(t.Priority)" style="font-size:.58rem;">@t.Priority</span>
                   @if (t.LinkedCaseId.HasValue)
                   {
-                    <a href="/admin/cases/@t.LinkedCaseId" style="font-size:.66rem;color:var(--green);">Case #@t.LinkedCaseId</a>
+                    <a href="/admin/cases/@t.LinkedCaseId" style="font-size:.66rem;color:var(--green-text);">Case #@t.LinkedCaseId</a>
                   }
                 </div>
               </div>

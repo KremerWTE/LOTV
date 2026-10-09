@@ -23,9 +23,9 @@ else
   @if (_closed)
   {
     <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
-      <div class="panel-body" style="color:var(--green);font-weight:600;">
+      <div class="panel-body" style="color:var(--green-text);font-weight:600;">
         ✓ Auction closed. Winning bids recorded.
-        <a href="/admin/events/@EventId/auction" style="color:var(--green);margin-left:8px;">View auction →</a>
+        <a href="/admin/events/@EventId/auction" style="color:var(--green-text);margin-left:8px;">View auction →</a>
       </div>
     </div>
   }
@@ -60,7 +60,7 @@ else
         {
           <div>
             <div style="font-size:.78rem;color:var(--text-light);">Total Bids Value</div>
-            <div style="font-weight:700;color:var(--green);">@_totalBids.ToString("C0")</div>
+            <div style="font-weight:700;color:var(--green-text);">@_totalBids.ToString("C0")</div>
           </div>
         }
       </div>

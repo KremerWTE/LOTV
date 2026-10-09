@@ -132,12 +132,12 @@ else
               <td style="font-weight:700;">@r.ChapterName</td>
               <td style="text-align:right;color:@(r.OpenRequests > 10 ? "var(--amber)" : "var(--text-mid)");">@r.OpenRequests</td>
               <td style="text-align:right;font-weight:@(r.OverdueRequests > 0 ? "700" : "400");color:@(r.OverdueRequests > 0 ? "var(--red)" : "var(--text-light)");">@r.OverdueRequests</td>
-              <td style="text-align:right;color:var(--green);font-weight:700;">@r.FulfilledThisPeriod</td>
+              <td style="text-align:right;color:var(--green-text);font-weight:700;">@r.FulfilledThisPeriod</td>
               <td style="text-align:right;color:var(--text-mid);">@r.ActiveVolunteers</td>
-              <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@r.TotalDonations" /></td>
+              <td style="text-align:right;font-weight:700;color:var(--green-text);"><Money Amount="@r.TotalDonations" /></td>
               <td>
                 <div style="display:flex;gap:6px;">
-                  <a href="/admin/chapters/@r.ChapterId/metrics" style="font-size:.7rem;color:var(--green);" @onclick:stopPropagation>Metrics</a>
+                  <a href="/admin/chapters/@r.ChapterId/metrics" style="font-size:.7rem;color:var(--green-text);" @onclick:stopPropagation>Metrics</a>
                   <a href="/admin/chapters/@r.ChapterId/staff" style="font-size:.7rem;color:var(--navy);" @onclick:stopPropagation>Staff</a>
                 </div>
               </td>
@@ -150,9 +150,9 @@ else
             <td>Total</td>
             <td style="text-align:right;">@_summary.Sum(r => r.OpenRequests)</td>
             <td style="text-align:right;color:var(--red);">@_summary.Sum(r => r.OverdueRequests)</td>
-            <td style="text-align:right;color:var(--green);">@_summary.Sum(r => r.FulfilledThisPeriod)</td>
+            <td style="text-align:right;color:var(--green-text);">@_summary.Sum(r => r.FulfilledThisPeriod)</td>
             <td style="text-align:right;">@_summary.Sum(r => r.ActiveVolunteers)</td>
-            <td style="text-align:right;color:var(--green);"><Money Amount="@_summary.Sum(r => r.TotalDonations)" /></td>
+            <td style="text-align:right;color:var(--green-text);"><Money Amount="@_summary.Sum(r => r.TotalDonations)" /></td>
             <td></td>
           </tr>
         </tfoot>

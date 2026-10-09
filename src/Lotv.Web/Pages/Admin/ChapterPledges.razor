@@ -84,7 +84,7 @@ else
                   }
                 </td>
                 <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--navy);">@p.PledgedAmount.ToString("C0")</td>
-                <td style="padding:10px 16px;font-size:.84rem;text-align:right;color:var(--green);">@p.FulfilledAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.84rem;text-align:right;color:var(--green-text);">@p.FulfilledAmount.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.84rem;text-align:right;color:@(p.RemainingAmount > 0 ? "var(--amber)" : "var(--green)");">@p.RemainingAmount.ToString("C0")</td>
                 <td style="padding:10px 16px;">
                   <span class="badge badge-@StatusClass(p.Status)" style="font-size:.68rem;">@p.Status</span>

@@ -18,22 +18,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">🔚</div>
+    <div class="kpi-icon"><Icon Name="spinner" /></div>
     <div class="kpi-label">Unassigned</div>
     <div class="kpi-value" style="color:var(--amber)">@_queue.Count</div>
   </div>
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">⚠</div>
+    <div class="kpi-icon"><Icon Name="alarm-clock" /></div>
     <div class="kpi-label">Overdue &amp; Unassigned</div>
     <div class="kpi-value" style="color:var(--navy)">@_queue.Count(r => r.IsOverdue)</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">👥</div>
+    <div class="kpi-icon"><Icon Name="people-line" /></div>
     <div class="kpi-label">Available Volunteers</div>
     <div class="kpi-value" style="color:var(--green)">@_volunteers.Count</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">🕐</div>
+    <div class="kpi-icon"><Icon Name="scroll-old" /></div>
     <div class="kpi-label">Oldest Waiting</div>
     <div class="kpi-value" style="color:var(--gold)">@_oldestAge</div>
   </div>
@@ -58,19 +58,20 @@ else
 {
   <div class="panel">
     <div class="panel-body" style="padding:0;">
-      <table class="data-table">
+      <div style="overflow-x:auto;">
+      <table class="data-table queue-table">
         <thead>
           <tr>
             <th>#</th>
             <th>Family</th>
-            <th>Contact</th>
-            <th>Location</th>
+            <th class="col-wide">Contact</th>
+            <th class="col-wide">Location</th>
             <th>Reason</th>
             <th>Priority</th>
             <th>Status</th>
-            <th>Created</th>
+            <th class="col-wide">Created</th>
             <th>Age</th>
-            <th></th>
+            <th class="sticky-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -86,27 +87,28 @@ else
                 { <div class="badge badge-onhold" data-needs-info style="margin:4px 0;" title="@string.Join(" ", dq.Issues.Select(i => i.Message))">⚠ @dq.Advice</div> }
                 <div style="font-size:.74rem;color:var(--text-light);">@(r.IsForSelf ? "For their own family" : "Requested for someone else")@(string.IsNullOrEmpty(r.ChildrenInitials) ? "" : $" • Bracelet: {r.ChildrenInitials}")</div>
               </td>
-              <td style="font-size:.78rem;">
+              <td class="col-wide" style="font-size:.78rem;">
                 @if (!string.IsNullOrEmpty(r.Family?.Email)) { <div>@r.Family!.Email</div> }
                 @if (!string.IsNullOrEmpty(r.Family?.Phone)) { <div>@r.Family!.Phone</div> }
               </td>
-              <td style="font-size:.78rem;">
+              <td class="col-wide" style="font-size:.78rem;">
                 <div>@r.Family?.City, @r.Family?.State @r.Family?.Zip</div>
                 @if (!string.IsNullOrEmpty(r.Family?.ParishName)) { <div style="color:var(--text-light);">@r.Family!.ParishName</div> }
               </td>
               <td style="font-size:.8rem;color:var(--text-mid);">@r.Reason.ToDisplayName()</td>
               <td><span class="badge @GetPriorityBadge(r.Priority)">@r.Priority</span></td>
               <td><span class="badge @GetStatusBadge(r.Status)">@r.Status</span></td>
-              <td style="font-size:.76rem;color:var(--text-light);">@r.CreatedAt.ToString("MMM d, yyyy")</td>
+              <td class="col-wide" style="font-size:.76rem;color:var(--text-light);">@r.CreatedAt.ToString("MMM d, yyyy")</td>
               <td style="font-size:.76rem;color:@(r.IsOverdue ? "var(--red)" : "var(--text-light)");">@GetAge(r.CreatedAt)</td>
-              <td style="display:flex;gap:6px;">
+              <td class="sticky-actions" style="white-space:nowrap;"><div style="display:flex;gap:6px;">
                 <button class="btn btn-sm btn-primary" @onclick="() => OpenAssign(r)">Assign</button>
                 <a href="/admin/cases/@r.Id" class="btn btn-sm">Details</a>
-              </td>
+              </div></td>
             </tr>
           }
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 }
@@ -161,7 +163,7 @@ else
               <div style="display:flex;align-items:center;justify-content:space-between;background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;cursor:pointer;"
                    @onclick="() => _assignVolId = c.VolunteerId">
                 <span><strong>@c.Name</strong> — @c.CompositeScore.ToString("F0") pts</span>
-                <span style="color:var(--green);font-weight:600;">Select →</span>
+                <span style="color:var(--green-text);font-weight:600;">Select →</span>
               </div>
             }
           </div>

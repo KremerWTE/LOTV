@@ -78,7 +78,7 @@ else
               <tr style="border-top:1px solid var(--border);">
                 <td style="padding:8px 16px;font-size:.82rem;font-weight:600;">@yr.Key</td>
                 <td style="padding:8px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@yr.Count()</td>
-                <td style="padding:8px 16px;font-size:.84rem;font-weight:700;text-align:right;color:var(--green);">@yr.Sum(d => d.Amount).ToString("C0")</td>
+                <td style="padding:8px 16px;font-size:.84rem;font-weight:700;text-align:right;color:var(--green-text);">@yr.Sum(d => d.Amount).ToString("C0")</td>
               </tr>
             }
           </tbody>
@@ -103,7 +103,7 @@ else
                 <tr style="border-top:1px solid var(--border);">
                   <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
                   <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@d.Channel</td>
-                  <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@d.Amount.ToString("C0")</td>
+                  <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green-text);">@d.Amount.ToString("C0")</td>
                 </tr>
               }
             </tbody>

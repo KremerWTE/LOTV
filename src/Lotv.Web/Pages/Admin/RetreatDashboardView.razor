@@ -58,7 +58,7 @@ else
           <div style="background:@(_dash.CapacityPct >= 90 ? "var(--red)" : "var(--green)");height:100%;width:@Math.Min(100,_dash.CapacityPct).ToString("F0")%;"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center;font-size:.78rem;">
-          <div><div style="font-size:1.1rem;font-weight:700;color:var(--green);">@_dash.PaidCount</div><div style="color:var(--text-light);">Paid</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700;color:var(--green-text);">@_dash.PaidCount</div><div style="color:var(--text-light);">Paid</div></div>
           <div><div style="font-size:1.1rem;font-weight:700;color:var(--amber);">@_dash.PartialCount</div><div style="color:var(--text-light);">Partial</div></div>
           <div><div style="font-size:1.1rem;font-weight:700;color:var(--red);">@_dash.UnpaidCount</div><div style="color:var(--text-light);">Unpaid</div></div>
           <div><div style="font-size:1.1rem;font-weight:700;color:var(--navy);">@_dash.ComplimentaryCount</div><div style="color:var(--text-light);">Comp</div></div>

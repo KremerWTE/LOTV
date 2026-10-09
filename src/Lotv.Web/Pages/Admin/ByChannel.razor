@@ -57,7 +57,7 @@
       <div class="panel">
         <div class="panel-body" style="text-align:center;">
           <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);margin-bottom:8px;">@row.Channel</div>
-          <div style="font-family:var(--ff-head);font-size:1.8rem;font-weight:700;color:var(--green);margin-bottom:4px;">@row.Amount.ToString("C0")</div>
+          <div style="font-family:var(--ff-head);font-size:1.8rem;font-weight:700;color:var(--green-text);margin-bottom:4px;">@row.Amount.ToString("C0")</div>
           <div style="font-size:.8rem;color:var(--text-mid);margin-bottom:12px;">@row.Count gift@(row.Count != 1 ? "s" : "")</div>
           <div class="progress-bar"><div class="progress-fill" style="width:@pct%;"></div></div>
           <div style="font-size:.7rem;color:var(--text-light);margin-top:4px;">@pct% of total</div>
@@ -79,7 +79,7 @@
           <tr>
             <td><strong>@row.Channel</strong></td>
             <td>@row.Count</td>
-            <td style="font-weight:700;color:var(--green);">@row.Amount.ToString("C0")</td>
+            <td style="font-weight:700;color:var(--green-text);">@row.Amount.ToString("C0")</td>
             <td style="color:var(--text-mid);">@(row.Count > 0 ? (row.Amount / row.Count).ToString("C0") : "—")</td>
             <td>
               <div style="display:flex;align-items:center;gap:8px;">

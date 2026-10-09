@@ -96,7 +96,7 @@ else
           { <span style="color:var(--blush);font-weight:600;">⚠ @overdue overdue</span> }
           @if (unassigned > 0)
           { <span style="color:var(--text-mid);">@unassigned unassigned</span> }
-          <a href="/admin/cases" style="color:var(--green);font-size:.74rem;text-decoration:none;font-weight:600;">View Cases &rarr;</a>
+          <a href="/admin/cases" style="color:var(--green-text);font-size:.74rem;text-decoration:none;font-weight:600;">View Cases &rarr;</a>
         </div>
       </div>
 
@@ -125,7 +125,7 @@ else
                   </div>
                   <div style="color:var(--text-light);font-size:.7rem;">@req.Reason &bull; @GetAge(req.CreatedAt)</div>
                   @if (!string.IsNullOrEmpty(req.AssignedTo))
-                  { <div style="font-size:.7rem;color:var(--green);margin-top:2px;">✓ @req.AssignedTo</div> }
+                  { <div style="font-size:.7rem;color:var(--green-text);margin-top:2px;">✓ @req.AssignedTo</div> }
                   else
                   { <div style="font-size:.7rem;color:var(--text-light);margin-top:2px;">Unassigned</div> }
                 </div>

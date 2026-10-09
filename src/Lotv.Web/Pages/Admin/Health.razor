@@ -122,7 +122,7 @@ else
           <div><strong>Last migration:</strong> <span style="font-family:monospace;font-size:.78rem;">@(_diag.LastMigration ?? "—")</span></div>
           <div><strong>Pending migrations:</strong>
             @if (_diag.PendingMigrations > 0) { <span style="color:var(--amber);">@_diag.PendingMigrations</span> }
-            else { <span style="color:var(--green-dark);">none</span> }
+            else { <span style="color:var(--green-text);">none</span> }
           </div>
           <div><strong>Webhook events (7d):</strong> @_diag.WebhookEvents7d</div>
         </div>

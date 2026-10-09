@@ -50,7 +50,7 @@
             <tr style="background:rgba(220,38,38,.04);">
               <td style="font-size:.84rem;font-weight:600;">@g.GrantorName</td>
               <td style="font-size:.78rem;color:var(--text-mid);">@g.Purpose</td>
-              <td style="font-size:.84rem;color:var(--green);font-weight:600;">@g.Amount.ToString("C0")</td>
+              <td style="font-size:.84rem;color:var(--green-text);font-weight:600;">@g.Amount.ToString("C0")</td>
               <td style="font-size:.76rem;color:var(--red);">@(g.ReportDueDate?.ToString("MMM d, yyyy") ?? "—")</td>
               <td style="font-size:.84rem;font-weight:700;color:var(--red);">@daysOver d</td>
             </tr>
@@ -75,7 +75,7 @@
             <tr>
               <td style="font-size:.84rem;font-weight:600;">@g.GrantorName</td>
               <td style="font-size:.78rem;color:var(--text-mid);">@g.Purpose</td>
-              <td style="font-size:.84rem;color:var(--green);font-weight:600;">@g.Amount.ToString("C0")</td>
+              <td style="font-size:.84rem;color:var(--green-text);font-weight:600;">@g.Amount.ToString("C0")</td>
               <td style="font-size:.76rem;color:var(--amber);">@(g.ReportDueDate?.ToString("MMM d, yyyy") ?? "—")</td>
               <td style="font-size:.84rem;font-weight:700;color:@(daysLeft <= 7 ? "var(--red)" : "var(--amber)");">@daysLeft d</td>
             </tr>
@@ -127,7 +127,7 @@
               <td style="font-size:.84rem;font-weight:600;">@g.GrantorName</td>
               <td style="font-size:.78rem;color:var(--text-mid);max-width:160px;overflow:hidden;text-overflow:ellipsis;">@g.Purpose</td>
               <td><span class="badge badge-@StatusBadge(g.Status)" style="font-size:.62rem;">@g.Status</span></td>
-              <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@g.Amount.ToString("C0")</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green-text);font-weight:600;">@g.Amount.ToString("C0")</td>
               <td style="font-size:.76rem;color:var(--text-light);">@g.AwardedDate.ToString("MMM d, yyyy")</td>
               <td style="font-size:.76rem;color:@(isPastDue ? "var(--red)" : "var(--text-light)");">
                 @(g.ReportDueDate?.ToString("MMM d, yyyy") ?? "—")

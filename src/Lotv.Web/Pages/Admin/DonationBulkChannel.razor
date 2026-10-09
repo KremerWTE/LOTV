@@ -63,7 +63,7 @@
 @if (!string.IsNullOrEmpty(_resultMsg))
 {
   <div class="panel" style="border-left:4px solid var(--green);margin-bottom:14px;">
-    <div class="panel-body" style="color:var(--green);font-weight:600;">@_resultMsg</div>
+    <div class="panel-body" style="color:var(--green-text);font-weight:600;">@_resultMsg</div>
   </div>
 }
 
@@ -118,7 +118,7 @@
               </td>
               <td style="font-size:.84rem;font-weight:600;">@(d.Donor?.FullName ?? "Anonymous")</td>
               <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
-              <td style="text-align:right;font-size:.84rem;color:var(--green);font-weight:600;">@d.Amount.ToString("C0")</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green-text);font-weight:600;">@d.Amount.ToString("C0")</td>
               <td>
                 <span class="badge badge-new" style="font-size:.6rem;">@d.Channel.ToDisplayName()</span>
               </td>

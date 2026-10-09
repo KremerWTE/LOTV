@@ -45,7 +45,7 @@
         <div style="background:var(--green-pale);border-radius:8px;padding:12px 14px;font-size:.84rem;">
           <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">@(_selected.Name.Length > 0 ? _selected.Name : CategoryLabel(_selected.Category)) @(string.IsNullOrEmpty(_selected.Description) ? "" : $"— {_selected.Description}")</div>
           <div style="color:var(--text-mid);">
-            Available: <strong style="color:var(--green);">@_selected.QuantityOnHand @_selected.Unit</strong>
+            Available: <strong style="color:var(--green-text);">@_selected.QuantityOnHand @_selected.Unit</strong>
             &bull; Added: @_selected.CreatedAt.ToString("MMM d, yyyy")
           </div>
         </div>
@@ -90,7 +90,7 @@
       }
       @if (_success)
       {
-        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ Resource allocation recorded. <a href="/admin/allocations" style="color:var(--green);">View ledger &rarr;</a></div>
+        <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-text);">✓ Resource allocation recorded. <a href="/admin/allocations" style="color:var(--green-text);">View ledger &rarr;</a></div>
       }
 
       <div style="display:flex;gap:10px;">

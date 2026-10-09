@@ -55,7 +55,7 @@ else
         <div style="font-size:.78rem;color:var(--text-mid);">Days since last gift. 5 = gave in last 30d. 1 = over 2 years ago.</div>
       </div>
       <div style="flex:1;min-width:150px;">
-        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:4px;">F — Frequency</div>
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--green-text);margin-bottom:4px;">F — Frequency</div>
         <div style="font-size:.78rem;color:var(--text-mid);">Number of gifts. 5 = 10+ gifts. 1 = only 1 gift.</div>
       </div>
       <div style="flex:1;min-width:150px;">
@@ -110,10 +110,10 @@ else
                   @seg.Icon @seg.Name
                 </span>
               </td>
-              <td style="text-align:right;color:var(--green);font-weight:600;"><Money Amount="@d.TotalGiven" /></td>
+              <td style="text-align:right;color:var(--green-text);font-weight:600;"><Money Amount="@d.TotalGiven" /></td>
               <td style="text-align:right;color:var(--text-mid);">@d.GiftCount</td>
               <td style="font-size:.74rem;color:var(--text-light);">@d.LastGift.ToString("MMM d, yyyy")</td>
-              <td><a href="/admin/donors/@d.DonorId/touchpoints" style="font-size:.7rem;color:var(--green);" @onclick:stopPropagation>Contact</a></td>
+              <td><a href="/admin/donors/@d.DonorId/touchpoints" style="font-size:.7rem;color:var(--green-text);" @onclick:stopPropagation>Contact</a></td>
             </tr>
           }
         </tbody>

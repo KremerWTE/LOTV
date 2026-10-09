@@ -268,7 +268,7 @@ else
                 <button class="btn btn-primary" disabled="@_saving" @onclick="SaveSettings">
                     @(_saving ? "Saving…" : "Save Settings")
                 </button>
-                @if (_settingsSaved) { <span style="color:var(--green);margin-left:12px">✓ Saved</span> }
+                @if (_settingsSaved) { <span style="color:var(--green-text);margin-left:12px">✓ Saved</span> }
             </div>
         </div>
     }
@@ -651,7 +651,7 @@ else
 
 <style>
     .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
-    .back-link { color:var(--green); font-size:0.85rem; text-decoration:none; display:block; margin-bottom:4px; }
+    .back-link { color:var(--green-text); font-size:0.85rem; text-decoration:none; display:block; margin-bottom:4px; }
     .page-title { font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--navy); margin:0; }
     .page-subtitle { color:var(--gray); margin:4px 0 0; }
     .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px; }
@@ -667,7 +667,7 @@ else
     .source-icon { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:700; }
     .gb-icon { background:#e8f0fe; color:#1a56db; }
     .duda-icon { background:#f0e8fe; color:#7c3aed; }
-    .manual-icon { background:#e8f4ec; color:var(--green); }
+    .manual-icon { background:#e8f4ec; color:var(--green-text); }
     .source-count { font-size:1.2rem; font-weight:700; color:var(--navy); }
     .source-label { font-size:0.78rem; color:var(--gray); }
     .tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px; }
@@ -682,9 +682,9 @@ else
     .source-badge { padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; }
     .source-gb { background:#e8f0fe; color:#1a56db; }
     .source-duda { background:#f0e8fe; color:#7c3aed; }
-    .source-manual { background:#e8f4ec; color:var(--green); }
+    .source-manual { background:#e8f4ec; color:var(--green-text); }
     .badge { padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; display:inline-block; }
-    .badge-green  { background:#e6f4ec; color:var(--green); }
+    .badge-green  { background:#e6f4ec; color:var(--green-text); }
     .badge-red    { background:#fdecea; color:var(--red); }
     .badge-amber  { background:#fff8e6; color:#b07d00; }
     .badge-gray   { background:#f0f0f0; color:#666; }
@@ -696,7 +696,7 @@ else
     .panel-header { background:#f8f9fa; padding:14px 20px; font-weight:600; color:var(--navy); border-bottom:1px solid var(--border); }
     .panel-body { padding:20px; }
     .drawer-wide { width:560px; }
-    .alert-success { background:#e6f4ec; color:var(--green); border:1px solid #b6dfc6; border-radius:8px; padding:10px 16px; }
+    .alert-success { background:#e6f4ec; color:var(--green-text); border:1px solid #b6dfc6; border-radius:8px; padding:10px 16px; }
     .alert-warning { background:#fff8e6; color:#b07d00; border:1px solid #f0d080; border-radius:8px; padding:10px 16px; }
     .loading-spinner { text-align:center; padding:40px; color:var(--gray); }
     .empty-state { text-align:center; color:var(--gray); }

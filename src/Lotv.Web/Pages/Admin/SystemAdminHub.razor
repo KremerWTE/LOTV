@@ -17,6 +17,7 @@
     <button class="tab-btn @(_active == t.Key ? "active" : "")"
             style="padding:8px 16px;border-radius:7px;border:none;background:@(_active == t.Key ? "var(--green)" : "none");color:@(_active == t.Key ? "white" : "var(--text-mid)");font-size:.85rem;font-weight:500;cursor:pointer;"
             @onclick="() => _active = t.Key">
+      @if (t.Key == "request-form") { <Icon Name="pen-to-square" /> }
       @t.Label
     </button>
   }

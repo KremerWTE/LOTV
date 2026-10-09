@@ -74,7 +74,7 @@
             <div style="font-size:.7rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;">Overdue</div>
           </div>
           <div>
-            <div style="font-size:1.4rem;font-weight:700;font-family:var(--ff-head);color:var(--green);">@row.Volunteer.TotalCasesFulfilled</div>
+            <div style="font-size:1.4rem;font-weight:700;font-family:var(--ff-head);color:var(--green-text);">@row.Volunteer.TotalCasesFulfilled</div>
             <div style="font-size:.7rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;">Total Done</div>
           </div>
         </div>
@@ -110,7 +110,7 @@
   <div class="panel" style="margin-top:20px;">
     <div class="panel-head">
       <h3>Unassigned Queue — @_unassigned.Count case@(_unassigned.Count == 1 ? "" : "s") waiting</h3>
-      <a href="/admin/queue" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Queue &rarr;</a>
+      <a href="/admin/queue" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Full Queue &rarr;</a>
     </div>
     <div class="panel-body" style="display:flex;flex-wrap:wrap;gap:8px;">
       @foreach (var c in _unassigned)

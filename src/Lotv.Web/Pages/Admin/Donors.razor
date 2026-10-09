@@ -71,10 +71,10 @@
             <td><strong>@d.FullName</strong></td>
             <td style="font-size:.8rem;color:var(--text-mid);">@d.Email</td>
             <td><span class="badge @TierBadge(d.Tier)">@d.Tier</span></td>
-            <td style="font-weight:700;color:var(--green);">@d.TotalGiven.ToString("C0")</td>
+            <td style="font-weight:700;color:var(--green-text);">@d.TotalGiven.ToString("C0")</td>
             <td>
               @if (d.IsRecurring)
-              { <span style="color:var(--green);font-weight:700;font-size:.82rem;">✓ @d.RecurringAmount?.ToString("C0")/mo</span> }
+              { <span style="color:var(--green-text);font-weight:700;font-size:.82rem;">✓ @d.RecurringAmount?.ToString("C0")/mo</span> }
               else
               { <span style="color:var(--text-light);font-size:.8rem;">One-time</span> }
             </td>
@@ -151,7 +151,7 @@
         <button class="btn" @onclick="CloseForm">Cancel</button>
       </div>
       @if (_formSaved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-dark);">✓ Saved successfully.</div> }
+      { <div style="background:var(--green-pale);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--green-text);">✓ Saved successfully.</div> }
       @if (!string.IsNullOrEmpty(_formError))
       { <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;font-size:.84rem;color:#856404;">⚠ @_formError</div> }
 
@@ -167,7 +167,7 @@
               {
                 <div style="background:var(--bg);border-radius:8px;padding:9px 12px;font-size:.82rem;display:flex;justify-content:space-between;align-items:center;gap:10px;">
                   <div>
-                    <span style="font-weight:700;color:var(--green);">@gift.Amount.ToString("C0")</span>
+                    <span style="font-weight:700;color:var(--green-text);">@gift.Amount.ToString("C0")</span>
                     <span style="color:var(--text-light);margin-left:6px;">@gift.Date.ToString("MMM d, yyyy")</span>
                     @if (!string.IsNullOrEmpty(gift.Campaign))
                     { <div style="font-size:.72rem;color:var(--text-light);margin-top:2px;">@gift.Campaign</div> }

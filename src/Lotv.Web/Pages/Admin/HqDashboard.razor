@@ -113,7 +113,7 @@ else
                 </td>
                 <td style="text-align:right;font-weight:@(row.OpenRequests > 10 ? "700" : "400");color:@(row.OpenRequests > 10 ? "var(--amber)" : "inherit");">@row.OpenRequests</td>
                 <td style="text-align:right;font-weight:700;color:@(row.OverdueRequests > 0 ? "var(--blush)" : "var(--text-light)");">@row.OverdueRequests</td>
-                <td style="text-align:right;color:var(--green);font-weight:600;">@row.FulfilledThisPeriod</td>
+                <td style="text-align:right;color:var(--green-text);font-weight:600;">@row.FulfilledThisPeriod</td>
                 <td style="text-align:right;">@row.TotalDonations.ToString("C0")</td>
                 <td style="text-align:right;">@row.ActiveVolunteers</td>
                 <td><a href="/admin/cases?chapterId=@row.ChapterId" class="btn btn-sm" style="white-space:nowrap;">View Cases</a></td>

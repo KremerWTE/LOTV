@@ -94,7 +94,7 @@
             <td>
               <span style="font-weight:600;">@cases.Count</span>
               @if (openCount > 0)
-              { <span style="font-size:.72rem;color:var(--green);margin-left:4px;">(@openCount open)</span> }
+              { <span style="font-size:.72rem;color:var(--green-text);margin-left:4px;">(@openCount open)</span> }
             </td>
             <td>
               @switch (f.Status)
@@ -215,7 +215,7 @@
       </div>
 
       @if (_drawerSaved)
-      { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-dark);">✓ Family record updated</div> }
+      { <div style="background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;color:var(--green-text);">✓ Family record updated</div> }
     </div>
     <div class="drawer-footer">
       <button class="btn btn-primary" @onclick="SaveFamilyAsync">Save</button>

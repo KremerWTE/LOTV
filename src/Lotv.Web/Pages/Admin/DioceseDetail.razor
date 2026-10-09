@@ -28,12 +28,12 @@ else
 {
   <div class="kpi-grid" style="margin-bottom:20px;">
     <div class="kpi-card kpi-navy">
-      <div class="kpi-icon">🏠</div>
+      <div class="kpi-icon"><Icon Name="cross" /></div>
       <div class="kpi-label">Total Parishes</div>
       <div class="kpi-value" style="color:var(--navy)">@_diocese.TotalParishes</div>
     </div>
     <div class="kpi-card kpi-green">
-      <div class="kpi-icon">✅</div>
+      <div class="kpi-icon"><Icon Name="church" /></div>
       <div class="kpi-label">Active Parishes</div>
       <div class="kpi-value" style="color:var(--green)">@_diocese.ActiveParishes</div>
     </div>
@@ -115,7 +115,7 @@ else
                   <span class="badge badge-@StatusClass(p.Status)" style="font-size:.68rem;">@p.Status</span>
                 </td>
                 <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@p.ActiveCases</td>
-                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green);">@p.TotalCasesFulfilled</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green-text);">@p.TotalCasesFulfilled</td>
                 <td style="padding:10px 16px;text-align:center;">
                   <a href="/admin/parishes/@p.Id" style="font-size:.78rem;color:var(--navy);">View</a>
                 </td>

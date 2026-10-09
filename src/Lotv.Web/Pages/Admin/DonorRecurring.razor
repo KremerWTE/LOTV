@@ -69,7 +69,7 @@ else
             @foreach (var s in _schedules.OrderByDescending(s => s.CreatedAt))
             {
               <tr style="border-top:1px solid var(--border);">
-                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@s.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green-text);">@s.Amount.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.84rem;">@s.Frequency.ToDisplayName()</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@s.NextChargeDate.ToString("MMM d, yyyy")</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@(s.LastChargedAt?.ToString("MMM d, yyyy") ?? "—")</td>
