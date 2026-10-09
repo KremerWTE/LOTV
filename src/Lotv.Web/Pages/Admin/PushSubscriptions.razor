@@ -7,6 +7,12 @@
 <div class="page-hd">
   <div><h2>Push Subscriptions</h2><p>Browser notification endpoints registered by users in this org.</p></div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <div class="panel">
   <div class="panel-body" style="padding:0;">
@@ -33,10 +39,16 @@
     </table>
   </div>
 </div>
+}
 
 @code {
+  private bool _loading = true;
   private List<ApiService.PushSubRow> _rows = new();
-  protected override async Task OnInitializedAsync() => _rows = await Api.GetPushSubscriptionsAsync();
+  protected override async Task OnInitializedAsync()
+  {
+    try { _rows = await Api.GetPushSubscriptionsAsync(); }
+    finally { _loading = false; }
+  }
   private async Task Revoke(int id)
   {
     if (await Api.RevokePushSubscriptionAsync(id))

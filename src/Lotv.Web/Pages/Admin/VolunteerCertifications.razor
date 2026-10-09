@@ -10,6 +10,12 @@
     <button class="btn btn-sm" @onclick="Reload">↻ Refresh</button>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
@@ -142,8 +148,10 @@
     </div>
   </div>
 }
+}
 
 @code {
+  private bool _loading = true;
   private List<VolCertDto> _all = [];
   private List<VolunteerSummary> _volunteers = [];
   private string _search = "", _typeFilter = "All";
@@ -162,9 +170,13 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     _all = await Api.GetAllCertificationsAsync();
     var vols = await Api.GetVolunteersAsync();
     _volunteers = vols.Select(v => new VolunteerSummary(v.Id, v.FirstName, v.LastName)).ToList();
+      }
+    finally { _loading = false; }
   }
 
   private async Task Reload() { _all = await Api.GetAllCertificationsAsync(); }

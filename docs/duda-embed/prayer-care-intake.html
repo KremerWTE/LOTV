@@ -118,14 +118,15 @@
 
   // ── i18n for this page's OWN chrome only ───────────────────────────────
   // The form's actual questions (title, intro, field labels/placeholders/help,
-  // option text, confirmation title/body, donation box, footer note) all come
-  // from `def` below — staff-authored content fetched from the API, editable
-  // in the dashboard's Edit Request Form page. Translating THAT is a content
-  // problem (staff would need a way to author a Spanish version and keep it in
-  // sync), not a code one, and is out of scope here. What this section does
-  // translate is the handful of strings this file hardcodes itself: loading/
-  // error states, the bracelet builder's column headers and options, and
-  // client-side validation messages. Reads the same "lotv.culture" localStorage
+  // option text, confirmation title/body, donation box, footer note) come from
+  // `def` below — staff-authored content fetched from the API. Each text can
+  // carry an optional Spanish version in an "es" block (written in the Edit
+  // Request Form page; the API fills in built-in Spanish for anything left blank),
+  // which localize() lays over the English when the visitor chose Español.
+  // Anything staff READ (the notes sent with a request) always uses the English
+  // wording. This section also translates the handful of strings this file
+  // hardcodes itself: loading/error states, the bracelet builder's column
+  // headers and options, and client-side validation messages. Reads the same "lotv.culture" localStorage
   // key the main Blazor site's language switcher sets, so a visitor who picked
   // Español before clicking through to this form sees it here too — same-origin
   // only; a Duda-embedded iframe on another domain can't see that key and
@@ -175,6 +176,24 @@
     }
   };
   function t(key) { return (STRINGS[LANG] && STRINGS[LANG][key]) || STRINGS.en[key] || key; }
+
+  // English copy of every question, kept before any Spanish is laid over it: the notes staff read use these labels.
+  var enFields = {};
+  function localize(d) {
+    (d.fields || []).forEach(function (f) { if (f.key) enFields[f.key] = JSON.parse(JSON.stringify(f)); });
+    if (LANG !== "es") return;
+    function over(o, es, keys) {
+      if (!o || !es) return;
+      keys.forEach(function (k) { if (es[k] && String(es[k]).trim()) o[k] = es[k]; });
+    }
+    over(d, d.es, ["title", "intro", "submitLabel", "footerNote", "toggleLabelMe", "toggleLabelSomeone", "whoIsThisForLabel"]);
+    if (d.confirmation) over(d.confirmation, d.confirmation.es, ["title", "body"]);
+    if (d.donation) over(d.donation, d.donation.es, ["title", "body"]);
+    (d.fields || []).forEach(function (f) {
+      over(f, f.es, ["label", "labelMe", "labelSomeone", "labelPrayerOnly", "placeholder", "help", "buttonLabel", "buttonLabelMe", "buttonLabelSomeone"]);
+      (f.options || []).forEach(function (o) { over(o, o.es, ["label", "labelSomeone"]); });
+    });
+  }
   function tf(key, arg) { return t(key).replace("{0}", arg); }
 
   var root = document.getElementById("lotv-intake");
@@ -215,7 +234,7 @@
   // ── load the definition ─────────────────────────────────────────────────
   fetch(API_BASE_URL + "/api/v1/public/forms/" + FORM_KEY)
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(function (d) { def = d; build(); })
+    .then(function (d) { def = d; localize(def); build(); })
     .catch(function () {
       loadingEl.hidden = true;
       loadErrorEl.textContent = t("unavailable");
@@ -465,6 +484,8 @@
   }
   function clearError() { errorBox.hidden = true; }
   function plainLabel(f) { return resolveLabel(f).replace(/[:\s]+$/, ""); }
+  // Staff-facing notes stay in English whatever language the visitor used.
+  function plainLabelEn(f) { return resolveLabel(enFields[f.key] || f).replace(/[:\s]+$/, ""); }
   function nameParts(full) {
     var parts = (full || "").trim().split(/\s+/);
     return { first: parts.shift() || "", last: parts.join(" ") };
@@ -545,7 +566,7 @@
       if (f.type === "checkbox" && f.optinLabel) { if (rawValue(f.key)) optins.push(f.optinLabel); return; }
       if (f.standard) return;
       var v = rawValue(f.key);
-      if (v) notes.push(plainLabel(f) + ": " + (f.type === "checkbox" ? "Yes" : v));
+      if (v) notes.push(plainLabelEn(f) + ": " + (f.type === "checkbox" ? "Yes" : v));
     });
     if (optins.length) notes.push("Opted in to: " + optins.join(", "));
     if (notes.length) family.contactNotes = notes.join(" | ");

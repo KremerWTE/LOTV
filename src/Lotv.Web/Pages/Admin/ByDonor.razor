@@ -12,6 +12,12 @@
     </button>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 @if (_toast is not null)
 {
   <div role="status" style="background:var(--green-pale);border:1px solid var(--green);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.84rem;color:var(--green-text);">@_toast</div>
@@ -156,8 +162,10 @@
     </table>
   </div>
 </div>
+}
 
 @code {
+  private bool _loading = true;
   [Parameter, SupplyParameterFromQuery] public string? City { get; set; }
   [Parameter, SupplyParameterFromQuery] public string? Diocese { get; set; }
   [Parameter, SupplyParameterFromQuery(Name = "sort")] public string? SortParam { get; set; }
@@ -234,6 +242,8 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     var donors    = (await Api.GetDonorsAsync()).ToDictionary(d => d.Id);
     var donations = await Api.GetDonationsAsync();
 
@@ -247,6 +257,8 @@
       .Select(g => new DonorRow(donors[g.Key], g.Count(), g.Sum(d => d.Amount)))
       .OrderByDescending(r => r.Total)
       .ToList();
+      }
+    finally { _loading = false; }
   }
 
   private void ToggleExpand(int donorId) => _expanded = _expanded == donorId ? 0 : donorId;

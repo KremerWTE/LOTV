@@ -10,6 +10,12 @@
     <button class="btn btn-primary btn-sm" @onclick="() => OpenDrawer(null)">+ New Announcement</button>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
@@ -127,8 +133,10 @@
     </div>
   </div>
 }
+}
 
 @code {
+  private bool _loading = true;
   private List<AnnouncementDto> _announcements = [];
   private string _search = "", _audienceFilter = "All";
   private bool _editing, _saving;
@@ -155,7 +163,11 @@
     .OrderByDescending(a => a.IsPinned)
     .ThenByDescending(a => a.CreatedAt);
 
-  protected override async Task OnInitializedAsync() => _announcements = await Api.GetAnnouncementsAsync();
+  protected override async Task OnInitializedAsync()
+  {
+    try { _announcements = await Api.GetAnnouncementsAsync(); }
+    finally { _loading = false; }
+  }
 
   private void OpenDrawer(AnnouncementDto? a)
   {

@@ -130,6 +130,8 @@ public class ShippingLabelTests
         public bool IsConfigured => configured;
         public Task<ShippoOrderResult> CreateOrderAsync(PackageRequest request, Family family, CancellationToken ct = default)
         { Calls++; return Task.FromResult(Result()); }
+        public Func<ShippoLabelResult> Label { get; set; } = () => new(true, false, null, null, null, null, null);
+        public Task<ShippoLabelResult> GetLabelAsync(string orderId, CancellationToken ct = default) => Task.FromResult(Label());
     }
 
     private async Task<HttpClient> ClientWithAsync(FakeShippo fake)
@@ -191,6 +193,70 @@ public class ShippingLabelTests
         var calls = fake.Calls;
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/api/v1/requests/{requestId}/shippo/send", null)).StatusCode);
         Assert.Equal(calls, fake.Calls);
+    }
+
+    [Fact]
+    public async Task RefreshFromShippo_SavesTheRealLabel_AndFillsTheCaseTrackingNumber()
+    {
+        var fake = new FakeShippo(true, () => new(true, "order_lbl", null));
+        var client = await ClientWithAsync(fake);
+        var requestId = await NewRequestAsync(wantsPackage: true);
+        Assert.Equal(HttpStatusCode.OK, await MoveToStageAsync(client, requestId, ProcessStage.Packing));
+
+        // nothing bought yet: the case is untouched
+        var notYet = await client.PostAsync($"/api/v1/requests/{requestId}/shippo/refresh", null);
+        Assert.Equal(HttpStatusCode.OK, notYet.StatusCode);
+        Assert.Contains("\"purchased\":false", await notYet.Content.ReadAsStringAsync());
+        Assert.True((await LabelAsync(requestId)).IsPlaceholder);
+
+        // staff buy the label in Shippo; reading it back saves the real details
+        fake.Label = () => new(true, true, "9400111899223344556677", "USPS", "Priority Mail", "https://shippo.example/label.pdf", null);
+        var got = await client.PostAsync($"/api/v1/requests/{requestId}/shippo/refresh", null);
+        Assert.Equal(HttpStatusCode.OK, got.StatusCode);
+        var label = await LabelAsync(requestId);
+        Assert.False(label.IsPlaceholder);
+        Assert.Equal("9400111899223344556677", label.TrackingNumber);
+        Assert.Equal("USPS", label.Carrier);
+        Assert.Equal("https://shippo.example/label.pdf", label.LabelFileUrl);
+
+        var saved = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/v1/requests/{requestId}");
+        Assert.Equal("9400111899223344556677", saved.GetProperty("trackingNumber").GetString());
+
+        var status = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/v1/requests/{requestId}/shippo");
+        Assert.True(status.GetProperty("labelPurchased").GetBoolean());
+        Assert.Equal("USPS", status.GetProperty("carrier").GetString());
+    }
+
+    [Fact]
+    public async Task RefreshFromShippo_NeverOverwritesATrackingNumberStaffAlreadyEntered()
+    {
+        var fake = new FakeShippo(true, () => new(true, "order_keep", null));
+        var client = await ClientWithAsync(fake);
+        var requestId = await NewRequestAsync(wantsPackage: true);
+        Assert.Equal(HttpStatusCode.OK, await MoveToStageAsync(client, requestId, ProcessStage.Packing));
+        await client.PatchAsJsonAsync($"/api/v1/requests/{requestId}", new { TrackingNumber = "MINE-123" });
+
+        fake.Label = () => new(true, true, "FROM-SHIPPO-999", "UPS", "Ground", null, null);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/api/v1/requests/{requestId}/shippo/refresh", null)).StatusCode);
+
+        var saved = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/v1/requests/{requestId}");
+        Assert.Equal("MINE-123", saved.GetProperty("trackingNumber").GetString());
+        Assert.Equal("FROM-SHIPPO-999", (await LabelAsync(requestId)).TrackingNumber);   // the label record still has Shippo's
+    }
+
+    [Fact]
+    public async Task RefreshFromShippo_IsRefused_BeforeTheOrderWasSent_AndReportsShippoErrors()
+    {
+        var failing = new FakeShippo(true, () => new(false, null, "Shippo returned HTTP 500."));
+        var client = await ClientWithAsync(failing);
+        var requestId = await NewRequestAsync(wantsPackage: true);
+        Assert.Equal(HttpStatusCode.OK, await MoveToStageAsync(client, requestId, ProcessStage.Packing));
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync($"/api/v1/requests/{requestId}/shippo/refresh", null)).StatusCode);   // never sent
+
+        failing.Result = () => new(true, "order_x", null);
+        await client.PostAsync($"/api/v1/requests/{requestId}/shippo/send", null);
+        failing.Label = () => new(false, false, null, null, null, null, "Could not reach Shippo.");
+        Assert.Equal(HttpStatusCode.BadGateway, (await client.PostAsync($"/api/v1/requests/{requestId}/shippo/refresh", null)).StatusCode);
     }
 
     [Fact]

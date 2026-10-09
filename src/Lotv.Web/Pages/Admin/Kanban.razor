@@ -16,6 +16,12 @@
   </div>
   <CaseToolbar Active="pipeline" NeedsInfoCount="NeedsInfoCount" NeedsInfoOnly="_needsInfoOnly" OnToggleNeedsInfo="ToggleNeedsInfo" />
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 @if (!string.IsNullOrEmpty(_dropError))
 {
@@ -112,8 +118,10 @@
     </div>
   </div>
 }
+}
 
 @code {
+  private bool _loading = true;
   private record Column(string Key, string Label, string Color);
 
   // Kanban-only column layout — a display remapping of the underlying Status +
@@ -192,12 +200,16 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     await LoadAsync();
     try { await Hub.ConnectAsync(); } catch { }
     Hub.OnCaseStatusChanged += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
     Hub.OnCaseCreated       += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
     Hub.OnCaseAssigned      += async (_, _, _) => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
     Hub.OnReconnected       += async ()         => { await LoadAsync(); await InvokeAsync(StateHasChanged); };
+      }
+    finally { _loading = false; }
   }
 
   private Dictionary<int, int> _capacityById = new();

@@ -158,5 +158,52 @@ public class ShippoOrderClient(HttpClient http, IOptions<ShippoOptions> options,
         }
     }
 
+    public async Task<ShippoLabelResult> GetLabelAsync(string orderId, CancellationToken ct = default)
+    {
+        if (!IsConfigured) return new(false, false, null, null, null, null, "Shippo is not configured.");
+        try
+        {
+            var json = await GetJsonAsync($"/orders/{Uri.EscapeDataString(orderId)}", ct);
+            if (json is null) return new(false, false, null, null, null, null, "Could not read the order from Shippo.");
+            string? S(System.Text.Json.JsonElement e, string n) =>
+                e.ValueKind == System.Text.Json.JsonValueKind.Object && e.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+
+            // The label shows up as a successful "transaction" on the order once it has been bought.
+            System.Text.Json.JsonElement? bought = null;
+            if (json.Value.TryGetProperty("transactions", out var txs) && txs.ValueKind == System.Text.Json.JsonValueKind.Array)
+                foreach (var t in txs.EnumerateArray())
+                    if (string.Equals(S(t, "status"), "SUCCESS", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(S(t, "tracking_number")))
+                        bought = t;
+            if (bought is null) return new(true, false, null, null, null, null, null);
+
+            string? carrier = null, service = null;
+            var rateId = S(bought.Value, "rate");
+            if (!string.IsNullOrEmpty(rateId))
+            {
+                var rate = await GetJsonAsync($"/rates/{Uri.EscapeDataString(rateId)}", ct);
+                if (rate is not null)
+                {
+                    carrier = S(rate.Value, "provider");
+                    if (rate.Value.TryGetProperty("servicelevel", out var sl)) service = S(sl, "name");
+                }
+            }
+            return new(true, true, S(bought.Value, "tracking_number"), carrier, service, S(bought.Value, "label_url"), null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex, "Shippo label lookup threw for order {OrderId}", orderId);
+            return new(false, false, null, null, null, null, "Could not reach Shippo: " + ex.Message);
+        }
+    }
+
+    private async Task<System.Text.Json.JsonElement?> GetJsonAsync(string path, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"{_o.BaseUrl.TrimEnd('/')}{path}");
+        req.Headers.Authorization = new AuthenticationHeaderValue("ShippoToken", _o.ApiToken);
+        using var resp = await http.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(cancellationToken: ct);
+    }
+
     private static string Truncate(string s, int n) => s.Length <= n ? s : s[..n];
 }

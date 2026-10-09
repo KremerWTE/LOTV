@@ -27,6 +27,12 @@
     </button>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI strip -->
 <div class="kpi-grid" style="margin-bottom:24px;">
@@ -204,8 +210,10 @@
     </div>
   </div>
 }
+}
 
 @code {
+  private bool _loading = true;
   [Parameter] public int EventId { get; set; }
 
   private MinistryEvent?            _event;
@@ -224,6 +232,8 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     _event = await Api.GetEventAsync(EventId);
     _items = await Api.GetAuctionItemsAsync(EventId);
 
@@ -244,6 +254,8 @@
     {
       _connected = false;
     }
+      }
+    finally { _loading = false; }
   }
 
   private async Task HandleBidPlaced(int itemId, decimal newHigh, string? bidder, int totalBids)

@@ -235,6 +235,8 @@
 
   protected override async Task OnInitializedAsync()
   {
+    // The staff list is for admins only. Board is kept out (the server refuses it too).
+    if (Auth.UserRole == "Board") { Nav.NavigateTo("/admin/dashboard", replace: true); return; }
     _myId = Auth.UserId;
     _users = await Api.GetUsersAsync();
   }

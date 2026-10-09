@@ -37,6 +37,8 @@ else
           <div class="panel-body" style="padding:16px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div>
               <strong>@(c.FamilyName ?? "A family")</strong>
+              @if (!string.IsNullOrWhiteSpace(c.ChildName))
+              { <span style="font-size:.9rem;color:var(--text-mid);"> — in memory of <em>@c.ChildName</em></span> }
               <div style="font-size:.84rem;color:var(--text-mid);">@c.Reason.ToDisplayName() &bull; @c.CreatedAt.ToString("MMM d, yyyy")</div>
               @if (!string.IsNullOrWhiteSpace(c.Story))
               { <div style="font-size:.85rem;line-height:1.6;margin-top:8px;max-width:640px;white-space:pre-wrap;">@c.Story</div> }

@@ -11,6 +11,12 @@
     <a href="/admin/allocations" class="btn btn-sm">← All Allocations</a>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
@@ -90,16 +96,22 @@ else
     </div>
   </div>
 }
+}
 
 @code {
+  private bool _loading = true;
   private List<FundAllocation> _pending = [];
   private bool _busy;
   private int _approvedCount, _rejectedCount;
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     var all = await Api.GetAllocationsAsync("PendingReview");
     _pending = all;
+      }
+    finally { _loading = false; }
   }
 
   private async Task Approve(FundAllocation a)

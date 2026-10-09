@@ -160,4 +160,55 @@ public class ShippoOrderClientTests
         Assert.Contains("No return address found", result.Error);
         Assert.DoesNotContain("POST /orders/", none.Calls);
     }
+
+    // ── Reading the bought label back from Shippo ─────────────────────────────────────────────────────────────────
+    private sealed class LabelHandler(string orderJson, string rateJson) : HttpMessageHandler
+    {
+        public List<string> Calls { get; } = [];
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls.Add(request.RequestUri!.AbsolutePath);
+            var body = request.RequestUri.AbsolutePath.StartsWith("/rates/") ? rateJson : orderJson;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
+        }
+    }
+
+    [Fact]
+    public async Task GetLabel_BeforeAnyLabelIsBought_ReportsNotPurchased()
+    {
+        var h = new LabelHandler("{\"object_id\":\"o1\",\"transactions\":[]}", "{}");
+        var r = await Client(new StubHandler(HttpStatusCode.OK, "{}"), Configured()).GetLabelAsync("o1");
+        Assert.True(r.Success);
+        Assert.False(r.Purchased);
+
+        var r2 = await new ShippoOrderClient(new HttpClient(h), Options.Create(Configured()), NullLogger<ShippoOrderClient>.Instance).GetLabelAsync("o1");
+        Assert.True(r2.Success);
+        Assert.False(r2.Purchased);
+    }
+
+    [Fact]
+    public async Task GetLabel_AfterPurchase_ReturnsTrackingCarrierAndLabelLink()
+    {
+        var order = "{\"object_id\":\"o1\",\"transactions\":[{\"status\":\"ERROR\",\"tracking_number\":\"\"},{\"status\":\"SUCCESS\",\"tracking_number\":\"9400111\",\"label_url\":\"https://shippo.example/l.pdf\",\"rate\":\"rate_1\"}]}";
+        var rate = "{\"provider\":\"USPS\",\"servicelevel\":{\"name\":\"Priority Mail\"}}";
+        var h = new LabelHandler(order, rate);
+        var r = await new ShippoOrderClient(new HttpClient(h), Options.Create(Configured()), NullLogger<ShippoOrderClient>.Instance).GetLabelAsync("o1");
+
+        Assert.True(r.Success);
+        Assert.True(r.Purchased);
+        Assert.Equal("9400111", r.TrackingNumber);
+        Assert.Equal("USPS", r.Carrier);
+        Assert.Equal("Priority Mail", r.ServiceLevel);
+        Assert.Equal("https://shippo.example/l.pdf", r.LabelUrl);
+        Assert.Equal(["/orders/o1", "/rates/rate_1"], h.Calls);
+    }
+
+    [Fact]
+    public async Task GetLabel_WhenShippoFails_ReturnsAnErrorInsteadOfThrowing()
+    {
+        var h = new StubHandler(HttpStatusCode.InternalServerError, "{}");
+        var r = await Client(h, Configured()).GetLabelAsync("o1");
+        Assert.False(r.Success);
+        Assert.NotNull(r.Error);
+    }
 }

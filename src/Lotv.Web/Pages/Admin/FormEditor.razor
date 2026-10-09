@@ -53,6 +53,19 @@ else
     @if (IsDirty) { <strong style="color:var(--amber);margin-left:8px;">● Unsaved changes</strong> }
   </div>
 
+  <!-- LANGUAGE -->
+  <div style="display:flex;gap:6px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-mid);margin-right:4px;">Editing:</span>
+    <button class="btn btn-sm @(_lang == "en" ? "btn-primary" : "")" @onclick='() => _lang = "en"'>English</button>
+    <button class="btn btn-sm @(_lang == "es" ? "btn-primary" : "")" @onclick='() => _lang = "es"'>Español (Spanish)</button>
+    @if (_lang == "es")
+    {
+      <span style="font-size:.78rem;color:@(MissingEs == 0 ? "var(--green-text)" : "var(--amber)");">
+        @(MissingEs == 0 ? "Everything has a Spanish version." : $"{MissingEs} text(s) have no Spanish yet — visitors who chose Español will see the English for those.")
+      </span>
+    }
+  </div>
+
   <!-- SHARE -->
   <div class="panel" style="margin-bottom:16px;">
     <div class="panel-head"><h3>Where to use this form</h3></div>
@@ -84,6 +97,69 @@ else
     </div>
   </div>
 
+  @if (_lang == "es")
+  {
+    <!-- SPANISH VERSION -->
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Wording — Español</h3></div>
+      <div class="panel-body" style="display:grid;grid-template-columns:1fr;gap:12px;">
+        <EsRow Title="Form title" English="@_def.Title" Value="@EsGet(_def.Es, "title")" ValueChanged='v => _def.Es = PutEs(_def.Es, "title", v)' />
+        <EsRow Title="Introduction" English="@_def.Intro" Multiline Rows="3" Value="@EsGet(_def.Es, "intro")" ValueChanged='v => _def.Es = PutEs(_def.Es, "intro", v)' />
+        <EsRow Title="“Who is this for?” heading" English="@_def.WhoIsThisForLabel" Value="@EsGet(_def.Es, "whoIsThisForLabel")" ValueChanged='v => _def.Es = PutEs(_def.Es, "whoIsThisForLabel", v)' />
+        <EsRow Title="Button: for me" English="@_def.ToggleLabelMe" Value="@EsGet(_def.Es, "toggleLabelMe")" ValueChanged='v => _def.Es = PutEs(_def.Es, "toggleLabelMe", v)' />
+        <EsRow Title="Button: for someone else" English="@_def.ToggleLabelSomeone" Value="@EsGet(_def.Es, "toggleLabelSomeone")" ValueChanged='v => _def.Es = PutEs(_def.Es, "toggleLabelSomeone", v)' />
+        <EsRow Title="Submit button" English="@_def.SubmitLabel" Value="@EsGet(_def.Es, "submitLabel")" ValueChanged='v => _def.Es = PutEs(_def.Es, "submitLabel", v)' />
+        <EsRow Title="Note under the submit button" English="@_def.FooterNote" Multiline Value="@EsGet(_def.Es, "footerNote")" ValueChanged='v => _def.Es = PutEs(_def.Es, "footerNote", v)' />
+        <EsRow Title="After submitting — heading" English="@_def.Confirmation.Title" Value="@EsGet(_def.Confirmation.Es, "title")" ValueChanged='v => _def.Confirmation.Es = PutEs(_def.Confirmation.Es, "title", v)' />
+        <EsRow Title="After submitting — message" English="@_def.Confirmation.Body" Multiline Rows="4" Value="@EsGet(_def.Confirmation.Es, "body")" ValueChanged='v => _def.Confirmation.Es = PutEs(_def.Confirmation.Es, "body", v)' />
+        @if (_def.Donation.Enabled)
+        {
+          <EsRow Title="Donation heading" English="@_def.Donation.Title" Value="@EsGet(_def.Donation.Es, "title")" ValueChanged='v => _def.Donation.Es = PutEs(_def.Donation.Es, "title", v)' />
+          <EsRow Title="Donation message" English="@_def.Donation.Body" Multiline Rows="4" Value="@EsGet(_def.Donation.Es, "body")" ValueChanged='v => _def.Donation.Es = PutEs(_def.Donation.Es, "body", v)' />
+        }
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h3>Questions — Español</h3></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+        @foreach (var f in _def.Fields)
+        {
+          var listOnly = f.Type is "heading" or "hint";
+          <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg);display:grid;grid-template-columns:1fr;gap:10px;">
+            <div style="font-size:.72rem;color:var(--text-light);">
+              <span class="badge badge-new" style="font-size:.6rem;">@TypeLabel(f.Type)</span>
+              @if (!string.IsNullOrEmpty(f.Key)) { <span style="margin-left:6px;">@f.Key</span> }
+            </div>
+            <EsRow Title="@(f.Type == "bracelet" ? "Intro text" : listOnly ? "Text" : "Question")" English="@f.Label" Multiline="@(f.Type == "bracelet" || f.Label.Length > 90)" Rows="4"
+                   Value="@EsGet(f.Es, "label")" ValueChanged='v => f.Es = PutEs(f.Es, "label", v)' />
+            @if (!string.IsNullOrWhiteSpace(f.LabelMe))
+            { <EsRow Title="When it is for me" English="@f.LabelMe" Multiline="@(f.LabelMe.Length > 90)" Rows="4" Value="@EsGet(f.Es, "labelMe")" ValueChanged='v => f.Es = PutEs(f.Es, "labelMe", v)' /> }
+            @if (!string.IsNullOrWhiteSpace(f.LabelSomeone))
+            { <EsRow Title="When it is for someone else" English="@f.LabelSomeone" Multiline="@(f.LabelSomeone.Length > 90)" Rows="4" Value="@EsGet(f.Es, "labelSomeone")" ValueChanged='v => f.Es = PutEs(f.Es, "labelSomeone", v)' /> }
+            @if (!string.IsNullOrWhiteSpace(f.LabelPrayerOnly))
+            { <EsRow Title="When it is a prayer-only request" English="@f.LabelPrayerOnly" Value="@EsGet(f.Es, "labelPrayerOnly")" ValueChanged='v => f.Es = PutEs(f.Es, "labelPrayerOnly", v)' /> }
+            @if (!string.IsNullOrWhiteSpace(f.Placeholder))
+            { <EsRow Title="Placeholder" English="@f.Placeholder" Value="@EsGet(f.Es, "placeholder")" ValueChanged='v => f.Es = PutEs(f.Es, "placeholder", v)' /> }
+            @if (!string.IsNullOrWhiteSpace(f.Help))
+            { <EsRow Title="Help text" English="@f.Help" Value="@EsGet(f.Es, "help")" ValueChanged='v => f.Es = PutEs(f.Es, "help", v)' /> }
+            @if (!string.IsNullOrWhiteSpace(f.ButtonLabel))
+            { <EsRow Title="“Add another” button" English="@f.ButtonLabel" Value="@EsGet(f.Es, "buttonLabel")" ValueChanged='v => f.Es = PutEs(f.Es, "buttonLabel", v)' /> }
+            @if (!string.IsNullOrWhiteSpace(f.ButtonLabelSomeone))
+            { <EsRow Title="Button when for someone else" English="@f.ButtonLabelSomeone" Value="@EsGet(f.Es, "buttonLabelSomeone")" ValueChanged='v => f.Es = PutEs(f.Es, "buttonLabelSomeone", v)' /> }
+            @foreach (var o in f.Options)
+            {
+              <EsRow Title="Choice" English="@o.Label" Value="@EsGet(o.Es, "label")" ValueChanged='v => o.Es = PutEs(o.Es, "label", v)' />
+              @if (!string.IsNullOrWhiteSpace(o.LabelSomeone))
+              { <EsRow Title="Choice, when for someone else" English="@o.LabelSomeone" Value="@EsGet(o.Es, "labelSomeone")" ValueChanged='v => o.Es = PutEs(o.Es, "labelSomeone", v)' /> }
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+  else
+  {
   <!-- WORDING -->
   <div class="panel" style="margin-bottom:16px;">
     <div class="panel-head"><h3>Wording</h3></div>
@@ -289,6 +365,8 @@ else
     </div>
   </div>
 
+  }
+
   <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:40px;">
     <button class="btn" @onclick="ReloadAsync" disabled="@(_saving || !IsDirty)">Discard changes</button>
     <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(_saving || !IsDirty)">@(_saving ? "Saving…" : "Save changes")</button>
@@ -314,6 +392,41 @@ else
   private string? _err, _toast, _openId;
   private string _newType = "text";
   private int _previewNonce = 1;
+
+  private string _lang = "en";
+
+  // Spanish texts: stored in each item's "es" block, only for the texts that were actually translated.
+  private static string EsGet(Dictionary<string, string>? es, string key) => es is not null && es.TryGetValue(key, out var v) ? v : "";
+
+  private static Dictionary<string, string>? PutEs(Dictionary<string, string>? es, string key, string? value)
+  {
+    es = es is null ? new Dictionary<string, string>() : new Dictionary<string, string>(es);
+    if (string.IsNullOrWhiteSpace(value)) es.Remove(key); else es[key] = value.Trim();
+    return es.Count == 0 ? null : es;
+  }
+
+  /// <summary>How many English texts have no Spanish version yet.</summary>
+  private int MissingEs
+  {
+    get
+    {
+      if (_def is null) return 0;
+      var n = 0;
+      void Chk(string? english, Dictionary<string, string>? es, string key) { if (!string.IsNullOrWhiteSpace(english) && string.IsNullOrWhiteSpace(EsGet(es, key))) n++; }
+      Chk(_def.Title, _def.Es, "title"); Chk(_def.Intro, _def.Es, "intro"); Chk(_def.WhoIsThisForLabel, _def.Es, "whoIsThisForLabel");
+      Chk(_def.ToggleLabelMe, _def.Es, "toggleLabelMe"); Chk(_def.ToggleLabelSomeone, _def.Es, "toggleLabelSomeone");
+      Chk(_def.SubmitLabel, _def.Es, "submitLabel"); Chk(_def.FooterNote, _def.Es, "footerNote");
+      Chk(_def.Confirmation.Title, _def.Confirmation.Es, "title"); Chk(_def.Confirmation.Body, _def.Confirmation.Es, "body");
+      if (_def.Donation.Enabled) { Chk(_def.Donation.Title, _def.Donation.Es, "title"); Chk(_def.Donation.Body, _def.Donation.Es, "body"); }
+      foreach (var f in _def.Fields)
+      {
+        Chk(f.Label, f.Es, "label"); Chk(f.LabelMe, f.Es, "labelMe"); Chk(f.LabelSomeone, f.Es, "labelSomeone"); Chk(f.LabelPrayerOnly, f.Es, "labelPrayerOnly");
+        Chk(f.Placeholder, f.Es, "placeholder"); Chk(f.Help, f.Es, "help"); Chk(f.ButtonLabel, f.Es, "buttonLabel"); Chk(f.ButtonLabelSomeone, f.Es, "buttonLabelSomeone");
+        foreach (var o in f.Options) { Chk(o.Label, o.Es, "label"); Chk(o.LabelSomeone, o.Es, "labelSomeone"); }
+      }
+      return n;
+    }
+  }
 
   private bool IsDirty => _def is not null && JsonSerializer.Serialize(_def) != _savedJson;
   private string PublicUrl => Nav.ToAbsoluteUri("/request-prayer-care-package").ToString();

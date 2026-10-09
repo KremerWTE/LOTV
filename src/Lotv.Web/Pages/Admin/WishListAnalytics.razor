@@ -11,6 +11,12 @@
     <a href="/admin/wishlist" class="btn btn-sm">← Wish List</a>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
@@ -122,18 +128,24 @@
   </div>
 
 </div>
+}
 
 @code {
+  private bool _loading = true;
   private List<WishListItem> _all = [];
   private record CatStat(WishListCategory Category, int Total, int Fulfilled);
   private List<CatStat> _catStats = [];
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     _all = await Api.GetWishListAsync();
     _catStats = _all.GroupBy(i => i.Category)
       .Select(g => new CatStat(g.Key, g.Count(), g.Count(i => i.Status == WishListStatus.Fulfilled)))
       .ToList();
+      }
+    finally { _loading = false; }
   }
 
   private static string StatusBadge(WishListStatus s) => s switch

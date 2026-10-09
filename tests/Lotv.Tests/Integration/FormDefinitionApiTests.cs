@@ -33,6 +33,24 @@ public class FormDefinitionApiTests
         Assert.Contains(def.Fields, f => f.Key == "reason");
     }
 
+    // ── Spanish text and the child's-name question reach the public form ─────────────────────────────────────────────
+    [Fact]
+    public async Task PublicGet_CarriesSpanishText_AndTheChildNameQuestion()
+    {
+        var resp = await _factory.CreateClient().GetAsync($"/api/v1/public/forms/{Key}");
+        var def = await resp.Content.ReadFromJsonAsync<IntakeFormDefinition>(FormDefinitions.Json);
+
+        Assert.Equal("Enviar Solicitud", def!.Es!["submitLabel"]);
+        var reason = def.Fields.Single(f => f.Key == "reason");
+        Assert.Equal("Infertilidad", reason.Options.Single(o => o.Value == "Infertility").Es!["label"]);
+        Assert.Equal("Solicite un Paquete de Cuidado en Oración", def.Es["title"]);
+
+        var child = def.Fields.Single(f => f.Key == "childName");
+        Assert.Equal("Nombre del niño", child.Es!["label"]);
+        Assert.Contains(child.ShowWhen, c => c.Field == "reason" && c.In!.Contains("Stillbirth"));
+        Assert.Equal("Request a Prayer Care Package", def.Title);   // the English is untouched
+    }
+
     // Regression guard: these two text variants (option text by branch, field label by package-vs-prayer-
     // only) are easy to lose silently — either by a typo in the default JSON's property names not matching
     // the C# model (System.Text.Json drops anything it doesn't recognize with no error), or by a future

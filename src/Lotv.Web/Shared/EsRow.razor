@@ -1,0 +1,30 @@
+@* One line of the form editor's Spanish view: the English text for reference on the left, the Spanish box on the right.
+   Leaving the Spanish box empty means visitors who chose Español see the English text for that item. *@
+<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;">
+  <div>
+    <div class="form-label" style="margin-bottom:2px;">@Title</div>
+    <div style="font-size:.84rem;color:var(--text-mid);white-space:pre-wrap;background:white;border:1px solid var(--border);border-radius:8px;padding:8px 10px;">@English</div>
+  </div>
+  <div>
+    <label class="form-label" style="margin-bottom:2px;">Español @(string.IsNullOrWhiteSpace(Value) ? "— not translated yet" : "")</label>
+    @if (Multiline)
+    {
+      <textarea class="form-input" rows="@Rows" value="@Value" @onchange="OnChange"></textarea>
+    }
+    else
+    {
+      <input class="form-input" value="@Value" @onchange="OnChange" />
+    }
+  </div>
+</div>
+
+@code {
+  [Parameter, EditorRequired] public string Title { get; set; } = "";
+  [Parameter, EditorRequired] public string English { get; set; } = "";
+  [Parameter] public string? Value { get; set; }
+  [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+  [Parameter] public bool Multiline { get; set; }
+  [Parameter] public int Rows { get; set; } = 3;
+
+  private Task OnChange(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString());
+}

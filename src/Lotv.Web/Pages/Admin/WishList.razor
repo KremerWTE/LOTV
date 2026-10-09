@@ -11,6 +11,12 @@
   </div>
   <button class="btn btn-primary" @onclick="() => _adding = true">+ Add Item</button>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI strip -->
 <div class="kpi-grid" style="margin-bottom:24px;">
@@ -182,8 +188,10 @@
     </div>
   </div>
 }
+}
 
 @code {
+  private bool _loading = true;
   private string _filter = "Open";
   private string _search = "";
   private bool   _adding;
@@ -214,6 +222,8 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     var items   = await Api.GetWishListAsync();
     var families = await Api.GetFamiliesAsync();
     _families = families.Select(f => new FamilyOption(f.Id, $"{f.Parent1LastName} Family")).ToList();
@@ -224,6 +234,8 @@
       w.QuantityRequested, w.QuantityFulfilled,
       w.Status == WishListStatus.PartiallyFulfilled ? "Partial" : w.Status.ToString()
     )).ToList();
+      }
+    finally { _loading = false; }
   }
 
   private void OpenFulfill(WishRow item) { _fulfillItem = item; _fulfillQty = 1; _fulfillDonor = ""; }

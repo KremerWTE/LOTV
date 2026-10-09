@@ -1,6 +1,6 @@
 # Next Steps — LOTV
 
-**Updated:** 2026-10-09 | **Branch:** kremer-dev | **Phase:** Phase 6 — Deployment & Launch (QA readiness)
+**Updated:** 2026-10-10 | **Branch:** kremer-dev | **Phase:** Phase 6 — Deployment & Launch (QA readiness)
 
 ---
 
@@ -22,9 +22,13 @@
    **Group training** — for the client:
    > "Group training" has been on the list without a definition for a while. To scope it: (1) Training *of* whom — new volunteers, staff, chapter leads? (2) What kind — a live session/webinar, a certification volunteers complete, or something else? (3) Does it need to be scheduled/tracked in the app (e.g., "completed onboarding training: yes/no" on a volunteer's record), or is it handled entirely outside the app and this is just a note-taking need? (4) Is there an existing process today (even an informal one) we should match, or is this net-new?
 
-7. Static `/apply` intake form's actual question text (title, field labels, options) is still staff-authored-English-only — the form's own chrome now translates, but making the questions themselves editable in Spanish would need a real content feature (a way for staff to author and maintain a Spanish version)
+7. ~~Spanish questions on `/apply`~~ done 2026-10-10 (Edit Request Form → Español).
 8. Domain/DNS/SSL, uptime monitoring, automated DB backups — all still require actual cloud/infra setup no AI session has access to
-9. Loading guard added to 11 admin list pages (Events, Campaigns, Grants, Inventory, Pledges, Chapters, Staff Tasks, Recurring, Expenses, Families, Cases). Not yet: Donors, Volunteers, Donations, and ~50 other admin pages that were scanned but not individually checked
+9. ~~Loading guards~~ done 2026-10-10 (every admin page that loads data now has one).
+
+**Completed 2026-10-10:**
+- ✅ Board can no longer open the staff list / system diagnostics (`AdminOnly` policy); volunteers can no longer cancel or hold their own case (server + UI); chapter addresses go back to the dashboard while chapters are off; 20 admin pages got a loading guard (the "about 50" figure was stale); Spanish version of the request form (editable in Edit Request Form → Español, built-in Spanish fills any blank); optional "Child's name" question for losses shown on the Prayer Dashboard; Shippo "Check Shippo for the label" reads the real tracking number back. 829/829 tests. See `sessions/2026-10-10-permissions-chapters-loading-spanish-form-child-name-shippo-labels.md`.
+- ⏳ Open: have a native speaker read the Spanish; try the Shippo label read-back once with a real (test) label; prayer log still needs the list of prayer types; the form source of truth is `docs/duda-embed/prayer-care-intake.html` (build copies it to `Forms/`).
 
 **Completed 2026-10-09:**
 - ✅ Shippo: the return address is now read from the Shippo account on each order (only the API token is required); verified against the Shippo test account. `SHIPPO_API_TOKEN` is set to a TEST token. Before going live: confirm the BAA, save the real return address in Shippo, regenerate and set a live token (the live key pasted in chat is exposed). See `sessions/2026-10-09-shippo-return-address-read-from-shippo.md`.

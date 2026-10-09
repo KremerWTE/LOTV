@@ -131,6 +131,7 @@ builder.Services.AddAuthorization(o =>
     // Access rule (see AccessRules): staff work with everything, Board sees the same areas read-only, volunteers only their
     // own prayer request package cases. "ChapterAdmin" and "Staff" therefore also let Board through for reads (GET) only.
     o.AddPolicy("ChapterAdmin",  AccessRules.AdminOrBoardRead);
+    o.AddPolicy("AdminOnly",     AccessRules.AdminOnly);
     o.AddPolicy("Staff",         AccessRules.StaffOrBoardRead);
     o.AddPolicy("CaseWork",      AccessRules.CaseWork);
     o.AddPolicy("Volunteer",     p => p.RequireClaim("role", nameof(UserRole.HQAdmin), nameof(UserRole.ChapterAdmin), nameof(UserRole.ChapterStaff), nameof(UserRole.Volunteer), nameof(UserRole.Director)));
@@ -910,6 +911,8 @@ cases.MapGet("/prayer-candidates", async (LotvDbContext db, IChapterContextServi
     {
         r.Id, FamilyName = r.Family?.FullName, Story = r.Family?.Story, r.Reason, r.CreatedAt, r.WantsPackage,
         AlreadyPraying = alreadyOn.Contains(r.Id),
+        // The child's name, only when a child was lost and the family chose to share one (it arrives in the intake notes).
+        ChildName = FormUpgrades.LossReasons.Contains(r.Reason.ToString()) ? FormUpgrades.ChildNameFrom(r.Family?.ContactNotes) : null,
         PrayingNames = team.Where(m => m.RequestId == r.Id).Select(m => m.Volunteer?.FullName ?? "A volunteer").ToList(),
     }));
 });
@@ -1005,8 +1008,11 @@ cases.MapPost("/", async (PackageRequest req, LotvDbContext db, IChapterContextS
 
 cases.MapPut("/{id:int}/status", async (int id, StatusUpdateRequest body, LotvDbContext db,
     IChapterContextService ctx, IHubContext<RequestsHub> hub, INotificationService notify, IPushSender pushSvc,
-    UserManager<LotvIdentityUser> userMgr, IConfiguration cfg) =>
+    UserManager<LotvIdentityUser> userMgr, IConfiguration cfg, HttpContext http) =>
 {
+    // A volunteer packs and ships their own case; cancelling or holding it is a staff decision (the buttons are hidden for them too).
+    if (http.User.FindFirst("role")?.Value == nameof(UserRole.Volunteer) && body.Status is CaseStatus.Cancelled or CaseStatus.OnHold)
+        return Results.Forbid();
     var r = await db.Requests.Include(r => r.Family).FirstOrDefaultAsync(r => r.Id == id);
     if (r is null) return Results.NotFound();
     if (!ctx.IsHqAdmin && r.ChapterId != ctx.ChapterId) return Results.Forbid();
@@ -1201,7 +1207,13 @@ cases.MapGet("/{id:int}/shippo", async (int id, LotvDbContext db, IShippoOrderCl
 {
     if (await db.Requests.FindAsync(id) is null) return Results.NotFound();
     var l = await db.ShippingLabels.AsNoTracking().FirstOrDefaultAsync(x => x.PackageRequestId == id);
-    return Results.Ok(new { configured = shippo.IsConfigured, hasRecord = l is not null, orderId = l?.ShippoOrderId, syncedAt = l?.ShippoSyncedAt, error = l?.ShippoSyncError });
+    return Results.Ok(new
+    {
+        configured = shippo.IsConfigured, hasRecord = l is not null, orderId = l?.ShippoOrderId, syncedAt = l?.ShippoSyncedAt, error = l?.ShippoSyncError,
+        // Filled in once staff have bought the label in Shippo and the portal has read it back (POST .../shippo/refresh).
+        labelPurchased = l is not null && !l.IsPlaceholder, carrier = l?.Carrier, serviceLevel = l?.ServiceLevel, labelUrl = l?.LabelFileUrl,
+        trackingNumber = l is not null && !l.IsPlaceholder ? l.TrackingNumber : null,
+    });
 });
 
 cases.MapPost("/{id:int}/shippo/send", async (int id, LotvDbContext db, IShippoOrderClient shippo) =>
@@ -1215,6 +1227,35 @@ cases.MapPost("/{id:int}/shippo/send", async (int id, LotvDbContext db, IShippoO
     var ok = await ShippoHandoff.PushAsync(db, shippo, r, label);
     await db.SaveChangesAsync();
     return ok ? Results.Ok(new { orderId = label.ShippoOrderId }) : Results.Json(new { error = label.ShippoSyncError }, statusCode: 502);
+});
+
+// Reads the order back from Shippo. Staff buy the label in Shippo (the portal never spends money); once they have, this saves the
+// real tracking number, carrier and label link on the case, and fills the case tracking number if it was still blank.
+cases.MapPost("/{id:int}/shippo/refresh", async (int id, LotvDbContext db, IShippoOrderClient shippo, IChapterContextService ctx) =>
+{
+    var r = await db.Requests.FirstOrDefaultAsync(x => x.Id == id);
+    if (r is null) return Results.NotFound();
+    var label = await db.ShippingLabels.FirstOrDefaultAsync(x => x.PackageRequestId == id);
+    if (label?.ShippoOrderId is null) return Results.BadRequest(new { error = "This case has not been sent to Shippo yet." });
+    var res = await shippo.GetLabelAsync(label.ShippoOrderId);
+    if (!res.Success) return Results.Json(new { error = res.Error }, statusCode: 502);
+    if (!res.Purchased) return Results.Ok(new { purchased = false });
+
+    label.TrackingNumber = res.TrackingNumber!;
+    label.IsPlaceholder = false;
+    label.Carrier = res.Carrier;
+    label.ServiceLevel = res.ServiceLevel;
+    label.LabelFileUrl = res.LabelUrl;
+    var filled = string.IsNullOrWhiteSpace(r.TrackingNumber);
+    if (filled) r.TrackingNumber = res.TrackingNumber;
+    r.UpdatedAt = DateTime.UtcNow;
+    db.RequestActivities.Add(new RequestActivity
+    {
+        RequestId = id, ActorId = ctx.UserId, ActorName = ctx.UserName, ActivityType = ActivityType.ShippingLabelGenerated,
+        NewValue = $"{res.Carrier} {res.TrackingNumber}".Trim(), Timestamp = DateTime.UtcNow,
+    });
+    await db.SaveChangesAsync();
+    return Results.Ok(new { purchased = true, trackingNumber = label.TrackingNumber, carrier = label.Carrier, serviceLevel = label.ServiceLevel, labelUrl = label.LabelFileUrl, trackingSaved = filled });
 });
 
 // Hand-off to the ministry's Shippo account: labels are bought there, not here. One row per package
@@ -2519,7 +2560,7 @@ users.MapPut("/me/avatar", async (AvatarUpdateRequest body, IChapterContextServi
 
 users.MapGet("/", async (UserManager<LotvIdentityUser> userMgr) =>
     userMgr.Users.Select(u => new { u.Id, u.UserName, u.Email, u.FullName, u.Role, u.ChapterId, u.IsActive, u.AvatarUrl }).ToList()
-).RequireAuthorization("ChapterAdmin");
+).RequireAuthorization("AdminOnly");
 
 // Recovery email — separate from sign-in (which is by username). Staff/admins
 // without a real email on file can't use forgot-password until one is set here.
@@ -2534,7 +2575,7 @@ users.MapPut("/{id}/email", async (string id, UpdateEmailRequest body, UserManag
     user.EmailConfirmed = false;
     await userMgr.UpdateAsync(user);
     return Results.Ok(new { user.Email });
-}).RequireAuthorization("ChapterAdmin");
+}).RequireAuthorization("AdminOnly");
 
 users.MapDelete("/{id}/avatar", async (string id, UserManager<LotvIdentityUser> userMgr) =>
 {
@@ -2543,7 +2584,7 @@ users.MapDelete("/{id}/avatar", async (string id, UserManager<LotvIdentityUser> 
     u.AvatarUrl = null;
     await userMgr.UpdateAsync(u);
     return Results.Ok();
-}).RequireAuthorization("ChapterAdmin");
+}).RequireAuthorization("AdminOnly");
 
 users.MapPut("/{id}/role", async (string id, RoleChangeRequest body, UserManager<LotvIdentityUser> userMgr) =>
 {
@@ -2552,7 +2593,7 @@ users.MapPut("/{id}/role", async (string id, RoleChangeRequest body, UserManager
     user.Role = body.Role; user.ChapterId = body.ChapterId;
     await userMgr.UpdateAsync(user);
     return Results.Ok();
-}).RequireAuthorization("ChapterAdmin");
+}).RequireAuthorization("AdminOnly");
 
 // Gives someone who's locked out (or never finished being provisioned) a way back in without anyone
 // ever knowing or setting their real password — same idea as StaffAccountProvisioning's initial-password
@@ -2574,7 +2615,7 @@ users.MapPost("/{id}/set-temp-password", async (string id, UserManager<LotvIdent
     user.MustChangePassword = true;
     await userMgr.UpdateAsync(user);
     return Results.Ok(new { tempPassword = temp });
-}).RequireAuthorization("ChapterAdmin");
+}).RequireAuthorization("AdminOnly");
 
 users.MapPost("/onboarding/staff", async (StaffOnboardingRequest body,
     IChapterContextService ctx, UserManager<LotvIdentityUser> userMgr) =>
@@ -4026,7 +4067,7 @@ app.MapGet("/api/v1/admin/migrations", async (LotvDbContext db) =>
     var applied = (await db.Database.GetAppliedMigrationsAsync()).ToList();
     var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
     return Results.Ok(new { applied, pending });
-}).RequireAuthorization("ChapterAdmin");
+}).RequireAuthorization("AdminOnly");
 
 // Bulk allocation status update for donations
 app.MapPost("/api/v1/donations/bulk-allocate", async (BulkAllocateRequest body, LotvDbContext db, IChapterContextService ctx) =>
@@ -4059,13 +4100,13 @@ app.MapGet("/api/v1/admin/webhooks", async (LotvDbContext db, string? source, in
         .Select(w => new { w.Id, w.Source, w.ExternalId, w.EventType, w.ReceivedAt })
         .ToListAsync();
     return Results.Ok(rows);
-}).RequireAuthorization("ChapterAdmin");
+}).RequireAuthorization("AdminOnly");
 
 app.MapGet("/api/v1/admin/webhooks/{id:int}", async (int id, LotvDbContext db) =>
 {
     var w = await db.WebhookEvents.FindAsync(id);
     return w is null ? Results.NotFound() : Results.Ok(w);
-}).RequireAuthorization("ChapterAdmin");
+}).RequireAuthorization("AdminOnly");
 
 app.MapDelete("/api/v1/admin/webhooks/old", async (int? days, LotvDbContext db) =>
 {
@@ -4113,7 +4154,7 @@ app.MapGet("/api/v1/admin/diagnostics", async (LotvDbContext db) =>
         webhookEvents7d = webhookCount,
         webhookEvents24h = webhook24h,
     });
-}).RequireAuthorization("ChapterAdmin");
+}).RequireAuthorization("AdminOnly");
 
 push.MapGet("/subscriptions", async (LotvDbContext db, UserManager<LotvIdentityUser> userMgr) =>
 {
@@ -5503,7 +5544,10 @@ app.MapGet("/api/v1/public/forms/{key}", async (string key, LotvDbContext db, Ht
     try { stored = (await db.FormDefinitions.AsNoTracking().FirstOrDefaultAsync(f => f.Key == key))?.DefinitionJson; }
     catch (Exception ex) { app.Logger.LogWarning(ex, "Form definition lookup failed for {Key}; serving default.", key); }
     http.Response.Headers.CacheControl = "no-cache";
-    return Results.Content(stored ?? FormDefinitions.DefaultJson(key), "application/json");
+    // Bring the definition up to date on the way out (Spanish text, the child's-name question) — saved forms included.
+    var parsed = FormDefinitions.TryParse(stored ?? FormDefinitions.DefaultJson(key));
+    if (parsed is null) return Results.Content(stored ?? FormDefinitions.DefaultJson(key), "application/json");
+    return Results.Content(System.Text.Json.JsonSerializer.Serialize(FormUpgrades.Apply(parsed), FormDefinitions.Json), "application/json");
 }).AllowAnonymous();
 
 // Staff editor (HQAdmin only — this text goes straight onto the public site).
@@ -5517,7 +5561,7 @@ forms.MapGet("/{key}", async (string key, LotvDbContext db) =>
     if (!FormDefinitions.IsKnown(key)) return Results.NotFound();
     var row = await db.FormDefinitions.AsNoTracking().FirstOrDefaultAsync(f => f.Key == key);
     var def = (row is null ? null : FormDefinitions.TryParse(row.DefinitionJson)) ?? FormDefinitions.Default(key);
-    return Results.Ok(FormEnvelope(key, row, def));
+    return Results.Ok(FormEnvelope(key, row, FormUpgrades.Apply(def)));
 });
 
 forms.MapPut("/{key}", async (string key, IntakeFormDefinition def, LotvDbContext db, HttpContext http) =>
@@ -5541,7 +5585,7 @@ forms.MapPost("/{key}/reset", async (string key, LotvDbContext db) =>
     if (!FormDefinitions.IsKnown(key)) return Results.NotFound();
     var row = await db.FormDefinitions.FirstOrDefaultAsync(f => f.Key == key);
     if (row is not null) { db.FormDefinitions.Remove(row); await db.SaveChangesAsync(); }
-    return Results.Ok(FormEnvelope(key, null, FormDefinitions.Default(key)));
+    return Results.Ok(FormEnvelope(key, null, FormUpgrades.Apply(FormDefinitions.Default(key))));
 });
 
 // ─── Chapter analytics (HQAdmin) ──────────────────────────────────────────────

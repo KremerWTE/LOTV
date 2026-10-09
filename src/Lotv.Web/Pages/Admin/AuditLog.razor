@@ -14,6 +14,12 @@
     <button class="btn btn-sm" @onclick="ExportJson">&darr; Export JSON</button>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
@@ -40,11 +46,11 @@
 </div>
 
 <!-- TOP NOISY USERS -->
-@{
+
   var noisy = _log.GroupBy(e => e.UserName)
     .Select(g => new { User = g.Key, Count = g.Count() })
     .OrderByDescending(x => x.Count).Take(5).ToList();
-}
+
 @if (noisy.Any())
 {
   <div class="panel" style="margin-bottom:14px;">
@@ -130,8 +136,10 @@
     </div>
   </div>
 }
+}
 
 @code {
+  private bool _loading = true;
   private AuditEntry? _selected;
   private List<AuditEntry> _log = [];
   private string _actionFilter = "All";
@@ -161,7 +169,11 @@
     return matchAction && matchDate && matchSearch && matchMine;
   }).OrderByDescending(e => e.Timestamp);
 
-  protected override async Task OnInitializedAsync() => _log = await Api.GetAuditLogAsync();
+  protected override async Task OnInitializedAsync()
+  {
+    try { _log = await Api.GetAuditLogAsync(); }
+    finally { _loading = false; }
+  }
   private async Task Refresh() => _log = await Api.GetAuditLogAsync();
 
   private async Task ExportCsv()

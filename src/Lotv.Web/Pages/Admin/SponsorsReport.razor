@@ -10,6 +10,12 @@
     <a href="/admin/sponsorships" class="btn btn-sm">← Sponsorships</a>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
@@ -131,8 +137,10 @@
     </table>
   </div>
 </div>
+}
 
 @code {
+  private bool _loading = true;
   private List<SponsorDto> _all = [];
   private List<SponsorDto> _renewalSoon = [];
   private string _search = "", _statusFilter = "All";
@@ -148,6 +156,8 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     _all = await Api.GetSponsorsAsync();
     _renewalSoon = _all.Where(s => s.RenewalDate.HasValue &&
                                     s.RenewalDate.Value >= DateTime.Today &&
@@ -155,6 +165,8 @@
     _tierStats = _all.GroupBy(s => s.Tier)
       .Select(g => new TierStat(g.Key, g.Count(), g.Sum(s => s.CommittedAmount), g.Sum(s => s.PaidToDate)))
       .ToList();
+      }
+    finally { _loading = false; }
   }
 
   private static string StatusBadge(string status) => status switch

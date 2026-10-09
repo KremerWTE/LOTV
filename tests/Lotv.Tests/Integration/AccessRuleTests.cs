@@ -143,4 +143,43 @@ public class AccessRuleTests
         Assert.Equal(HttpStatusCode.Forbidden, (await b.Client.GetAsync("/api/v1/apikeys")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await b.Client.GetAsync("/api/v1/chapters")).StatusCode);
     }
+
+    [Fact]
+    public async Task Board_CannotOpenTheStaffListOrSystemDiagnostics()
+    {
+        var b = await AccountAsync("Board");
+        foreach (var path in new[] { "/api/v1/users", "/api/v1/admin/migrations", "/api/v1/admin/webhooks", "/api/v1/admin/diagnostics" })
+            Assert.Equal(HttpStatusCode.Forbidden, (await b.Client.GetAsync(path)).StatusCode);
+
+        var admin = await AccountAsync("ChapterAdmin");
+        Assert.Equal(HttpStatusCode.OK, (await admin.Client.GetAsync("/api/v1/users")).StatusCode);
+    }
+
+    [Fact]
+    public async Task AVolunteer_CannotCancelOrHoldTheirOwnCase_ButCanStillWorkIt()
+    {
+        var (v, mine, _) = await VolunteerWithCasesAsync(accountChapterId: 1);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await v.Client.PutAsJsonAsync($"/api/v1/requests/{mine}/status", new { Status = "Cancelled" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await v.Client.PutAsJsonAsync($"/api/v1/requests/{mine}/status", new { Status = "OnHold" })).StatusCode);
+
+        // the case is untouched, and the normal packing steps still work
+        var saved = await v.Client.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/v1/requests/{mine}");
+        Assert.Equal("InProgress", saved.GetProperty("status").GetString());
+        await v.Client.PatchAsJsonAsync($"/api/v1/requests/{mine}", new { TrackingNumber = "1Z999AA10123456784" });
+        Assert.Equal(HttpStatusCode.OK, (await v.Client.PutAsJsonAsync($"/api/v1/requests/{mine}/status", new { Status = "AwaitingShipment" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Staff_CanStillCancelAndHold()
+    {
+        var s = await AccountAsync("HQAdmin");
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LotvDbContext>();
+        var family = new Family { Parent1FirstName = "F", Parent1LastName = "H", ChapterId = 1 };
+        db.Families.Add(family); await db.SaveChangesAsync();
+        var req = new PackageRequest { FamilyId = family.Id, ChapterId = 1, Status = CaseStatus.New };
+        db.Requests.Add(req); await db.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.OK, (await s.Client.PutAsJsonAsync($"/api/v1/requests/{req.Id}/status", new { Status = "OnHold" })).StatusCode);
+    }
 }

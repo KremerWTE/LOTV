@@ -13,6 +13,12 @@
     <a href="/admin/allocations" class="btn btn-sm">← Back to Allocations</a>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;">
 
@@ -136,8 +142,10 @@
   </div>
 
 </div>
+}
 
 @code {
+  private bool _loading = true;
   private List<ResourceItem>   _resourceDonations = [];
   private List<PackageRequest> _requests          = [];
 
@@ -152,11 +160,15 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     var t1 = Api.GetRequestsAsync();
     var t2 = Api.GetInventoryAsync();
     await Task.WhenAll(t1, t2);
     _requests          = t1.Result.Where(r => r.Status is CaseStatus.New or CaseStatus.InProgress).ToList();
     _resourceDonations = t2.Result.Where(r => r.QuantityOnHand > 0).ToList();
+      }
+    finally { _loading = false; }
   }
 
   private void OnResourceSelected(ChangeEventArgs e)

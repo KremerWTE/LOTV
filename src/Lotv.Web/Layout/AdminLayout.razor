@@ -214,7 +214,7 @@
         @if (Auth.IsHqAdmin)
         {
           <NavLink class="sidebar-link" href="/admin/hq-board">
-            <span class="icon">☷</span> HQ Operations Board
+            <span class="icon">☷</span> Operations Board
           </NavLink>
           <NavLink class="sidebar-link" href="/admin/qa-sample-data">
             <span class="icon">🧪</span> QA Sample Data
@@ -842,6 +842,17 @@
                           || path.StartsWith("/admin/prayer-dashboard", StringComparison.OrdinalIgnoreCase)))
     || System.Text.RegularExpressions.Regex.IsMatch(path, @"^/admin/cases/\d+/?$");
 
+  // Chapters are switched off (one organization), so typing a chapter address goes back to the dashboard instead of an empty page.
+  private void KeepOffChapterPages()
+  {
+    if (ChapterUi.Enabled) return;
+    var path = new Uri(Nav.Uri).AbsolutePath;
+    if (path.StartsWith("/admin/chapters", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith("/admin/chapter-analytics", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith("/by-chapter", StringComparison.OrdinalIgnoreCase))
+      Nav.NavigateTo("/admin/dashboard", replace: true);
+  }
+
   private void KeepVolunteerInTheirLane()
   {
     if (!_isVolunteer) return;
@@ -878,6 +889,7 @@
 
     if (_isVolunteer) { try { _myVolunteer = await Api.GetMyVolunteerAsync(); } catch { } }
     KeepVolunteerInTheirLane();
+    KeepOffChapterPages();
     if (!_isVolunteer) await LoadNotificationsAsync();
     try { await Hub.ConnectAsync(); } catch { }
 
@@ -890,7 +902,7 @@
     Hub.OnCaseEscalated += async (_, _) => { await LoadNotificationsAsync(); await InvokeAsync(StateHasChanged); };
 
     Auth.OnChange += StateHasChanged;
-    Nav.LocationChanged += (_, _) => { KeepVolunteerInTheirLane(); UpdateTitle(); CloseSidebar(); InvokeAsync(StateHasChanged); };
+    Nav.LocationChanged += (_, _) => { KeepVolunteerInTheirLane(); KeepOffChapterPages(); UpdateTitle(); CloseSidebar(); InvokeAsync(StateHasChanged); };
     UpdateTitle();
 
     try { _dark = (await JS.InvokeAsync<string>("lotvTheme.get")) == "dark"; } catch { }
@@ -1014,7 +1026,7 @@
     {
       var u when u.EndsWith("/admin/dashboard")  => "Dashboard",
       var u when u.EndsWith("/admin/hq")              => "Dashboard",
-      var u when u.EndsWith("/admin/hq-board")        => "HQ Operations Board",
+      var u when u.EndsWith("/admin/hq-board")        => "Operations Board",
       var u when u.EndsWith("/admin/families")    => "Family Directory",
       var u when u.EndsWith("/admin/cases/analytics") => "Case Analytics",
       var u when u.EndsWith("/admin/donors-hub") => "Donors",

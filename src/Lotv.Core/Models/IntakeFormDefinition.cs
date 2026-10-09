@@ -24,7 +24,20 @@ public class IntakeFormDefinition
     public DonationCopy     Donation     { get; set; } = new();
     public List<IntakeFormField> Fields  { get; set; } = [];
 
+    /// <summary>
+    /// Optional Spanish version of the texts above, keyed by property name (e.g. "title", "intro"). The public form shows these
+    /// when the visitor chose Español and falls back to the English text for anything left blank. Staff-facing notes always
+    /// stay in English.
+    /// </summary>
+    public Dictionary<string, string>? Es { get; set; }
+
     // ── Validation ───────────────────────────────────────────────────────────
+    /// <summary>The texts that can have a Spanish version, per level. Anything else in an "es" block is rejected.</summary>
+    public static readonly string[] EsFormKeys   = ["title", "intro", "submitLabel", "footerNote", "toggleLabelMe", "toggleLabelSomeone", "whoIsThisForLabel"];
+    public static readonly string[] EsCopyKeys   = ["title", "body"];
+    public static readonly string[] EsFieldKeys  = ["label", "labelMe", "labelSomeone", "labelPrayerOnly", "placeholder", "help", "buttonLabel", "buttonLabelMe", "buttonLabelSomeone"];
+    public static readonly string[] EsOptionKeys = ["label", "labelSomeone"];
+
     public static readonly string[] FieldTypes =
         ["text", "email", "tel", "date", "select", "textarea", "checkbox", "heading", "hint", "bracelet"];
 
@@ -83,6 +96,19 @@ public class IntakeFormDefinition
                 errors.Add("Suggested donation amount must be a whole number.");
         }
 
+        void CheckEs(string where, Dictionary<string, string>? es, string[] allowed)
+        {
+            if (es is null) return;
+            foreach (var (k, v) in es)
+            {
+                if (!allowed.Contains(k)) errors.Add($"{where} has an unknown Spanish text '{k}'.");
+                else if (v is { Length: > 3000 }) errors.Add($"{where}: the Spanish '{k}' is too long.");
+            }
+        }
+        CheckEs("The form", Es, EsFormKeys);
+        CheckEs("The confirmation message", Confirmation.Es, EsCopyKeys);
+        CheckEs("The donation box", Donation.Es, EsCopyKeys);
+
         if (Fields.Count is < 1 or > 80) { errors.Add("The form must have between 1 and 80 items."); return errors; }
 
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -109,6 +135,8 @@ public class IntakeFormDefinition
             Max($"'{name}' text for 'prayer only'", f.LabelPrayerOnly, 2000);
             Max($"'{name}' placeholder", f.Placeholder, 200);   Max($"'{name}' help text", f.Help, 500);
             Max($"'{name}' button label", f.ButtonLabel, 80);
+            CheckEs($"'{name}'", f.Es, EsFieldKeys);
+            foreach (var o in f.Options) CheckEs($"A choice of '{name}'", o.Es, EsOptionKeys);
 
             if (f.Standard != StandardKeys.ContainsKey(key))
                 errors.Add(f.Standard
@@ -171,6 +199,13 @@ public class ConfirmationCopy
 {
     public string Title { get; set; } = "Your request has been received.";
     public string Body  { get; set; } = "";
+
+    /// <summary>
+    /// Optional Spanish version of the texts above, keyed by property name (e.g. "title", "intro"). The public form shows these
+    /// when the visitor chose Español and falls back to the English text for anything left blank. Staff-facing notes always
+    /// stay in English.
+    /// </summary>
+    public Dictionary<string, string>? Es { get; set; }
 }
 
 public class DonationCopy
@@ -181,6 +216,13 @@ public class DonationCopy
     public string  WidgetId  { get; set; } = "";
     public string  Account   { get; set; } = "";
     public string? Amount    { get; set; }
+
+    /// <summary>
+    /// Optional Spanish version of the texts above, keyed by property name (e.g. "title", "intro"). The public form shows these
+    /// when the visitor chose Español and falls back to the English text for anything left blank. Staff-facing notes always
+    /// stay in English.
+    /// </summary>
+    public Dictionary<string, string>? Es { get; set; }
 }
 
 public class IntakeFormField
@@ -213,6 +255,13 @@ public class IntakeFormField
     public string? ButtonLabelSomeone { get; set; }
     public List<FormOption>    Options  { get; set; } = [];
     public List<FormCondition> ShowWhen { get; set; } = [];
+
+    /// <summary>
+    /// Optional Spanish version of the texts above, keyed by property name (e.g. "title", "intro"). The public form shows these
+    /// when the visitor chose Español and falls back to the English text for anything left blank. Staff-facing notes always
+    /// stay in English.
+    /// </summary>
+    public Dictionary<string, string>? Es { get; set; }
 }
 
 public class FormOption
@@ -221,6 +270,13 @@ public class FormOption
     public string Label { get; set; } = "";
     /// <summary>Overrides <see cref="Label"/> when the visitor picks "for someone else" — e.g. "...mailed to you" vs. "...mailed to the family".</summary>
     public string? LabelSomeone { get; set; }
+
+    /// <summary>
+    /// Optional Spanish version of the texts above, keyed by property name (e.g. "title", "intro"). The public form shows these
+    /// when the visitor chose Español and falls back to the English text for anything left blank. Staff-facing notes always
+    /// stay in English.
+    /// </summary>
+    public Dictionary<string, string>? Es { get; set; }
 }
 
 /// <summary>One show/hide rule. Set either <see cref="Branch"/> or <see cref="Field"/>; all rules on a field must hold.</summary>

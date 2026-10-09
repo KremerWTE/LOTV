@@ -15,6 +15,12 @@
   </div>
   <a class="btn" href="/admin/events/@EventId">← Back to Event</a>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI strip -->
 <div class="kpi-grid" style="margin-bottom:24px;">
@@ -137,8 +143,10 @@
     </div>
   </div>
 </div>
+}
 
 @code {
+  private bool _loading = true;
   [Parameter] public int EventId { get; set; }
 
   private MinistryEvent?    _event;
@@ -162,8 +170,12 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     _event     = await Api.GetEventAsync(EventId);
     _attendees = await Api.GetAttendeesAsync(EventId);
+      }
+    finally { _loading = false; }
   }
 
   private async Task OnScanKeyDown(KeyboardEventArgs e)

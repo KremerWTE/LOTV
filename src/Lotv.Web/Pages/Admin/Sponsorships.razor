@@ -11,6 +11,12 @@
   </div>
   <button class="btn btn-primary" @onclick="OpenAdd">+ Add Sponsor</button>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <!-- KPI strip -->
 <div class="kpi-grid" style="margin-bottom:24px;">
@@ -301,8 +307,10 @@
     </div>
   </div>
 }
+}
 
 @code {
+  private bool _loading = true;
   private string _filter = "All";
   private string _search = "";
   private SponsorRow? _selected;
@@ -332,12 +340,16 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     var dtos = await Api.GetSponsorsAsync();
     _sponsors = dtos.Select(s => new SponsorRow(
       s.Id, s.CompanyName, s.Tier, s.ContactName, s.Email,
       s.Phone, s.Website, null, null,
       s.CommittedAmount, s.PaidToDate, s.RenewalDate,
       s.Status, s.Notes)).ToList();
+      }
+    finally { _loading = false; }
   }
 
   private void OpenAdd() { _adding = true; _addError = ""; }

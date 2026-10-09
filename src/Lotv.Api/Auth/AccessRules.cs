@@ -29,6 +29,10 @@ public static class AccessRules
     public static void StaffOrBoardRead(AuthorizationPolicyBuilder p) =>
         p.RequireAssertion(c => Staff.Contains(Role(c)) || BoardMayRead(c));
 
+    /// <summary>HQ-only areas (user list, system diagnostics): admins only. Board is kept out even for reads.</summary>
+    public static void AdminOnly(AuthorizationPolicyBuilder p) =>
+        p.RequireAssertion(c => Admins.Contains(Role(c)));
+
     /// <summary>Admin areas: admins fully, Board read-only.</summary>
     public static void AdminOrBoardRead(AuthorizationPolicyBuilder p) =>
         p.RequireAssertion(c => Admins.Contains(Role(c)) || BoardMayRead(c));

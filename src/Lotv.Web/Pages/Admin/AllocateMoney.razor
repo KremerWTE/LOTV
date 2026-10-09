@@ -14,6 +14,12 @@
     <a href="/admin/allocations" class="btn btn-sm">← Back to Allocations</a>
   </div>
 </div>
+@if (_loading)
+{
+  <Loading />
+}
+else
+{
 
 <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;">
 
@@ -149,8 +155,10 @@
   </div>
 
 </div>
+}
 
 @code {
+  private bool _loading = true;
   private List<Donation>      _donations = [];
   private List<PackageRequest> _requests = [];
   private List<FundAllocation> _recent   = [];
@@ -170,6 +178,8 @@
 
   protected override async Task OnInitializedAsync()
   {
+    try
+    {
     var t1 = Api.GetDonationsAsync();
     var t2 = Api.GetRequestsAsync(status: "New");
     var t3 = Api.GetAllocationsAsync();
@@ -180,6 +190,8 @@
       .OrderByDescending(d => d.Date).ToList();
     _requests = t2.Result.OrderByDescending(r => r.CreatedAt).ToList();
     _recent   = t3.Result.OrderByDescending(a => a.CreatedAt).ToList();
+      }
+    finally { _loading = false; }
   }
 
   private void OnDonationSelected(ChangeEventArgs e)

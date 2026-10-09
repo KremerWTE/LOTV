@@ -1210,6 +1210,16 @@ public class ApiService
         catch { return null; }
     }
 
+    /// <summary>Reads the order back from Shippo; returns the label details once staff have bought it there.</summary>
+    public async Task<(ShippoRefreshDto? Result, string? Error)> RefreshShippoLabelAsync(int requestId)
+    {
+        var resp = await AuthedPostAsync($"/api/v1/requests/{requestId}/shippo/refresh", new { });
+        if (resp is null) return (null, "Could not reach the server.");
+        if (resp.IsSuccessStatusCode) return (await resp.Content.ReadFromJsonAsync<ShippoRefreshDto>(), null);
+        var err = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        return (null, err is not null && err.TryGetValue("error", out var m) ? m : "Shippo could not be checked.");
+    }
+
     public Task<ShippoStatusDto?> GetShippoStatusAsync(int requestId) =>
         GetAsync<ShippoStatusDto>($"/api/v1/requests/{requestId}/shippo");
 
@@ -1895,7 +1905,7 @@ public class ApiService
     public Task<List<PrayerCandidateDto>> GetPrayerCandidatesAsync() =>
         GetListAsync<PrayerCandidateDto>("/api/v1/requests/prayer-candidates");
 
-    public record PrayerCandidateDto(int Id, string? FamilyName, string? Story, PackageReason Reason, DateTime CreatedAt, bool WantsPackage, bool AlreadyPraying, List<string>? PrayingNames = null);
+    public record PrayerCandidateDto(int Id, string? FamilyName, string? Story, PackageReason Reason, DateTime CreatedAt, bool WantsPackage, bool AlreadyPraying, string? ChildName = null, List<string>? PrayingNames = null);
 
     public async Task<(bool Ok, string? Error)> AddToPrayerTeamAsync(int requestId, int volunteerId)
     {
@@ -1934,7 +1944,10 @@ public class ApiService
 }
 
 // ── Response DTOs (API-specific shapes) ──────────────────────────────────────
-public record ShippoStatusDto(bool Configured, bool HasRecord, string? OrderId, DateTime? SyncedAt, string? Error);
+public record ShippoStatusDto(bool Configured, bool HasRecord, string? OrderId, DateTime? SyncedAt, string? Error,
+    bool LabelPurchased = false, string? Carrier = null, string? ServiceLevel = null, string? LabelUrl = null, string? TrackingNumber = null);
+
+public record ShippoRefreshDto(bool Purchased, string? TrackingNumber, string? Carrier, string? ServiceLevel, string? LabelUrl, bool TrackingSaved);
 
 public record ReportRunLogDto(
     int Id, string ReportType, int? ChapterId, string ChapterName,
