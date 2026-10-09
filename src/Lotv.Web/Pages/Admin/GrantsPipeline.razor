@@ -83,7 +83,7 @@ else
                 <tr style="border-top:1px solid var(--border);@(reportOverdue ? "background:#fef2f2;" : reportSoon ? "background:#fffbeb;" : "")">
                   <td style="padding:8px 16px;font-size:.84rem;font-weight:600;">@g.Purpose</td>
                   <td style="padding:8px 16px;font-size:.82rem;color:var(--text-light);">@g.GrantorName</td>
-                  <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@g.Amount.ToString("C0")</td>
+                  <td style="padding:8px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green-text);">@g.Amount.ToString("C0")</td>
                   <td style="padding:8px 16px;font-size:.82rem;color:@(reportOverdue ? "var(--red)" : reportSoon ? "var(--amber)" : "var(--text-light)");">
                     @if (g.ReportDueDate.HasValue)
                     {

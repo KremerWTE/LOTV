@@ -16,7 +16,7 @@
 @if (_saved)
 {
   <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
-    <div class="panel-body" style="color:var(--green);font-weight:600;">Allocation created. Redirecting…</div>
+    <div class="panel-body" style="color:var(--green-text);font-weight:600;">Allocation created. Redirecting…</div>
   </div>
 }
 @if (!string.IsNullOrEmpty(_error))
@@ -54,7 +54,7 @@
         </div>
         @if (_selectedDonationId.HasValue)
         {
-          <div style="margin-top:5px;font-size:.78rem;color:var(--green);">✓ @_selectedDonationDesc</div>
+          <div style="margin-top:5px;font-size:.78rem;color:var(--green-text);">✓ @_selectedDonationDesc</div>
         }
       </div>
 

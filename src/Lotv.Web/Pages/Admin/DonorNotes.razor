@@ -37,7 +37,7 @@ else
       }
       <div>
         <div style="font-size:.78rem;color:var(--text-light);">Total Given</div>
-        <div style="font-weight:700;color:var(--green);">@_donor.TotalGiven.ToString("C0")</div>
+        <div style="font-weight:700;color:var(--green-text);">@_donor.TotalGiven.ToString("C0")</div>
       </div>
     </div>
   </div>
@@ -48,7 +48,7 @@ else
     <div class="panel-body">
       @if (!string.IsNullOrEmpty(_result))
       {
-        <div style="color:var(--green);font-size:.82rem;font-weight:600;margin-bottom:10px;">@_result</div>
+        <div style="color:var(--green-text);font-size:.82rem;font-weight:600;margin-bottom:10px;">@_result</div>
       }
       <p style="font-size:.82rem;color:var(--text-light);margin-bottom:12px;">
         Notes are internal only — never shared with the donor. Use for context, communication history, preferences, or relationship details.

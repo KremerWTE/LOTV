@@ -84,7 +84,7 @@ else
       }
       <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px;">
         <span style="font-weight:600;">Pledged: <Money Amount="@totalPledged" /></span>
-        <span style="font-weight:600;color:var(--green);">Received: <Money Amount="@totalFulfilled" /></span>
+        <span style="font-weight:600;color:var(--green-text);">Received: <Money Amount="@totalFulfilled" /></span>
         <span style="color:var(--text-mid);">Remaining: <Money Amount="@remaining" /></span>
       </div>
       <div class="progress-bar" style="height:18px;border-radius:8px;">
@@ -101,7 +101,7 @@ else
     <div class="panel">
       <div class="panel-head">
         <h3>Due in Next 60 Days (@_upcoming.Count)</h3>
-        <a href="/admin/pledge-renewals" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Renewals &rarr;</a>
+        <a href="/admin/pledge-renewals" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Renewals &rarr;</a>
       </div>
       <div class="panel-body" style="padding:0;">
         @if (!_upcoming.Any())
@@ -155,7 +155,7 @@ else
                     { <div style="font-size:.66rem;color:var(--text-light);">@p.Campaign</div> }
                   </td>
                   <td><Money Amount="@p.PledgedAmount" /></td>
-                  <td style="color:var(--green);"><Money Amount="@p.FulfilledAmount" /></td>
+                  <td style="color:var(--green-text);"><Money Amount="@p.FulfilledAmount" /></td>
                   <td style="font-size:.74rem;color:var(--red);">@p.TargetDate.ToString("MMM d, yyyy")</td>
                 </tr>
               }

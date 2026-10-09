@@ -93,7 +93,7 @@ else
     <div class="panel">
       <div class="panel-head">
         <h3>First Gift Size Distribution</h3>
-        <a href="/admin/by-amount" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Report &rarr;</a>
+        <a href="/admin/by-amount" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Full Report &rarr;</a>
       </div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
         @{
@@ -145,7 +145,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>LYBUNT — Gave Last Year, Not This Year (@_lybunt)</h3>
-      <a href="/admin/donors/outreach" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Outreach Queue &rarr;</a>
+      <a href="/admin/donors/outreach" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Outreach Queue &rarr;</a>
     </div>
     <div class="panel-body" style="padding:0;">
       @if (!_lybuntList.Any())
@@ -164,7 +164,7 @@ else
                 <td style="font-size:.78rem;color:var(--text-mid);">@d.City</td>
                 <td style="font-size:.76rem;color:var(--text-light);">@d.LastGiftDate.ToString("MMM d, yyyy")</td>
                 <td><Money Amount="@d.LastAmount" /></td>
-                <td><a href="/admin/donors/@d.Id" style="font-size:.74rem;color:var(--green);">View &rarr;</a></td>
+                <td><a href="/admin/donors/@d.Id" style="font-size:.74rem;color:var(--green-text);">View &rarr;</a></td>
               </tr>
             }
           </tbody>
@@ -172,7 +172,7 @@ else
         @if (_lybuntList.Count > 20)
         {
           <div style="padding:12px 18px;font-size:.8rem;color:var(--text-light);">
-            +@(_lybuntList.Count - 20) more in <a href="/admin/donors/outreach" style="color:var(--green);">Outreach Queue</a>
+            +@(_lybuntList.Count - 20) more in <a href="/admin/donors/outreach" style="color:var(--green-text);">Outreach Queue</a>
           </div>
         }
       }

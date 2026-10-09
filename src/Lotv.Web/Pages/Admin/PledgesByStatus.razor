@@ -76,7 +76,7 @@ else
                   <a href="/admin/donors/@p.DonorId" style="color:var(--navy);">Donor #@p.DonorId</a>
                 </td>
                 <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--text-light);">@p.PledgedAmount.ToString("C0")</td>
-                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green);">@p.FulfilledAmount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.82rem;text-align:right;color:var(--green-text);">@p.FulfilledAmount.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:@(p.RemainingAmount > 0 ? "var(--amber)" : "var(--green)");">@p.RemainingAmount.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:@(isOverdue ? "var(--red)" : "var(--text-light)");">@p.TargetDate.ToString("MMM d, yyyy")</td>
                 <td style="padding:10px 16px;text-align:center;">

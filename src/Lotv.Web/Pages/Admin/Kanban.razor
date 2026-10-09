@@ -94,7 +94,7 @@
               <div style="display:flex;align-items:center;justify-content:space-between;background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:.82rem;cursor:pointer;"
                    @onclick="() => _quickAssignVolId = c.VolunteerId">
                 <span><strong>@c.Name</strong> — @c.CompositeScore.ToString("F0") pts</span>
-                <span style="color:var(--green);font-weight:600;">Select →</span>
+                <span style="color:var(--green-text);font-weight:600;">Select →</span>
               </div>
             }
           </div>
@@ -123,9 +123,9 @@
   // Shipment" folds into Packing/Shipping; "On Hold" moves to after Shipping.
   private readonly Column[] _columns =
   [
-    new("New",       "New",       "#2d469d"),
+    new("New",       "New",       "#324694"),
     new("Assigned",  "Assigned",  "#e67e22"),
-    new("Confirmed", "Volunteer Accepted", "#487336"),
+    new("Confirmed", "Volunteer Accepted", "#a9ba99"),
     new("Packing",   "Packing",   "#9b8bb4"),
     new("Notes",     "Notes",     "#6c757d"),
     new("Shipping",  "Shipping",  "#c9a227"),

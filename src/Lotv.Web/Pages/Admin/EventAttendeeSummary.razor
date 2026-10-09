@@ -150,7 +150,7 @@ else
               <td style="font-size:.74rem;color:var(--text-mid);">@e.Type</td>
               <td style="text-align:right;color:var(--text-light);">@(e.Capacity > 0 ? e.Capacity.ToString() : "—")</td>
               <td style="text-align:right;font-weight:600;">@e.Registered</td>
-              <td style="text-align:right;color:var(--green);">@e.CheckedIn</td>
+              <td style="text-align:right;color:var(--green-text);">@e.CheckedIn</td>
               <td style="text-align:right;color:@(fill >= 90 ? "var(--green)" : fill > 0 ? "var(--amber)" : "var(--text-light)");">@(e.Capacity > 0 ? $"{fill}%" : "—")</td>
               <td style="text-align:right;font-weight:700;color:@(checkin >= 80 ? "var(--green)" : checkin > 0 ? "var(--amber)" : "var(--text-light)");">@(e.Registered > 0 ? $"{checkin}%" : "—")</td>
             </tr>

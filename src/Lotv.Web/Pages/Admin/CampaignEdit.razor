@@ -26,7 +26,7 @@ else
   @if (_saved)
   {
     <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
-      <div class="panel-body" style="color:var(--green);font-weight:600;">Campaign updated successfully.</div>
+      <div class="panel-body" style="color:var(--green-text);font-weight:600;">Campaign updated successfully.</div>
     </div>
   }
   @if (!string.IsNullOrEmpty(_error))
@@ -92,7 +92,7 @@ else
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div>
               <div style="font-size:.74rem;color:var(--text-light);">Raised</div>
-              <div style="font-size:1.2rem;font-weight:800;color:var(--green);">@_campaign.Raised.ToString("C0")</div>
+              <div style="font-size:1.2rem;font-weight:800;color:var(--green-text);">@_campaign.Raised.ToString("C0")</div>
             </div>
             <div>
               <div style="font-size:.74rem;color:var(--text-light);">Gift Count</div>

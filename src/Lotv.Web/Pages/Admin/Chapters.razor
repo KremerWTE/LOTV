@@ -15,22 +15,22 @@
 <!-- KPI STRIP -->
 <div class="kpi-grid" style="margin-bottom:20px;">
   <div class="kpi-card kpi-navy">
-    <div class="kpi-icon">🏛</div>
+    <div class="kpi-icon"><Icon Name="location-dot" /></div>
     <div class="kpi-label">Total Chapters</div>
     <div class="kpi-value" style="color:var(--navy)">@_chapters.Count</div>
   </div>
   <div class="kpi-card kpi-green">
-    <div class="kpi-icon">✅</div>
+    <div class="kpi-icon"><Icon Name="user-check" /></div>
     <div class="kpi-label">Active</div>
     <div class="kpi-value" style="color:var(--green)">@_chapters.Count(c => c.IsActive)</div>
   </div>
   <div class="kpi-card kpi-amber">
-    <div class="kpi-icon">⏸</div>
+    <div class="kpi-icon"><Icon Name="user-xmark" /></div>
     <div class="kpi-label">Inactive</div>
     <div class="kpi-value" style="color:var(--amber)">@_chapters.Count(c => !c.IsActive)</div>
   </div>
   <div class="kpi-card kpi-gold">
-    <div class="kpi-icon">🗺</div>
+    <div class="kpi-icon"><Icon Name="flag-usa" /></div>
     <div class="kpi-label">States</div>
     <div class="kpi-value" style="color:var(--gold)">@_chapters.Select(c => c.State).Distinct().Count()</div>
   </div>

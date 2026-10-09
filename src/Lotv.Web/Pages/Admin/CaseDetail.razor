@@ -24,7 +24,7 @@ else
   <div class="page-hd">
     <div>
       <div style="font-size:.76rem;color:var(--text-light);margin-bottom:4px;">
-        <a href="/admin/cases" style="color:var(--green);text-decoration:none;">Cases</a> &rsaquo; #@_request.Id
+        <a href="/admin/cases" style="color:var(--green-text);text-decoration:none;">Cases</a> &rsaquo; #@_request.Id
       </div>
       <h2 style="margin:0;">Case #@_request.Id — @(_request.Family?.FullName ?? "Unknown Family")<SampleBadge Family="_request.Family" /></h2>
       <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -45,7 +45,7 @@ else
 
   @if (!string.IsNullOrEmpty(_saveMsg))
   {
-    <div style="background:var(--green-pale);border-radius:8px;padding:10px 16px;font-size:.84rem;color:var(--green-dark);margin-bottom:16px;">✓ @_saveMsg</div>
+    <div style="background:var(--green-pale);border-radius:8px;padding:10px 16px;font-size:.84rem;color:var(--green-text);margin-bottom:16px;">✓ @_saveMsg</div>
   }
   @if (!string.IsNullOrEmpty(_errorMsg))
   {
@@ -63,6 +63,29 @@ else
       — check that this isn't a repeat before shipping a second package.
     </div>
   }
+
+  <div style="margin-bottom:20px;">
+  <!-- QUICK ACTIONS (top of the page so staff do not scroll for them) -->
+  <div class="panel">
+    <div class="panel-header">Quick Actions</div>
+    <div class="panel-body" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+      @foreach (var s in CaseStatusTransitions.ValidNextStates(_request.Status))
+      {
+        <button class="btn btn-sm"
+                style="@(s == CaseStatus.Cancelled ? "background:#fff3cd;color:#856404;border-color:#f0d060;" : "")"
+                @onclick="() => QuickStatusAsync(s)" disabled="@_quickBusy">
+          @QuickActionIcon(s) @QuickActionLabel(s)
+        </button>
+      }
+      @if (_request.AssignedToId is not null && _request.Status is not (CaseStatus.Shipped or CaseStatus.Fulfilled or CaseStatus.Cancelled))
+      {
+        <button class="btn btn-sm" data-action="unassign" @onclick="UnassignAsync" disabled="@_quickBusy">↩ Unassign (@_request.AssignedTo)</button>
+      }
+      <span aria-hidden="true" style="width:1px;height:22px;background:var(--border);margin:0 4px;"></span>
+      <a href="/admin/cases?familyId=@_request.FamilyId" class="btn btn-sm">+ New Case for This Family</a>
+    </div>
+  </div>
+  </div>
 
   <!-- MAIN GRID -->
   <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;">
@@ -117,10 +140,13 @@ else
             <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_request.Reason.ToDisplayName()</div>
           </div>
 
+          @if (ChapterUi.Enabled)
+          {
           <div class="form-group">
             <label class="form-label">Chapter</label>
             <div style="padding:9px 12px;background:var(--bg);border-radius:8px;font-size:.86rem;">@_request.ChapterId</div>
           </div>
+          }
 
           @if (_editStatus is CaseStatus.AwaitingShipment or CaseStatus.Shipped or CaseStatus.Fulfilled)
           {
@@ -225,7 +251,7 @@ else
       <div class="panel" data-panel="mothers-day">
         <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span>Mother's Day &amp; Father's Day Cards</span>
-          <a href="/admin/mothers-day" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">Mailing list →</a>
+          <a href="/admin/mothers-day" style="font-size:.74rem;color:var(--green-text);text-decoration:none;font-weight:600;">Mailing list →</a>
         </div>
         <div class="panel-body" style="font-size:.84rem;">
           @if (!_mailing.Any())
@@ -444,7 +470,7 @@ else
         <div class="panel">
           <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
             <span>Family</span>
-            @if (!_isVolunteer) { <a href="/admin/families/@_request.Family.Id" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View Profile →</a> }
+            @if (!_isVolunteer) { <a href="/admin/families/@_request.Family.Id" style="font-size:.74rem;color:var(--green-text);text-decoration:none;font-weight:600;">View Profile →</a> }
           </div>
           <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
             <div><strong>Name:</strong> @_request.Family.FullName</div>
@@ -539,7 +565,7 @@ else
       <div class="panel">
         <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span>Fund Allocations</span>
-          <a href="/admin/allocations" style="font-size:.74rem;color:var(--green);text-decoration:none;font-weight:600;">View All →</a>
+          <a href="/admin/allocations" style="font-size:.74rem;color:var(--green-text);text-decoration:none;font-weight:600;">View All →</a>
         </div>
         <div class="panel-body">
           @{
@@ -568,27 +594,6 @@ else
               </div>
             </div>
           }
-        </div>
-      </div>
-
-      <!-- QUICK ACTIONS -->
-      <div class="panel">
-        <div class="panel-header">Quick Actions</div>
-        <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
-          @foreach (var s in CaseStatusTransitions.ValidNextStates(_request.Status))
-          {
-            <button class="btn btn-sm"
-                    style="@(s == CaseStatus.Cancelled ? "background:#fff3cd;color:#856404;border-color:#f0d060;" : "")"
-                    @onclick="() => QuickStatusAsync(s)" disabled="@_quickBusy">
-              @QuickActionIcon(s) @QuickActionLabel(s)
-            </button>
-          }
-          @if (_request.AssignedToId is not null && _request.Status is not (CaseStatus.Shipped or CaseStatus.Fulfilled or CaseStatus.Cancelled))
-          {
-            <button class="btn btn-sm" data-action="unassign" @onclick="UnassignAsync" disabled="@_quickBusy">↩ Unassign (@_request.AssignedTo)</button>
-          }
-          <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;" />
-          <a href="/admin/cases?familyId=@_request.FamilyId" class="btn btn-sm">+ New Case for This Family</a>
         </div>
       </div>
 

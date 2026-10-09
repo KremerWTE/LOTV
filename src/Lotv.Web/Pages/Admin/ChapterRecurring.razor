@@ -78,7 +78,7 @@ else
                 <td style="padding:10px 16px;font-size:.84rem;font-weight:600;">
                   <a href="/admin/donors/@r.DonorId" style="color:var(--navy);">@(r.Donor?.FullName ?? $"Donor #{r.DonorId}")</a>
                 </td>
-                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green);">@r.Amount.ToString("C0")</td>
+                <td style="padding:10px 16px;font-size:.88rem;font-weight:700;text-align:right;color:var(--green-text);">@r.Amount.ToString("C0")</td>
                 <td style="padding:10px 16px;font-size:.82rem;color:var(--text-light);">@r.Frequency.ToDisplayName()</td>
                 <td style="padding:10px 16px;">
                   <span class="badge badge-@StatusClass(r.Status)" style="font-size:.68rem;">@r.Status</span>

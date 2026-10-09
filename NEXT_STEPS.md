@@ -1,6 +1,6 @@
 # Next Steps — LOTV
 
-**Updated:** 2026-10-08 | **Branch:** kremer-dev | **Phase:** Phase 6 — Deployment & Launch (QA readiness)
+**Updated:** 2026-10-09 | **Branch:** kremer-dev | **Phase:** Phase 6 — Deployment & Launch (QA readiness)
 
 ---
 
@@ -25,6 +25,10 @@
 7. Static `/apply` intake form's actual question text (title, field labels, options) is still staff-authored-English-only — the form's own chrome now translates, but making the questions themselves editable in Spanish would need a real content feature (a way for staff to author and maintain a Spanish version)
 8. Domain/DNS/SSL, uptime monitoring, automated DB backups — all still require actual cloud/infra setup no AI session has access to
 9. Loading guard added to 11 admin list pages (Events, Campaigns, Grants, Inventory, Pledges, Chapters, Staff Tasks, Recurring, Expenses, Families, Cases). Not yet: Donors, Volunteers, Donations, and ~50 other admin pages that were scanned but not individually checked
+
+**Completed 2026-10-09:**
+- ✅ Portal change requests: new colours (sage `#a9ba99` rail/buttons/counts, blue `#324694` text and counts, tan `#dfcfba` alert badges), single-colour icons (white in the nav rail, black in content; Font Awesome Free stand-ins for the Pro icons), "Create Manual Request", Quick Actions at the top of Case Detail, Package Workflow header cleanup, Unassigned Queue buttons visible on laptops, "Volunteer" shown as "Ambassador". 797/797 tests. See `sessions/2026-10-09-portal-colors-icons-and-layout-change-requests.md`.
+- ⏳ Decide: nav-rail contrast (white on sage is ~2:1); supply the Font Awesome Pro files if the exact thin icons are wanted.
 
 **Completed 2026-10-08:**
 - ✅ Prayer Dashboard rebuilt as one simple list (who is praying + count, join/stop); visible to every role, Board view-only. Chapters switched off everywhere (`Chapters:Enabled`, default false → one organization; no migration); chapter pickers/menus/onboarding step removed; "HQ Dashboard" renamed "Dashboard"; `SectionAccess.cs` holds who-sees-what (only Chris sees everything; Analytics for Admin + Board is the next switch to flip). 797/797 tests. See `sessions/2026-10-08-prayer-dashboard-one-organization-mode-and-access-rules.md`.

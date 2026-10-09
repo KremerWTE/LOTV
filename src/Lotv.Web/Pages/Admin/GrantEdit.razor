@@ -26,7 +26,7 @@ else
   @if (_saved)
   {
     <div class="panel" style="border-left:4px solid var(--green);margin-bottom:16px;">
-      <div class="panel-body" style="color:var(--green);font-weight:600;">Grant updated.</div>
+      <div class="panel-body" style="color:var(--green-text);font-weight:600;">Grant updated.</div>
     </div>
   }
   @if (!string.IsNullOrEmpty(_error))
@@ -85,7 +85,7 @@ else
           <div style="font-size:.78rem;color:var(--text-light);">Chapter</div>
           <div style="font-size:.9rem;font-weight:600;margin-bottom:12px;">Chapter #@_grant.ChapterId</div>
           <div style="font-size:.78rem;color:var(--text-light);">Current Amount</div>
-          <div style="font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:12px;">@_grant.Amount.ToString("C0")</div>
+          <div style="font-size:1.4rem;font-weight:800;color:var(--green-text);margin-bottom:12px;">@_grant.Amount.ToString("C0")</div>
           @if (_grant.ReportDueDate.HasValue)
           {
             var daysLeft = (_grant.ReportDueDate.Value - DateTime.Today).Days;

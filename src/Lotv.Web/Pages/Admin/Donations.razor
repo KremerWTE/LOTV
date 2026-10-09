@@ -101,7 +101,7 @@
             <td style="font-size:.74rem;color:var(--text-light);">#@d.Id</td>
             <td><strong>@(d.Donor?.FullName ?? "—")</strong></td>
             <td style="font-size:.78rem;color:var(--text-mid);">@(d.Donor?.DioceseName ?? "—")</td>
-            <td style="font-weight:700;color:var(--green);"><Money Amount="@d.Amount" /></td>
+            <td style="font-weight:700;color:var(--green-text);"><Money Amount="@d.Amount" /></td>
             <td style="font-size:.78rem;color:var(--text-light);">@d.Date.ToString("MMM d, yyyy")</td>
             <td><span class="badge badge-new" style="font-size:.68rem;">@d.Channel</span></td>
             <td style="font-size:.78rem;color:var(--text-mid);">@(d.Campaign ?? "—")</td>

@@ -53,33 +53,33 @@
         @if (_showMyQueueLink)
         {
           <NavLink class="sidebar-link" href="/admin/my-queue">
-            <span class="icon">📋</span> My Work Queue
+            <span class="icon"><Icon Name="clipboard-list-check" /></span> My Work Queue
           </NavLink>
         }
       }
       @if (_canSeeCases)
       {
         <NavLink class="sidebar-link" href="/admin/kanban">
-          <span class="icon">☷</span> Package Workflow
+          <span class="icon"><Icon Name="conveyor-belt-boxes" /></span> Package Workflow
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/families/duplicate-review">
-          <span class="icon">🔍</span> Possible Duplicates
+          <span class="icon"><Icon Name="clone" /></span> Possible Duplicates
           @if (_pendingDupReview > 0)
           { <span class="sidebar-badge sidebar-badge-amber">@_pendingDupReview</span> }
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/cases-hub">
-          <span class="icon">💕</span> Cases
+          <span class="icon"><Icon Name="heart" /></span> Cases
           <span class="sidebar-badge">@_openCount</span>
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/queue">
-          <span class="icon">🔚</span> Unassigned Queue
+          <span class="icon"><Icon Name="spinner" /></span> Unassigned Queue
           <span class="sidebar-badge" id="unassigned-queue-count">@_unassignedCount</span>
         </NavLink>
         <NavLink class="sidebar-link" href="/admin/my-queue">
-          <span class="icon">📋</span> My Work Queue
+          <span class="icon"><Icon Name="clipboard-list-check" /></span> My Work Queue
         </NavLink>
         <a class="sidebar-link" href="/request-prayer-care-package" target="_blank" rel="noopener">
-          <span class="icon">📝</span> Request Form <span style="opacity:.6;font-size:.7rem;">↗</span>
+          <span class="icon"><Icon Name="plus" /></span> Create Manual Request <span style="opacity:.6;font-size:.7rem;">↗</span>
         </a>
         @if (_showLegacyLinks)
         {
@@ -140,7 +140,7 @@
       @if (_isAdmin)
       {
         <NavLink class="sidebar-link" href="/admin/system-admin-hub">
-          <span class="icon">⚙</span> System Admin
+          <span class="icon"><Icon Name="gear-complex" /></span> System Admin
           @if (_webhook24h > 0) { <span class="sidebar-badge">@_webhook24h</span> }
         </NavLink>
         @if (_showLegacyLinks)
@@ -651,7 +651,7 @@
                @onclick="() => _notifOpen = !_notifOpen"
                @onkeydown='e => { if (e.Key == "Enter" || e.Key == " ") _notifOpen = !_notifOpen; }'
                style="cursor:pointer;">
-            🔔
+            <Icon Name="bell" Style="color:#000;font-size:1.15rem;" />
             @if (_notifCount > 0)
             { <div class="notif-dot" aria-hidden="true">@(_notifCount > 9 ? "9+" : _notifCount.ToString())</div> }
           </div>
@@ -697,7 +697,7 @@
                 <div style="padding:20px;text-align:center;font-size:.84rem;color:var(--text-light);">✓ All clear — no pending actions</div>
               }
               <div style="padding:10px 16px;background:var(--bg);text-align:center;">
-                <a href="/admin/audit" style="font-size:.78rem;color:var(--green);font-weight:600;text-decoration:none;" @onclick="() => _notifOpen = false">View Full Audit Log &rarr;</a>
+                <a href="/admin/audit" style="font-size:.78rem;color:var(--green-text);font-weight:600;text-decoration:none;" @onclick="() => _notifOpen = false">View Full Audit Log &rarr;</a>
               </div>
             </div>
           }
@@ -720,12 +720,16 @@
             ⚠ @_pendingMigrations migration@(_pendingMigrations != 1 ? "s" : "")
           </a>
         }
+        @* Package Workflow is a working board, so the theme / language / currency controls are hidden there. *@
+        @if (!_onPackageWorkflow)
+        {
         <button type="button" @onclick="ToggleTheme" aria-label="Toggle dark mode"
                 style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:.95rem;color:var(--text-mid);margin-right:8px;">
           @(_dark ? "☀" : "🌙")
         </button>
         <span style="margin-right:8px;"><LanguageSwitcher /></span>
         <span style="margin-right:8px;"><CurrencySwitcher /></span>
+        }
 
         <div class="user-pill" style="gap:8px;">
           @if (!string.IsNullOrEmpty(Auth.UserAvatarUrl))
@@ -738,7 +742,7 @@
           }
           <div>
             <div style="font-size:.82rem;font-weight:600;line-height:1.2;">@Auth.UserName</div>
-            <div style="font-size:.68rem;color:var(--text-light);line-height:1;">@Auth.UserRole</div>
+            <div style="font-size:.68rem;color:var(--text-light);line-height:1;">@RoleLabel(Auth.UserRole)</div>
           </div>
           <button style="background:none;border:none;cursor:pointer;padding:2px 6px;font-size:.76rem;color:var(--text-light);border-radius:5px;"
                   title="Sign out" aria-label="Sign out" @onclick="Logout">&#x2715;</button>
@@ -775,6 +779,9 @@
   private int _pendingDupReview;
   private string _pageTitle = "Dashboard";
   private bool _dark;
+  private bool _onPackageWorkflow => new Uri(Nav.Uri).AbsolutePath.StartsWith("/admin/kanban", StringComparison.OrdinalIgnoreCase);
+  // The Volunteer role is shown to people as "Ambassador" (the stored role name is unchanged).
+  private static string RoleLabel(string role) => role == "Volunteer" ? "Ambassador" : role;
   private bool _sidebarCollapsed;
   private int _pendingMigrations;
   private int _webhook24h;

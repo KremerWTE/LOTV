@@ -50,7 +50,7 @@
               <td style="font-size:.84rem;font-weight:600;">@tier.Tier</td>
               <td style="text-align:right;font-size:.82rem;">@tier.Count</td>
               <td style="text-align:right;font-size:.84rem;color:var(--navy);font-weight:600;">@tier.Committed.ToString("C0")</td>
-              <td style="text-align:right;font-size:.84rem;color:var(--green);">@tier.PaidToDate.ToString("C0")</td>
+              <td style="text-align:right;font-size:.84rem;color:var(--green-text);">@tier.PaidToDate.ToString("C0")</td>
             </tr>
           }
         </tbody>
@@ -118,7 +118,7 @@
             <td><span class="badge badge-new" style="font-size:.6rem;">@s.Tier</span></td>
             <td><span class="badge badge-@StatusBadge(s.Status)" style="font-size:.6rem;">@s.Status</span></td>
             <td style="text-align:right;font-size:.84rem;font-weight:600;color:var(--navy);">@s.CommittedAmount.ToString("C0")</td>
-            <td style="text-align:right;font-size:.84rem;color:var(--green);">
+            <td style="text-align:right;font-size:.84rem;color:var(--green-text);">
               @s.PaidToDate.ToString("C0")
               @if (outstanding > 0) { <div style="font-size:.68rem;color:var(--amber);">@outstanding.ToString("C0") remaining</div> }
             </td>

@@ -50,7 +50,7 @@
           <tr>
             <td style="font-size:.74rem;color:var(--text-light);">#@a.Id</td>
             <td><strong>@(a.Donation?.Donor?.FullName ?? $"Donation #{a.DonationId}")</strong></td>
-            <td style="font-weight:700;color:var(--green);"><Money Amount="@a.Amount" /></td>
+            <td style="font-weight:700;color:var(--green-text);"><Money Amount="@a.Amount" /></td>
             <td style="font-size:.82rem;">@a.AllocatedTo</td>
             <td>
               @switch (a.Status)
@@ -93,7 +93,7 @@
     <div class="drawer-body">
       <div style="background:var(--green-pale);border-radius:10px;padding:14px 16px;font-size:.84rem;margin-bottom:4px;">
         <div><strong>Donor:</strong> @(_reviewing.Donation?.Donor?.FullName ?? $"Donation #{_reviewing.DonationId}")</div>
-        <div style="margin-top:4px;"><strong>Amount:</strong> <span style="color:var(--green);font-weight:700;"><Money Amount="@_reviewing.Amount" /></span></div>
+        <div style="margin-top:4px;"><strong>Amount:</strong> <span style="color:var(--green-text);font-weight:700;"><Money Amount="@_reviewing.Amount" /></span></div>
         <div style="margin-top:4px;"><strong>Received:</strong> @_reviewing.CreatedAt.ToString("MMM d, yyyy")</div>
       </div>
       <div class="form-group">

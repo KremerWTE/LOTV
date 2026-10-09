@@ -55,7 +55,7 @@ else
     <div class="panel">
       <div class="panel-head">
         <h3>First Gift by Channel</h3>
-        <a href="/admin/by-channel" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Channel Report &rarr;</a>
+        <a href="/admin/by-channel" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Channel Report &rarr;</a>
       </div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
         @{ var maxCh = _byChannel.Any() ? _byChannel.Max(c => c.Count) : 1; }
@@ -146,7 +146,7 @@ else
                 <td><strong>@donor.FullName</strong></td>
                 <td style="font-size:.76rem;color:var(--text-mid);">@gift.Channel</td>
                 <td style="font-size:.74rem;color:var(--text-light);">@(donor.ParishName ?? "—")</td>
-                <td style="text-align:right;font-weight:700;color:var(--green);"><Money Amount="@gift.Amount" /></td>
+                <td style="text-align:right;font-weight:700;color:var(--green-text);"><Money Amount="@gift.Amount" /></td>
                 <td style="font-size:.74rem;color:var(--text-light);">@gift.Date.ToString("MMM d, yyyy")</td>
               </tr>
             }

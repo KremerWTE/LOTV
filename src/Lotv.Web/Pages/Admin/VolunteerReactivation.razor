@@ -74,7 +74,7 @@ else
                 @if (!string.IsNullOrEmpty(v.Phone)) { <span>📞 @v.Phone</span> }
                 <span>🏛 @v.Role.ToDisplayName()</span>
                 <span>🗓 Joined @v.JoinedDate.ToString("MMM yyyy")</span>
-                <span style="color:var(--green);font-weight:600;">✓ @v.TotalCasesFulfilled cases fulfilled</span>
+                <span style="color:var(--green-text);font-weight:600;">✓ @v.TotalCasesFulfilled cases fulfilled</span>
               </div>
               @if (!string.IsNullOrEmpty(v.ParishName))
               { <div style="font-size:.76rem;color:var(--text-light);">⛪ @v.ParishName @(!string.IsNullOrEmpty(v.DioceseName) ? $"· {v.DioceseName}" : "")</div> }

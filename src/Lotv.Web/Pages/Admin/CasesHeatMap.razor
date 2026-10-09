@@ -105,7 +105,7 @@ else
               var colTotal = priorities.Sum(p => Count(p, s));
               <td style="padding:10px 14px;text-align:center;font-weight:700;font-size:.88rem;color:var(--navy);">@colTotal</td>
             }
-            <td style="padding:10px 14px;text-align:center;font-weight:700;font-size:.88rem;color:var(--green);">@_cases.Count(c => IsOpen(c))</td>
+            <td style="padding:10px 14px;text-align:center;font-weight:700;font-size:.88rem;color:var(--green-text);">@_cases.Count(c => IsOpen(c))</td>
           </tr>
         </tbody>
       </table>
@@ -144,7 +144,7 @@ else
         @if (_drillCases.Count > 25)
         {
           <div style="padding:12px 18px;font-size:.8rem;color:var(--text-light);">
-            Showing 25 of @_drillCases.Count — <a href="/admin/cases" style="color:var(--green);">View all cases &rarr;</a>
+            Showing 25 of @_drillCases.Count — <a href="/admin/cases" style="color:var(--green-text);">View all cases &rarr;</a>
           </div>
         }
       </div>
@@ -155,7 +155,7 @@ else
   <div class="panel">
     <div class="panel-head">
       <h3>Overdue by Priority</h3>
-      <a href="/admin/cases/overdue" style="font-size:.78rem;color:var(--green);text-decoration:none;font-weight:600;">Full Overdue List &rarr;</a>
+      <a href="/admin/cases/overdue" style="font-size:.78rem;color:var(--green-text);text-decoration:none;font-weight:600;">Full Overdue List &rarr;</a>
     </div>
     <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
       @foreach (var p in new[] { RequestPriority.Urgent, RequestPriority.High, RequestPriority.Normal, RequestPriority.Low })
